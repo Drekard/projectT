@@ -157,6 +157,7 @@ func CreateFolderSelection(breadcrumbManager BreadcrumbManagerInterface) *fyne.C
 						break
 					}
 				}
+				setCurrentFolder(nil, "Сохраненное")
 			})
 			savedButton.Importance = widget.MediumImportance // Устанавливаем как выбранную по умолчанию
 			folderButtonsContainer.Add(savedButton)
@@ -180,6 +181,7 @@ func CreateFolderSelection(breadcrumbManager BreadcrumbManagerInterface) *fyne.C
 									break
 								}
 							}
+							setCurrentFolder(&selectedItem.ID, selectedItem.Title)
 						}
 					}(itemCopy))
 					folderButtonsContainer.Add(folderButton)
