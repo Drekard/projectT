@@ -156,6 +156,14 @@ func (mm *MenuManager) ShowSimpleMenu(item *models.Item, cont fyne.CanvasObject,
 					buttons = append([]fyne.CanvasObject{favButton}, buttons...)
 				}
 
+				// Добавляем кнопку перемещения для всех типов элементов
+				moveButton := widget.NewButton("📁 Переместить", func() {
+					// Показываем список папок для перемещения
+					showMoveFolderSelection(popup, item)
+				})
+				// Вставляем кнопку перемещения перед кнопками редактирования и удаления
+				buttons = append([]fyne.CanvasObject{moveButton}, buttons...)
+
 				// Добавляем кнопку закрепления для всех типов элементов
 				isPinned, err := queries.IsItemPinned(item.ID)
 				if err != nil {
@@ -270,6 +278,25 @@ func (mm *MenuManager) deleteItem(item *models.Item) error {
 	// Удаляем сам элемент
 	if err := queries.DeleteItem(item.ID); err != nil {
 		return fmt.Errorf("ошибка удаления элемента: %v", err)
+	}
+
+	return nil
+}
+
+// MoveItemToFolder перемещает элемент в указанную папку
+func (mm *MenuManager) MoveItemToFolder(itemID int, folderID *int) error {
+	// Получаем элемент
+	item, err := queries.GetItemByID(itemID)
+	if err != nil {
+		return fmt.Errorf("ошибка получения элемента: %v", err)
+	}
+
+	// Обновляем ParentID
+	item.ParentID = folderID
+
+	// Сохраняем изменения
+	if err := queries.UpdateItem(item); err != nil {
+		return fmt.Errorf("ошибка обновления элемента: %v", err)
 	}
 
 	return nil
@@ -499,4 +526,108 @@ func getTagsContainer(item *models.Item, handler SearchHandler) fyne.CanvasObjec
 	}
 
 	return container.NewHBox(tagButtons...)
+}
+
+// showMoveFolderSelection показывает список папок для перемещения элемента
+func showMoveFolderSelection(parentPopup *widget.PopUp, item *models.Item) {
+	// Создаем новое окно для выбора папки
+	window := parentPopup.Canvas
+	if window == nil {
+		return
+	}
+
+	// Контейнер для кнопок папок
+	folderButtonsContainer := container.NewVBox()
+
+	// Для получения всех папок мы должны получить все элементы и отфильтровать по типу
+	allItems, err := queries.GetAllItems()
+	if err != nil {
+		// В случае ошибки добавим хотя бы сообщение об этом
+		errorLabel := widget.NewLabel("Ошибка загрузки папок")
+		folderButtonsContainer.Add(errorLabel)
+	} else {
+		// Добавляем "Сохраненное" (корневая папка) как вариант с ID = nil
+		savedButton := widget.NewButton("Сохраненное", func() {
+			// Перемещаем элемент в корень (сохраненное)
+			menuManager := &MenuManager{}
+			err := menuManager.MoveItemToFolder(item.ID, nil)
+			if err != nil {
+				// Показываем ошибку
+				appWindow := fyne.CurrentApp().Driver().AllWindows()[0]
+				dialog.ShowError(fmt.Errorf("Ошибка перемещения элемента: %v", err), appWindow)
+			} else {
+				// Закрываем окно выбора папки
+				parentPopup.Hide()
+			}
+		})
+		savedButton.Importance = widget.LowImportance
+		folderButtonsContainer.Add(savedButton)
+
+		// Добавляем остальные папки
+		for _, folderItem := range allItems {
+			if folderItem.Type == models.ItemTypeFolder && folderItem.ID != item.ID { // Исключаем сам перемещаемый элемент
+				// Создаем замыкание для захвата переменных
+				folderCopy := *folderItem // Разыменовываем указатель
+				folderButton := widget.NewButton(folderCopy.Title, func(selectedFolder models.Item) func() {
+					return func() {
+						// Перемещаем элемент в выбранную папку
+						folderID := selectedFolder.ID
+						menuManager := &MenuManager{}
+						err := menuManager.MoveItemToFolder(item.ID, &folderID)
+						if err != nil {
+							// Показываем ошибку
+							appWindow := fyne.CurrentApp().Driver().AllWindows()[0]
+							dialog.ShowError(fmt.Errorf("Ошибка перемещения элемента: %v", err), appWindow)
+						} else {
+							// Закрываем окно выбора папки
+							parentPopup.Hide()
+						}
+					}
+				}(folderCopy))
+				folderButton.Importance = widget.LowImportance
+				folderButtonsContainer.Add(folderButton)
+			}
+		}
+	}
+
+	// Добавим прокрутку, если папок много
+	scrollContainer := container.NewVScroll(folderButtonsContainer)
+	scrollContainer.SetMinSize(fyne.NewSize(200, 150))
+
+	// Создаем контент для попапа выбора папки
+	content := container.NewVBox(
+		widget.NewLabel("Выберите папку для перемещения:"),
+		scrollContainer,
+		widget.NewButton("Отмена", func() {
+			// Закрываем окно выбора папки
+			parentPopup.Hide()
+		}),
+	)
+
+	// Создаем попап для выбора папки
+	folderPopup := widget.NewPopUp(content, window)
+
+	// Позиция родительского попапа
+	parentPos := fyne.CurrentApp().Driver().AbsolutePositionForObject(parentPopup.Content)
+
+	// Показываем рядом с родительским попапом
+	menuPos := fyne.NewPos(
+		parentPos.X+20, // Смещаем немного вправо
+		parentPos.Y+20, // Смещаем немного вниз
+	)
+
+	// Проверяем, не выходит ли за границы окна
+	popupSize := folderPopup.MinSize()
+	windowSize := window.Size()
+
+	if menuPos.X+popupSize.Width > windowSize.Width {
+		// Если выходит за правую границу, сдвигаем влево
+		menuPos.X = windowSize.Width - popupSize.Width - 10
+	}
+	if menuPos.Y+popupSize.Height > windowSize.Height {
+		// Если выходит за нижнюю границу, сдвигаем вверх
+		menuPos.Y = windowSize.Height - popupSize.Height - 10
+	}
+
+	folderPopup.ShowAtPosition(menuPos)
 }
