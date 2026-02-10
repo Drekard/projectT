@@ -1,0 +1,127 @@
+// profile.go
+// selectBackgroundImage открывает диалог выбора изображения для фона
+func (p *UI) selectBackgroundImage() {
+	// Используем Windows-диалог как в файле file_upload.go
+	selectedFiles, err := openWindowsFileDialog([]string{".png", ".jpg", ".jpeg", ".gif", ".bmp"}, false)
+	if err != nil {
+		dialog.ShowError(err, p.window)
+		return
+	}
+
+	if len(selectedFiles) == 0 {
+		return // пользователь отменил операцию
+	}
+
+	originalFilePath := selectedFiles[0]
+
+	// Создаем имя файла на основе оригинального имени
+	originalFilename := filepath.Base(originalFilePath)
+	ext := filepath.Ext(originalFilename)
+	filename := strings.TrimSuffix(originalFilename, ext)
+	safeFilename := fmt.Sprintf("%s%s", filename, ext)
+
+	// Путь для сохранения в assets/background
+	backgroundDir := "assets/background"
+	finalPath := filepath.Join(backgroundDir, safeFilename)
+
+	// Создаем директорию, если её нет
+	os.MkdirAll(backgroundDir, os.ModePerm)
+
+	// Копируем файл в assets/background
+	err = copyFile(originalFilePath, finalPath)
+	if err != nil {
+		dialog.ShowError(fmt.Errorf("ошибка копирования файла: %v", err), p.window)
+		return
+	}
+
+	// Обновляем путь к фоновому изображению в профиле
+	profile, err := queries.GetProfile()
+	if err != nil {
+		dialog.ShowError(fmt.Errorf("ошибка получения профиля: %v", err), p.window)
+		return
+	}
+
+	profile.BackgroundPath = finalPath
+	err = queries.UpdateProfileField("background_path", finalPath, profile.ID)
+	if err != nil {
+		dialog.ShowError(fmt.Errorf("ошибка сохранения пути к фону: %v", err), p.window)
+		return
+	}
+
+	// Обновляем путь в UI
+	p.backgroundPath = finalPath
+
+	// Обновляем UI
+	p.createView()
+	p.content.Refresh()
+}
+
+// deleteBackgroundImage удаляет текущее фоновое изображение
+func (p *UI) deleteBackgroundImage() {
+	// Проверяем, есть ли у нас путь к фоновому изображению
+	if p.backgroundPath == "" {
+		// Если фонового изображения нет, выводим сообщение
+		dialog.ShowInformation("Информация", "Фоновое изображение отсутствует", p.window)
+		return
+	}
+
+	// Подтверждение удаления
+	dialog.ShowConfirm("Подтверждение", "Вы уверены, что хотите удалить фоновое изображение?", func(confirmed bool) {
+		if confirmed {
+			// Удаляем файл фона с диска
+			if err := os.Remove(p.backgroundPath); err != nil {
+				dialog.ShowError(fmt.Errorf("ошибка при удалении файла: %v", err), p.window)
+				return
+			}
+
+			// Обновляем путь к фоновому изображению в профиле
+			profile, err := queries.GetProfile()
+			if err != nil {
+				dialog.ShowError(fmt.Errorf("ошибка получения профиля: %v", err), p.window)
+				return
+			}
+
+			profile.BackgroundPath = ""
+			err = queries.UpdateProfileField("background_path", "", profile.ID)
+			if err != nil {
+				dialog.ShowError(fmt.Errorf("ошибка сохранения пути к фону: %v", err), p.window)
+				return
+			}
+
+			// Обновляем путь в UI
+			p.backgroundPath = ""
+
+			// Обновляем UI
+			p.createView()
+			p.content.Refresh()
+		}
+	}, p.window)
+}
+
+//workspae.go
+// GetContainer возвращает контейнер рабочей области с учетом фона
+func (ws *Workspace) GetContainer() *fyne.Container {
+	// Если есть кастомный фон, используем его
+	if ws.background != nil {
+		return container.NewStack(ws.background, ws.container)
+	}
+	// Иначе используем стандартный фон
+	return container.NewStack(ws.backgroundRect, ws.container)
+}
+
+// UpdateBackground обновляет фон рабочей области
+func (ws *Workspace) UpdateBackground() {
+	ws.loadBackground()
+
+	// Обновляем контейнер, чтобы применить изменения фона
+	var newContainer *fyne.Container
+	if ws.background != nil {
+		newContainer = container.NewStack(ws.background, ws.container)
+	} else {
+		newContainer = container.NewStack(ws.backgroundRect, ws.container)
+	}
+
+	// Заменяем объекты в основном контейнере
+	ws.container.Objects = newContainer.Objects
+	ws.container.Refresh()
+}

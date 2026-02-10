@@ -1,0 +1,426 @@
+package saved
+
+import (
+	"math"
+	"projectT/internal/storage/database/models"
+	"projectT/internal/storage/database/queries"
+	"projectT/internal/ui/cards/interfaces"
+	"time"
+
+	"fyne.io/fyne/v2"
+	"fyne.io/fyne/v2/container"
+)
+
+// GridManager управляет адаптивной сеткой элементов
+type GridManager struct {
+	container         *fyne.Container
+	scroll            *container.Scroll
+	cards             []*CardInfo
+	layoutEngine      *LayoutEngine
+	currentParentID   int                          // ID текущей папки
+	navigationHandler GridManagerNavigationHandler // Обработчик навигации
+	cardSizeCache     map[models.ItemType]CardSize // Кэш размеров карточек
+
+	// Кэш для позиций карточек
+	positionCache      []CellPosition // Кэшированные позиции
+	lastAvailableWidth int            // Последняя известная доступная ширина
+	cardsHash          uint64         // Хэш состояния карточек для проверки изменений
+	scrollTimer        *time.Timer    // Таймер для дебаунсинга скролла
+	resizeTimer        *time.Timer    // Таймер для дебаунсинга изменения размера
+	lastScrollPos      fyne.Position  // Последняя позиция скролла для оптимизации
+}
+
+// Обработчик изменения размера и скролла
+func (gm *GridManager) onSizeChanged(pos fyne.Position) {
+	// Обновляем только при значительном изменении
+	if math.Abs(float64(pos.X-gm.lastScrollPos.X)) > 20 ||
+		math.Abs(float64(pos.Y-gm.lastScrollPos.Y)) > 20 {
+
+		gm.lastScrollPos = pos
+
+		if gm.scrollTimer != nil {
+			gm.scrollTimer.Stop()
+		}
+
+		// Дебаунсинг 50мс
+		gm.scrollTimer = time.AfterFunc(100*time.Millisecond, func() {
+			// Обновляем макет при изменении скролла
+			gm.updateLayout()
+		})
+	}
+}
+
+func NewGridManager() *GridManager {
+	gm := &GridManager{
+		cards:              make([]*CardInfo, 0, 50), // Предвыделение памяти
+		layoutEngine:       NewLayoutEngine(),
+		currentParentID:    0,
+		cardSizeCache:      make(map[models.ItemType]CardSize),
+		positionCache:      make([]CellPosition, 0),
+		lastAvailableWidth: 0,
+		cardsHash:          0,
+	}
+
+	// Инициализация кэша размеров
+	gm.initCardSizeCache()
+
+	// Используем контейнер без layout для ручного позиционирования
+	gm.container = container.NewWithoutLayout()
+	gm.scroll = container.NewScroll(gm.container)
+
+	// Отслеживаем изменения размера
+	gm.scroll.OnScrolled = gm.onSizeChanged
+
+	return gm
+}
+
+// Инициализация кэша размеров карточек
+func (gm *GridManager) initCardSizeCache() {
+	gm.cardSizeCache = map[models.ItemType]CardSize{
+		models.ItemTypeText:       {4, 2},
+		models.ItemTypeImage:      {4, 4},
+		models.ItemTypeFile:       {4, 1},
+		models.ItemTypeLink:       {4, 1},
+		models.ItemTypeFolder:     {4, 1},
+		models.ItemTypeComposite:  {2, 2},
+	}
+}
+
+// SetNavigationHandler устанавливает обработчик навигации
+func (gm *GridManager) SetNavigationHandler(handler GridManagerNavigationHandler) {
+	gm.navigationHandler = handler
+}
+
+// GetContainer возвращает контейнер для встраивания в интерфейс
+func (gm *GridManager) GetContainer() *container.Scroll {
+	return gm.scroll
+}
+
+// AddItem добавляет элемент в сетку
+func (gm *GridManager) AddItem(item *models.Item) error {
+	// Проверка дубликатов
+	if gm.hasItem(item.ID) {
+		return nil // Игнорируем дубликаты вместо возврата ошибки
+	}
+
+	cardInfo := gm.createCard(item)
+	gm.cards = append(gm.cards, cardInfo)
+	// Сбрасываем кэш при добавлении нового элемента
+	gm.invalidateCache()
+	gm.updateAllCards()
+	return nil
+}
+
+// Проверка существования элемента
+func (gm *GridManager) hasItem(id int) bool {
+	for _, card := range gm.cards {
+		if card.Item.ID == id {
+			return true
+		}
+	}
+	return false
+}
+
+// createCard создает карточку для элемента
+func (gm *GridManager) createCard(item *models.Item) *CardInfo {
+	widthCells, heightCells := gm.getCardSize(item)
+
+	var cardRenderer interfaces.CardRenderer
+	switch {
+	case item.Type == models.ItemTypeFolder && gm.navigationHandler != nil:
+		cardRenderer = CreateCard(item, WithNavigation(gm.navigationHandler))
+	default:
+		cardRenderer = CreateCard(item)
+	}
+
+	cardWidget := cardRenderer.GetWidget()
+	cardWidget.Refresh() // Предварительное обновление виджета
+
+	return &CardInfo{
+		Item:        item,
+		Widget:      cardWidget,
+		WidthCells:  widthCells,
+		HeightCells: heightCells,
+	}
+}
+
+// updateAllCards обновляет все карточки в сетке
+func (gm *GridManager) updateAllCards() {
+	gm.updateLayout()
+}
+
+// calculateCardsHash вычисляет хэш текущего состояния карточек для проверки изменений
+func (gm *GridManager) calculateCardsHash() uint64 {
+	hash := uint64(0)
+
+	for _, card := range gm.cards {
+		// Простой хэш, основанный на ID элемента и его размерах
+		itemHash := uint64(card.Item.ID)<<32 | uint64(card.WidthCells)<<16 | uint64(card.HeightCells)
+		hash ^= itemHash
+		// Сдвигаем биты, чтобы избежать коллизий при разных порядках элементов
+		hash = (hash << 1) | (hash >> 63)
+	}
+
+	return hash
+}
+
+// updateLayout обновляет расположение карточек в сетке
+func (gm *GridManager) updateLayout() {
+	// Проверяем, нужно ли пересчитывать позиции
+	currentHash := gm.calculateCardsHash()
+	availableWidth := gm.getAvailableWidth()
+	if availableWidth < 1 {
+		availableWidth = MinWidth
+	}
+
+	// Если состояние не изменилось, используем кэшированные позиции
+	if gm.lastAvailableWidth == availableWidth && gm.cardsHash == currentHash && len(gm.positionCache) == len(gm.cards) {
+		// Используем кэшированные позиции
+		gm.applyCachedPositions()
+		return
+	}
+
+	// Обновляем кэш
+	gm.lastAvailableWidth = availableWidth
+	gm.cardsHash = currentHash
+
+	// Очищаем контейнер один раз
+	gm.container.Objects = gm.container.Objects[:0]
+
+	positions := gm.layoutEngine.CalculatePositions(gm.cards, availableWidth)
+	if len(positions) != len(gm.cards) {
+		return // Позиции будут пересчитаны при следующем обновлении
+	}
+
+	// Сохраняем позиции в кэш
+	gm.positionCache = make([]CellPosition, len(positions))
+	copy(gm.positionCache, positions)
+
+	// Предвыделяем память для объектов контейнера
+	gm.container.Objects = make([]fyne.CanvasObject, 0, len(gm.cards))
+
+	for i, pos := range positions {
+		cardInfo := gm.cards[i]
+		cardInfo.Position = pos
+
+		// Вычисляем размеры и позицию
+		width, height := gm.calculatePixelSize(cardInfo.WidthCells, cardInfo.HeightCells)
+		cardInfo.Widget.Resize(fyne.NewSize(width, height))
+
+		x, y := gm.calculatePixelPosition(pos.X, pos.Y)
+		cardInfo.Widget.Move(fyne.NewPos(x, y))
+
+		gm.container.Objects = append(gm.container.Objects, cardInfo.Widget)
+	}
+
+	gm.updateContainerSize()
+	gm.container.Refresh()
+}
+
+// applyCachedPositions применяет кэшированные позиции к карточкам без пересчета
+func (gm *GridManager) applyCachedPositions() {
+	// Очищаем контейнер один раз
+	gm.container.Objects = gm.container.Objects[:0]
+
+	// Предвыделяем память для объектов контейнера
+	gm.container.Objects = make([]fyne.CanvasObject, 0, len(gm.cards))
+
+	for i, pos := range gm.positionCache {
+		cardInfo := gm.cards[i]
+		cardInfo.Position = pos
+
+		// Вычисляем размеры и позицию
+		width, height := gm.calculatePixelSize(cardInfo.WidthCells, cardInfo.HeightCells)
+		cardInfo.Widget.Resize(fyne.NewSize(width, height))
+
+		x, y := gm.calculatePixelPosition(pos.X, pos.Y)
+		cardInfo.Widget.Move(fyne.NewPos(x, y))
+
+		gm.container.Objects = append(gm.container.Objects, cardInfo.Widget)
+	}
+
+	gm.updateContainerSize()
+	gm.container.Refresh()
+}
+
+// Вычисление размеров в пикселях
+func (gm *GridManager) calculatePixelSize(widthCells, heightCells int) (float32, float32) {
+	width := float32(widthCells*70) + float32(widthCells-1)*5    // CellSize=70, GapSize=5
+	height := float32(heightCells*70) + float32(heightCells-1)*5 // CellSize=70, GapSize=5
+	return width, height
+}
+
+// Вычисление позиции в пикселях
+func (gm *GridManager) calculatePixelPosition(x, y int) (float32, float32) {
+	cellAndGap := 75 // CellSize=70, GapSize=5
+	return float32(x) * float32(cellAndGap), float32(y) * float32(cellAndGap)
+}
+
+// getAvailableWidth возвращает доступную ширину сетки в ячейках
+func (gm *GridManager) getAvailableWidth() int {
+	scrollSize := gm.scroll.Size()
+	if scrollSize.Width <= 0 {
+		return 0
+	}
+
+	cellAndGap := 75 // CellSize=70, GapSize=5
+	availableCells := int(scrollSize.Width / float32(cellAndGap))
+
+	if availableCells < 1 {
+		return 1
+	}
+	return availableCells
+}
+
+// updateContainerSize обновляет размер контейнера
+func (gm *GridManager) updateContainerSize() {
+	maxX, maxY := gm.getMaxDimensions()
+	scrollSize := gm.scroll.Size()
+
+	containerWidth := scrollSize.Width
+	if containerWidth <= 0 || maxX > containerWidth {
+		containerWidth = maxX + float32(75) // CellSize+GapSize=75
+	}
+
+	containerHeight := maxY + float32(75) // CellSize+GapSize=75
+	gm.container.Resize(fyne.NewSize(containerWidth, containerHeight))
+}
+
+// getMaxDimensions возвращает максимальные размеры сетки
+func (gm *GridManager) getMaxDimensions() (float32, float32) {
+	var maxX, maxY float32
+
+	for _, card := range gm.cards {
+		x, y := gm.calculatePixelPosition(card.Position.X, card.Position.Y)
+		width, height := gm.calculatePixelSize(card.WidthCells, card.HeightCells)
+
+		right := x + width
+		bottom := y + height
+
+		if right > maxX {
+			maxX = right
+		}
+		if bottom > maxY {
+			maxY = bottom
+		}
+	}
+
+	return maxX, maxY
+}
+
+// LoadItems загружает элементы в сетку
+func (gm *GridManager) LoadItems(items []*models.Item) {
+	gm.clear()
+
+	// Предвыделяем память для карточек
+	gm.cards = make([]*CardInfo, 0, len(items)+1)
+
+	// Добавляем переданные элементы
+	for _, item := range items {
+		gm.AddItem(item)
+	}
+
+	// Кэш уже сброшен в gm.clear() и gm.AddItem()
+}
+
+// LoadItemsWithoutCreateElement загружает элементы в сетку без добавления элемента "Создать элемент"
+func (gm *GridManager) LoadItemsWithoutCreateElement(items []*models.Item) {
+	gm.clear()
+	gm.cards = make([]*CardInfo, 0, len(items))
+
+	for _, item := range items {
+		gm.AddItem(item)
+	}
+
+	// Кэш уже сброшен в gm.clear() и gm.AddItem()
+}
+
+// LoadItemsByParent загружает элементы по родительскому ID
+func (gm *GridManager) LoadItemsByParent(parentID int) error {
+	items, err := queries.GetItemsByParent(parentID)
+	if err != nil {
+		return err
+	}
+
+	gm.currentParentID = parentID
+	gm.LoadItems(items)
+	return nil
+}
+
+// LoadItemsBySearch загружает элементы по поисковому запросу
+func (gm *GridManager) LoadItemsBySearch(query string) error {
+	items, err := queries.SearchItems(query)
+	if err != nil {
+		return err
+	}
+
+	gm.LoadItems(items)
+	return nil
+}
+
+// ClearSearch очищает результаты поиска
+func (gm *GridManager) ClearSearch() error {
+	return gm.LoadItemsByParent(gm.currentParentID)
+}
+
+// GetCurrentParentID возвращает ID текущей папки
+func (gm *GridManager) GetCurrentParentID() int {
+	return gm.currentParentID
+}
+
+// SetCurrentParentID устанавливает ID текущей папки
+func (gm *GridManager) SetCurrentParentID(parentID int) {
+	gm.currentParentID = parentID
+}
+
+// Clear очищает все элементы
+func (gm *GridManager) Clear() {
+	gm.clear()
+}
+
+// Внутренний метод очистки
+func (gm *GridManager) clear() {
+	gm.cards = gm.cards[:0]
+	gm.container.Objects = gm.container.Objects[:0]
+	gm.container.Refresh()
+	// Сбрасываем кэш при очистке
+	gm.invalidateCache()
+}
+
+// invalidateCache сбрасывает кэш позиций
+func (gm *GridManager) invalidateCache() {
+	gm.positionCache = gm.positionCache[:0] // Очищаем слайс, но сохраняем емкость
+	gm.lastAvailableWidth = 0
+	gm.cardsHash = 0
+}
+
+// getCardSize возвращает размер карточки в ячейках
+func (gm *GridManager) getCardSize(item *models.Item) (int, int) {
+	// Используем кэш для большинства типов
+	if size, ok := gm.cardSizeCache[item.Type]; ok {
+		// Специальная обработка для текстовых элементов
+		if item.Type == models.ItemTypeText {
+			return gm.calculateTextSize(item)
+		}
+		return size.Width, size.Height
+	}
+
+	// Значение по умолчанию для неизвестных типов
+	return 4, 1
+}
+
+// Вычисление размера для текстовых элементов
+func (gm *GridManager) calculateTextSize(item *models.Item) (int, int) {
+	textLength := len(item.Description) + len(item.ContentMeta)
+
+	switch {
+	case textLength < 100:
+		return 4, 1
+	case textLength < 500:
+		return 4, 2
+	case textLength < 1000:
+		return 4, 3
+	default:
+		return 4, 4
+	}
+}
