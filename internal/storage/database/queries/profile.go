@@ -1,6 +1,7 @@
 package queries
 
 import (
+	"database/sql"
 	"fmt"
 	"projectT/internal/storage/database"
 	"projectT/internal/storage/database/models"
@@ -9,19 +10,21 @@ import (
 
 // GetProfile возвращает профиль пользователя
 func GetProfile() (*models.Profile, error) {
-	query := `SELECT id, username, status, avatar_path, background_path, created_at, updated_at FROM profile LIMIT 1`
+	query := `SELECT id, username, status, avatar_path, background_path, content_characteristic, created_at, updated_at FROM profile LIMIT 1`
 	var profile models.Profile
+	var contentChar sql.NullString
 	err := database.DB.QueryRow(query).Scan(
-		&profile.ID, &profile.Username, &profile.Status, &profile.AvatarPath, &profile.BackgroundPath, &profile.CreatedAt, &profile.UpdatedAt,
+		&profile.ID, &profile.Username, &profile.Status, &profile.AvatarPath, &profile.BackgroundPath, &contentChar, &profile.CreatedAt, &profile.UpdatedAt,
 	)
 	if err != nil {
 		// Если нет профиля в базе, создаем профиль по умолчанию
 		if err.Error() == "sql: no rows in result set" {
 			defaultProfile := &models.Profile{
-				Username:       "Аноним",
-				Status:         "Доступен",
-				AvatarPath:     "",
-				BackgroundPath: "",
+				Username:            "Аноним",
+				Status:              "Доступен",
+				AvatarPath:          "",
+				BackgroundPath:      "",
+				ContentCharacteristic: "",
 			}
 			err = CreateProfile(defaultProfile)
 			if err != nil {
@@ -32,13 +35,21 @@ func GetProfile() (*models.Profile, error) {
 		}
 		return nil, err
 	}
+	
+	// Преобразуем sql.NullString в обычную строку
+	if contentChar.Valid {
+		profile.ContentCharacteristic = contentChar.String
+	} else {
+		profile.ContentCharacteristic = ""
+	}
+	
 	return &profile, nil
 }
 
 // CreateProfile создает новый профиль пользователя
 func CreateProfile(profile *models.Profile) error {
-	query := `INSERT INTO profile (username, status, avatar_path, background_path, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)`
-	result, err := database.DB.Exec(query, profile.Username, profile.Status, profile.AvatarPath, profile.BackgroundPath, time.Now(), time.Now())
+	query := `INSERT INTO profile (username, status, avatar_path, background_path, content_characteristic, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?)`
+	result, err := database.DB.Exec(query, profile.Username, profile.Status, profile.AvatarPath, profile.BackgroundPath, profile.ContentCharacteristic, time.Now(), time.Now())
 	if err != nil {
 		return err
 	}
@@ -55,8 +66,8 @@ func CreateProfile(profile *models.Profile) error {
 
 // UpdateProfile обновляет профиль пользователя
 func UpdateProfile(profile *models.Profile) error {
-	query := `UPDATE profile SET username = ?, status = ?, avatar_path = ?, background_path = ?, updated_at = ? WHERE id = ?`
-	_, err := database.DB.Exec(query, profile.Username, profile.Status, profile.AvatarPath, profile.BackgroundPath, time.Now(), profile.ID)
+	query := `UPDATE profile SET username = ?, status = ?, avatar_path = ?, background_path = ?, content_characteristic = ?, updated_at = ? WHERE id = ?`
+	_, err := database.DB.Exec(query, profile.Username, profile.Status, profile.AvatarPath, profile.BackgroundPath, profile.ContentCharacteristic, time.Now(), profile.ID)
 	return err
 }
 
@@ -72,6 +83,10 @@ func UpdateProfileField(field string, value interface{}, profileID int) error {
 		query = `UPDATE profile SET avatar_path = ?, updated_at = ? WHERE id = ?`
 	case "background_path":
 		query = `UPDATE profile SET background_path = ?, updated_at = ? WHERE id = ?`
+	case "content_characteristic":
+		query = `UPDATE profile SET content_characteristic = ?, updated_at = ? WHERE id = ?`
+	case "demo_elements":
+		query = `UPDATE profile SET demo_elements = ?, updated_at = ? WHERE id = ?`
 	default:
 		return fmt.Errorf("неподдерживаемое поле: %s", field)
 	}

@@ -79,15 +79,15 @@ func RunMigrations() {
 		log.Fatal("Ошибка при создании таблицы favorites:", err)
 	}
 
-	// 6. ЗАКРЕПЛЁННЫЕ В ПАПКАХ
+	// 6. ЗАКРЕПЛЁННЫЕ ЭЛЕМЕНТЫ В ПРОФИЛЕ
 	_, err = DB.Exec(`
 		CREATE TABLE IF NOT EXISTS pinned_items (
-			folder_id   INTEGER,
-			item_id     INTEGER,
-			order_index INTEGER DEFAULT 0,
-			PRIMARY KEY (folder_id, item_id),
-			FOREIGN KEY (folder_id) REFERENCES items (id) ON DELETE CASCADE,
-			FOREIGN KEY (item_id)   REFERENCES items (id) ON DELETE CASCADE
+			id INTEGER PRIMARY KEY AUTOINCREMENT,
+			item_id INTEGER NOT NULL,
+			order_num INTEGER DEFAULT 0,
+			created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+			updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+			FOREIGN KEY (item_id) REFERENCES items (id) ON DELETE CASCADE
 		);
 	`)
 	if err != nil {
@@ -186,15 +186,8 @@ func RunMigrations() {
 		// Логируем ошибку, но не выводим в пользовательский интерфейс
 	}
 
-	// Добавляем поле is_pinned, если оно не существует
-	_, err = DB.Exec(`ALTER TABLE items ADD COLUMN is_pinned BOOLEAN DEFAULT 0`)
-	// Игнорируем ошибку, если столбец уже существует
-	if err != nil {
-		// Проверяем, возможно столбец уже существует
-		if !strings.Contains(err.Error(), "duplicate column name") && !strings.Contains(err.Error(), "column already exists") {
-			log.Printf("Ошибка при добавлении столбца is_pinned: %v", err)
-		}
-	}
+	// Удаляем поле is_pinned, если оно существует
+	// removeIsPinnedField() // Отключено из-за проблем с зависанием
 
 	// Логируем успешное выполнение миграций
 	fixFolderConstraint()
@@ -328,5 +321,127 @@ func fixFolderConstraint() {
 		} else {
 			log.Println("Успешно обновлена структура таблицы items для разрешения вложенных папок")
 		}
+	}
+}
+
+// removeIsPinnedField удаляет поле is_pinned из таблицы items
+func removeIsPinnedField() {
+	// Проверяем, существует ли поле is_pinned в таблице items
+	query := `SELECT sql FROM sqlite_master WHERE type='table' AND name='items';`
+	rows, err := DB.Query(query)
+	if err != nil {
+		log.Printf("Ошибка при проверке структуры таблицы items: %v", err)
+		return
+	}
+	defer rows.Close()
+
+	var tableSQL string
+	if rows.Next() {
+		err = rows.Scan(&tableSQL)
+		if err != nil {
+			log.Printf("Ошибка при чтении SQL-запроса таблицы items: %v", err)
+			return
+		}
+	}
+
+	// Проверяем, содержит ли таблица поле is_pinned (с более точным условием)
+	if tableSQL != "" && strings.Contains(strings.ToUpper(tableSQL), "IS_PINNED") {
+		log.Println("Обнаружено поле is_pinned в таблице items, начинаем процесс удаления...")
+		
+		// Для SQLite удаление столбцов требует создания новой таблицы и копирования данных
+		// Но мы будем делать это осторожно, чтобы избежать проблем с блокировками
+		
+		// Сначала проверим, есть ли вообще какие-то данные в таблице
+		var count int
+		err = DB.QueryRow("SELECT COUNT(*) FROM items").Scan(&count)
+		if err != nil {
+			log.Printf("Ошибка при проверке количества записей в таблице items: %v", err)
+			return
+		}
+		
+		log.Printf("Найдено %d записей в таблице items", count)
+		
+		// Создаем новую таблицу без поля is_pinned
+		newTableSQL := `
+			CREATE TABLE items_new (
+				id          INTEGER PRIMARY KEY,
+				type        TEXT NOT NULL CHECK (type IN ('text', 'link', 'folder', 'composite', 'image', 'file')),
+				title       TEXT,
+				description TEXT,
+				content_meta TEXT,
+				parent_id   INTEGER,
+				created_at  DATETIME DEFAULT CURRENT_TIMESTAMP,
+				updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+				FOREIGN KEY (parent_id) REFERENCES items (id) ON DELETE CASCADE
+			);
+		`
+
+		// Отключаем внешние ключи на время операции
+		_, err = DB.Exec(`PRAGMA foreign_keys = off;`)
+		if err != nil {
+			log.Printf("Ошибка отключения внешних ключей: %v", err)
+			return
+		}
+
+		// Создаем новую таблицу
+		_, err = DB.Exec(newTableSQL)
+		if err != nil {
+			log.Printf("Ошибка создания новой таблицы items: %v", err)
+			// Восстанавливаем внешние ключи
+			DB.Exec(`PRAGMA foreign_keys = on;`)
+			return
+		}
+
+		// Копируем данные из старой таблицы в новую (без поля is_pinned)
+		copyQuery := `
+			INSERT INTO items_new (id, type, title, description, content_meta, parent_id, created_at, updated_at)
+			SELECT id, type, title, description, content_meta, parent_id, created_at, updated_at
+			FROM items;
+		`
+		
+		log.Println("Начинаем копирование данных...")
+		_, err = DB.Exec(copyQuery)
+		if err != nil {
+			log.Printf("Ошибка копирования данных: %v", err)
+			// Удаляем новую таблицу, чтобы не оставить мусора
+			DB.Exec(`DROP TABLE IF EXISTS items_new;`)
+			// Восстанавливаем внешние ключи
+			DB.Exec(`PRAGMA foreign_keys = on;`)
+			return
+		}
+		log.Println("Копирование данных завершено")
+
+		// Удаляем старую таблицу
+		log.Println("Удаляем старую таблицу...")
+		_, err = DB.Exec(`DROP TABLE items;`)
+		if err != nil {
+			log.Printf("Ошибка удаления старой таблицы: %v", err)
+			// Удаляем новую таблицу, чтобы не оставить мусора
+			DB.Exec(`DROP TABLE IF EXISTS items_new;`)
+			// Восстанавливаем внешние ключи
+			DB.Exec(`PRAGMA foreign_keys = on;`)
+			return
+		}
+
+		// Переименовываем новую таблицу
+		log.Println("Переименовываем таблицу...")
+		_, err = DB.Exec(`ALTER TABLE items_new RENAME TO items;`)
+		if err != nil {
+			log.Printf("Ошибка переименования таблицы: %v", err)
+			// Восстанавливаем внешние ключи
+			DB.Exec(`PRAGMA foreign_keys = on;`)
+			return
+		}
+
+		// Восстанавливаем внешние ключи
+		_, err = DB.Exec(`PRAGMA foreign_keys = on;`)
+		if err != nil {
+			log.Printf("Ошибка включения внешних ключей: %v", err)
+			return
+		}
+
+		log.Println("Успешно удалено поле is_pinned из таблицы items")
+	} else {
+		log.Println("Поле is_pinned не найдено в таблице items, пропускаем удаление")
 	}
 }

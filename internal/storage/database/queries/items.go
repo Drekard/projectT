@@ -10,14 +10,10 @@ import (
 // CreateItem создает новый элемент
 func CreateItem(item *models.Item) error {
 	query := `
-		INSERT INTO items (type, title, description, content_meta, parent_id, is_pinned, created_at, updated_at)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+		INSERT INTO items (type, title, description, content_meta, parent_id, created_at, updated_at)
+		VALUES (?, ?, ?, ?, ?, ?, ?)
 	`
-	isPinned := false
-	if item.IsPinned != nil {
-		isPinned = *item.IsPinned
-	}
-	result, err := database.DB.Exec(query, item.Type, item.Title, item.Description, item.ContentMeta, item.ParentID, isPinned, time.Now(), time.Now())
+	result, err := database.DB.Exec(query, item.Type, item.Title, item.Description, item.ContentMeta, item.ParentID, time.Now(), time.Now())
 	if err != nil {
 		return err
 	}
@@ -36,15 +32,14 @@ func CreateItem(item *models.Item) error {
 // GetItemByID возвращает элемент по ID
 func GetItemByID(id int) (*models.Item, error) {
 	query := `
-		SELECT id, type, title, description, content_meta, parent_id, is_pinned, created_at, updated_at
+		SELECT id, type, title, description, content_meta, parent_id, created_at, updated_at
 		FROM items
 	WHERE id = ?
 	`
 	var item models.Item
 	var parentID sql.NullInt64
-	var isPinned bool
 	err := database.DB.QueryRow(query, id).Scan(
-		&item.ID, &item.Type, &item.Title, &item.Description, &item.ContentMeta, &parentID, &isPinned, &item.CreatedAt, &item.UpdatedAt,
+		&item.ID, &item.Type, &item.Title, &item.Description, &item.ContentMeta, &parentID, &item.CreatedAt, &item.UpdatedAt,
 	)
 	if err != nil {
 		return nil, err
@@ -55,15 +50,13 @@ func GetItemByID(id int) (*models.Item, error) {
 		item.ParentID = &parentIDValue
 	}
 
-	item.IsPinned = &isPinned
-
 	return &item, nil
 }
 
 // GetItemsByParent возвращает элементы по родительскому ID
 func GetItemsByParent(parentID int) ([]*models.Item, error) {
 	query := `
-		SELECT id, type, title, description, content_meta, parent_id, is_pinned, created_at, updated_at
+		SELECT id, type, title, description, content_meta, parent_id, created_at, updated_at
 		FROM items
 		WHERE (parent_id = ? OR (parent_id IS NULL AND ? = 0))
 		ORDER BY updated_at DESC
@@ -78,9 +71,8 @@ func GetItemsByParent(parentID int) ([]*models.Item, error) {
 	for rows.Next() {
 		var item models.Item
 		var parentID sql.NullInt64
-		var isPinned bool
 		err := rows.Scan(
-			&item.ID, &item.Type, &item.Title, &item.Description, &item.ContentMeta, &parentID, &isPinned, &item.CreatedAt, &item.UpdatedAt,
+			&item.ID, &item.Type, &item.Title, &item.Description, &item.ContentMeta, &parentID, &item.CreatedAt, &item.UpdatedAt,
 		)
 		if err != nil {
 			return nil, err
@@ -91,8 +83,6 @@ func GetItemsByParent(parentID int) ([]*models.Item, error) {
 			item.ParentID = &parentIDValue
 		}
 
-		item.IsPinned = &isPinned
-
 		items = append(items, &item)
 	}
 
@@ -102,7 +92,7 @@ func GetItemsByParent(parentID int) ([]*models.Item, error) {
 // GetAllItems возвращает все элементы из базы данных
 func GetAllItems() ([]*models.Item, error) {
 	db := database.DB
-	query := `SELECT id, type, title, description, content_meta, parent_id, is_pinned, created_at, updated_at FROM items ORDER BY created_at DESC`
+	query := `SELECT id, type, title, description, content_meta, parent_id, created_at, updated_at FROM items ORDER BY created_at DESC`
 	rows, err := db.Query(query)
 	if err != nil {
 		return nil, err
@@ -113,7 +103,6 @@ func GetAllItems() ([]*models.Item, error) {
 	for rows.Next() {
 		var item models.Item
 		var parentID *int
-		var isPinned *bool
 
 		err := rows.Scan(
 			&item.ID,
@@ -122,7 +111,6 @@ func GetAllItems() ([]*models.Item, error) {
 			&item.Description,
 			&item.ContentMeta,
 			&parentID,
-			&isPinned,
 			&item.CreatedAt,
 			&item.UpdatedAt,
 		)
@@ -131,7 +119,6 @@ func GetAllItems() ([]*models.Item, error) {
 		}
 
 		item.ParentID = parentID
-		item.IsPinned = isPinned
 
 		items = append(items, &item)
 	}
@@ -139,43 +126,36 @@ func GetAllItems() ([]*models.Item, error) {
 	return items, nil
 }
 
-// PinItem устанавливает значение is_pinned в true для указанного элемента
+// PinItem закрепляет элемент
 func PinItem(itemID int) error {
-	query := `UPDATE items SET is_pinned = 1 WHERE id = ?`
+	query := `INSERT INTO pinned_items (item_id) VALUES (?)`
 	_, err := database.DB.Exec(query, itemID)
 	return err
 }
 
-// UnpinItem устанавливает значение is_pinned в false для указанного элемента
+// UnpinItem открепляет элемент
 func UnpinItem(itemID int) error {
-	query := `UPDATE items SET is_pinned = 0 WHERE id = ?`
+	query := `DELETE FROM pinned_items WHERE item_id = ?`
 	_, err := database.DB.Exec(query, itemID)
 	return err
 }
 
-// IsItemPinned возвращает значение is_pinned для указанного элемента
+// IsItemPinned проверяет, закреплен ли элемент
 func IsItemPinned(itemID int) (bool, error) {
-	var isPinned bool
-	query := `SELECT is_pinned FROM items WHERE id = ?`
-	err := database.DB.QueryRow(query, itemID).Scan(&isPinned)
-	if err != nil {
-		return false, err
-	}
-	return isPinned, nil
+	var count int
+	query := `SELECT COUNT(*) FROM pinned_items WHERE item_id = ?`
+	err := database.DB.QueryRow(query, itemID).Scan(&count)
+	return count > 0, err
 }
 
 // UpdateItem обновляет элемент
 func UpdateItem(item *models.Item) error {
 	query := `
 	UPDATE items
-	SET type = ?, title = ?, description = ?, content_meta = ?, parent_id = ?, is_pinned = ?, updated_at = ?
+	SET type = ?, title = ?, description = ?, content_meta = ?, parent_id = ?, updated_at = ?
 	WHERE id = ?
 	`
-	isPinned := false
-	if item.IsPinned != nil {
-		isPinned = *item.IsPinned
-	}
-	_, err := database.DB.Exec(query, item.Type, item.Title, item.Description, item.ContentMeta, item.ParentID, isPinned, time.Now(), item.ID)
+	_, err := database.DB.Exec(query, item.Type, item.Title, item.Description, item.ContentMeta, item.ParentID, time.Now(), item.ID)
 	return err
 }
 
@@ -193,7 +173,7 @@ func SearchItems(query string) ([]*models.Item, error) {
 
 	// SQL-запрос для поиска по названию и через связь с тегами
 	sqlQuery := `
-	SELECT DISTINCT i.id, i.type, i.title, i.description, i.content_meta, i.parent_id, i.is_pinned, i.created_at, i.updated_at
+	SELECT DISTINCT i.id, i.type, i.title, i.description, i.content_meta, i.parent_id, i.created_at, i.updated_at
 	FROM items i
 	LEFT JOIN item_tags it ON i.id = it.item_id
 	LEFT JOIN tags t ON it.tag_id = t.id
@@ -211,10 +191,9 @@ func SearchItems(query string) ([]*models.Item, error) {
 	for rows.Next() {
 		var item models.Item
 		var parentID sql.NullInt64
-		var isPinned bool
 
 		err := rows.Scan(
-			&item.ID, &item.Type, &item.Title, &item.Description, &item.ContentMeta, &parentID, &isPinned, &item.CreatedAt, &item.UpdatedAt,
+			&item.ID, &item.Type, &item.Title, &item.Description, &item.ContentMeta, &parentID, &item.CreatedAt, &item.UpdatedAt,
 		)
 		if err != nil {
 			return nil, err
@@ -224,8 +203,6 @@ func SearchItems(query string) ([]*models.Item, error) {
 			parentIDValue := int(parentID.Int64)
 			item.ParentID = &parentIDValue
 		}
-
-		item.IsPinned = &isPinned
 
 		items = append(items, &item)
 	}

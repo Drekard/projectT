@@ -26,6 +26,9 @@ type SearchHandler interface {
 // favoritesService - глобальный экземпляр сервиса избранного
 var favoritesService = services.NewFavoritesService()
 
+// pinnedService - глобальный экземпляр сервиса закрепленных элементов
+var pinnedService = services.NewPinnedService()
+
 // globalSearchEntry глобальная ссылка на поисковую строку
 var globalSearchEntry *widget.Entry
 
@@ -165,7 +168,7 @@ func (mm *MenuManager) ShowSimpleMenu(item *models.Item, cont fyne.CanvasObject,
 				buttons = append([]fyne.CanvasObject{moveButton}, buttons...)
 
 				// Добавляем кнопку закрепления для всех типов элементов
-				isPinned, err := queries.IsItemPinned(item.ID)
+				isPinned, err := pinnedService.IsItemPinned(item.ID)
 				if err != nil {
 					isPinned = false
 				}
@@ -182,7 +185,7 @@ func (mm *MenuManager) ShowSimpleMenu(item *models.Item, cont fyne.CanvasObject,
 					if currentState {
 						// Если сейчас закреплено - делаем обработчик для открепления
 						return func() {
-							err := queries.UnpinItem(item.ID)
+							err := pinnedService.UnpinItem(item.ID)
 							if err != nil {
 								return
 							}
@@ -194,7 +197,7 @@ func (mm *MenuManager) ShowSimpleMenu(item *models.Item, cont fyne.CanvasObject,
 					} else {
 						// Если сейчас не закреплено - делаем обработчик для закрепления
 						return func() {
-							err := queries.PinItem(item.ID)
+							err := pinnedService.PinItem(item.ID)
 							if err != nil {
 								return
 							}

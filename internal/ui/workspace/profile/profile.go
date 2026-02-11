@@ -4,7 +4,10 @@ import (
 	"encoding/json"
 	"fmt"
 	"image/color"
+	"projectT/internal/services"
+	"projectT/internal/storage/database/models"
 	"projectT/internal/storage/database/queries"
+	"projectT/internal/ui/workspace/saved"
 	"time"
 
 	"fyne.io/fyne/v2"
@@ -56,6 +59,7 @@ type UI struct {
 	avatarPath               string
 	backgroundPath           string
 	window                   fyne.Window
+	gridManager              *saved.GridManager
 }
 
 func New() *UI {
@@ -74,6 +78,10 @@ func New() *UI {
 	} else {
 		fmt.Printf("DEBUG: Ошибка загрузки профиля из базы данных: %v\n", err)
 	}
+
+	// Инициализируем gridManager до создания представления
+	ui.gridManager = saved.NewGridManager()
+	ui.loadDemoElements()
 
 	ui.createView()
 
@@ -146,7 +154,7 @@ func (p *UI) createComponents() {
 	p.userStatusEntry.Hide()
 
 	// Кнопки
-	p.editButton = widget.NewButtonWithIcon("Редактировать", theme.DocumentCreateIcon(), func() {
+	p.editButton = widget.NewButtonWithIcon("", theme.DocumentCreateIcon(), func() {
 		p.toggleEditMode()
 	})
 
@@ -166,16 +174,18 @@ func (p *UI) createComponents() {
 }
 
 func (p *UI) createTopPart() fyne.CanvasObject {
+	leftTopPartWrapper := canvas.NewRectangle(color.Transparent)
+	leftTopPartWrapper.SetMinSize(fyne.NewSize(300, 0))
+
 	// Левая часть верхней секции (аватар, имя, статус, кнопки)
 	leftTopPart := container.NewVBox(
+		leftTopPartWrapper,
 		container.NewCenter(p.avatarContainer),
-		container.NewHBox(
-			widget.NewLabel("Имя:"),
+		container.NewCenter(
 			p.userNameLabel,
 			p.userNameEntry,
 		),
-		container.NewHBox(
-			widget.NewLabel("Статус:"),
+		container.NewCenter(
 			p.userStatusLabel,
 			p.userStatusEntry,
 		),
@@ -220,32 +230,138 @@ func (p *UI) createTopPart() fyne.CanvasObject {
 func (p *UI) createBottomPart() fyne.CanvasObject {
 
 	horizontalSeparator := canvas.NewRectangle(color.Gray{Y: 128})
-	horizontalSeparator.SetMinSize(fyne.NewSize(100, 1))
+	horizontalSeparator.SetMinSize(fyne.NewSize(100, 2))
 	aSeparator := canvas.NewRectangle(color.Transparent)
-	aSeparator.SetMinSize(fyne.NewSize(1, 12))
-
-	// Создаем контейнер с фиксированной высотой для разделителя
+	aSeparator.SetMinSize(fyne.NewSize(1, 13))
 	separatorContainer := container.NewVBox(
 		aSeparator,
 		horizontalSeparator,
 	)
 
-	addDemoElementsButton := widget.NewButton("+ Добавить элемент", func() {})
-	addDemoElementsButton.Importance = widget.LowImportance
+	// Используем GridManager для отображения закрепленных элементов
+	pinnedGridManager := saved.NewGridManager()
 
-	borderPart := container.NewBorder(
-		nil, nil,
-		nil,
-		addDemoElementsButton,
-		separatorContainer, // Используем контейнер вместо прямого разделителя
-	)
+	// Загружаем закрепленные элементы
+	p.updatePinnedItems(pinnedGridManager)
+
+	pinnedGridContainer := pinnedGridManager.GetContainer()
+	pinnedGridContainer.SetMinSize(fyne.NewSize(400, 400))
+
+	// Подписываемся на события изменения закрепленных элементов
+	eventChan := services.GetPinnedEventManager().Subscribe()
+	go func() {
+		for eventType := range eventChan {
+			if eventType == "pinned_items_changed" {
+				// Обновляем закрепленные элементы
+				p.updatePinnedItems(pinnedGridManager)
+			}
+		}
+	}()
 
 	bottomPart := container.NewVBox(
-		borderPart,
-		widget.NewLabel("Нижняя часть интерфейса"),
-		widget.NewLabel("Тут нужно реализовать сетку элементов какая уже есть в internal/ui/workspace/saved, но отображать только элементы чей ID есть в profile DemoElements"),
+		container.NewBorder(nil, nil, widget.NewLabel("Витрина"), nil, separatorContainer),
+		pinnedGridContainer,
 	)
-	addDemoElementsButton.Move(fyne.NewPos(0, 50))
 
 	return bottomPart
+}
+
+// updatePinnedItems обновляет отображение закрепленных элементов
+func (p *UI) updatePinnedItems(gridManager *saved.GridManager) {
+	// Загружаем закрепленные элементы
+	pinnedItems, err := queries.GetPinnedItems()
+	if err != nil {
+		fmt.Printf("DEBUG: Ошибка загрузки закрепленных элементов: %v\n", err)
+		pinnedItems = []*models.Item{} // Инициализируем пустым списком в случае ошибки
+	}
+
+	// Обновляем элементы в GridManager
+	gridManager.LoadItemsWithoutCreateElement(pinnedItems)
+}
+
+// loadDemoElements загружает элементы из поля DemoElements профиля
+func (p *UI) loadDemoElements() {
+	// Загружаем профиль для получения DemoElements
+	profile, err := queries.GetProfile()
+	if err != nil {
+		fmt.Printf("DEBUG: Ошибка загрузки профиля для DemoElements: %v\n", err)
+		return
+	}
+
+	// Парсим JSON-массив ID элементов
+	var elementIDs []int
+	if profile.DemoElements != "" {
+		err := json.Unmarshal([]byte(profile.DemoElements), &elementIDs)
+		if err != nil {
+			fmt.Printf("DEBUG: Ошибка парсинга DemoElements JSON: %v\n", err)
+			return
+		}
+	}
+
+	// Загружаем элементы по ID и передаем их в GridManager
+	var items []*models.Item
+	for _, id := range elementIDs {
+		item, err := queries.GetItemByID(id)
+		if err != nil {
+			fmt.Printf("DEBUG: Ошибка получения элемента по ID %d: %v\n", id, err)
+			continue
+		}
+		items = append(items, item)
+	}
+
+	// Загружаем элементы в GridManager
+	p.gridManager.LoadItemsWithoutCreateElement(items)
+	fmt.Printf("DEBUG: Загружено %d элементов в сетку DemoElements\n", len(items))
+}
+
+// addElementToDemoElements добавляет элемент в DemoElements профиля
+func (p *UI) addElementToDemoElements(elementID int) {
+	// Получаем текущий профиль
+	profile, err := queries.GetProfile()
+	if err != nil {
+		fmt.Printf("DEBUG: Ошибка получения профиля: %v\n", err)
+		return
+	}
+
+	// Парсим текущие ID элементов
+	var currentElementIDs []int
+	if profile.DemoElements != "" {
+		err := json.Unmarshal([]byte(profile.DemoElements), &currentElementIDs)
+		if err != nil {
+			fmt.Printf("DEBUG: Ошибка парсинга текущих DemoElements: %v\n", err)
+			return
+		}
+	}
+
+	// Проверяем, не добавлен ли уже элемент
+	for _, id := range currentElementIDs {
+		if id == elementID {
+			fmt.Printf("DEBUG: Элемент с ID %d уже добавлен в DemoElements\n", elementID)
+			return
+		}
+	}
+
+	// Добавляем новый ID
+	currentElementIDs = append(currentElementIDs, elementID)
+
+	// Сохраняем обновленный список обратно в профиль
+	updatedJSON, err := json.Marshal(currentElementIDs)
+	if err != nil {
+		fmt.Printf("DEBUG: Ошибка маршалинга DemoElements: %v\n", err)
+		return
+	}
+
+	profile.DemoElements = string(updatedJSON)
+
+	// Обновляем профиль в базе данных
+	err = queries.UpdateProfileField("demo_elements", profile.DemoElements, profile.ID)
+	if err != nil {
+		fmt.Printf("DEBUG: Ошибка обновления DemoElements в базе данных: %v\n", err)
+		return
+	}
+
+	fmt.Printf("DEBUG: Элемент с ID %d добавлен в DemoElements\n", elementID)
+
+	// Перезагружаем элементы в сетке
+	p.loadDemoElements()
 }

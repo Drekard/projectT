@@ -18,7 +18,6 @@ type Item struct {
 	Description string    `json:"description,omitempty"`
 	ContentMeta string    `json:"content_meta,omitempty"` // JSON для составных элементов
 	ParentID    *int      `json:"parent_id,omitempty"`    // ID родительского элемента (если есть)
-	IsPinned    *bool     `json:"is_pinned,omitempty"`    // Состояние закрепления элемента
 	CreatedAt   time.Time `json:"created_at"`
 	UpdatedAt   time.Time `json:"updated_at"`
 }
