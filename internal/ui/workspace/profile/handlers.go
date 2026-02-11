@@ -37,9 +37,13 @@ func (p *UI) toggleEditMode() {
 
 		// Показываем поля ввода для кастомных полей
 		for _, field := range p.customFields {
-			field.valueLabel.Hide()
+			field.titleLabel.Hide()
+			field.titleEntry.Show()
 			field.valueEntry.Show()
 		}
+
+		// Показываем кнопку добавления характеристики
+		p.addCharacteristicButton.Show()
 
 		// Показываем кнопку применения
 		p.applyButton.Show()
@@ -59,9 +63,13 @@ func (p *UI) toggleEditMode() {
 
 		// Скрываем поля ввода для кастомных полей
 		for _, field := range p.customFields {
+			field.titleEntry.Hide()
+			field.titleLabel.Show()
 			field.valueEntry.Hide()
-			field.valueLabel.Show()
 		}
+
+		// Скрываем кнопку добавления характеристики
+		p.addCharacteristicButton.Hide()
 
 		// Скрываем кнопку применения
 		p.applyButton.Hide()
@@ -80,15 +88,17 @@ func (p *UI) applyChanges() {
 
 	// Обновляем значения кастомных полей
 	for _, field := range p.customFields {
-		field.valueLabel.SetText(field.valueEntry.Text)
+		field.titleLabel.SetText(field.titleEntry.Text + ":")
+		// В новой реализации нет отдельного поля для отображения значения
+		// Значение остается в поле ввода
 	}
 
 	// Выходим из режима редактирования
 	p.editMode = false
 	p.toggleEditMode()
 
-	// Здесь можно добавить вызов метода для сохранения в БД
-	// p.saveToDatabase()
+	// Сохраняем изменения в базу данных
+	p.saveToDatabase()
 }
 
 // selectBackgroundImage открывает диалог выбора изображения для фона
@@ -145,6 +155,14 @@ func (p *UI) selectBackgroundImage() {
 
 	// Обновляем UI
 	p.createView()
+	
+	// Восстанавливаем правильное состояние кнопок в зависимости от режима редактирования
+	if p.editMode {
+		p.addCharacteristicButton.Show()
+	} else {
+		p.addCharacteristicButton.Hide()
+	}
+	
 	p.content.Refresh()
 }
 
@@ -185,6 +203,14 @@ func (p *UI) deleteBackgroundImage() {
 
 			// Обновляем UI
 			p.createView()
+			
+			// Восстанавливаем правильное состояние кнопок в зависимости от режима редактирования
+			if p.editMode {
+				p.addCharacteristicButton.Show()
+			} else {
+				p.addCharacteristicButton.Hide()
+			}
+			
 			p.content.Refresh()
 		}
 	}, p.window)
@@ -198,12 +224,56 @@ func (p *UI) cancelChanges() {
 
 	// Сбрасываем значения кастомных полей
 	for _, field := range p.customFields {
-		field.valueEntry.SetText(field.valueLabel.Text)
+		field.titleEntry.SetText(strings.TrimSuffix(field.titleLabel.Text, ":"))
+		// В новой реализации нет отдельного поля для отображения значения
+		// Поле ввода остается с текущим значением
+	}
+
+	// Перезагружаем характеристики из базы данных, чтобы отменить изменения
+	profile, err := queries.GetProfile()
+	if err == nil {
+		p.LoadCharacteristicsFromJSON(profile.ContentCharacteristic)
 	}
 
 	// Выходим из режима редактирования
 	p.editMode = false
 	p.toggleEditMode()
+}
+
+// saveToDatabase сохраняет изменения в базу данных
+func (p *UI) saveToDatabase() {
+	fmt.Println("DEBUG: Вызван метод saveToDatabase")
+	// Получаем текущий профиль
+	profile, err := queries.GetProfile()
+	if err != nil {
+		dialog.ShowError(fmt.Errorf("ошибка получения профиля: %v", err), p.window)
+		return
+	}
+
+	// Обновляем основные поля профиля
+	profile.Username = p.userNameEntry.Text
+	profile.Status = p.userStatusEntry.Text
+
+	fmt.Printf("DEBUG: Обновлены основные поля профиля - Username: '%s', Status: '%s'\n", profile.Username, profile.Status)
+
+	// Сохраняем характеристики в JSON-формате
+	characteristicsJSON, err := p.SaveCharacteristicsToJSON()
+	if err != nil {
+		dialog.ShowError(fmt.Errorf("ошибка сохранения характеристик: %v", err), p.window)
+		return
+	}
+	profile.ContentCharacteristic = characteristicsJSON
+
+	fmt.Printf("DEBUG: Обновлено поле ContentCharacteristic: %s\n", characteristicsJSON)
+
+	// Сохраняем изменения в базу данных
+	err = queries.UpdateProfile(profile)
+	if err != nil {
+		dialog.ShowError(fmt.Errorf("ошибка сохранения профиля: %v", err), p.window)
+		return
+	}
+	
+	fmt.Println("DEBUG: Профиль успешно сохранен в базу данных")
 }
 
 // copyFile копирует файл из src в dst

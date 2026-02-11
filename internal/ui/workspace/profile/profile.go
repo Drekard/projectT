@@ -1,8 +1,11 @@
 package profile
 
 import (
+	"encoding/json"
+	"fmt"
 	"image/color"
 	"projectT/internal/storage/database/queries"
+	"time"
 
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/canvas"
@@ -11,33 +14,48 @@ import (
 	"fyne.io/fyne/v2/widget"
 )
 
+// ContentCharacteristicItem represents a single characteristic item with title and value
+type ContentCharacteristicItem struct {
+	ID    int    `json:"id"`
+	Title string `json:"title"`
+	Value string `json:"value"`
+}
+
 // fieldRow представляет собой строку с пользовательским полем
 type fieldRow struct {
-	titleLabel *widget.Label
-	valueLabel *widget.Label
-	valueEntry *widget.Entry
-	container  *fyne.Container
+	id           int
+	titleLabel   *widget.Label
+	titleEntry   *widget.Entry
+	valueEntry   *widget.Entry
+	removeButton *widget.Button
+	container    *fyne.Container
+	timer        *time.Timer
 }
 
 type UI struct {
-	content          fyne.CanvasObject
-	editMode         bool
-	userNameLabel    *widget.Label
-	userStatusLabel  *widget.Label
-	userNameEntry    *widget.Entry
-	userStatusEntry  *widget.Entry
-	avatarImage      *canvas.Image
-	avatarContainer  *fyne.Container
-	backgroundImage  *canvas.Image
-	backgroundRect   *canvas.Rectangle
-	customFields     []*fieldRow
-	editButton       *widget.Button
-	backgroundButton *widget.Button
-	applyButton      *widget.Button
-	cancelButton     *widget.Button
-	avatarPath       string
-	backgroundPath   string
-	window           fyne.Window
+	content                  fyne.CanvasObject
+	editMode                 bool
+	userNameLabel            *widget.Label
+	userStatusLabel          *widget.Label
+	userNameEntry            *widget.Entry
+	userStatusEntry          *widget.Entry
+	avatarImage              *canvas.Image
+	avatarContainer          *fyne.Container
+	backgroundImage          *canvas.Image
+	backgroundRect           *canvas.Rectangle
+	customFields             []*fieldRow
+	characteristicsContainer *fyne.Container
+	characteristicsScroll    *container.Scroll
+	editButton               *widget.Button
+	backgroundButton         *widget.Button
+	applyButton              *widget.Button
+	cancelButton             *widget.Button
+	addCharacteristicButton  *widget.Button
+	loadCharacteristicsJSON  string
+	nextID                   int
+	avatarPath               string
+	backgroundPath           string
+	window                   fyne.Window
 }
 
 func New() *UI {
@@ -49,9 +67,35 @@ func New() *UI {
 		// Устанавливаем пути из базы данных
 		ui.avatarPath = profile.AvatarPath
 		ui.backgroundPath = profile.BackgroundPath
+
+		// Сохраняем JSON характеристик для последующей загрузки
+		ui.loadCharacteristicsJSON = profile.ContentCharacteristic
+		fmt.Printf("DEBUG: Загружен профиль из базы данных. ContentCharacteristic: %s\n", profile.ContentCharacteristic)
+	} else {
+		fmt.Printf("DEBUG: Ошибка загрузки профиля из базы данных: %v\n", err)
 	}
 
 	ui.createView()
+
+	// После создания компонентов загружаем характеристики
+	fmt.Println("DEBUG: Начинаем загрузку характеристик из JSON")
+	ui.LoadCharacteristicsFromJSON(ui.loadCharacteristicsJSON)
+
+	// Устанавливаем nextID на основе максимального ID из загруженных характеристик
+	maxID := 0
+	var characteristics []ContentCharacteristicItem
+	if ui.loadCharacteristicsJSON != "" {
+		err := json.Unmarshal([]byte(ui.loadCharacteristicsJSON), &characteristics)
+		if err == nil {
+			for _, item := range characteristics {
+				if item.ID > maxID {
+					maxID = item.ID
+				}
+			}
+		}
+	}
+	ui.nextID = maxID + 1
+
 	return ui
 }
 
@@ -65,12 +109,8 @@ func (p *UI) createView() {
 	// Создаем нижнюю часть интерфейса
 	bottomPart := p.createBottomPart()
 
-	// Создаем горизонтальный разделитель (1 пиксель высотой) между верхней и нижней частями
-	horizontalSeparator := canvas.NewRectangle(color.Gray{Y: 128}) // Серый цвет
-	horizontalSeparator.SetMinSize(fyne.NewSize(100, 1))
-
 	// Компоновка верхней и нижней частей с разделителем - вертикальный бокс для размещения элементов друг под другом
-	mainLayout := container.NewVBox(topPart, horizontalSeparator, bottomPart)
+	mainLayout := container.NewVBox(topPart, bottomPart)
 
 	p.content = mainLayout
 }
@@ -147,9 +187,24 @@ func (p *UI) createTopPart() fyne.CanvasObject {
 		),
 	)
 
-	// Правая часть верхней секции (пока пустая)
+	// Правая часть верхней секции - прокручиваемый список характеристик
+	p.characteristicsContainer = container.NewVBox()
+
+	// Создаем прокручиваемый контейнер
+	p.characteristicsScroll = container.NewScroll(p.characteristicsContainer)
+	p.characteristicsScroll.SetMinSize(fyne.NewSize(400, 200)) // Устанавливаем минимальный размер
+
+	// Кнопка добавления новой характеристики
+	p.addCharacteristicButton = widget.NewButton("+ Добавить характеристику", func() {
+		p.AddCharacteristic()
+	})
+	p.addCharacteristicButton.Importance = widget.LowImportance
+
+	// Правая часть верхней секции
 	rightTopPart := container.NewVBox(
-		widget.NewLabel("Правая часть верхней секции"),
+		widget.NewLabel("Характеристики профиля"),
+		p.characteristicsScroll,
+		p.addCharacteristicButton,
 	)
 
 	// Вертикальный разделитель (1 пиксель шириной)
@@ -163,11 +218,34 @@ func (p *UI) createTopPart() fyne.CanvasObject {
 }
 
 func (p *UI) createBottomPart() fyne.CanvasObject {
-	// Одна цельная нижняя часть (без деления на левую и правую)
-	bottomPart := container.NewVBox(
-		widget.NewLabel("Нижняя часть интерфейса"),
-		widget.NewLabel("Здесь будет основной контент нижней части"),
+
+	horizontalSeparator := canvas.NewRectangle(color.Gray{Y: 128})
+	horizontalSeparator.SetMinSize(fyne.NewSize(100, 1))
+	aSeparator := canvas.NewRectangle(color.Transparent)
+	aSeparator.SetMinSize(fyne.NewSize(1, 12))
+
+	// Создаем контейнер с фиксированной высотой для разделителя
+	separatorContainer := container.NewVBox(
+		aSeparator,
+		horizontalSeparator,
 	)
+
+	addDemoElementsButton := widget.NewButton("+ Добавить элемент", func() {})
+	addDemoElementsButton.Importance = widget.LowImportance
+
+	borderPart := container.NewBorder(
+		nil, nil,
+		nil,
+		addDemoElementsButton,
+		separatorContainer, // Используем контейнер вместо прямого разделителя
+	)
+
+	bottomPart := container.NewVBox(
+		borderPart,
+		widget.NewLabel("Нижняя часть интерфейса"),
+		widget.NewLabel("Тут нужно реализовать сетку элементов какая уже есть в internal/ui/workspace/saved, но отображать только элементы чей ID есть в profile DemoElements"),
+	)
+	addDemoElementsButton.Move(fyne.NewPos(0, 50))
 
 	return bottomPart
 }
