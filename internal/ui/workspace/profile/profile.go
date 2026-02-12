@@ -159,7 +159,7 @@ func (p *UI) createComponents() {
 	})
 
 	p.backgroundButton = widget.NewButton("Фон", func() {
-		// Обработка нажатия на кнопку "Фон"
+		p.showBackgroundDialog()
 	})
 
 	p.applyButton = widget.NewButtonWithIcon("Применить", theme.ConfirmIcon(), func() {

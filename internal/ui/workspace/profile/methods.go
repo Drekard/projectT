@@ -4,12 +4,17 @@ import (
 	"encoding/json"
 	"fmt"
 	"image/color"
+	"os"
+	"path/filepath"
+	"projectT/internal/services"
 	"projectT/internal/storage/database/queries"
+	"strings"
 	"time"
 
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/canvas"
 	"fyne.io/fyne/v2/container"
+	"fyne.io/fyne/v2/dialog"
 	"fyne.io/fyne/v2/widget"
 )
 
@@ -240,4 +245,132 @@ func (p *UI) SaveCharacteristicsToJSON() (string, error) {
 	fmt.Printf("DEBUG: Сохраняемый JSON: %s\n", jsonStr)
 
 	return jsonStr, nil
+}
+
+// showBackgroundDialog показывает диалоговое окно для управления фоновым изображением
+func (p *UI) showBackgroundDialog() {
+	fmt.Println("DEBUG: Открытие диалога выбора фона")
+	
+	// Создаем контейнер для миниатюр
+	thumbnailsContainer := container.NewVBox()
+
+	// Получаем список файлов из директории assets/background
+	backgroundDir := "assets/background"
+	files, err := os.ReadDir(backgroundDir)
+	if err != nil {
+		// Если директория не существует или произошла ошибка, создаем пустой контейнер
+		fmt.Printf("DEBUG: Директория %s не найдена или ошибка доступа: %v\n", backgroundDir, err)
+		thumbnailsContainer.Add(widget.NewLabel("Нет сохраненных фонов"))
+	} else {
+		fmt.Printf("DEBUG: Найдено %d файлов в директории %s\n", len(files), backgroundDir)
+		
+		// Фильтруем только файлы изображений
+		imageExtensions := map[string]bool{
+			".jpg":  true,
+			".jpeg": true,
+			".png":  true,
+			".gif":  true,
+			".bmp":  true,
+		}
+
+		hasImages := false
+		for _, file := range files {
+			if !file.IsDir() { // Проверяем, что это файл, а не директория
+				ext := strings.ToLower(filepath.Ext(file.Name()))
+				if imageExtensions[ext] {
+					// Создаем путь к файлу
+					imagePath := filepath.Join(backgroundDir, file.Name())
+					fmt.Printf("DEBUG: Найдено изображение: %s\n", imagePath)
+					
+					// Создаем миниатюру изображения
+					imageThumb := canvas.NewImageFromFile(imagePath)
+					imageThumb.FillMode = canvas.ImageFillContain
+					imageThumb.SetMinSize(fyne.NewSize(100, 100))
+					
+					// Создаем контейнер для миниатюры с именем файла
+					fileLabel := widget.NewLabel(file.Name())
+					fileLabel.Alignment = fyne.TextAlignCenter
+					
+					thumbContainer := container.NewVBox(imageThumb, fileLabel)
+					
+					// Добавляем возможность выбора этого фона
+					thumbButton := widget.NewButton("", func() {
+						fmt.Printf("DEBUG: Выбран фон: %s\n", imagePath)
+						// Используем сервис для установки фона
+						backgroundService := services.NewBackgroundService()
+						err := backgroundService.SetBackground(imagePath)
+						if err != nil {
+							fmt.Printf("DEBUG: Ошибка установки фона: %v\n", err)
+							dialog.ShowError(fmt.Errorf("ошибка установки фона: %v", err), p.window)
+							return
+						}
+						fmt.Printf("DEBUG: Фон успешно установлен: %s\n", imagePath)
+
+						// Обновляем путь в UI
+						p.backgroundPath = imagePath
+
+						// Обновляем UI
+						p.createView()
+
+						// Восстанавливаем правильное состояние кнопок в зависимости от режима редактирования
+						if p.editMode {
+							p.addCharacteristicButton.Show()
+						} else {
+							p.addCharacteristicButton.Hide()
+						}
+
+						p.content.Refresh()
+						
+						// Закрываем диалог
+						dialog.ShowInformation("Успех", "Фон успешно установлен", p.window)
+					})
+					thumbButton.Importance = widget.LowImportance
+					thumbButton.Hidden = true // Скрываем кнопку, но она нужна для обработки клика по контейнеру
+					
+					// Объединяем миниатюру и кнопку
+					clickableThumb := container.NewStack(thumbContainer, thumbButton)
+					
+					thumbnailsContainer.Add(clickableThumb)
+					hasImages = true
+				}
+			}
+		}
+		
+		if !hasImages {
+			fmt.Println("DEBUG: В директории нет подходящих изображений")
+			thumbnailsContainer.Add(widget.NewLabel("Нет сохраненных фонов"))
+		} else {
+			fmt.Printf("DEBUG: Найдено %d подходящих изображений\n", len(files))
+		}
+	}
+
+	// Создаем кнопки
+	loadButton := widget.NewButton("Загрузить фон", func() {
+		fmt.Println("DEBUG: Нажата кнопка 'Загрузить фон'")
+		p.selectBackgroundImage()
+	})
+	
+	deleteButton := widget.NewButton("Удалить фон", func() {
+		fmt.Println("DEBUG: Нажата кнопка 'Удалить фон'")
+		p.deleteBackgroundImage()
+	})
+	
+	closeButton := widget.NewButton("Закрыть", func() {
+		fmt.Println("DEBUG: Нажата кнопка 'Закрыть'")
+		// Диалог закроется автоматически при нажатии на кнопку "Закрыть" в заголовке
+	})
+
+	// Создаем контейнер для кнопок
+	buttonsContainer := container.NewHBox(loadButton, deleteButton, closeButton)
+
+	// Создаем основной контейнер для диалога
+	dialogContent := container.NewVBox(
+		widget.NewLabel("Выберите фоновое изображение:"),
+		thumbnailsContainer,
+		buttonsContainer,
+	)
+
+	// Показываем диалог
+	fmt.Println("DEBUG: Отображение диалога выбора фона")
+	dialog.ShowCustom("Фон", "Закрыть", dialogContent, p.window)
 }

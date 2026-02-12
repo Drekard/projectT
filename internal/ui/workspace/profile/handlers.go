@@ -7,6 +7,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"projectT/internal/services"
 	"projectT/internal/storage/database/queries"
 	"strings"
 	"unicode/utf8"
@@ -136,17 +137,11 @@ func (p *UI) selectBackgroundImage() {
 		return
 	}
 
-	// Обновляем путь к фоновому изображению в профиле
-	profile, err := queries.GetProfile()
+	// Используем сервис для установки фона
+	backgroundService := services.NewBackgroundService()
+	err = backgroundService.SetBackground(finalPath)
 	if err != nil {
-		dialog.ShowError(fmt.Errorf("ошибка получения профиля: %v", err), p.window)
-		return
-	}
-
-	profile.BackgroundPath = finalPath
-	err = queries.UpdateProfileField("background_path", finalPath, profile.ID)
-	if err != nil {
-		dialog.ShowError(fmt.Errorf("ошибка сохранения пути к фону: %v", err), p.window)
+		dialog.ShowError(fmt.Errorf("ошибка установки фона: %v", err), p.window)
 		return
 	}
 
@@ -166,7 +161,7 @@ func (p *UI) selectBackgroundImage() {
 	p.content.Refresh()
 }
 
-// deleteBackgroundImage удаляет текущее фоновое изображение
+// deleteBackgroundImage очищает текущее фоновое изображение (не удаляет файл с диска)
 func (p *UI) deleteBackgroundImage() {
 	// Проверяем, есть ли у нас путь к фоновому изображению
 	if p.backgroundPath == "" {
@@ -175,26 +170,14 @@ func (p *UI) deleteBackgroundImage() {
 		return
 	}
 
-	// Подтверждение удаления
-	dialog.ShowConfirm("Подтверждение", "Вы уверены, что хотите удалить фоновое изображение?", func(confirmed bool) {
+	// Подтверждение очистки фона
+	dialog.ShowConfirm("Подтверждение", "Вы уверены, что хотите очистить фоновое изображение?", func(confirmed bool) {
 		if confirmed {
-			// Удаляем файл фона с диска
-			if err := os.Remove(p.backgroundPath); err != nil {
-				dialog.ShowError(fmt.Errorf("ошибка при удалении файла: %v", err), p.window)
-				return
-			}
-
-			// Обновляем путь к фоновому изображению в профиле
-			profile, err := queries.GetProfile()
+			// Используем сервис для очистки фона
+			backgroundService := services.NewBackgroundService()
+			err := backgroundService.ClearBackground()
 			if err != nil {
-				dialog.ShowError(fmt.Errorf("ошибка получения профиля: %v", err), p.window)
-				return
-			}
-
-			profile.BackgroundPath = ""
-			err = queries.UpdateProfileField("background_path", "", profile.ID)
-			if err != nil {
-				dialog.ShowError(fmt.Errorf("ошибка сохранения пути к фону: %v", err), p.window)
+				dialog.ShowError(fmt.Errorf("ошибка очистки фона: %v", err), p.window)
 				return
 			}
 
@@ -203,14 +186,14 @@ func (p *UI) deleteBackgroundImage() {
 
 			// Обновляем UI
 			p.createView()
-			
+
 			// Восстанавливаем правильное состояние кнопок в зависимости от режима редактирования
 			if p.editMode {
 				p.addCharacteristicButton.Show()
 			} else {
 				p.addCharacteristicButton.Hide()
 			}
-			
+
 			p.content.Refresh()
 		}
 	}, p.window)
