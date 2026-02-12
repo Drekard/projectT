@@ -3,6 +3,7 @@ package saved
 import (
 	"fmt"
 	"image/color"
+	"math"
 	"time"
 
 	"projectT/internal/services"
@@ -38,6 +39,8 @@ type GridManager struct {
 	debouncer         *utils.Debouncer                       // Дебаунсер для обновления макета
 	throttler         *utils.SafeThrottler                   // Троттлер для обработки событий
 	sortOptions       *services.FilterOptions                // Настройки сортировки и фильтрации
+	lastScrollPos     fyne.Position                          // Последняя позиция скролла для оптимизации
+	scrollThreshold   float32                                // Порог изменения скролла для обновления (в пикселях)
 }
 
 // NewGridManager создает новый менеджер сетки
@@ -51,9 +54,11 @@ func NewGridManager() *GridManager {
 		cardCache:       rendering.NewCardCache(),
 		currentParentID: 0,
 		cardSizeCache:   make(map[models.ItemType]ui_models.CardSize),
-		debouncer:       utils.NewDebouncer(100 * time.Millisecond),            // Дебаунсинг 100ms
-		throttler:       utils.NewSafeThrottler(16 * time.Millisecond),         // Троттлинг ~60 FPS
+		debouncer:       utils.NewDebouncer(250 * time.Millisecond),            // Дебаунсинг 250ms для уменьшения частоты обновлений при скроле
+		throttler:       utils.NewSafeThrottler(33 * time.Millisecond),         // Троттлинг ~30 FPS для снижения частоты обновлений
 		sortOptions:     services.GlobalSortSettingsService.GetFilterOptions(), // Используем глобальные настройки сортировки
+		lastScrollPos:   fyne.Position{X: 0, Y: 0},                             // Инициализируем начальную позицию
+		scrollThreshold: 50.0,                                                   // Порог изменения скролла 50 пикселей
 	}
 
 	// Инициализация кэша размеров
@@ -239,8 +244,21 @@ func (gm *GridManager) updateLayout() {
 }
 
 // Обработчик изменения размера
-func (gm *GridManager) onSizeChanged(_ fyne.Position) {
-	fmt.Printf("[%s] Scroll event detected, scheduling layout update\n", time.Now().Format("15:04:05.000"))
+func (gm *GridManager) onSizeChanged(pos fyne.Position) {
+	// Проверяем, изменилась ли позиция скролла достаточно, чтобы обновить макет
+	scrollDeltaX := pos.X - gm.lastScrollPos.X
+	scrollDeltaY := pos.Y - gm.lastScrollPos.Y
+	scrollDistance := float32(math.Sqrt(float64(scrollDeltaX*scrollDeltaX + scrollDeltaY*scrollDeltaY)))
+
+	// Обновляем последнюю позицию скролла
+	gm.lastScrollPos = pos
+
+	// Если изменение скролла меньше порога, пропускаем обновление
+	if scrollDistance < gm.scrollThreshold {
+		return
+	}
+
+	fmt.Printf("[%s] Scroll event detected (distance: %.2f), scheduling layout update\n", time.Now().Format("15:04:05.000"), scrollDistance)
 	
 	// Используем дебаунсинг для обновления макета при скролле или изменении размера
 	gm.debouncer.Call(func() {
