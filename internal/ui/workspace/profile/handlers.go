@@ -150,14 +150,14 @@ func (p *UI) selectBackgroundImage() {
 
 	// Обновляем UI
 	p.createView()
-	
+
 	// Восстанавливаем правильное состояние кнопок в зависимости от режима редактирования
 	if p.editMode {
 		p.addCharacteristicButton.Show()
 	} else {
 		p.addCharacteristicButton.Hide()
 	}
-	
+
 	p.content.Refresh()
 }
 
@@ -225,7 +225,6 @@ func (p *UI) cancelChanges() {
 
 // saveToDatabase сохраняет изменения в базу данных
 func (p *UI) saveToDatabase() {
-	fmt.Println("DEBUG: Вызван метод saveToDatabase")
 	// Получаем текущий профиль
 	profile, err := queries.GetProfile()
 	if err != nil {
@@ -237,8 +236,6 @@ func (p *UI) saveToDatabase() {
 	profile.Username = p.userNameEntry.Text
 	profile.Status = p.userStatusEntry.Text
 
-	fmt.Printf("DEBUG: Обновлены основные поля профиля - Username: '%s', Status: '%s'\n", profile.Username, profile.Status)
-
 	// Сохраняем характеристики в JSON-формате
 	characteristicsJSON, err := p.SaveCharacteristicsToJSON()
 	if err != nil {
@@ -247,16 +244,13 @@ func (p *UI) saveToDatabase() {
 	}
 	profile.ContentCharacteristic = characteristicsJSON
 
-	fmt.Printf("DEBUG: Обновлено поле ContentCharacteristic: %s\n", characteristicsJSON)
-
 	// Сохраняем изменения в базу данных
 	err = queries.UpdateProfile(profile)
 	if err != nil {
 		dialog.ShowError(fmt.Errorf("ошибка сохранения профиля: %v", err), p.window)
 		return
 	}
-	
-	fmt.Println("DEBUG: Профиль успешно сохранен в базу данных")
+
 }
 
 // copyFile копирует файл из src в dst

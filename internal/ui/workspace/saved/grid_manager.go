@@ -1,6 +1,7 @@
 package saved
 
 import (
+	"fmt"
 	"image/color"
 	"time"
 
@@ -170,8 +171,12 @@ func (gm *GridManager) UpdateLayout() {
 
 // updateLayout обновляет расположение карточек в сетке
 func (gm *GridManager) updateLayout() {
+	startTime := time.Now()
+	fmt.Printf("[%s] Starting layout update for %d cards\n", time.Now().Format("15:04:05.000"), len(gm.cards))
+	
 	// Проверяем, что контейнер инициализирован
 	if gm.container == nil {
+		fmt.Printf("[%s] Container is nil, skipping layout update\n", time.Now().Format("15:04:05.000"))
 		return
 	}
 
@@ -181,15 +186,22 @@ func (gm *GridManager) updateLayout() {
 	// Вычисляем количество колонок на основе доступной ширины
 	scrollSize := gm.scroll.Size()
 	availableWidth := gm.sizeManager.CalculateColumnCount(scrollSize.Width)
+	
+	fmt.Printf("[%s] Calculated available columns: %d\n", time.Now().Format("15:04:05.000"), availableWidth)
 
+	positionsStart := time.Now()
 	positions := gm.layoutEngine.CalculatePositions(gm.cards, availableWidth)
+	fmt.Printf("[%s] Position calculation took %v\n", time.Now().Format("15:04:05.000"), time.Since(positionsStart))
+	
 	if len(positions) != len(gm.cards) {
+		fmt.Printf("[%s] Position count mismatch: got %d, expected %d\n", time.Now().Format("15:04:05.000"), len(positions), len(gm.cards))
 		return // Позиции будут пересчитаны при следующем обновлении
 	}
 
 	// Предвыделяем память для объектов контейнера
 	gm.container.Objects = make([]fyne.CanvasObject, 0, len(gm.cards))
 
+	cardProcessingStart := time.Now()
 	for i, pos := range positions {
 		cardInfo := gm.cards[i]
 		cardInfo.Position = pos
@@ -198,7 +210,10 @@ func (gm *GridManager) updateLayout() {
 		width := gm.sizeManager.GetFixedWidth()
 		// Вычисляем фактическую высоту карточки по содержимому
 		if cardInfo.Widget != nil {
+			sizeCalcStart := time.Now()
 			_, actualHeight := gm.sizeManager.CalculateActualPixelSize(cardInfo.Widget)
+			fmt.Printf("[%s] Size calculation for card %d took %v\n", time.Now().Format("15:04:05.000"), i, time.Since(sizeCalcStart))
+			
 			cardInfo.ActualHeight = actualHeight
 
 			// Обновляем размеры виджета
@@ -210,13 +225,23 @@ func (gm *GridManager) updateLayout() {
 
 		gm.container.Objects = append(gm.container.Objects, cardInfo.Widget)
 	}
+	fmt.Printf("[%s] Card processing took %v\n", time.Now().Format("15:04:05.000"), time.Since(cardProcessingStart))
 
+	containerUpdateStart := time.Now()
 	gm.updateContainerSize()
+	fmt.Printf("[%s] Container size update took %v\n", time.Now().Format("15:04:05.000"), time.Since(containerUpdateStart))
+	
+	refreshStart := time.Now()
 	gm.container.Refresh()
+	fmt.Printf("[%s] Container refresh took %v\n", time.Now().Format("15:04:05.000"), time.Since(refreshStart))
+	
+	fmt.Printf("[%s] Layout update completed in %v\n", time.Now().Format("15:04:05.000"), time.Since(startTime))
 }
 
 // Обработчик изменения размера
 func (gm *GridManager) onSizeChanged(_ fyne.Position) {
+	fmt.Printf("[%s] Scroll event detected, scheduling layout update\n", time.Now().Format("15:04:05.000"))
+	
 	// Используем дебаунсинг для обновления макета при скролле или изменении размера
 	gm.debouncer.Call(func() {
 		gm.throttler.Call(func() {
@@ -248,33 +273,51 @@ func (gm *GridManager) updateContainerSize() {
 
 // LoadItems загружает элементы в сетку
 func (gm *GridManager) LoadItems(items []*models.Item) {
+	startTime := time.Now()
+	fmt.Printf("[%s] Starting to load %d items\n", time.Now().Format("15:04:05.000"), len(items))
+	
 	gm.clear()
 
 	// Предвыделяем память для карточек
 	gm.cards = make([]*ui_models.CardInfo, 0, len(items)+1)
 
 	// Добавляем переданные элементы
-	for _, item := range items {
+	cardCreationStart := time.Now()
+	for i, item := range items {
+		cardCreationSingleStart := time.Now()
 		cardInfo := gm.createCard(item)
+		fmt.Printf("[%s] Card creation for item %d took %v\n", time.Now().Format("15:04:05.000"), i, time.Since(cardCreationSingleStart))
 		gm.cards = append(gm.cards, cardInfo)
 	}
+	fmt.Printf("[%s] Total card creation took %v\n", time.Now().Format("15:04:05.000"), time.Since(cardCreationStart))
 
 	// Обновляем макет один раз после добавления всех элементов
 	gm.updateLayout()
+	
+	fmt.Printf("[%s] Item loading completed in %v\n", time.Now().Format("15:04:05.000"), time.Since(startTime))
 }
 
 // LoadItemsWithoutCreateElement загружает элементы в сетку без добавления элемента "Создать элемент"
 func (gm *GridManager) LoadItemsWithoutCreateElement(items []*models.Item) {
+	startTime := time.Now()
+	fmt.Printf("[%s] Starting to load %d items (without create element)\n", time.Now().Format("15:04:05.000"), len(items))
+	
 	gm.clear()
 	gm.cards = make([]*ui_models.CardInfo, 0, len(items))
 
-	for _, item := range items {
+	cardCreationStart := time.Now()
+	for i, item := range items {
+		cardCreationSingleStart := time.Now()
 		cardInfo := gm.createCard(item)
+		fmt.Printf("[%s] Card creation for item %d took %v\n", time.Now().Format("15:04:05.000"), i, time.Since(cardCreationSingleStart))
 		gm.cards = append(gm.cards, cardInfo)
 	}
+	fmt.Printf("[%s] Total card creation took %v\n", time.Now().Format("15:04:05.000"), time.Since(cardCreationStart))
 
 	// Обновляем макет один раз после добавления всех элементов
 	gm.updateLayout()
+	
+	fmt.Printf("[%s] Item loading (without create element) completed in %v\n", time.Now().Format("15:04:05.000"), time.Since(startTime))
 }
 
 // LoadItemsByParent загружает элементы по родительскому ID

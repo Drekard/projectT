@@ -1,6 +1,9 @@
 package rendering
 
 import (
+	"fmt"
+	"time"
+	
 	db_models "projectT/internal/storage/database/models"
 	concrete "projectT/internal/ui/cards/concrete"
 	interfaces "projectT/internal/ui/cards/interfaces"
@@ -64,15 +67,21 @@ func (rf *RenderFactory) CreateCard(item *db_models.Item, options ...CardOption)
 
 // CreateCardInfo создает информацию о карточке
 func (rf *RenderFactory) CreateCardInfo(item *db_models.Item) *ui_models.CardInfo {
+	startTime := time.Now()
+	fmt.Printf("[%s] Creating card info for item ID: %d, Type: %s\n", time.Now().Format("15:04:05.000"), item.ID, item.Type)
+	
+	cardCreationStart := time.Now()
 	cardRenderer := rf.CreateCard(item)
 	widget := cardRenderer.GetWidget()
 	widget.Refresh()
+	fmt.Printf("[%s] Card creation took %v\n", time.Now().Format("15:04:05.000"), time.Since(cardCreationStart))
 
 	// Здесь должна быть логика получения размеров карточки из кэша или настройки по умолчанию
 	widthCells := 1 // Для 3-колоночной системы
 	heightCells := 1
 
 	// Вычисляем фактическую высоту карточки
+	heightCalcStart := time.Now()
 	actualHeight := float32(0)
 	if widget != nil {
 		// Для всех типов получаем предпочтительный размер виджета
@@ -84,8 +93,9 @@ func (rf *RenderFactory) CreateCardInfo(item *db_models.Item) *ui_models.CardInf
 			actualHeight = 70
 		}
 	}
+	fmt.Printf("[%s] Height calculation took %v\n", time.Now().Format("15:04:05.000"), time.Since(heightCalcStart))
 
-	return &ui_models.CardInfo{
+	result := &ui_models.CardInfo{
 		Item:         item,
 		Widget:       widget,
 		Position:     ui_models.CellPosition{X: 0, Y: 0},
@@ -93,6 +103,9 @@ func (rf *RenderFactory) CreateCardInfo(item *db_models.Item) *ui_models.CardInf
 		HeightCells:  heightCells,
 		ActualHeight: actualHeight,
 	}
+	
+	fmt.Printf("[%s] Card info creation completed in %v\n", time.Now().Format("15:04:05.000"), time.Since(startTime))
+	return result
 }
 
 // calculateImageCardHeight вычисляет высоту карточки изображения с учетом пропорций

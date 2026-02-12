@@ -1,6 +1,9 @@
 package layout
 
 import (
+	"fmt"
+	"time"
+	
 	"projectT/internal/ui/workspace/saved/models"
 )
 
@@ -26,6 +29,9 @@ func NewLayoutEngine() *LayoutEngine {
 
 // CalculatePositions рассчитывает позиции карточек в сетке с переменным количеством колонок
 func (le *LayoutEngine) CalculatePositions(cards []*models.CardInfo, availableColumns int) []models.CellPosition {
+	startTime := time.Now()
+	fmt.Printf("[%s] Starting position calculation for %d cards with %d available columns\n", time.Now().Format("15:04:05.000"), len(cards), availableColumns)
+	
 	positions := make([]models.CellPosition, len(cards))
 
 	// Инициализируем высоты колонок в зависимости от доступного количества колонок
@@ -35,13 +41,17 @@ func (le *LayoutEngine) CalculatePositions(cards []*models.CardInfo, availableCo
 	}
 
 	// Изменяем размер среза высот колонок в соответствии с доступным количеством колонок
+	initStart := time.Now()
 	le.columnHeights = make([]float32, availableColumns)
 	for i := 0; i < availableColumns; i++ {
 		le.columnHeights[i] = 0
 	}
+	fmt.Printf("[%s] Column heights initialization took %v\n", time.Now().Format("15:04:05.000"), time.Since(initStart))
 
+	cardProcessingStart := time.Now()
 	for i, card := range cards {
 		// Находим колонку с наименьшей высотой
+		findColStart := time.Now()
 		minHeight := le.columnHeights[0]
 		minIndex := 0
 
@@ -51,6 +61,7 @@ func (le *LayoutEngine) CalculatePositions(cards []*models.CardInfo, availableCo
 				minIndex = j
 			}
 		}
+		fmt.Printf("[%s] Column finding for card %d took %v\n", time.Now().Format("15:04:05.000"), i, time.Since(findColStart))
 
 		// Устанавливаем позицию: X - номер колонки (0, 1, ..., N-1), Y - текущая высота колонки
 		positions[i] = models.CellPosition{X: minIndex, Y: int(minHeight)}
@@ -71,7 +82,9 @@ func (le *LayoutEngine) CalculatePositions(cards []*models.CardInfo, availableCo
 			card.ActualHeight = cardHeight
 		}
 	}
+	fmt.Printf("[%s] Card position processing took %v\n", time.Now().Format("15:04:05.000"), time.Since(cardProcessingStart))
 
+	fmt.Printf("[%s] Position calculation completed in %v\n", time.Now().Format("15:04:05.000"), time.Since(startTime))
 	return positions
 }
 

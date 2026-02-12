@@ -2,7 +2,6 @@ package profile
 
 import (
 	"encoding/json"
-	"fmt"
 	"image/color"
 	"projectT/internal/services"
 	"projectT/internal/storage/database/models"
@@ -74,9 +73,7 @@ func New() *UI {
 
 		// Сохраняем JSON характеристик для последующей загрузки
 		ui.loadCharacteristicsJSON = profile.ContentCharacteristic
-		fmt.Printf("DEBUG: Загружен профиль из базы данных. ContentCharacteristic: %s\n", profile.ContentCharacteristic)
 	} else {
-		fmt.Printf("DEBUG: Ошибка загрузки профиля из базы данных: %v\n", err)
 	}
 
 	// Инициализируем gridManager до создания представления
@@ -86,7 +83,6 @@ func New() *UI {
 	ui.createView()
 
 	// После создания компонентов загружаем характеристики
-	fmt.Println("DEBUG: Начинаем загрузку характеристик из JSON")
 	ui.LoadCharacteristicsFromJSON(ui.loadCharacteristicsJSON)
 
 	// Устанавливаем nextID на основе максимального ID из загруженных характеристик
@@ -271,7 +267,6 @@ func (p *UI) updatePinnedItems(gridManager *saved.GridManager) {
 	// Загружаем закрепленные элементы
 	pinnedItems, err := queries.GetPinnedItems()
 	if err != nil {
-		fmt.Printf("DEBUG: Ошибка загрузки закрепленных элементов: %v\n", err)
 		pinnedItems = []*models.Item{} // Инициализируем пустым списком в случае ошибки
 	}
 
@@ -284,7 +279,6 @@ func (p *UI) loadDemoElements() {
 	// Загружаем профиль для получения DemoElements
 	profile, err := queries.GetProfile()
 	if err != nil {
-		fmt.Printf("DEBUG: Ошибка загрузки профиля для DemoElements: %v\n", err)
 		return
 	}
 
@@ -293,7 +287,6 @@ func (p *UI) loadDemoElements() {
 	if profile.DemoElements != "" {
 		err := json.Unmarshal([]byte(profile.DemoElements), &elementIDs)
 		if err != nil {
-			fmt.Printf("DEBUG: Ошибка парсинга DemoElements JSON: %v\n", err)
 			return
 		}
 	}
@@ -303,7 +296,6 @@ func (p *UI) loadDemoElements() {
 	for _, id := range elementIDs {
 		item, err := queries.GetItemByID(id)
 		if err != nil {
-			fmt.Printf("DEBUG: Ошибка получения элемента по ID %d: %v\n", id, err)
 			continue
 		}
 		items = append(items, item)
@@ -311,7 +303,6 @@ func (p *UI) loadDemoElements() {
 
 	// Загружаем элементы в GridManager
 	p.gridManager.LoadItemsWithoutCreateElement(items)
-	fmt.Printf("DEBUG: Загружено %d элементов в сетку DemoElements\n", len(items))
 }
 
 // addElementToDemoElements добавляет элемент в DemoElements профиля
@@ -319,7 +310,6 @@ func (p *UI) addElementToDemoElements(elementID int) {
 	// Получаем текущий профиль
 	profile, err := queries.GetProfile()
 	if err != nil {
-		fmt.Printf("DEBUG: Ошибка получения профиля: %v\n", err)
 		return
 	}
 
@@ -328,7 +318,6 @@ func (p *UI) addElementToDemoElements(elementID int) {
 	if profile.DemoElements != "" {
 		err := json.Unmarshal([]byte(profile.DemoElements), &currentElementIDs)
 		if err != nil {
-			fmt.Printf("DEBUG: Ошибка парсинга текущих DemoElements: %v\n", err)
 			return
 		}
 	}
@@ -336,7 +325,6 @@ func (p *UI) addElementToDemoElements(elementID int) {
 	// Проверяем, не добавлен ли уже элемент
 	for _, id := range currentElementIDs {
 		if id == elementID {
-			fmt.Printf("DEBUG: Элемент с ID %d уже добавлен в DemoElements\n", elementID)
 			return
 		}
 	}
@@ -347,7 +335,6 @@ func (p *UI) addElementToDemoElements(elementID int) {
 	// Сохраняем обновленный список обратно в профиль
 	updatedJSON, err := json.Marshal(currentElementIDs)
 	if err != nil {
-		fmt.Printf("DEBUG: Ошибка маршалинга DemoElements: %v\n", err)
 		return
 	}
 
@@ -356,11 +343,8 @@ func (p *UI) addElementToDemoElements(elementID int) {
 	// Обновляем профиль в базе данных
 	err = queries.UpdateProfileField("demo_elements", profile.DemoElements, profile.ID)
 	if err != nil {
-		fmt.Printf("DEBUG: Ошибка обновления DemoElements в базе данных: %v\n", err)
 		return
 	}
-
-	fmt.Printf("DEBUG: Элемент с ID %d добавлен в DemoElements\n", elementID)
 
 	// Перезагружаем элементы в сетке
 	p.loadDemoElements()
