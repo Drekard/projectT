@@ -43,12 +43,12 @@ type FileUploadState struct {
 func openWindowsFileDialog(filter []string, multiSelect bool) ([]string, error) {
 	// Создаем PowerShell скрипт для открытия диалога выбора файлов
 	psScript := `
-[Console]::OutputEncoding = [System.Text.Encoding]::UTF8
-Add-Type -AssemblyName System.Windows.Forms
-$dialog = New-Object System.Windows.Forms.OpenFileDialog
-$dialog.Title = "Выберите файлы"
-$dialog.Multiselect = $true
-`
+		[Console]::OutputEncoding = [System.Text.Encoding]::UTF8
+		Add-Type -AssemblyName System.Windows.Forms
+		$dialog = New-Object System.Windows.Forms.OpenFileDialog
+		$dialog.Title = "Выберите файлы"
+		$dialog.Multiselect = $true
+		`
 
 	// Добавляем фильтр, если он задан
 	if len(filter) > 0 {

@@ -170,13 +170,14 @@ func createInputForm(breadcrumbManager BreadcrumbManagerInterface, onClose func(
 	// Обработчик смены вкладки для определения типа элемента
 	tabs.OnSelected = func(tab *container.TabItem) {
 		if tab.Text == "Элемент" {
-			// Здесь нужно обновить selectedType в менеджере
-			// Но так как мы не имеем доступа к менеджеру из этой функции,
-			// нужно будет передавать его как параметр или использовать глобальную переменную
-		} else {
-			// Здесь тоже нужно обновить selectedType
+			selectedType = ItemTypeElement
+		} else if tab.Text == "Папка" {
+			selectedType = ItemTypeFolder
 		}
 	}
+	
+	// Устанавливаем начальный тип элемента в соответствии с активной вкладкой (по умолчанию "Элемент")
+	selectedType = ItemTypeElement
 
 	// Создаем контейнер для выбора папки
 	folderSelectionContainer := CreateFolderSelection(breadcrumbManager)
@@ -243,7 +244,20 @@ func saveNewItemExtended(title, description, tags string, selectedFiles *[]strin
 			window = app.NewWindow("temp")
 		}
 	}
-	return CreateItem(title, description, tags, selectedFiles, linkEntries, selectedFolder.ID, window)
+	
+	// Use the selected folder ID from the global variable
+	// If it's nil (meaning "Сохраненное"), we use the current folder from breadcrumbs
+	parentID := selectedFolder.ID
+	
+	// Determine the item type based on the selected tab
+	var itemType models.ItemType
+	if selectedType == ItemTypeFolder {
+		itemType = models.ItemTypeFolder
+	} else {
+		itemType = models.ItemTypeElement
+	}
+	
+	return CreateItem(title, description, tags, selectedFiles, linkEntries, parentID, itemType, window)
 }
 
 // saveNewItem сохраняет новый элемент в базу данных

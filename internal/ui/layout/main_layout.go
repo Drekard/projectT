@@ -29,10 +29,8 @@ type MainLayout struct {
 func CreateMainLayout(window fyne.Window) *fyne.Container {
 	widthHeaderSidebar := float32(180)
 
-	// Создаем рабочую область
 	appWorkspace := workspace.CreateWorkspace(window)
 
-	// Создаем заголовок с функцией переключения боковой панели
 	ml := &MainLayout{
 		workspace:          appWorkspace,
 		sidebarVisible:     true,
@@ -42,19 +40,15 @@ func CreateMainLayout(window fyne.Window) *fyne.Container {
 	appHeader, breadcrumbManager, searchEntry := header.CreateHeader(&ml.sidebarVisible, ml.toggleSidebar, widthHeaderSidebar, appWorkspace)
 	ml.searchEntry = searchEntry
 
-	// Устанавливаем глобальную ссылку на поисковую строку для MenuManager
 	hover_preview.SetGlobalSearchEntry(searchEntry)
 
-	// Создаем обработчик навигации
 	handler := &workspaceNavigationHandler{
 		workspace:   appWorkspace,
 		searchEntry: searchEntry,
 	}
 
-	// Создаем боковую панель
 	appSidebar := sidebar.CreateSidebar(widthHeaderSidebar, handler)
 
-	// Создаем границы
 	borderColor := color.NRGBA{R: 144, G: 55, B: 255, A: 255}
 
 	headerBorder := canvas.NewRectangle(borderColor)
@@ -63,44 +57,30 @@ func CreateMainLayout(window fyne.Window) *fyne.Container {
 	sidebarBorder := canvas.NewRectangle(borderColor)
 	sidebarBorder.SetMinSize(fyne.NewSize(1, 1))
 
-	// Оборачиваем боковую панель с границей
 	sidebarWithBorder := container.NewBorder(
 		nil, nil, nil, sidebarBorder,
 		appSidebar,
 	)
 
-	// Устанавливаем callback для обновления хлебных крошек
 	ml.workspace.GetNavigationManager().SetBreadcrumbUpdateCallback(breadcrumbManager.UpdateBreadcrumbs)
 
-	// Устанавливаем callback для навигации из хлебных крошек
 	breadcrumbManager.SetNavigationCallback(func(folderID int) {
 		ml.workspace.NavigateToFolder(folderID)
 	})
 
-	// Устанавливаем callback для обновления текущей папки
 	breadcrumbManager.SetRefreshCallback(func() {
-		/*ml.workspace.UpdateContent("favorites")
-		ml.workspace.UpdateContent("tags")*/
 		ml.workspace.RefreshCurrentFolder()
-
-		// Обновляем вкладки "Избранное" и "Теги", если они уже инициализированы
-		// Вызываем обновление контента для этих вкладок, чтобы они получили свежие данные из базы
 	})
 
-	// Создаем черный фон для заголовка
 	headerBg := canvas.NewRectangle(color.RGBA{0, 0, 0, 255})
-	// Создаем контейнер для шапки с границей
 	headerWithBorder := container.NewStack(headerBg, container.NewBorder(
 		nil, headerBorder, nil, nil,
 		appHeader,
 	))
 
-	// Создаем черный фон для боковой панели
 	sidebarBg := canvas.NewRectangle(color.RGBA{0, 0, 0, 255})
-	// Создаем контейнер для боковой панели и границы
 	ml.sidebarContainer = container.NewStack(sidebarBg, sidebarWithBorder)
 
-	// Создаем основной макет с Border
 	mainBorderLayout := container.NewBorder(
 		headerWithBorder,
 		nil,
@@ -109,7 +89,6 @@ func CreateMainLayout(window fyne.Window) *fyne.Container {
 		appWorkspace.GetContainer(),
 	)
 
-	// Черный фон
 	bgRect := canvas.NewRectangle(color.RGBA{0, 0, 0, 255})
 	ml.mainContainer = container.NewStack(bgRect, mainBorderLayout)
 
@@ -126,7 +105,6 @@ func (ml *MainLayout) toggleSidebar() {
 		ml.sidebarContainer.Hide()
 	}
 
-	// Обновляем контейнер
 	ml.mainContainer.Refresh()
 }
 

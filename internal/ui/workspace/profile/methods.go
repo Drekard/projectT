@@ -323,12 +323,8 @@ func (p *UI) showBackgroundDialog() {
 		p.deleteBackgroundImage()
 	})
 
-	closeButton := widget.NewButton("Закрыть", func() {
-		// Диалог закроется автоматически при нажатии на кнопку "Закрыть" в заголовке
-	})
-
 	// Создаем контейнер для кнопок
-	buttonsContainer := container.NewHBox(loadButton, deleteButton, closeButton)
+	buttonsContainer := container.NewHBox(loadButton, deleteButton)
 
 	// Создаем основной контейнер для диалога
 	dialogContent := container.NewVBox(

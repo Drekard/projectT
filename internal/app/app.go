@@ -17,11 +17,9 @@ type App struct {
 }
 
 func NewApp() *App {
-	// Инициализируем базу данных
 	database.InitDB()
 	database.RunMigrations()
 
-	// Инициализируем файловую систему
 	filesystem.EnsureStorageStructure()
 
 	fyneApp := app.New()
@@ -29,7 +27,6 @@ func NewApp() *App {
 	window := fyneApp.NewWindow("ㅤ")
 	window.Resize(fyne.NewSize(1110, 600))
 
-	// Загружаем иконку из файла
 	iconRes, _ := fyne.LoadResourceFromPath("./assets/icons/ProjctT.png")
 	window.SetIcon(iconRes)
 
@@ -41,7 +38,6 @@ func NewApp() *App {
 }
 
 func (a *App) Run() {
-	// Устанавливаем тему приложения
 	a.fyneApp.Settings().SetTheme(theme.GetFyneTheme())
 
 	a.UI = ui.NewUI(a.mainWindow)

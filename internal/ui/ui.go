@@ -14,15 +14,13 @@ type UI struct {
 
 // NewUI создает новый экземпляр UI
 func NewUI(window fyne.Window) *UI {
-	// Устанавливаем тему приложения
-	window.SetPadded(false) // Убираем внутренние отступы
+	window.SetPadded(false)
 
 	ui := &UI{
 		mainLayout: layout.CreateMainLayout(window),
 		window:     window,
 	}
 
-	// Устанавливаем основной макет в окно
 	ui.window.SetContent(ui.mainLayout)
 
 	return ui

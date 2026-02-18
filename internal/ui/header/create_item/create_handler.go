@@ -221,7 +221,7 @@ func processTags(ctx context.Context, itemID int, tagsInput string) error {
 }
 
 // CreateItem создает новый элемент
-func CreateItem(title, description, tags string, selectedFiles *[]string, linkEntries []string, parentID *int, modalWindow fyne.Window) error {
+func CreateItem(title, description, tags string, selectedFiles *[]string, linkEntries []string, parentID *int, itemType models.ItemType, modalWindow fyne.Window) error {
 	fmt.Println("=== НАЧАЛО СОЗДАНИЯ ===")
 	fmt.Printf("Title: '%s'\n", title)
 	fmt.Printf("Description: '%s'\n", description)
@@ -262,10 +262,9 @@ func CreateItem(title, description, tags string, selectedFiles *[]string, linkEn
 	}
 	fmt.Printf("Создано блоков: %d\n", len(blocks))
 
-	// 6. Определяем тип элемента на основе контента
-	fmt.Println("Шаг 6: Определение типа элемента...")
-	itemType := contentService.DetermineItemType(updatedDescription, blocks)
-	fmt.Printf("Определенный тип элемента: %s\n", itemType)
+	// 6. Используем переданный тип элемента (элемент или папка)
+	fmt.Println("Шаг 6: Использование переданного типа элемента...")
+	fmt.Printf("Переданный тип элемента: %s\n", itemType)
 
 	// 7. Конвертируем блоки в JSON для сохранения
 	fmt.Println("Шаг 7: Конвертация блоков в JSON...")

@@ -6,6 +6,7 @@ import (
 	"projectT/internal/services"
 	"projectT/internal/storage/database/models"
 	"projectT/internal/storage/database/queries"
+	"projectT/internal/ui/workspace/chats"
 	"projectT/internal/ui/workspace/profile"
 	"projectT/internal/ui/workspace/saved"
 	"projectT/internal/ui/workspace/saved/sorting"
@@ -26,6 +27,7 @@ const (
 	ContentTypeSaved   ContentType = "saved"
 	ContentTypeProfile ContentType = "profile"
 	ContentTypeTags    ContentType = "tags"
+	ContentTypeChats   ContentType = "chats"
 )
 
 // NavigationHandler интерфейс для обработки навигации
@@ -46,9 +48,11 @@ type Workspace struct {
 	navigationManager *NavigationManager // Менеджер навигации
 	profileUI         *profile.UI
 	tagsUI            *tags.UI
+	chatsUI           *chats.UI
 	window            fyne.Window
 	// Флаги для отслеживания, были ли UI-компоненты инициализированы
 	tagsInitialized bool
+	chatsInitialized bool
 	// Фоновое изображение
 	background     *ScaledBackground // кастомный фон с масштабированием
 	backgroundRect *canvas.Rectangle // прямоугольник фона по умолчанию
@@ -71,6 +75,8 @@ func CreateWorkspace(window fyne.Window) *Workspace {
 	ws.profileUI = profile.New()
 	// Не инициализируем tagsUI сразу - ленивая загрузка
 	ws.tagsUI = nil
+	// Не инициализируем chatsUI сразу - ленивая загрузка
+	ws.chatsUI = nil
 
 	// Устанавливаем окно для profile UI
 	ws.profileUI.SetWindow(window)
@@ -126,6 +132,12 @@ func (ws *Workspace) UpdateContent(contentType string, param ...interface{}) {
 		ws.tagsUI.Refresh()
 		// Обновляем кэш для этой вкладки
 		ws.contentCache[ct] = ws.createTagsContent()
+	} else if ct == ContentTypeChats && ws.chatsInitialized {
+		// Обновляем данные чатов без проверки кэша
+		ws.initializeChatsUI() // Убедимся, что UI инициализирован
+		ws.chatsUI.Refresh()
+		// Обновляем кэш для этой вкладки
+		ws.contentCache[ct] = ws.createChatsContent()
 	} else {
 		// Проверяем кэш для других типов контента
 		if content, exists := ws.contentCache[ct]; exists && extraParam == nil {
@@ -157,6 +169,8 @@ func (ws *Workspace) UpdateContent(contentType string, param ...interface{}) {
 			}
 		}
 		newContent = ws.createTagsContent()
+	case ContentTypeChats:
+		newContent = ws.createChatsContent()
 	default:
 		newContent = ws.createSavedContent()
 	}
@@ -305,11 +319,29 @@ func (ws *Workspace) createTagsContent() fyne.CanvasObject {
 	return ws.tagsUI.GetContent()
 }
 
+// createChatsContent создает контент для чатов
+func (ws *Workspace) createChatsContent() fyne.CanvasObject {
+	ws.initializeChatsUI()
+	// Обновляем содержимое при каждом открытии вкладки (если метод Refresh доступен)
+	if ws.chatsUI != nil {
+		ws.chatsUI.Refresh()
+	}
+	return ws.chatsUI.CreateView()
+}
+
 // initializeTagsUI инициализирует UI тегов при первом обращении
 func (ws *Workspace) initializeTagsUI() {
 	if !ws.tagsInitialized {
 		ws.tagsUI = tags.New()
 		ws.tagsInitialized = true
+	}
+}
+
+// initializeChatsUI инициализирует UI чатов при первом обращении
+func (ws *Workspace) initializeChatsUI() {
+	if !ws.chatsInitialized {
+		ws.chatsUI = chats.New()
+		ws.chatsInitialized = true
 	}
 }
 

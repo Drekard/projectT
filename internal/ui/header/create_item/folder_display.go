@@ -93,6 +93,9 @@ func CreateFolderSelection(breadcrumbManager BreadcrumbManagerInterface) *fyne.C
 
 			// Если текущая папка найдена, добавляем её первой с пометкой "(текущая)"
 			if currentFolder != nil {
+				// Устанавливаем текущую папку как выбранную по умолчанию
+				setCurrentFolder(&currentFolder.ID, currentFolder.Title)
+				
 				currentFolderTitle := currentFolder.Title + " (текущая)"
 				currentFolderButton := CreateCustomFolderButton(currentFolderTitle, func() {
 					ResetButtonImportance(folderButtonsContainer)
