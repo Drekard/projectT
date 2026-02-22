@@ -3,8 +3,9 @@ package sizing
 import (
 	"fmt"
 	"time"
-	
+
 	"projectT/internal/ui/workspace/saved/models"
+	"projectT/internal/ui/workspace/saved/utils"
 
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/container"
@@ -21,10 +22,10 @@ type SizeManager struct {
 
 // NewSizeManager создает новый менеджер размеров
 func NewSizeManager() *SizeManager {
-	fixedWidth := float32(300) // Фиксированная ширина 300 пикселей
-	minHeight := float32(70)   // Минимальная высота 70 пикселей
-	gapSize := float32(5)      // Размер промежутка 5 пикселей
-	columnCount := 3           // 3 колонки
+	fixedWidth := utils.FixedCardWidth
+	minHeight := utils.DefaultMinHeight
+	gapSize := utils.GapSize
+	columnCount := utils.DefaultColumnCount
 
 	// Общая ширина = ширина 3 карточек + 2 промежутка между ними
 	totalWidth := fixedWidth*float32(columnCount) + gapSize*float32(columnCount-1)
@@ -133,7 +134,7 @@ func (sm *SizeManager) GetTotalWidth() float32 {
 // CalculateActualPixelSize вычисляет фактический размер карточки по ее содержимому
 func (sm *SizeManager) CalculateActualPixelSize(widget fyne.CanvasObject) (float32, float32) {
 	startTime := time.Now()
-	
+
 	if widget == nil {
 		fmt.Printf("[%s] Widget is nil, returning default size\n", time.Now().Format("15:04:05.000"))
 		return sm.fixedWidth, sm.minHeight
@@ -149,10 +150,9 @@ func (sm *SizeManager) CalculateActualPixelSize(widget fyne.CanvasObject) (float
 	maybeAnomalousHeight := preferredSize.Height
 
 	// Проверяем, не является ли высота аномальной (например, для изображений)
-	// Увеличиваем порог с 400 до 600, чтобы учесть увеличенный размер изображений с 200 до 300
-	if maybeAnomalousHeight > 600 {
+	if maybeAnomalousHeight > utils.AnomalousHeightThreshold {
 		// Если высота аномально большая, устанавливаем разумное значение
-		maybeAnomalousHeight = 400
+		maybeAnomalousHeight = utils.DefaultAnomalousHeight
 	}
 
 	height := maybeAnomalousHeight

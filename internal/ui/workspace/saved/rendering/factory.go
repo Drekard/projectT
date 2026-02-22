@@ -3,11 +3,12 @@ package rendering
 import (
 	"fmt"
 	"time"
-	
+
 	db_models "projectT/internal/storage/database/models"
 	concrete "projectT/internal/ui/cards/concrete"
 	interfaces "projectT/internal/ui/cards/interfaces"
 	ui_models "projectT/internal/ui/workspace/saved/models"
+	"projectT/internal/ui/workspace/saved/utils"
 
 	"fyne.io/fyne/v2"
 )
@@ -69,7 +70,7 @@ func (rf *RenderFactory) CreateCard(item *db_models.Item, options ...CardOption)
 func (rf *RenderFactory) CreateCardInfo(item *db_models.Item) *ui_models.CardInfo {
 	startTime := time.Now()
 	fmt.Printf("[%s] Creating card info for item ID: %d, Type: %s\n", time.Now().Format("15:04:05.000"), item.ID, item.Type)
-	
+
 	cardCreationStart := time.Now()
 	cardRenderer := rf.CreateCard(item)
 	widget := cardRenderer.GetWidget()
@@ -89,8 +90,8 @@ func (rf *RenderFactory) CreateCardInfo(item *db_models.Item) *ui_models.CardInf
 		actualHeight = minSize.Height
 
 		// Убедимся, что высота не меньше минимальной
-		if actualHeight < 70 {
-			actualHeight = 70
+		if actualHeight < utils.DefaultMinHeight {
+			actualHeight = utils.DefaultMinHeight
 		}
 	}
 	fmt.Printf("[%s] Height calculation took %v\n", time.Now().Format("15:04:05.000"), time.Since(heightCalcStart))
@@ -103,7 +104,7 @@ func (rf *RenderFactory) CreateCardInfo(item *db_models.Item) *ui_models.CardInf
 		HeightCells:  heightCells,
 		ActualHeight: actualHeight,
 	}
-	
+
 	fmt.Printf("[%s] Card info creation completed in %v\n", time.Now().Format("15:04:05.000"), time.Since(startTime))
 	return result
 }
@@ -118,9 +119,9 @@ func (rf *RenderFactory) calculateImageCardHeight(widget fyne.CanvasObject, item
 
 	// Для карточек с несколькими сегментами, особенно с изображениями размером 300px,
 	// может потребоваться дополнительная корректировка высоты
-	if minSize.Height > 600 {
+	if minSize.Height > utils.AnomalousHeightThreshold {
 		// Если высота аномально большая, возвращаем разумное значение
-		return 400
+		return utils.DefaultAnomalousHeight
 	}
 
 	return minSize.Height

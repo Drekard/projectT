@@ -3,8 +3,9 @@ package layout
 import (
 	"fmt"
 	"time"
-	
+
 	"projectT/internal/ui/workspace/saved/models"
+	"projectT/internal/ui/workspace/saved/utils"
 )
 
 // LayoutEngine реализует алгоритм размещения для расчёта позиций карточек в сетке
@@ -71,11 +72,11 @@ func (le *LayoutEngine) CalculatePositions(cards []*models.CardInfo, availableCo
 
 		// Если ActualHeight не установлен, используем минимальную высоту
 		if cardHeight <= 0 {
-			cardHeight = 70 // минимальная высота по умолчанию
+			cardHeight = utils.DefaultMinHeight
 		}
 
 		// Обновляем высоту выбранной колонки
-		le.columnHeights[minIndex] = minHeight + cardHeight + 5 // 5 - размер промежутка
+		le.columnHeights[minIndex] = minHeight + cardHeight + utils.GapSize
 
 		// Обновляем ActualHeight в карточке, если не установлено
 		if card.ActualHeight <= 0 {
