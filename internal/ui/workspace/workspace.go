@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"image/color"
 	"projectT/internal/services"
+	"projectT/internal/services/background"
 	"projectT/internal/storage/database/models"
 	"projectT/internal/storage/database/queries"
 	"projectT/internal/ui/workspace/chats"
@@ -100,7 +101,7 @@ func CreateWorkspace(window fyne.Window) *Workspace {
 	ws.loadSavedContent()
 
 	// Подписываемся на события изменения фона
-	backgroundEventChan := services.GetBackgroundEventManager().Subscribe()
+	backgroundEventChan := background.GetEventManager().Subscribe()
 	go func() {
 		for eventType := range backgroundEventChan {
 			if eventType == "background_changed" || eventType == "background_cleared" {

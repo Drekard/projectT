@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"image/color"
 	"projectT/internal/services"
+	"projectT/internal/services/favorites"
 	"projectT/internal/storage/database/models"
 
 	"fyne.io/fyne/v2"
@@ -15,7 +16,7 @@ import (
 )
 
 // favoritesService - глобальный экземпляр сервиса избранного
-var favoritesService = services.NewFavoritesService()
+var favoritesService = favorites.NewService()
 
 // tagsService - глобальный экземпляр сервиса тегов
 var tagsService = services.NewTagsService()

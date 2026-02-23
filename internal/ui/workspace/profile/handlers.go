@@ -7,7 +7,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
-	"projectT/internal/services"
+	"projectT/internal/services/background"
 	"projectT/internal/storage/database/queries"
 	"strings"
 	"unicode/utf8"
@@ -138,7 +138,7 @@ func (p *UI) selectBackgroundImage() {
 	}
 
 	// Используем сервис для установки фона
-	backgroundService := services.NewBackgroundService()
+	backgroundService := background.NewService()
 	err = backgroundService.SetBackground(finalPath)
 	if err != nil {
 		dialog.ShowError(fmt.Errorf("ошибка установки фона: %v", err), p.window)
@@ -174,7 +174,7 @@ func (p *UI) deleteBackgroundImage() {
 	dialog.ShowConfirm("Подтверждение", "Вы уверены, что хотите очистить фоновое изображение?", func(confirmed bool) {
 		if confirmed {
 			// Используем сервис для очистки фона
-			backgroundService := services.NewBackgroundService()
+			backgroundService := background.NewService()
 			err := backgroundService.ClearBackground()
 			if err != nil {
 				dialog.ShowError(fmt.Errorf("ошибка очистки фона: %v", err), p.window)

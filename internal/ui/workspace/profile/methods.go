@@ -6,7 +6,7 @@ import (
 	"image/color"
 	"os"
 	"path/filepath"
-	"projectT/internal/services"
+	"projectT/internal/services/background"
 	"projectT/internal/storage/database/queries"
 	"strings"
 	"time"
@@ -272,7 +272,7 @@ func (p *UI) showBackgroundDialog() {
 					// Добавляем возможность выбора этого фона
 					thumbButton := widget.NewButton("", func() {
 						// Используем сервис для установки фона
-						backgroundService := services.NewBackgroundService()
+						backgroundService := background.NewService()
 						err := backgroundService.SetBackground(imagePath)
 						if err != nil {
 							dialog.ShowError(fmt.Errorf("ошибка установки фона: %v", err), p.window)

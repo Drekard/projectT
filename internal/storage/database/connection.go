@@ -36,6 +36,23 @@ func InitDB() {
 	// Подключение к SQLite успешно установлено
 }
 
+// Open открывает подключение к указанному файлу базы данных
+func Open(dbPath string) (*sql.DB, error) {
+	db, err := sql.Open("sqlite3", dbPath+"?cache=shared&_busy_timeout=30000")
+	if err != nil {
+		return nil, err
+	}
+
+	db.SetMaxOpenConns(1)
+	db.SetMaxIdleConns(1)
+
+	if err = db.Ping(); err != nil {
+		return nil, err
+	}
+
+	return db, nil
+}
+
 // CloseDB закрывает соединение с базой данных
 func CloseDB() {
 	if DB != nil {

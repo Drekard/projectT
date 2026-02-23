@@ -1,9 +1,10 @@
-package services
+// Package favorites предоставляет сервис для работы с избранным.
+package favorites
 
 import "projectT/internal/storage/database/models"
 
-// FavoritesServiceInterface определяет интерфейс для работы с избранным
-type FavoritesServiceInterface interface {
+// ServiceInterface определяет интерфейс для работы с избранным
+type ServiceInterface interface {
 	AddToFavorites(entityType string, entityID int) error
 	RemoveFromFavorites(entityType string, entityID int) error
 	IsFavorite(entityType string, entityID int) (bool, error)

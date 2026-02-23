@@ -3,7 +3,7 @@ package profile
 import (
 	"encoding/json"
 	"image/color"
-	"projectT/internal/services"
+	"projectT/internal/services/pinned"
 	"projectT/internal/storage/database/models"
 	"projectT/internal/storage/database/queries"
 	"projectT/internal/ui/workspace/saved"
@@ -244,7 +244,7 @@ func (p *UI) createBottomPart() fyne.CanvasObject {
 	pinnedGridContainer.SetMinSize(fyne.NewSize(400, 400))
 
 	// Подписываемся на события изменения закрепленных элементов
-	eventChan := services.GetPinnedEventManager().Subscribe()
+	eventChan := pinned.GetEventManager().Subscribe()
 	go func() {
 		for eventType := range eventChan {
 			if eventType == "pinned_items_changed" {

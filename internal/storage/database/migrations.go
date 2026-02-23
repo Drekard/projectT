@@ -194,6 +194,10 @@ func RunMigrations() {
 
 	// Обновляем структуру таблицы favorites
 	updateFavoritesTable()
+
+	// Создаём P2P таблицы
+	createP2PTables()
+	seedBootstrapPeers()
 }
 
 // updateFavoritesTable обновляет структуру таблицы favorites
@@ -444,4 +448,119 @@ func removeIsPinnedField() {
 	} else {
 		log.Println("Поле is_pinned не найдено в таблице items, пропускаем удаление")
 	}
+}
+
+// createP2PTables создаёт таблицы для P2P функциональности
+func createP2PTables() {
+	// 1. Таблица p2p_profile - профиль P2P узла
+	_, err := DB.Exec(`
+		CREATE TABLE IF NOT EXISTS p2p_profile (
+			id           INTEGER PRIMARY KEY CHECK (id = 1),
+			peer_id      TEXT UNIQUE NOT NULL,
+			private_key  BLOB NOT NULL,
+			public_key   BLOB NOT NULL,
+			username     TEXT NOT NULL,
+			status       TEXT DEFAULT 'online',
+			listen_addrs TEXT,
+			created_at   DATETIME DEFAULT CURRENT_TIMESTAMP,
+			updated_at   DATETIME DEFAULT CURRENT_TIMESTAMP
+		);
+	`)
+	if err != nil {
+		log.Printf("Ошибка при создании таблицы p2p_profile: %v", err)
+	}
+
+	// 2. Таблица contacts - адресная книга
+	_, err = DB.Exec(`
+		CREATE TABLE IF NOT EXISTS contacts (
+			id          INTEGER PRIMARY KEY AUTOINCREMENT,
+			peer_id     TEXT UNIQUE NOT NULL,
+			username    TEXT NOT NULL,
+			public_key  BLOB,
+			multiaddr   TEXT,
+			status      TEXT DEFAULT 'offline',
+			last_seen   DATETIME,
+			notes       TEXT,
+			is_blocked  BOOLEAN DEFAULT 0,
+			added_at    DATETIME DEFAULT CURRENT_TIMESTAMP,
+			updated_at  DATETIME DEFAULT CURRENT_TIMESTAMP
+		);
+	`)
+	if err != nil {
+		log.Printf("Ошибка при создании таблицы contacts: %v", err)
+	}
+
+	// 3. Таблица chat_messages - история сообщений
+	_, err = DB.Exec(`
+		CREATE TABLE IF NOT EXISTS chat_messages (
+			id           INTEGER PRIMARY KEY AUTOINCREMENT,
+			contact_id   INTEGER NOT NULL,
+			from_peer_id TEXT NOT NULL,
+			content      TEXT NOT NULL,
+			content_type TEXT DEFAULT 'text',
+			metadata     TEXT,
+			is_read      BOOLEAN DEFAULT 0,
+			sent_at      DATETIME DEFAULT CURRENT_TIMESTAMP,
+			FOREIGN KEY (contact_id) REFERENCES contacts (id) ON DELETE CASCADE
+		);
+	`)
+	if err != nil {
+		log.Printf("Ошибка при создании таблицы chat_messages: %v", err)
+	}
+
+	// 4. Таблица bootstrap_peers - узлы для входа в сеть
+	_, err = DB.Exec(`
+		CREATE TABLE IF NOT EXISTS bootstrap_peers (
+			id            INTEGER PRIMARY KEY AUTOINCREMENT,
+			multiaddr     TEXT UNIQUE NOT NULL,
+			peer_id       TEXT,
+			is_active     BOOLEAN DEFAULT 1,
+			last_connected DATETIME,
+			added_at      DATETIME DEFAULT CURRENT_TIMESTAMP
+		);
+	`)
+	if err != nil {
+		log.Printf("Ошибка при создании таблицы bootstrap_peers: %v", err)
+	}
+
+	// Создаём индексы для производительности
+	_, err = DB.Exec(`CREATE INDEX IF NOT EXISTS idx_contacts_peer_id ON contacts(peer_id);`)
+	if err != nil {
+		log.Printf("Ошибка при создании индекса idx_contacts_peer_id: %v", err)
+	}
+
+	_, err = DB.Exec(`CREATE INDEX IF NOT EXISTS idx_chat_messages_contact_id ON chat_messages(contact_id);`)
+	if err != nil {
+		log.Printf("Ошибка при создании индекса idx_chat_messages_contact_id: %v", err)
+	}
+
+	_, err = DB.Exec(`CREATE INDEX IF NOT EXISTS idx_bootstrap_peers_multiaddr ON bootstrap_peers(multiaddr);`)
+	if err != nil {
+		log.Printf("Ошибка при создании индекса idx_bootstrap_peers_multiaddr: %v", err)
+	}
+
+	log.Println("P2P таблицы успешно созданы")
+}
+
+// seedBootstrapPeers добавляет предопределённые bootstrap-узлы
+func seedBootstrapPeers() {
+	// Добавляем несколько публичных bootstrap-узлов libp2p
+	bootstrapPeers := []string{
+		"/dnsaddr/bootstrap.libp2p.io/p2p/QmNnooDu7bfjPFoTZYxMNLWUQJyrVwtbZg5gBMjTezGAJN",
+		"/dnsaddr/bootstrap.libp2p.io/p2p/QmQCU2EcMqAqQPR2i9bChDtGNJchTbq5TbXJJ16u19uLTa",
+		"/dnsaddr/bootstrap.libp2p.io/p2p/QmbLHAnMoJPWSCR5Zhtx6BHJX9KiKNN6tpvbUcqanj75Nb",
+		"/dnsaddr/bootstrap.libp2p.io/p2p/QmcZf59bWwK5XFi76CZX8cbJ4BhTzzA3gU1ZjYZcYW3dwt",
+	}
+
+	for _, addr := range bootstrapPeers {
+		_, err := DB.Exec(`
+			INSERT OR IGNORE INTO bootstrap_peers (multiaddr, is_active, added_at)
+			VALUES (?, 1, CURRENT_TIMESTAMP)
+		`, addr)
+		if err != nil {
+			log.Printf("Ошибка при добавлении bootstrap-узла %s: %v", addr, err)
+		}
+	}
+
+	log.Println("Bootstrap-узлы успешно добавлены")
 }

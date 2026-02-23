@@ -4,7 +4,8 @@ import (
 	"context"
 	"fmt"
 	"image/color"
-	"projectT/internal/services"
+	"projectT/internal/services/favorites"
+	"projectT/internal/services/pinned"
 	"projectT/internal/storage/database/models"
 	"projectT/internal/storage/database/queries"
 	"projectT/internal/ui/edit_item"
@@ -24,10 +25,10 @@ type SearchHandler interface {
 }
 
 // favoritesService - глобальный экземпляр сервиса избранного
-var favoritesService = services.NewFavoritesService()
+var favoritesService = favorites.NewService()
 
 // pinnedService - глобальный экземпляр сервиса закрепленных элементов
-var pinnedService = services.NewPinnedService()
+var pinnedService = pinned.NewService()
 
 // globalSearchEntry глобальная ссылка на поисковую строку
 var globalSearchEntry *widget.Entry

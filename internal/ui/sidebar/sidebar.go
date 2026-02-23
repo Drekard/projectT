@@ -2,7 +2,7 @@ package sidebar
 
 import (
 	"fmt"
-	"projectT/internal/services"
+	"projectT/internal/services/favorites"
 	"projectT/internal/storage/database/queries"
 
 	"fyne.io/fyne/v2"
@@ -100,7 +100,7 @@ func createFrequentlyUsedSection(handler NavigationHandler) *fyne.Container {
 	updateContent()
 
 	// Подписываемся на события изменения избранного
-	eventChan := services.GetFavoritesEventManager().Subscribe()
+	eventChan := favorites.GetEventManager().Subscribe()
 	go func() {
 		for range eventChan {
 			// Обновляем содержимое напрямую (в Fyne обновления через Refresh могут быть безопасными)
