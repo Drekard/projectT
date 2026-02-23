@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"image/color"
 	"math"
+	"runtime"
+	"sync"
 	"time"
 
 	"projectT/internal/services"
@@ -77,9 +79,6 @@ func NewGridManager() *GridManager {
 	// Отслеживаем изменения размера
 	gm.scroll.OnScrolled = gm.onSizeChanged
 
-	// Выполняем начальное обновление макета для правильного отображения при запуске
-	gm.updateLayout()
-
 	return gm
 }
 
@@ -140,12 +139,19 @@ func (gm *GridManager) createCard(item *models.Item) *ui_models.CardInfo {
 
 		widthCells, heightCells := gm.getCardSize(item)
 
+		// Вычисляем ActualHeight для одной карточки
+		actualHeight := widget.MinSize().Height
+		if actualHeight < utils.DefaultMinHeight {
+			actualHeight = utils.DefaultMinHeight
+		}
+
 		cardInfo = &ui_models.CardInfo{
-			Item:        item,
-			Widget:      widget,
-			Position:    ui_models.CellPosition{X: 0, Y: 0},
-			WidthCells:  widthCells,
-			HeightCells: heightCells,
+			Item:         item,
+			Widget:       widget,
+			Position:     ui_models.CellPosition{X: 0, Y: 0},
+			WidthCells:   widthCells,
+			HeightCells:  heightCells,
+			ActualHeight: actualHeight,
 		}
 	} else {
 		// Для остальных элементов используем стандартный метод
@@ -213,20 +219,18 @@ func (gm *GridManager) updateLayout() {
 
 		// Для новой системы используем фиксированную ширину и переменную высоту
 		width := gm.sizeManager.GetFixedWidth()
-		// Вычисляем фактическую высоту карточки по содержимому
-		if cardInfo.Widget != nil {
-			sizeCalcStart := time.Now()
-			_, actualHeight := gm.sizeManager.CalculateActualPixelSize(cardInfo.Widget)
-			fmt.Printf("[%s] Size calculation for card %d took %v\n", time.Now().Format("15:04:05.000"), i, time.Since(sizeCalcStart))
 
-			cardInfo.ActualHeight = actualHeight
-
-			// Обновляем размеры виджета
-			cardInfo.Widget.Resize(fyne.NewSize(width, actualHeight))
-
-			x, _ := gm.sizeManager.CalculatePixelPosition(pos.X, pos.Y) // Используем pos.Y напрямую, так как это уже позиция по оси Y
-			cardInfo.Widget.Move(fyne.NewPos(x, float32(pos.Y)))
+		// Используем уже вычисленную ActualHeight из createCardsConcurrently
+		actualHeight := cardInfo.ActualHeight
+		if actualHeight <= 0 {
+			actualHeight = utils.DefaultMinHeight
 		}
+
+		// Обновляем размеры виджета
+		cardInfo.Widget.Resize(fyne.NewSize(width, actualHeight))
+
+		x, _ := gm.sizeManager.CalculatePixelPosition(pos.X, pos.Y) // Используем pos.Y напрямую, так как это уже позиция по оси Y
+		cardInfo.Widget.Move(fyne.NewPos(x, float32(pos.Y)))
 
 		gm.container.Objects = append(gm.container.Objects, cardInfo.Widget)
 	}
@@ -236,9 +240,11 @@ func (gm *GridManager) updateLayout() {
 	gm.updateContainerSize()
 	fmt.Printf("[%s] Container size update took %v\n", time.Now().Format("15:04:05.000"), time.Since(containerUpdateStart))
 
+	// Используем canvas.Refresh вместо container.Refresh для лучшей производительности
+	// canvas.Refresh обновляет весь холст, но работает эффективнее
 	refreshStart := time.Now()
-	gm.container.Refresh()
-	fmt.Printf("[%s] Container refresh took %v\n", time.Now().Format("15:04:05.000"), time.Since(refreshStart))
+	canvas.Refresh(gm.container)
+	fmt.Printf("[%s] Canvas refresh took %v\n", time.Now().Format("15:04:05.000"), time.Since(refreshStart))
 
 	fmt.Printf("[%s] Layout update completed in %v\n", time.Now().Format("15:04:05.000"), time.Since(startTime))
 }
@@ -314,20 +320,97 @@ func (gm *GridManager) loadItems(items []*models.Item, addCreateElement bool) {
 	}
 	gm.cards = make([]*ui_models.CardInfo, 0, capacity)
 
-	// Добавляем переданные элементы
+	// Добавляем переданные элементы параллельно с использованием worker pool
 	cardCreationStart := time.Now()
-	for i, item := range items {
-		cardCreationSingleStart := time.Now()
-		cardInfo := gm.createCard(item)
-		fmt.Printf("[%s] Card creation for item %d took %v\n", time.Now().Format("15:04:05.000"), i, time.Since(cardCreationSingleStart))
-		gm.cards = append(gm.cards, cardInfo)
-	}
+	gm.createCardsConcurrently(items)
 	fmt.Printf("[%s] Total card creation took %v\n", time.Now().Format("15:04:05.000"), time.Since(cardCreationStart))
 
+	// Добавляем элемент "Создать элемент" если требуется (последовательно, т.к. это один элемент)
+	if addCreateElement {
+		// Здесь можно добавить логику создания элемента "Создать элемент"
+		// Например: gm.cards = append(gm.cards, gm.createCreateElementCard())
+	}
+
 	// Обновляем макет один раз после добавления всех элементов
+	// Расчёт позиций остается последовательным
 	gm.updateLayout()
 
 	fmt.Printf("[%s] Item loading completed in %v\n", time.Now().Format("15:04:05.000"), time.Since(startTime))
+}
+
+// createCardsConcurrently создает карточки параллельно с использованием worker pool
+func (gm *GridManager) createCardsConcurrently(items []*models.Item) {
+	if len(items) == 0 {
+		return
+	}
+
+	// Определяем количество воркеров (не больше количества процессоров и не больше количества элементов)
+	numWorkers := runtime.NumCPU()
+	if numWorkers > len(items) {
+		numWorkers = len(items)
+	}
+
+	fmt.Printf("[%s] Creating %d cards using %d workers\n", time.Now().Format("15:04:05.000"), len(items), numWorkers)
+
+	// Создаем канал для результатов и WaitGroup
+	resultChan := make(chan rendering.CardCreationResult, len(items))
+	var wg sync.WaitGroup
+
+	// Предвыделяем результат для сохранения в правильном порядке
+	results := make([]*ui_models.CardInfo, len(items))
+
+	// Запускаем воркеров - создание виджетов происходит параллельно
+	wg.Add(len(items))
+	for i, item := range items {
+		go gm.renderFactory.CreateCardInfoConcurrent(i, item, gm.navigationHandler, resultChan, &wg)
+	}
+
+	// Закрываем канал результатов после завершения всех воркеров
+	go func() {
+		wg.Wait()
+		close(resultChan)
+	}()
+
+	// Собираем результаты (порядок сохраняется по индексу)
+	collected := 0
+	for result := range resultChan {
+		if result.Error != nil {
+			fmt.Printf("[%s] Error creating card for item %d: %v\n", time.Now().Format("15:04:05.000"), result.Index, result.Error)
+			continue
+		}
+		results[result.Index] = result.CardInfo
+		collected++
+	}
+
+	fmt.Printf("[%s] Collected %d card results\n", time.Now().Format("15:04:05.000"), collected)
+
+	// Вычисляем размеры и делаем refresh в main goroutine (требуется Fyne)
+	// Это делается последовательно, но быстро - только MinSize и Refresh
+	refreshStart := time.Now()
+	for i, cardInfo := range results {
+		if cardInfo != nil {
+			// Применяем размеры из кэша
+			widthCells, heightCells := gm.getCardSize(cardInfo.Item)
+			cardInfo.WidthCells = widthCells
+			cardInfo.HeightCells = heightCells
+
+			// Вычисляем фактическую высоту и делаем refresh в main goroutine
+			if cardInfo.Widget != nil {
+				cardInfo.Widget.Refresh()
+				minSize := cardInfo.Widget.MinSize()
+				cardInfo.ActualHeight = minSize.Height
+
+				if cardInfo.ActualHeight < utils.DefaultMinHeight {
+					cardInfo.ActualHeight = utils.DefaultMinHeight
+				}
+			}
+
+			gm.cards = append(gm.cards, cardInfo)
+		} else {
+			fmt.Printf("[%s] Warning: card at index %d is nil\n", time.Now().Format("15:04:05.000"), i)
+		}
+	}
+	fmt.Printf("[%s] Widget refresh and size calculation took %v\n", time.Now().Format("15:04:05.000"), time.Since(refreshStart))
 }
 
 // LoadItemsByParent загружает элементы по родительскому ID
