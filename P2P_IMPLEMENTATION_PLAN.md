@@ -342,11 +342,11 @@ func seedBootstrapPeers() {
 - [✓] Тесты на CRUD операции
 
 ### Этап 2: P2P ядро (2-3 недели)
-- [ ] `internal/services/p2p/network.go` — создание хоста
-- [ ] Генерация/загрузка ключей
-- [ ] Получение PeerID
-- [ ] Экспорт/импорт адресов
-- [ ] `internal/services/p2p/config.go` — конфигурация
+- [✓] `internal/services/p2p/network.go` — создание хоста
+- [✓] Генерация/загрузка ключей
+- [✓] Получение PeerID
+- [✓] Экспорт/импорт адресов
+- [✓] `internal/services/p2p/config.go` — конфигурация
 
 ### Этап 3: Обнаружение (2-3 недели)
 - [ ] `internal/services/p2p/discovery.go`

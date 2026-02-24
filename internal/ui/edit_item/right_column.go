@@ -165,6 +165,17 @@ func UpdateFormVisibility(widgets *FormWidgets, itemType models.ItemType) {
 			widgets.FileUploadArea.Show()
 		}
 	}
+
+	// Обновляем UI после изменения видимости
+	widgets.LinksContainer.Refresh()
+	widgets.AddLinkButton.Refresh()
+	if widgets.ImageUploadArea != nil {
+		widgets.ImageUploadArea.Refresh()
+	}
+	if widgets.FileUploadArea != nil {
+		widgets.FileUploadArea.Refresh()
+	}
+	widgets.Tabs.Refresh()
 }
 
 func addLinkEntry(widgets *FormWidgets) {

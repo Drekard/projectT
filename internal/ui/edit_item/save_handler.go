@@ -460,9 +460,9 @@ func SaveItem(viewModel *CreateItemViewModel, formWidgets *FormWidgets, modalWin
 	serviceBlocks := convertLocalBlocksToService(allBlocks)
 	fmt.Println("Блоки преобразованы для обработки сервисом")
 
-	// 7. Определяем тип элемента на основе контента
-	itemType := contentService.DetermineItemType(viewModel.Description, serviceBlocks)
-	fmt.Printf("Определен тип элемента: %s\n", itemType)
+	// 7. Используем тип элемента, выбранный пользователем во вкладках
+	itemType := viewModel.ItemType
+	fmt.Printf("Тип элемента из ViewModel: %s\n", itemType)
 
 	// 8. Конвертируем блоки в JSON для сохранения
 	contentMeta, err := contentService.BlocksToJSON(serviceBlocks)

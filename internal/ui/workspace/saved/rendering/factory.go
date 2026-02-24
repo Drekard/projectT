@@ -1,9 +1,7 @@
 package rendering
 
 import (
-	"fmt"
 	"sync"
-	"time"
 
 	db_models "projectT/internal/storage/database/models"
 	concrete "projectT/internal/ui/cards/concrete"
@@ -69,21 +67,15 @@ func (rf *RenderFactory) CreateCard(item *db_models.Item, options ...CardOption)
 
 // CreateCardInfo создает информацию о карточке
 func (rf *RenderFactory) CreateCardInfo(item *db_models.Item) *ui_models.CardInfo {
-	startTime := time.Now()
-	fmt.Printf("[%s] Creating card info for item ID: %d, Type: %s\n", time.Now().Format("15:04:05.000"), item.ID, item.Type)
-
-	cardCreationStart := time.Now()
 	cardRenderer := rf.CreateCard(item)
 	widget := cardRenderer.GetWidget()
 	widget.Refresh()
-	fmt.Printf("[%s] Card creation took %v\n", time.Now().Format("15:04:05.000"), time.Since(cardCreationStart))
 
 	// Здесь должна быть логика получения размеров карточки из кэша или настройки по умолчанию
 	widthCells := 1 // Для 3-колоночной системы
 	heightCells := 1
 
 	// Вычисляем фактическую высоту карточки
-	heightCalcStart := time.Now()
 	actualHeight := float32(0)
 	if widget != nil {
 		// Для всех типов получаем предпочтительный размер виджета
@@ -95,7 +87,6 @@ func (rf *RenderFactory) CreateCardInfo(item *db_models.Item) *ui_models.CardInf
 			actualHeight = utils.DefaultMinHeight
 		}
 	}
-	fmt.Printf("[%s] Height calculation took %v\n", time.Now().Format("15:04:05.000"), time.Since(heightCalcStart))
 
 	result := &ui_models.CardInfo{
 		Item:         item,
@@ -106,7 +97,6 @@ func (rf *RenderFactory) CreateCardInfo(item *db_models.Item) *ui_models.CardInf
 		ActualHeight: actualHeight,
 	}
 
-	fmt.Printf("[%s] Card info creation completed in %v\n", time.Now().Format("15:04:05.000"), time.Since(startTime))
 	return result
 }
 
@@ -130,10 +120,6 @@ func (rf *RenderFactory) calculateImageCardHeight(widget fyne.CanvasObject, item
 
 // CreateCardInfoWithNavigation создает информацию о карточке с обработчиком навигации
 func (rf *RenderFactory) CreateCardInfoWithNavigation(item *db_models.Item, navigationHandler FolderCardNavigationHandler) *ui_models.CardInfo {
-	startTime := time.Now()
-	fmt.Printf("[%s] Creating card info for item ID: %d, Type: %s\n", time.Now().Format("15:04:05.000"), item.ID, item.Type)
-
-	cardCreationStart := time.Now()
 	var cardRenderer interfaces.CardRenderer
 	if item.Type == db_models.ItemTypeFolder && navigationHandler != nil {
 		cardRenderer = concrete.NewFolderCardWithNavigation(item, navigationHandler)
@@ -142,14 +128,12 @@ func (rf *RenderFactory) CreateCardInfoWithNavigation(item *db_models.Item, navi
 	}
 	widget := cardRenderer.GetWidget()
 	widget.Refresh()
-	fmt.Printf("[%s] Card creation took %v\n", time.Now().Format("15:04:05.000"), time.Since(cardCreationStart))
 
 	// Здесь должна быть логика получения размеров карточки из кэша или настройки по умолчанию
 	widthCells := 1 // Для 3-колоночной системы
 	heightCells := 1
 
 	// Вычисляем фактическую высоту карточки
-	heightCalcStart := time.Now()
 	actualHeight := float32(0)
 	if widget != nil {
 		// Для всех типов получаем предпочтительный размер виджета
@@ -161,7 +145,6 @@ func (rf *RenderFactory) CreateCardInfoWithNavigation(item *db_models.Item, navi
 			actualHeight = utils.DefaultMinHeight
 		}
 	}
-	fmt.Printf("[%s] Height calculation took %v\n", time.Now().Format("15:04:05.000"), time.Since(heightCalcStart))
 
 	result := &ui_models.CardInfo{
 		Item:         item,
@@ -172,7 +155,6 @@ func (rf *RenderFactory) CreateCardInfoWithNavigation(item *db_models.Item, navi
 		ActualHeight: actualHeight,
 	}
 
-	fmt.Printf("[%s] Card info creation completed in %v\n", time.Now().Format("15:04:05.000"), time.Since(startTime))
 	return result
 }
 
@@ -195,10 +177,6 @@ func (rf *RenderFactory) CreateCardInfoConcurrent(
 ) {
 	defer wg.Done()
 
-	startTime := time.Now()
-	fmt.Printf("[%s] Starting async card creation for item ID: %d, Type: %s\n", time.Now().Format("15:04:05.000"), item.ID, item.Type)
-
-	cardCreationStart := time.Now()
 	var cardRenderer interfaces.CardRenderer
 	if item.Type == db_models.ItemTypeFolder && navigationHandler != nil {
 		cardRenderer = concrete.NewFolderCardWithNavigation(item, navigationHandler)
@@ -207,7 +185,6 @@ func (rf *RenderFactory) CreateCardInfoConcurrent(
 	}
 	widget := cardRenderer.GetWidget()
 	// Убрали widget.Refresh() отсюда - будет вызвано в main goroutine
-	fmt.Printf("[%s] Card creation took %v\n", time.Now().Format("15:04:05.000"), time.Since(cardCreationStart))
 
 	result := &ui_models.CardInfo{
 		Item:        item,
@@ -217,8 +194,6 @@ func (rf *RenderFactory) CreateCardInfoConcurrent(
 		HeightCells: 1,
 		// ActualHeight будет вычислен в main goroutine
 	}
-
-	fmt.Printf("[%s] Async card info creation completed in %v\n", time.Now().Format("15:04:05.000"), time.Since(startTime))
 
 	resultChan <- CardCreationResult{
 		Index:    index,

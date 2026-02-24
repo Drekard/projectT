@@ -3,7 +3,7 @@ package utils
 // Константы для менеджера сетки
 const (
 	// DefaultMinHeight - минимальная высота карточки в пикселях
-	DefaultMinHeight float32 = 70
+	DefaultMinHeight float32 = 50
 
 	// AnomalousHeightThreshold - порог для определения аномально большой высоты карточки
 	AnomalousHeightThreshold float32 = 600

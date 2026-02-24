@@ -105,7 +105,6 @@ func CreateWorkspace(window fyne.Window) *Workspace {
 	go func() {
 		for eventType := range backgroundEventChan {
 			if eventType == "background_changed" || eventType == "background_cleared" {
-				fmt.Printf("DEBUG: Workspace - Получено событие фона: %s\n", eventType)
 				// Обновляем фон рабочей области
 				ws.UpdateBackground()
 			}
@@ -374,20 +373,17 @@ func (ws *Workspace) UpdateBackground() {
 	if ws.updatingBackground {
 		return
 	}
-	
+
 	ws.updatingBackground = true
-	fmt.Println("DEBUG: Workspace - Обновление фона рабочей области")
-	
+
 	// Загружаем фоновое изображение из профиля
 	profile, err := queries.GetProfile()
 	if err == nil && profile.BackgroundPath != "" {
 		// Создаем кастомный фон с масштабированием
 		ws.background = NewScaledBackground(profile.BackgroundPath)
-		fmt.Println("DEBUG: Workspace - Установка нового фона")
 	} else {
 		// Используем стандартный фон (черный прямоугольник)
 		ws.background = nil
-		fmt.Println("DEBUG: Workspace - Установка стандартного фона")
 	}
 
 	// Обновляем контейнер, чтобы применить изменения фона
@@ -401,8 +397,7 @@ func (ws *Workspace) UpdateBackground() {
 	// Заменяем объекты в основном контейнере
 	ws.container.Objects = newContainer.Objects
 	ws.container.Refresh()
-	fmt.Println("DEBUG: Workspace - Фон рабочей области обновлен")
-	
+
 	// Сбрасываем флаг
 	ws.updatingBackground = false
 }

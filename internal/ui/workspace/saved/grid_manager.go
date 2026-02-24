@@ -1,7 +1,6 @@
 package saved
 
 import (
-	"fmt"
 	"image/color"
 	"math"
 	"runtime"
@@ -182,12 +181,8 @@ func (gm *GridManager) UpdateLayout() {
 
 // updateLayout обновляет расположение карточек в сетке
 func (gm *GridManager) updateLayout() {
-	startTime := time.Now()
-	fmt.Printf("[%s] Starting layout update for %d cards\n", time.Now().Format("15:04:05.000"), len(gm.cards))
-
 	// Проверяем, что контейнер инициализирован
 	if gm.container == nil {
-		fmt.Printf("[%s] Container is nil, skipping layout update\n", time.Now().Format("15:04:05.000"))
 		return
 	}
 
@@ -198,21 +193,15 @@ func (gm *GridManager) updateLayout() {
 	scrollSize := gm.scroll.Size()
 	availableWidth := gm.sizeManager.CalculateColumnCount(scrollSize.Width)
 
-	fmt.Printf("[%s] Calculated available columns: %d\n", time.Now().Format("15:04:05.000"), availableWidth)
-
-	positionsStart := time.Now()
 	positions := gm.layoutEngine.CalculatePositions(gm.cards, availableWidth)
-	fmt.Printf("[%s] Position calculation took %v\n", time.Now().Format("15:04:05.000"), time.Since(positionsStart))
 
 	if len(positions) != len(gm.cards) {
-		fmt.Printf("[%s] Position count mismatch: got %d, expected %d\n", time.Now().Format("15:04:05.000"), len(positions), len(gm.cards))
 		return // Позиции будут пересчитаны при следующем обновлении
 	}
 
 	// Предвыделяем память для объектов контейнера
 	gm.container.Objects = make([]fyne.CanvasObject, 0, len(gm.cards))
 
-	cardProcessingStart := time.Now()
 	for i, pos := range positions {
 		cardInfo := gm.cards[i]
 		cardInfo.Position = pos
@@ -229,24 +218,17 @@ func (gm *GridManager) updateLayout() {
 		// Обновляем размеры виджета
 		cardInfo.Widget.Resize(fyne.NewSize(width, actualHeight))
 
-		x, _ := gm.sizeManager.CalculatePixelPosition(pos.X, pos.Y) // Используем pos.Y напрямую, так как это уже позиция по оси Y
+		x, _ := gm.sizeManager.CalculatePixelPosition(pos.X, pos.Y)
 		cardInfo.Widget.Move(fyne.NewPos(x, float32(pos.Y)))
 
 		gm.container.Objects = append(gm.container.Objects, cardInfo.Widget)
 	}
-	fmt.Printf("[%s] Card processing took %v\n", time.Now().Format("15:04:05.000"), time.Since(cardProcessingStart))
 
-	containerUpdateStart := time.Now()
 	gm.updateContainerSize()
-	fmt.Printf("[%s] Container size update took %v\n", time.Now().Format("15:04:05.000"), time.Since(containerUpdateStart))
 
 	// Используем canvas.Refresh вместо container.Refresh для лучшей производительности
 	// canvas.Refresh обновляет весь холст, но работает эффективнее
-	refreshStart := time.Now()
 	canvas.Refresh(gm.container)
-	fmt.Printf("[%s] Canvas refresh took %v\n", time.Now().Format("15:04:05.000"), time.Since(refreshStart))
-
-	fmt.Printf("[%s] Layout update completed in %v\n", time.Now().Format("15:04:05.000"), time.Since(startTime))
 }
 
 // Обработчик изменения размера
@@ -263,8 +245,6 @@ func (gm *GridManager) onSizeChanged(pos fyne.Position) {
 	if scrollDistance < gm.scrollThreshold {
 		return
 	}
-
-	fmt.Printf("[%s] Scroll event detected (distance: %.2f), scheduling layout update\n", time.Now().Format("15:04:05.000"), scrollDistance)
 
 	// Используем дебаунсинг для обновления макета при скролле или изменении размера
 	gm.debouncer.Call(func() {
@@ -308,9 +288,6 @@ func (gm *GridManager) LoadItemsWithoutCreateElement(items []*models.Item) {
 // loadItems загружает элементы в сетку (внутренний метод)
 // if addCreateElement=true, добавляется элемент "Создать элемент"
 func (gm *GridManager) loadItems(items []*models.Item, addCreateElement bool) {
-	startTime := time.Now()
-	fmt.Printf("[%s] Starting to load %d items\n", time.Now().Format("15:04:05.000"), len(items))
-
 	gm.clear()
 
 	// Предвыделяем память для карточек
@@ -321,9 +298,7 @@ func (gm *GridManager) loadItems(items []*models.Item, addCreateElement bool) {
 	gm.cards = make([]*ui_models.CardInfo, 0, capacity)
 
 	// Добавляем переданные элементы параллельно с использованием worker pool
-	cardCreationStart := time.Now()
 	gm.createCardsConcurrently(items)
-	fmt.Printf("[%s] Total card creation took %v\n", time.Now().Format("15:04:05.000"), time.Since(cardCreationStart))
 
 	// Добавляем элемент "Создать элемент" если требуется (последовательно, т.к. это один элемент)
 	if addCreateElement {
@@ -334,8 +309,6 @@ func (gm *GridManager) loadItems(items []*models.Item, addCreateElement bool) {
 	// Обновляем макет один раз после добавления всех элементов
 	// Расчёт позиций остается последовательным
 	gm.updateLayout()
-
-	fmt.Printf("[%s] Item loading completed in %v\n", time.Now().Format("15:04:05.000"), time.Since(startTime))
 }
 
 // createCardsConcurrently создает карточки параллельно с использованием worker pool
@@ -349,8 +322,6 @@ func (gm *GridManager) createCardsConcurrently(items []*models.Item) {
 	if numWorkers > len(items) {
 		numWorkers = len(items)
 	}
-
-	fmt.Printf("[%s] Creating %d cards using %d workers\n", time.Now().Format("15:04:05.000"), len(items), numWorkers)
 
 	// Создаем канал для результатов и WaitGroup
 	resultChan := make(chan rendering.CardCreationResult, len(items))
@@ -372,22 +343,16 @@ func (gm *GridManager) createCardsConcurrently(items []*models.Item) {
 	}()
 
 	// Собираем результаты (порядок сохраняется по индексу)
-	collected := 0
 	for result := range resultChan {
 		if result.Error != nil {
-			fmt.Printf("[%s] Error creating card for item %d: %v\n", time.Now().Format("15:04:05.000"), result.Index, result.Error)
 			continue
 		}
 		results[result.Index] = result.CardInfo
-		collected++
 	}
-
-	fmt.Printf("[%s] Collected %d card results\n", time.Now().Format("15:04:05.000"), collected)
 
 	// Вычисляем размеры и делаем refresh в main goroutine (требуется Fyne)
 	// Это делается последовательно, но быстро - только MinSize и Refresh
-	refreshStart := time.Now()
-	for i, cardInfo := range results {
+	for _, cardInfo := range results {
 		if cardInfo != nil {
 			// Применяем размеры из кэша
 			widthCells, heightCells := gm.getCardSize(cardInfo.Item)
@@ -406,11 +371,8 @@ func (gm *GridManager) createCardsConcurrently(items []*models.Item) {
 			}
 
 			gm.cards = append(gm.cards, cardInfo)
-		} else {
-			fmt.Printf("[%s] Warning: card at index %d is nil\n", time.Now().Format("15:04:05.000"), i)
 		}
 	}
-	fmt.Printf("[%s] Widget refresh and size calculation took %v\n", time.Now().Format("15:04:05.000"), time.Since(refreshStart))
 }
 
 // LoadItemsByParent загружает элементы по родительскому ID

@@ -177,12 +177,19 @@ func UpdateContact(contact *models.Contact) error {
 }
 
 // UpdateContactStatus обновляет статус контакта
-func UpdateContactStatus(peerID, status string) error {
+func UpdateContactStatus(id int, status string, lastSeen *time.Time) error {
+	var lastSeenStr interface{}
+	if lastSeen != nil {
+		lastSeenStr = lastSeen.Format("2006-01-02 15:04:05")
+	} else {
+		lastSeenStr = nil
+	}
+	
 	_, err := database.DB.Exec(`
 		UPDATE contacts
-		SET status = ?, last_seen = CURRENT_TIMESTAMP, updated_at = CURRENT_TIMESTAMP
-		WHERE peer_id = ?
-	`, status, peerID)
+		SET status = ?, last_seen = ?, updated_at = CURRENT_TIMESTAMP
+		WHERE id = ?
+	`, status, lastSeenStr, id)
 	return err
 }
 

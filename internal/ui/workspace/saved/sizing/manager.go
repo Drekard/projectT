@@ -1,9 +1,6 @@
 package sizing
 
 import (
-	"fmt"
-	"time"
-
 	"projectT/internal/ui/workspace/saved/models"
 	"projectT/internal/ui/workspace/saved/utils"
 
@@ -41,14 +38,10 @@ func NewSizeManager() *SizeManager {
 
 // CalculatePixelSize вычисляет размер в пикселях
 func (sm *SizeManager) CalculatePixelSize(widthCells, heightCells int) (float32, float32) {
-	startTime := time.Now()
-	fmt.Printf("[%s] Calculating pixel size for %d x %d cells\n", time.Now().Format("15:04:05.000"), widthCells, heightCells)
-	
 	// Для новой системы мы используем фиксированную ширину и переменную высоту
 	width := sm.fixedWidth
 	height := float32(heightCells)*sm.minHeight + float32(heightCells-1)*sm.gapSize
-	
-	fmt.Printf("[%s] Pixel size calculation completed in %v\n", time.Now().Format("15:04:05.000"), time.Since(startTime))
+
 	return width, height
 }
 
@@ -77,15 +70,10 @@ func (sm *SizeManager) GetAvailableWidth(scroll *container.Scroll) float32 {
 
 // CalculateMaxDimensions вычисляет максимальные размеры
 func (sm *SizeManager) CalculateMaxDimensions(cards []*models.CardInfo) (float32, float32) {
-	startTime := time.Now()
-	fmt.Printf("[%s] Calculating max dimensions for %d cards\n", time.Now().Format("15:04:05.000"), len(cards))
-	
 	var maxX, maxY float32
 
-	for i, card := range cards {
-		posCalcStart := time.Now()
+	for _, card := range cards {
 		x, y := sm.CalculatePixelPosition(card.Position.X, card.Position.Y)
-		fmt.Printf("[%s] Position calculation for card %d took %v\n", time.Now().Format("15:04:05.000"), i, time.Since(posCalcStart))
 
 		// Для новой системы ширина фиксирована, высота берется из самой карточки
 		width := sm.fixedWidth
@@ -102,7 +90,6 @@ func (sm *SizeManager) CalculateMaxDimensions(cards []*models.CardInfo) (float32
 		}
 	}
 
-	fmt.Printf("[%s] Max dimensions calculation completed in %v\n", time.Now().Format("15:04:05.000"), time.Since(startTime))
 	return maxX, maxY
 }
 
@@ -133,17 +120,12 @@ func (sm *SizeManager) GetTotalWidth() float32 {
 
 // CalculateActualPixelSize вычисляет фактический размер карточки по ее содержимому
 func (sm *SizeManager) CalculateActualPixelSize(widget fyne.CanvasObject) (float32, float32) {
-	startTime := time.Now()
-
 	if widget == nil {
-		fmt.Printf("[%s] Widget is nil, returning default size\n", time.Now().Format("15:04:05.000"))
 		return sm.fixedWidth, sm.minHeight
 	}
 
 	// Получаем предпочтительный размер виджета
-	sizeCalcStart := time.Now()
 	preferredSize := widget.MinSize()
-	fmt.Printf("[%s] MinSize calculation took %v\n", time.Now().Format("15:04:05.000"), time.Since(sizeCalcStart))
 
 	// Устанавливаем фиксированную ширину и переменную высоту
 	width := sm.fixedWidth
@@ -160,7 +142,6 @@ func (sm *SizeManager) CalculateActualPixelSize(widget fyne.CanvasObject) (float
 		height = sm.minHeight
 	}
 
-	fmt.Printf("[%s] Size calculation completed in %v\n", time.Now().Format("15:04:05.000"), time.Since(startTime))
 	return width, height
 }
 

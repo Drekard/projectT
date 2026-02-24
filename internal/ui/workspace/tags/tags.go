@@ -35,18 +35,14 @@ func New() *UI {
 }
 
 func (t *UI) createView() fyne.CanvasObject {
-	fmt.Println("Создание представления тегов")
-
 	// Получаем все теги из базы данных
 	var err error
 	t.tags, err = tagsService.GetAllTags(context.Background())
 	if err != nil {
-		fmt.Printf("Ошибка загрузки тегов: %v\n", err)
 		return container.NewVBox(
 			widget.NewLabel("Ошибка загрузки тегов: " + err.Error()),
 		)
 	}
-	fmt.Printf("Загружено тегов: %d\n", len(t.tags))
 
 	// Создаем поле поиска
 	t.searchBar = widget.NewEntry()
@@ -68,8 +64,6 @@ func (t *UI) createView() fyne.CanvasObject {
 }
 
 func (t *UI) createTable() *widget.Table {
-	fmt.Println("Создание таблицы тегов")
-
 	// Создаем таблицу с двумя разными типами ячеек
 	table := widget.NewTable(
 		func() (int, int) {
@@ -82,7 +76,6 @@ func (t *UI) createTable() *widget.Table {
 		},
 		func(id widget.TableCellID, cell fyne.CanvasObject) {
 			if id.Row >= len(t.tags) {
-				fmt.Printf("Попытка получить тег для несуществующей строки: %d (всего тегов: %d)\n", id.Row, len(t.tags))
 				return
 			}
 
@@ -179,7 +172,6 @@ func (t *UI) createTable() *widget.Table {
 }
 
 func (t *UI) filterTags(searchText string) {
-	fmt.Printf("Фильтрация тегов по запросу: %s\n", searchText)
 	var filtered []*models.Tag
 	var err error
 
@@ -190,24 +182,19 @@ func (t *UI) filterTags(searchText string) {
 	}
 
 	if err != nil {
-		fmt.Printf("Ошибка фильтрации тегов: %v\n", err)
 		// В реальном приложении здесь должна быть обработка ошибок
 		return
 	}
 
-	fmt.Printf("Найдено тегов: %d\n", len(filtered))
 	t.tags = filtered
 	t.table.Refresh()
 }
 
 func (t *UI) editTag(tagID int) {
-	fmt.Printf("Редактирование тега с ID: %d\n", tagID)
-
 	// Получаем информацию о теге для редактирования
 	tag, err := tagsService.GetTagByID(context.Background(), tagID)
 	if err != nil {
 		// В случае ошибки можно показать сообщение пользователю
-		fmt.Printf("Ошибка получения тега для редактирования: %v\n", err)
 		return
 	}
 
@@ -238,8 +225,6 @@ func (t *UI) editTag(tagID int) {
 				dialog.Hide()
 			}),
 			widget.NewButton("Сохранить", func() {
-				fmt.Printf("Сохранение изменений для тега: %s -> %s\n", tag.Name, nameEntry.Text)
-
 				// Обновляем тег в базе данных
 				tag.Name = nameEntry.Text
 				tag.Description = descEntry.Text
@@ -248,7 +233,6 @@ func (t *UI) editTag(tagID int) {
 				// Обновляем тег в базе данных через UpdateTag
 				err := tagsService.UpdateTag(context.Background(), tag)
 				if err != nil {
-					fmt.Printf("Ошибка обновления тега: %v\n", err)
 					// Обработка ошибки
 					dialog.Hide()
 					return
@@ -266,8 +250,6 @@ func (t *UI) editTag(tagID int) {
 }
 
 func (t *UI) deleteTag(tagID int) {
-	fmt.Printf("Удаление тега с ID: %d\n", tagID)
-
 	// Подтверждение удаления
 	w := fyne.CurrentApp().Driver().AllWindows()[0]
 	var dialog *widget.PopUp
@@ -281,12 +263,10 @@ func (t *UI) deleteTag(tagID int) {
 			widget.NewButton("Удалить", func() {
 				err := tagsService.DeleteTag(context.Background(), tagID)
 				if err != nil {
-					fmt.Printf("Ошибка удаления тега: %v\n", err)
 					// Обработка ошибки
 					dialog.Hide()
 					return
 				}
-				fmt.Printf("Тег с ID %d успешно удален\n", tagID)
 
 				// Обновляем список тегов
 				t.filterTags(t.searchBar.Text)
@@ -338,17 +318,12 @@ func (t *UI) GetContent() fyne.CanvasObject {
 
 // Refresh обновляет данные тегов
 func (t *UI) Refresh() {
-	fmt.Println("Обновление данных тегов")
-
 	// Загружаем свежие данные из базы данных
 	var err error
 	tags, err := tagsService.GetAllTags(context.Background())
 	if err != nil {
-		fmt.Printf("Ошибка загрузки тегов: %v\n", err)
 		// В случае ошибки можно обновить с пустым списком или показать сообщение об ошибке
 		tags = []*models.Tag{}
-	} else {
-		fmt.Printf("Загружено тегов: %d\n", len(tags))
 	}
 
 	// Обновляем внутренний список тегов
@@ -360,12 +335,9 @@ func (t *UI) Refresh() {
 
 // changeTagColor открывает диалог для изменения цвета тега и обновляет цвет тега в базе данных
 func (t *UI) changeTagColor(tagID int) {
-	fmt.Printf("Изменение цвета тега с ID: %d\n", tagID)
-
 	// Получаем информацию о теге
 	tag, err := tagsService.GetTagByID(context.Background(), tagID)
 	if err != nil {
-		fmt.Printf("Ошибка получения тега для изменения цвета: %v\n", err)
 		return
 	}
 
@@ -395,13 +367,11 @@ func (t *UI) changeTagColor(tagID int) {
 					// Обновляем цвет в базе данных через UpdateTag
 					tagToUpdate, err := tagsService.GetTagByID(context.Background(), tagID)
 					if err != nil {
-						fmt.Printf("Ошибка получения тега для обновления: %v\n", err)
 						return
 					}
 					tagToUpdate.Color = newColor
 					err = tagsService.UpdateTag(context.Background(), tagToUpdate)
 					if err != nil {
-						fmt.Printf("Ошибка обновления цвета тега: %v\n", err)
 						return
 					}
 

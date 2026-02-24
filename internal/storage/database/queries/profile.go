@@ -117,3 +117,14 @@ func InitializeDefaultProfile() error {
 
 	return nil
 }
+
+// GetProfileUsername получает имя пользователя из профиля
+func GetProfileUsername() (string, error) {
+	query := `SELECT username FROM profile LIMIT 1`
+	var username string
+	err := database.DB.QueryRow(query).Scan(&username)
+	if err != nil {
+		return "", err
+	}
+	return username, nil
+}
