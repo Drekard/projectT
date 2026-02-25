@@ -349,11 +349,11 @@ func seedBootstrapPeers() {
 - [✓] `internal/services/p2p/config.go` — конфигурация
 
 ### Этап 3: Обнаружение (2-3 недели)
-- [ ] `internal/services/p2p/discovery.go`
-- [ ] mDNS для локальной сети
-- [ ] DHT для глобальной сети
-- [ ] Bootstrap-узлы (чтение/запись в БД)
-- [ ] Тесты на обнаружение пиров
+- [✓] `internal/services/p2p/discovery.go`
+- [✓] mDNS для локальной сети
+- [✓] DHT для глобальной сети
+- [✓] Bootstrap-узлы (чтение/запись в БД)
+- [✓] Тесты на обнаружение пиров
 
 ### Этап 4: NAT Traversal (2-3 недели)
 - [ ] `internal/services/p2p/connections.go`

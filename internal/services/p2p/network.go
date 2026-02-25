@@ -37,14 +37,16 @@ type PeerAddress struct {
 
 // P2PNetwork представляет P2P сеть проекта
 type P2PNetwork struct {
-	host      host.Host
-	dht       *dht.IpfsDHT
-	pubsub    *pubsub.PubSub
-	config    *P2PConfig
-	ctx       context.Context
-	cancel    context.CancelFunc
-	mu        sync.RWMutex
-	peerAddrs map[peer.ID]multiaddr.Multiaddr
+	host       host.Host
+	dht        *dht.IpfsDHT
+	dhtDiscovery *routing.RoutingDiscovery
+	pubsub     *pubsub.PubSub
+	discovery  *DiscoveryService
+	config     *P2PConfig
+	ctx        context.Context
+	cancel     context.CancelFunc
+	mu         sync.RWMutex
+	peerAddrs  map[peer.ID]multiaddr.Multiaddr
 }
 
 // NewP2PNetwork создаёт новый экземпляр P2P сети
@@ -178,6 +180,11 @@ func (n *P2PNetwork) Start() error {
 		log.Printf("Предупреждение: не удалось обновить адреса в профиле: %v", err)
 	}
 
+	// Инициализируем и запускаем сервис обнаружения
+	if err := n.initDiscovery(); err != nil {
+		log.Printf("Предупреждение: сервис обнаружения не инициализирован: %v", err)
+	}
+
 	return nil
 }
 
@@ -189,6 +196,14 @@ func (n *P2PNetwork) Stop() error {
 	n.cancel()
 
 	var errs []string
+	
+	// Останавливаем сервис обнаружения
+	if n.discovery != nil {
+		if err := n.discovery.Stop(); err != nil {
+			errs = append(errs, fmt.Sprintf("Discovery: %v", err))
+		}
+	}
+	
 	if n.dht != nil {
 		if err := n.dht.Close(); err != nil {
 			errs = append(errs, fmt.Sprintf("DHT: %v", err))
@@ -569,17 +584,21 @@ func (n *P2PNetwork) initDHT() error {
 
 	n.dht = kdht
 
-	// Подключаемся к bootstrap-узлам
-	if err := n.connectToBootstrapPeers(); err != nil {
-		log.Printf("Предупреждение: не удалось подключиться к bootstrap-узлам: %v", err)
-	}
-
-	// Запускаем обнаружение через DHT
-	discovery := routing.NewRoutingDiscovery(kdht)
-	_ = discovery // Можно использовать для обнаружения
+	// Создаём RoutingDiscovery для использования в сервисе обнаружения
+	n.dhtDiscovery = routing.NewRoutingDiscovery(kdht)
 
 	log.Println("DHT инициализирована")
 	return nil
+}
+
+// initDiscovery инициализирует и запускает сервис обнаружения
+func (n *P2PNetwork) initDiscovery() error {
+	if n.host == nil {
+		return errors.New("хост не инициализирован")
+	}
+
+	n.discovery = NewDiscoveryService(n.host, n.dhtDiscovery, n.config)
+	return n.discovery.Start()
 }
 
 // initPubSub инициализирует PubSub систему
@@ -595,46 +614,6 @@ func (n *P2PNetwork) initPubSub() error {
 
 	n.pubsub = ps
 	log.Println("PubSub инициализирована")
-	return nil
-}
-
-// connectToBootstrapPeers подключается к bootstrap-узлам из БД
-func (n *P2PNetwork) connectToBootstrapPeers() error {
-	peers, err := queries.GetAllBootstrapPeers()
-	if err != nil {
-		return fmt.Errorf("ошибка получения bootstrap-узлов: %w", err)
-	}
-
-	ctx, cancel := context.WithTimeout(n.ctx, 30*time.Second)
-	defer cancel()
-
-	var connected int
-	for _, p := range peers {
-		addr, err := multiaddr.NewMultiaddr(p.Multiaddr)
-		if err != nil {
-			log.Printf("Предупреждение: неверный адрес bootstrap-узла %s: %v", p.Multiaddr, err)
-			continue
-		}
-
-		info, err := peer.AddrInfoFromP2pAddr(addr)
-		if err != nil {
-			log.Printf("Предупреждение: неверная информация о пире %s: %v", p.Multiaddr, err)
-			continue
-		}
-
-		if err := n.host.Connect(ctx, *info); err != nil {
-			log.Printf("Предупреждение: не удалось подключиться к bootstrap-узлу %s: %v", p.Multiaddr, err)
-			continue
-		}
-
-		connected++
-		log.Printf("Подключено к bootstrap-узлу: %s", p.Multiaddr)
-
-		// Обновляем время подключения в БД
-		_ = queries.UpdateBootstrapPeerLastConnected(p.Multiaddr)
-	}
-
-	log.Printf("Подключено %d из %d bootstrap-узлов", connected, len(peers))
 	return nil
 }
 
@@ -730,4 +709,55 @@ func ParsePeerAddressString(addrStr string) (*PeerAddress, error) {
 // FormatPeerAddress форматирует адрес для шаринга
 func FormatPeerAddress(peerID, multiaddr string) string {
 	return fmt.Sprintf("%s@%s", peerID, multiaddr)
+}
+
+// Discovery возвращает сервис обнаружения
+func (n *P2PNetwork) Discovery() *DiscoveryService {
+	n.mu.RLock()
+	defer n.mu.RUnlock()
+	return n.discovery
+}
+
+// AddBootstrapPeer добавляет bootstrap-узел
+func (n *P2PNetwork) AddBootstrapPeer(multiaddr string) error {
+	n.mu.RLock()
+	defer n.mu.RUnlock()
+	
+	if n.discovery == nil {
+		return errors.New("сервис обнаружения не инициализирован")
+	}
+	return n.discovery.AddBootstrapPeer(multiaddr)
+}
+
+// RemoveBootstrapPeer удаляет bootstrap-узел
+func (n *P2PNetwork) RemoveBootstrapPeer(multiaddr string) error {
+	n.mu.RLock()
+	defer n.mu.RUnlock()
+	
+	if n.discovery == nil {
+		return errors.New("сервис обнаружения не инициализирован")
+	}
+	return n.discovery.RemoveBootstrapPeer(multiaddr)
+}
+
+// GetBootstrapPeers возвращает список bootstrap-узлов
+func (n *P2PNetwork) GetBootstrapPeers() ([]*models.BootstrapPeer, error) {
+	n.mu.RLock()
+	defer n.mu.RUnlock()
+	
+	if n.discovery == nil {
+		return nil, errors.New("сервис обнаружения не инициализирован")
+	}
+	return n.discovery.GetBootstrapPeers()
+}
+
+// GetDiscoveredPeers возвращает список обнаруженных пиров
+func (n *P2PNetwork) GetDiscoveredPeers() map[string]time.Time {
+	n.mu.RLock()
+	defer n.mu.RUnlock()
+	
+	if n.discovery == nil {
+		return make(map[string]time.Time)
+	}
+	return n.discovery.GetDiscoveredPeers()
 }
