@@ -356,12 +356,12 @@ func seedBootstrapPeers() {
 - [✓] Тесты на обнаружение пиров
 
 ### Этап 4: NAT Traversal (2-3 недели)
-- [ ] `internal/services/p2p/connections.go`
-- [ ] NAT Port Mapping (UPnP/NAT-PMP)
-- [ ] Hole punching
-- [ ] AutoRelay
-- [ ] Мониторинг соединений
-- [ ] Автоматическое переподключение
+- [✓] `internal/services/p2p/connections.go`
+- [✓] NAT Port Mapping (UPnP/NAT-PMP)
+- [✓] Hole punching
+- [✓] AutoRelay
+- [✓] Мониторинг соединений
+- [✓] Автоматическое переподключение
 
 ### Этап 5: Чат (2-3 недели)
 - [ ] `internal/services/p2p/chat.go`

@@ -42,6 +42,7 @@ type P2PNetwork struct {
 	dhtDiscovery *routing.RoutingDiscovery
 	pubsub     *pubsub.PubSub
 	discovery  *DiscoveryService
+	connections *ConnectionService
 	config     *P2PConfig
 	ctx        context.Context
 	cancel     context.CancelFunc
@@ -185,6 +186,11 @@ func (n *P2PNetwork) Start() error {
 		log.Printf("Предупреждение: сервис обнаружения не инициализирован: %v", err)
 	}
 
+	// Инициализируем и запускаем сервис соединений
+	if err := n.initConnections(); err != nil {
+		log.Printf("Предупреждение: сервис соединений не инициализирован: %v", err)
+	}
+
 	return nil
 }
 
@@ -196,14 +202,21 @@ func (n *P2PNetwork) Stop() error {
 	n.cancel()
 
 	var errs []string
-	
+
 	// Останавливаем сервис обнаружения
 	if n.discovery != nil {
 		if err := n.discovery.Stop(); err != nil {
 			errs = append(errs, fmt.Sprintf("Discovery: %v", err))
 		}
 	}
-	
+
+	// Останавливаем сервис соединений
+	if n.connections != nil {
+		if err := n.connections.Stop(); err != nil {
+			errs = append(errs, fmt.Sprintf("Connections: %v", err))
+		}
+	}
+
 	if n.dht != nil {
 		if err := n.dht.Close(); err != nil {
 			errs = append(errs, fmt.Sprintf("DHT: %v", err))
@@ -536,9 +549,10 @@ func (n *P2PNetwork) createHost(profile *models.P2PProfile) error {
 	opts := []libp2p.Option{
 		libp2p.Identity(privKey),
 		libp2p.ListenAddrStrings(n.config.ListenAddrs...),
-		libp2p.NATPortMap(),
-		libp2p.EnableRelay(),
-		libp2p.EnableAutoRelayWithStaticRelays(staticRelays),
+		libp2p.NATPortMap(),              // Проброс портов через NAT (UPnP/NAT-PMP)
+		libp2p.EnableRelay(),             // Включает relay для обхода NAT
+		libp2p.EnableAutoRelayWithStaticRelays(staticRelays), // Автовыбор relay
+		libp2p.EnableHolePunching(),      // 🔥 NAT Hole Punching для прямых соединений
 		libp2p.UserAgent("ProjectT/1.0"),
 	}
 
@@ -599,6 +613,16 @@ func (n *P2PNetwork) initDiscovery() error {
 
 	n.discovery = NewDiscoveryService(n.host, n.dhtDiscovery, n.config)
 	return n.discovery.Start()
+}
+
+// initConnections инициализирует и запускает сервис соединений
+func (n *P2PNetwork) initConnections() error {
+	if n.host == nil {
+		return errors.New("хост не инициализирован")
+	}
+
+	n.connections = NewConnectionService(n.host, n.config)
+	return n.connections.Start()
 }
 
 // initPubSub инициализирует PubSub систему
@@ -755,9 +779,49 @@ func (n *P2PNetwork) GetBootstrapPeers() ([]*models.BootstrapPeer, error) {
 func (n *P2PNetwork) GetDiscoveredPeers() map[string]time.Time {
 	n.mu.RLock()
 	defer n.mu.RUnlock()
-	
+
 	if n.discovery == nil {
 		return make(map[string]time.Time)
 	}
 	return n.discovery.GetDiscoveredPeers()
+}
+
+// Connections возвращает сервис соединений
+func (n *P2PNetwork) Connections() *ConnectionService {
+	n.mu.RLock()
+	defer n.mu.RUnlock()
+	return n.connections
+}
+
+// GetConnectionStatus возвращает статус подключения к пиру
+func (n *P2PNetwork) GetConnectionStatus(peerID peer.ID) ConnectionStatus {
+	n.mu.RLock()
+	defer n.mu.RUnlock()
+	
+	if n.connections == nil {
+		return StatusUnknown
+	}
+	return n.connections.GetConnectionStatus(peerID)
+}
+
+// GetConnectedPeersCount возвращает количество подключённых пиров
+func (n *P2PNetwork) GetConnectedPeersCount() int {
+	n.mu.RLock()
+	defer n.mu.RUnlock()
+	
+	if n.connections == nil {
+		return 0
+	}
+	return n.connections.GetConnectedPeersCount()
+}
+
+// GetPeerInfo возвращает информацию о подключении к пиру
+func (n *P2PNetwork) GetPeerInfo(peerID peer.ID) *PeerConnectionInfo {
+	n.mu.RLock()
+	defer n.mu.RUnlock()
+	
+	if n.connections == nil {
+		return nil
+	}
+	return n.connections.GetPeerInfo(peerID)
 }
