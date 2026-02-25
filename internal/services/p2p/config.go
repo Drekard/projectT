@@ -54,6 +54,10 @@ type P2PConfig struct {
 
 	// BootstrapPeers список bootstrap-узлов
 	BootstrapPeers []string
+
+	// MasterPassword пароль для шифрования приватного ключа
+	// Если пустой - ключи не шифруются (не рекомендуется)
+	MasterPassword string
 }
 
 // DefaultConfig возвращает конфигурацию по умолчанию

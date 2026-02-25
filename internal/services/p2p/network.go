@@ -23,6 +23,7 @@ import (
 	"github.com/libp2p/go-libp2p/p2p/discovery/routing"
 	"github.com/multiformats/go-multiaddr"
 
+	p2pcrypto "projectT/internal/services/crypto"
 	"projectT/internal/storage/database/models"
 	"projectT/internal/storage/database/queries"
 )
@@ -55,6 +56,91 @@ func NewP2PNetwork() *P2PNetwork {
 		cancel:    cancel,
 		peerAddrs: make(map[peer.ID]multiaddr.Multiaddr),
 	}
+}
+
+// SetMasterPassword устанавливает мастер-пароль для шифрования приватного ключа
+// Должен вызываться перед Start()
+func (n *P2PNetwork) SetMasterPassword(password string) {
+	n.mu.Lock()
+	defer n.mu.Unlock()
+	n.config.MasterPassword = password
+}
+
+// VerifyPassword проверяет правильность пароля для расшифровки приватного ключа
+// Можно использовать для проверки пароля перед запуском P2P сети
+func (n *P2PNetwork) VerifyPassword(password string) (bool, error) {
+	profile, err := queries.GetP2PProfile()
+	if err != nil {
+		return false, fmt.Errorf("ошибка загрузки профиля: %w", err)
+	}
+
+	if !profile.IsKeyEncrypted {
+		// Ключ не зашифрован — пароль не требуется
+		return true, nil
+	}
+
+	// Проверяем пароль
+	if !p2pcrypto.VerifyPassword(profile.PrivateKey, password) {
+		return false, errors.New("неверный пароль")
+	}
+
+	return true, nil
+}
+
+// ChangePassword меняет пароль шифрования приватного ключа
+// Требует ввода старого и нового пароля
+func (n *P2PNetwork) ChangePassword(oldPassword, newPassword string) error {
+	profile, err := queries.GetP2PProfile()
+	if err != nil {
+		return fmt.Errorf("ошибка загрузки профиля: %w", err)
+	}
+
+	if !profile.IsKeyEncrypted {
+		// Если ключ не зашифрован, просто шифруем новым паролем
+		privKeyRaw, err := crypto.MarshalPrivateKey(n.host.Peerstore().PrivKey(n.host.ID()))
+		if err != nil {
+			return fmt.Errorf("ошибка сериализации ключа: %w", err)
+		}
+		encryptedKey, err := p2pcrypto.EncryptPrivateKey(privKeyRaw, newPassword)
+		if err != nil {
+			return fmt.Errorf("ошибка шифрования ключа: %w", err)
+		}
+		return queries.ChangeP2PKeyPassword(encryptedKey)
+	}
+
+	// Расшифровываем старым паролем и шифруем новым
+	newEncryptedKey, err := p2pcrypto.ChangePassword(profile.PrivateKey, oldPassword, newPassword)
+	if err != nil {
+		return fmt.Errorf("ошибка смены пароля: %w", err)
+	}
+
+	return queries.ChangeP2PKeyPassword(newEncryptedKey)
+}
+
+// IsKeyEncrypted возвращает true, если приватный ключ зашифрован
+func (n *P2PNetwork) IsKeyEncrypted() (bool, error) {
+	return queries.IsP2PKeyEncrypted()
+}
+
+// EnableEncryption включает шифрование приватного ключа с заданным паролем
+// Используется, если профиль был создан без шифрования
+func (n *P2PNetwork) EnableEncryption(password string) error {
+	profile, err := queries.GetP2PProfile()
+	if err != nil {
+		return fmt.Errorf("ошибка загрузки профиля: %w", err)
+	}
+
+	if profile.IsKeyEncrypted {
+		return errors.New("ключ уже зашифрован")
+	}
+
+	// Шифруем приватный ключ
+	encryptedKey, err := p2pcrypto.EncryptPrivateKey(profile.PrivateKey, password)
+	if err != nil {
+		return fmt.Errorf("ошибка шифрования ключа: %w", err)
+	}
+
+	return queries.ChangeP2PKeyPassword(encryptedKey)
 }
 
 // Start запускает P2P сеть
@@ -318,15 +404,34 @@ func (n *P2PNetwork) loadOrCreateProfile() (*models.P2PProfile, error) {
 		return nil, fmt.Errorf("ошибка получения PeerID: %w", err)
 	}
 
-	// Сериализуем ключи
-	privKeyBytes, err := crypto.MarshalPrivateKey(privKey)
-	if err != nil {
-		return nil, fmt.Errorf("ошибка сериализации приватного ключа: %w", err)
-	}
-
+	// Сериализуем публичный ключ
 	pubKeyBytes, err := crypto.MarshalPublicKey(pubKey)
 	if err != nil {
 		return nil, fmt.Errorf("ошибка сериализации публичного ключа: %w", err)
+	}
+
+	// Шифруем приватный ключ с паролем
+	var privKeyBytes []byte
+	var isEncrypted bool
+	if n.config.MasterPassword != "" {
+		privKeyRaw, err := crypto.MarshalPrivateKey(privKey)
+		if err != nil {
+			return nil, fmt.Errorf("ошибка сериализации приватного ключа: %w", err)
+		}
+		privKeyBytes, err = p2pcrypto.EncryptPrivateKey(privKeyRaw, n.config.MasterPassword)
+		if err != nil {
+			return nil, fmt.Errorf("ошибка шифрования приватного ключа: %w", err)
+		}
+		isEncrypted = true
+		log.Println("Приватный ключ зашифрован")
+	} else {
+		// Без шифрования (не рекомендуется)
+		privKeyBytes, err = crypto.MarshalPrivateKey(privKey)
+		if err != nil {
+			return nil, fmt.Errorf("ошибка сериализации приватного ключа: %w", err)
+		}
+		isEncrypted = false
+		log.Println("Предупреждение: приватный ключ сохранён без шифрования")
 	}
 
 	// Получаем имя пользователя из профиля
@@ -337,12 +442,13 @@ func (n *P2PNetwork) loadOrCreateProfile() (*models.P2PProfile, error) {
 
 	// Создаём профиль
 	profile := &models.P2PProfile{
-		ID:         1,
-		PeerID:     peerID.String(),
-		PrivateKey: privKeyBytes,
-		PublicKey:  pubKeyBytes,
-		Username:   username,
-		Status:     "online",
+		ID:             1,
+		PeerID:         peerID.String(),
+		PrivateKey:     privKeyBytes,
+		PublicKey:      pubKeyBytes,
+		IsKeyEncrypted: isEncrypted,
+		Username:       username,
+		Status:         "online",
 	}
 
 	if err := queries.CreateP2PProfile(profile); err != nil {
@@ -364,10 +470,51 @@ func (n *P2PNetwork) generateKeyPair() (crypto.PrivKey, crypto.PubKey, error) {
 
 // createHost создаёт libp2p хост
 func (n *P2PNetwork) createHost(profile *models.P2PProfile) error {
-	// Десериализуем приватный ключ
-	privKey, err := crypto.UnmarshalPrivateKey(profile.PrivateKey)
-	if err != nil {
-		return fmt.Errorf("ошибка десериализации приватного ключа: %w", err)
+	// Десериализуем приватный ключ (с расшифровкой если нужно)
+	var privKey crypto.PrivKey
+	var err error
+
+	// Проверяем, зашифрован ли ключ по маркеру в данных
+	if p2pcrypto.IsEncryptedKey(profile.PrivateKey) {
+		// Ключ зашифрован — требуем пароль
+		if n.config.MasterPassword == "" {
+			return errors.New("приватный ключ зашифрован, но мастер-пароль не установлен")
+		}
+
+		// Пробуем расшифровать
+		privKeyRaw, err := p2pcrypto.DecryptPrivateKey(profile.PrivateKey, n.config.MasterPassword)
+		if err != nil {
+			return fmt.Errorf("ошибка расшифровки приватного ключа (неверный пароль?): %w", err)
+		}
+		privKey, err = crypto.UnmarshalPrivateKey(privKeyRaw)
+		if err != nil {
+			return fmt.Errorf("ошибка десериализации приватного ключа: %w", err)
+		}
+		log.Println("Приватный ключ расшифрован")
+	} else {
+		// Ключ не зашифрован
+		privKey, err = crypto.UnmarshalPrivateKey(profile.PrivateKey)
+		if err != nil {
+			return fmt.Errorf("ошибка десериализации приватного ключа: %w", err)
+		}
+		if n.config.MasterPassword != "" {
+			log.Println("Предупреждение: приватный ключ не зашифрован, хотя пароль установлен")
+		}
+	}
+
+	// Загружаем bootstrap-пиры для использования как статические релеи
+	bootstrapPeers, _ := queries.GetAllBootstrapPeers()
+	var staticRelays []peer.AddrInfo
+	for _, p := range bootstrapPeers {
+		addr, err := multiaddr.NewMultiaddr(p.Multiaddr)
+		if err != nil {
+			continue
+		}
+		info, err := peer.AddrInfoFromP2pAddr(addr)
+		if err != nil {
+			continue
+		}
+		staticRelays = append(staticRelays, *info)
 	}
 
 	// Опции хоста
@@ -376,7 +523,7 @@ func (n *P2PNetwork) createHost(profile *models.P2PProfile) error {
 		libp2p.ListenAddrStrings(n.config.ListenAddrs...),
 		libp2p.NATPortMap(),
 		libp2p.EnableRelay(),
-		libp2p.EnableAutoRelay(),
+		libp2p.EnableAutoRelayWithStaticRelays(staticRelays),
 		libp2p.UserAgent("ProjectT/1.0"),
 	}
 
