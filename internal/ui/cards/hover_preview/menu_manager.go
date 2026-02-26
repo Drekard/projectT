@@ -402,22 +402,39 @@ func getContrastColor(backgroundColor color.RGBA) color.Color {
 // TagButton - виджет для отображения тега с цветным фоном
 type TagButton struct {
 	widget.BaseWidget
-	text      string
-	bgColor   color.RGBA
-	textColor color.Color
-	onClick   func()
+	text          string
+	bgColor       color.RGBA
+	textColor     color.Color
+	onSingleClick func()
+	OnMouseIn     func()
+	OnMouseOut    func()
+	OnTapped      func()
 }
 
 // NewTagButton создает новый тег-баттон
-func NewTagButton(text string, bgColor color.RGBA, textColor color.Color, onClick func()) *TagButton {
+func NewTagButton(text string, bgColor color.RGBA, textColor color.Color, onSingleClick func()) *TagButton {
 	tb := &TagButton{
-		text:      text,
-		bgColor:   bgColor,
-		textColor: textColor,
-		onClick:   onClick,
+		text:          text,
+		bgColor:       bgColor,
+		textColor:     textColor,
+		onSingleClick: onSingleClick,
 	}
 	tb.ExtendBaseWidget(tb)
 	return tb
+}
+
+// MouseIn вызывается при наведении курсора
+func (tb *TagButton) MouseIn(_ *fyne.PointEvent) {
+	if tb.OnMouseIn != nil {
+		tb.OnMouseIn()
+	}
+}
+
+// MouseOut вызывается при уходе курсора
+func (tb *TagButton) MouseOut() {
+	if tb.OnMouseOut != nil {
+		tb.OnMouseOut()
+	}
 }
 
 // CreateRenderer создает рендерер для TagButton
@@ -450,10 +467,17 @@ func (tb *TagButton) MinSize() fyne.Size {
 	return fyne.NewSize(60, 30)
 }
 
-// Tapped обрабатывает клик
+// Tapped обрабатывает одинарный клик
 func (tb *TagButton) Tapped(_ *fyne.PointEvent) {
-	if tb.onClick != nil {
-		tb.onClick()
+	if tb.onSingleClick != nil {
+		tb.onSingleClick()
+	}
+}
+
+// DoubleTapped обрабатывает двойной клик
+func (tb *TagButton) DoubleTapped(_ *fyne.PointEvent) {
+	if tb.OnTapped != nil {
+		tb.OnTapped()
 	}
 }
 
@@ -517,14 +541,24 @@ func getTagsContainer(item *models.Item, handler SearchHandler) fyne.CanvasObjec
 			tag.Name,
 			rgba,
 			textColor,
-			func(tagName string) func() {
+			func(tagName, tagDescription string) func() {
 				return func() {
-					if handler != nil {
-						handler.SetSearchQuery(tagName)
+					// При одном клике показываем описание тега, если оно есть
+					if tagDescription != "" {
+						showTagDescriptionMenu(tagName, tagDescription)
 					}
 				}
-			}(tag.Name),
+			}(tag.Name, tag.Description),
 		)
+
+		// Добавляем обработчик двойного клика
+		tagBtn.OnTapped = func(tagName string) func() {
+			return func() {
+				if handler != nil {
+					handler.SetSearchQuery(tagName)
+				}
+			}
+		}(tag.Name)
 
 		tagButtons = append(tagButtons, tagBtn)
 	}
@@ -532,10 +566,46 @@ func getTagsContainer(item *models.Item, handler SearchHandler) fyne.CanvasObjec
 	return container.NewHBox(tagButtons...)
 }
 
+// showTagDescriptionMenu показывает меню с описанием тега
+func showTagDescriptionMenu(tagName, tagDescription string) {
+	window := fyne.CurrentApp().Driver().AllWindows()[0]
+	if window == nil {
+		return
+	}
+
+	canvas := window.Canvas()
+
+	var children []fyne.CanvasObject
+
+	children = append(children,
+		widget.NewLabel(tagDescription),
+	)
+
+	content := container.NewVBox(children...)
+
+	popup := widget.NewPopUp(content, canvas)
+
+	// Центрируем попап
+	popupSize := popup.MinSize()
+	windowSize := canvas.Size()
+
+	popup.ShowAtPosition(fyne.NewPos(
+		(windowSize.Width-popupSize.Width)/2.5,
+		(windowSize.Height-popupSize.Height)/2.5,
+	))
+
+	// Закрываем по клику вне попапа
+	go func() {
+		for popup.Visible() {
+			time.Sleep(100 * time.Millisecond)
+		}
+	}()
+}
+
 // showMoveFolderSelection показывает список папок для перемещения элемента
 func showMoveFolderSelection(parentPopup *widget.PopUp, item *models.Item) {
-	// Создаем новое окно для выбора папки
-	window := parentPopup.Canvas
+	// Получаем главное окно приложения
+	window := fyne.CurrentApp().Driver().AllWindows()[0]
 	if window == nil {
 		return
 	}
@@ -560,7 +630,7 @@ func showMoveFolderSelection(parentPopup *widget.PopUp, item *models.Item) {
 				appWindow := fyne.CurrentApp().Driver().AllWindows()[0]
 				dialog.ShowError(fmt.Errorf("Ошибка перемещения элемента: %v", err), appWindow)
 			} else {
-				// Закрываем окно выбора папки
+				// Закрываем родительский попап
 				parentPopup.Hide()
 			}
 		})
@@ -583,7 +653,7 @@ func showMoveFolderSelection(parentPopup *widget.PopUp, item *models.Item) {
 							appWindow := fyne.CurrentApp().Driver().AllWindows()[0]
 							dialog.ShowError(fmt.Errorf("Ошибка перемещения элемента: %v", err), appWindow)
 						} else {
-							// Закрываем окно выбора папки
+							// Закрываем родительский попап
 							parentPopup.Hide()
 						}
 					}
@@ -598,40 +668,12 @@ func showMoveFolderSelection(parentPopup *widget.PopUp, item *models.Item) {
 	scrollContainer := container.NewVScroll(folderButtonsContainer)
 	scrollContainer.SetMinSize(fyne.NewSize(200, 150))
 
-	// Создаем контент для попапа выбора папки
+	// Создаем контент для диалога
 	content := container.NewVBox(
 		widget.NewLabel("Выберите папку для перемещения:"),
 		scrollContainer,
-		widget.NewButton("Отмена", func() {
-			// Закрываем окно выбора папки
-			parentPopup.Hide()
-		}),
 	)
 
-	// Создаем попап для выбора папки
-	folderPopup := widget.NewPopUp(content, window)
-
-	// Позиция родительского попапа
-	parentPos := fyne.CurrentApp().Driver().AbsolutePositionForObject(parentPopup.Content)
-
-	// Показываем рядом с родительским попапом
-	menuPos := fyne.NewPos(
-		parentPos.X+20, // Смещаем немного вправо
-		parentPos.Y+20, // Смещаем немного вниз
-	)
-
-	// Проверяем, не выходит ли за границы окна
-	popupSize := folderPopup.MinSize()
-	windowSize := window.Size()
-
-	if menuPos.X+popupSize.Width > windowSize.Width {
-		// Если выходит за правую границу, сдвигаем влево
-		menuPos.X = windowSize.Width - popupSize.Width - 10
-	}
-	if menuPos.Y+popupSize.Height > windowSize.Height {
-		// Если выходит за нижнюю границу, сдвигаем вверх
-		menuPos.Y = windowSize.Height - popupSize.Height - 10
-	}
-
-	folderPopup.ShowAtPosition(menuPos)
+	// Показываем диалог
+	dialog.ShowCustom("Перемещение в папку", "Отмена", content, window)
 }

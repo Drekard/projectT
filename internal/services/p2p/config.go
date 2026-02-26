@@ -5,6 +5,9 @@ import (
 	"time"
 )
 
+// ProtocolPrefix префикс для всех идентификаторов проекта
+const ProtocolPrefix = "projectt"
+
 // ProtocolID идентификатор протокола ProjectT
 const ProtocolID = "/projectt/1.0.0"
 

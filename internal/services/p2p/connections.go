@@ -33,7 +33,7 @@ const (
 )
 
 // PingProtocolID идентификатор протокола ping
-const PingProtocolID = "/projectt/ping/1.0.0"
+const PingProtocolID = "/" + ProtocolPrefix + "/ping/1.0.0"
 
 // ConnectionService сервис мониторинга соединений
 type ConnectionService struct {

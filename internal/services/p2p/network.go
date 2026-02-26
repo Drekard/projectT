@@ -285,14 +285,19 @@ func (n *P2PNetwork) GetPeerAddress() (*PeerAddress, error) {
 		return nil, fmt.Errorf("ошибка получения публичного ключа: %w", err)
 	}
 
-	// Формируем полный адрес
+	// Добавляем префикс к публичному ключу
+	prefixedPubKey := addPrefixToData(pubKeyBytes)
+
+	// Формируем полный адрес с префиксом
 	addr := n.host.Addrs()[0].String()
 	fullAddr := fmt.Sprintf("%s/p2p/%s", addr, n.host.ID().String())
+	// Добавляем префикс к адресу
+	prefixedAddr := ProtocolPrefix + "://" + fullAddr
 
 	return &PeerAddress{
-		PeerID:    n.host.ID().String(),
-		Multiaddr: fullAddr,
-		PublicKey: base64.StdEncoding.EncodeToString(pubKeyBytes),
+		PeerID:    ProtocolPrefix + ":" + n.host.ID().String(),
+		Multiaddr: prefixedAddr,
+		PublicKey: base64.StdEncoding.EncodeToString(prefixedPubKey),
 	}, nil
 }
 
@@ -304,6 +309,9 @@ func (n *P2PNetwork) ImportPeerAddress(addrStr string) (*PeerAddress, error) {
 	if n.host == nil {
 		return nil, errors.New("хост не инициализирован")
 	}
+
+	// Удаляем префикс если есть
+	addrStr = strings.TrimPrefix(addrStr, ProtocolPrefix+"://")
 
 	// Парсим адрес
 	addr, err := multiaddr.NewMultiaddr(addrStr)
@@ -369,6 +377,9 @@ func (n *P2PNetwork) ConnectToPeer(ctx context.Context, addrStr string) error {
 	if host == nil {
 		return errors.New("хост не инициализирован")
 	}
+
+	// Удаляем префикс если есть
+	addrStr = strings.TrimPrefix(addrStr, ProtocolPrefix+"://")
 
 	addr, err := multiaddr.NewMultiaddr(addrStr)
 	if err != nil {
@@ -487,13 +498,34 @@ func (n *P2PNetwork) loadOrCreateProfile() (*models.P2PProfile, error) {
 	return profile, nil
 }
 
-// generateKeyPair генерирует пару ключей Ed25519
+// generateKeyPair генерирует пару ключей Ed25519 с префиксом проекта
 func (n *P2PNetwork) generateKeyPair() (crypto.PrivKey, crypto.PubKey, error) {
 	privKey, pubKey, err := crypto.GenerateEd25519Key(rand.Reader)
 	if err != nil {
 		return nil, nil, err
 	}
 	return privKey, pubKey, nil
+}
+
+// addPrefixToData добавляет префикс проекта к данным
+func addPrefixToData(data []byte) []byte {
+	prefix := []byte(ProtocolPrefix + ":")
+	result := make([]byte, len(prefix)+len(data))
+	copy(result, prefix)
+	copy(result[len(prefix):], data)
+	return result
+}
+
+// removePrefixFromData удаляет префикс проекта из данных
+func removePrefixFromData(data []byte) ([]byte, error) {
+	prefix := []byte(ProtocolPrefix + ":")
+	if len(data) < len(prefix) {
+		return nil, errors.New("данные слишком короткие для удаления префикса")
+	}
+	if !strings.HasPrefix(string(data), ProtocolPrefix+":") {
+		return nil, errors.New("данные не содержат префикс проекта")
+	}
+	return data[len(prefix):], nil
 }
 
 // createHost создаёт libp2p хост
@@ -588,7 +620,7 @@ func (n *P2PNetwork) initDHT() error {
 	ctx := n.ctx
 	dhtOpts := []dht.Option{
 		dht.Mode(dht.ModeAuto),
-		dht.ProtocolPrefix("/projectt"),
+		dht.ProtocolPrefix("/" + ProtocolPrefix),
 	}
 
 	kdht, err := dht.New(ctx, n.host, dhtOpts...)
@@ -672,7 +704,7 @@ func (n *P2PNetwork) handleChatStream(stream network.Stream) {
 	log.Printf("Получен поток чата от: %s", stream.Conn().RemotePeer().String())
 }
 
-// updateProfileAddrs обновляет адреса прослушивания в профиле
+// updateProfileAddrs обновляет адреса прослушивания в профиле с префиксом
 func (n *P2PNetwork) updateProfileAddrs() error {
 	if n.host == nil {
 		return errors.New("хост не инициализирован")
@@ -681,7 +713,9 @@ func (n *P2PNetwork) updateProfileAddrs() error {
 	var addrs []string
 	for _, addr := range n.host.Addrs() {
 		fullAddr := fmt.Sprintf("%s/p2p/%s", addr.String(), n.host.ID().String())
-		addrs = append(addrs, fullAddr)
+		// Добавляем префикс к адресу
+		prefixedAddr := ProtocolPrefix + "://" + fullAddr
+		addrs = append(addrs, prefixedAddr)
 	}
 
 	addrsStr := strings.Join(addrs, "|")
@@ -690,6 +724,9 @@ func (n *P2PNetwork) updateProfileAddrs() error {
 
 // ParsePeerAddressString парсит строку адреса в формате peerid@multiaddr
 func ParsePeerAddressString(addrStr string) (*PeerAddress, error) {
+	// Удаляем префикс если есть
+	addrStr = strings.TrimPrefix(addrStr, ProtocolPrefix+"://")
+
 	parts := strings.SplitN(addrStr, "@", 2)
 	if len(parts) != 2 {
 		// Пробуем распарсить как полный multiaddr
@@ -710,6 +747,9 @@ func ParsePeerAddressString(addrStr string) (*PeerAddress, error) {
 	}
 
 	peerID := parts[0]
+	// Удаляем префикс из PeerID если есть
+	peerID = strings.TrimPrefix(peerID, ProtocolPrefix+":")
+
 	ma := parts[1]
 
 	// Валидируем PeerID
@@ -730,9 +770,9 @@ func ParsePeerAddressString(addrStr string) (*PeerAddress, error) {
 	}, nil
 }
 
-// FormatPeerAddress форматирует адрес для шаринга
+// FormatPeerAddress форматирует адрес для шаринга с префиксом проекта
 func FormatPeerAddress(peerID, multiaddr string) string {
-	return fmt.Sprintf("%s@%s", peerID, multiaddr)
+	return fmt.Sprintf("%s:%s@%s", ProtocolPrefix, peerID, multiaddr)
 }
 
 // Discovery возвращает сервис обнаружения

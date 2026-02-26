@@ -10,6 +10,7 @@ import (
 	"projectT/internal/storage/database/models"
 	"projectT/internal/storage/filesystem"
 	"projectT/internal/ui/cards"
+	"projectT/internal/ui/cards/hover_preview"
 	"projectT/internal/ui/cards/interfaces"
 
 	"fyne.io/fyne/v2"
@@ -22,61 +23,11 @@ import (
 // FileCard карточка для файлов
 type FileCard struct {
 	*cards.BaseCard
-	nameLabel     *widget.RichText
-	extraFilesBtn *widget.Button
-	extraFiles    []string
-}
-
-// TapGestureDetector структура для обработки жестов клика
-type TapGestureDetector struct {
-	widget.BaseWidget
-	onTapped func()
-}
-
-// Убедимся, что TapGestureDetector реализует интерфейс fyne.DoubleTappable
-var _ fyne.DoubleTappable = (*TapGestureDetector)(nil)
-
-func (t *TapGestureDetector) CreateRenderer() fyne.WidgetRenderer {
-	// Создаем прозрачный прямоугольник, который будет занимать все пространство и обрабатывать клики
-	rect := canvas.NewRectangle(color.RGBA{0, 0, 0, 0}) // полностью прозрачный
-	rect.Resize(fyne.NewSize(100, 40))                  // начальные размеры
-	return &TapGestureDetectorRenderer{
-		obj:  t,
-		rect: rect,
-	}
-}
-
-func (t *TapGestureDetector) DoubleTapped(_ *fyne.PointEvent) {
-	if t.onTapped != nil {
-		t.onTapped()
-	}
-}
-
-// TapGestureDetectorRenderer рендерер для TapGestureDetector
-type TapGestureDetectorRenderer struct {
-	obj     *TapGestureDetector
-	rect    *canvas.Rectangle
-	objects []fyne.CanvasObject
-}
-
-func (r *TapGestureDetectorRenderer) Layout(size fyne.Size) {
-	r.rect.Resize(size)
-}
-
-func (r *TapGestureDetectorRenderer) MinSize() fyne.Size {
-	return fyne.NewSize(10, 10)
-}
-
-func (r *TapGestureDetectorRenderer) Refresh() {
-	r.rect.FillColor = color.RGBA{0, 0, 0, 0} // убедиться, что прозрачный
-	canvas.Refresh(r.obj)
-}
-
-func (r *TapGestureDetectorRenderer) Objects() []fyne.CanvasObject {
-	return []fyne.CanvasObject{r.rect}
-}
-
-func (r *TapGestureDetectorRenderer) Destroy() {
+	nameLabel       *widget.RichText
+	extraFilesBtn   *widget.Button
+	extraFiles      []string
+	fileBlocks      []*cards.Block
+	selectedFileIdx int
 }
 
 // NewFileCard создает новую карточку для файла
@@ -87,7 +38,9 @@ func NewFileCard(item *models.Item) interfaces.CardRenderer {
 // NewFileCardWithCallback создает новую карточку для файла с пользовательским обработчиком клика
 func NewFileCardWithCallback(item *models.Item, clickCallback func()) interfaces.CardRenderer {
 	fileCard := &FileCard{
-		BaseCard: cards.NewBaseCard(item),
+		BaseCard:        cards.NewBaseCard(item),
+		fileBlocks:      make([]*cards.Block, 0),
+		selectedFileIdx: -1,
 	}
 
 	// Извлекаем все блоки для определения типа файлов
@@ -103,6 +56,8 @@ func NewFileCardWithCallback(item *models.Item, clickCallback func()) interfaces
 		if (block.Type == "file" || block.Type == "image") && block.FileHash != "" {
 			// Добавляем файлы, но исключаем изображения из основного отображения
 			if block.Type != "image" {
+				fileCard.fileBlocks = append(fileCard.fileBlocks, &block)
+
 				if block.OriginalName != "" {
 					// Извлекаем имя файла из OriginalName
 					lastSlash := strings.LastIndex(block.OriginalName, "\\")
@@ -156,18 +111,24 @@ func NewFileCardWithCallback(item *models.Item, clickCallback func()) interfaces
 			},
 		})
 
-		// Контейнер для одного файла с обработчиком клика
+		// Контейнер для одного файла
 		contentContainer := container.NewHBox(leftContainer, fileLabel)
 
-		// Обработчик клика для конкретного файла
+		// Оборачиваем в кликабельный виджет с поддержкой двойного клика
 		idx := i // Сохраняем индекс для замыкания
-		tapGestureRecognizer := &TapGestureDetector{}
-		tapGestureRecognizer.onTapped = func() {
-			fileCard.openSpecificFileWithDefaultApp(idx)
-		}
-
-		// Оборачиваем контейнер с файлом в стек с обработчиком клика
-		clickableFileContainer := container.NewStack(contentContainer, tapGestureRecognizer)
+		clickableFileContainer := hover_preview.NewClickableCardWithDoubleTap(
+			contentContainer,
+			func() {
+				// Одинарный клик - выбираем файл и показываем меню
+				fileCard.selectedFileIdx = idx
+				menuManager := hover_preview.NewMenuManager()
+				menuManager.ShowSimpleMenu(fileCard.Item, fileCard.Container, nil)
+			},
+			func() {
+				// Двойной клик - открываем конкретный файл
+				fileCard.openSpecificFileWithDefaultApp(idx)
+			},
+		)
 
 		allFileContainers = append(allFileContainers, clickableFileContainer)
 	}
@@ -183,8 +144,21 @@ func NewFileCardWithCallback(item *models.Item, clickCallback func()) interfaces
 		mainContent = container.NewHBox()
 	}
 
-	// Контейнер без фона, рамки и отступов, так как будет использоваться внутри другой карточки
-	fileCard.Container = mainContent
+	// Оборачиваем в кликабельный виджет с поддержкой двойного клика для всей карточки
+	fileCard.Container = hover_preview.NewClickableCardWithDoubleTap(
+		mainContent,
+		func() {
+			// Одинарный клик по карточке - показываем меню
+			menuManager := hover_preview.NewMenuManager()
+			menuManager.ShowSimpleMenu(fileCard.Item, fileCard.Container, nil)
+		},
+		func() {
+			// Двойной клик по карточке - открываем первый файл
+			if len(fileCard.fileBlocks) > 0 {
+				fileCard.openSpecificFileWithDefaultApp(0)
+			}
+		},
+	)
 
 	return fileCard
 }

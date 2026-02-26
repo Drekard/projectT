@@ -8,17 +8,8 @@ import (
 	"fyne.io/fyne/v2/dialog"
 )
 
-var createItemModalWindow fyne.Window
-
 // ShowCreateItemModalForEdit показывает модальное окно для редактирования элемента
 func ShowCreateItemModalForEdit(parentWindow fyne.Window, itemID int) {
-	// Проверяем, не открыто ли уже окно
-	if createItemModalWindow != nil {
-		// Если окно уже открыто, просто делаем его активным
-		createItemModalWindow.RequestFocus()
-		return
-	}
-
 	// Создаем ViewModel для редактирования
 	viewModel, err := NewCreateItemViewModelForEdit(itemID)
 	if err != nil {
@@ -26,12 +17,8 @@ func ShowCreateItemModalForEdit(parentWindow fyne.Window, itemID int) {
 		return
 	}
 
-	// Создаем новое окно
-	window := fyne.CurrentApp().NewWindow("Редактирование элемента")
-	createItemModalWindow = window // Сохраняем ссылку на окно
-
 	rightColumn, formWidgets := CreateRightColumn(viewModel)
-	leftColumn := CreateLeftColumn(window, viewModel, formWidgets)
+	leftColumn := CreateLeftColumn(parentWindow, viewModel, formWidgets)
 
 	// Главный контейнер с двумя колонками
 	mainContainer := container.NewHSplit(leftColumn, rightColumn)
@@ -40,14 +27,9 @@ func ShowCreateItemModalForEdit(parentWindow fyne.Window, itemID int) {
 	// Создаем контейнер с содержимым
 	modalContent := container.NewVBox(mainContainer)
 
-	// Устанавливаем контент и размеры
-	window.SetContent(modalContent)
-	window.Resize(fyne.NewSize(750, 300))
+	// Устанавливаем минимальный размер для диалога
+	modalContent.Resize(fyne.NewSize(750, 300))
 
-	// При закрытии окна сбрасываем ссылку
-	window.SetOnClosed(func() {
-		createItemModalWindow = nil
-	})
-
-	window.Show()
+	// Показываем диалог
+	dialog.ShowCustom("Редактирование элемента", "Закрыть", modalContent, parentWindow)
 }

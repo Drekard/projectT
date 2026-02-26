@@ -12,6 +12,8 @@ type ClickableCard struct {
 	onTapped       func()
 	onDoubleTapped func()
 	onTappedXY     func(fyne.Position)
+	onMouseIn      func()
+	onMouseOut     func()
 }
 
 // NewClickableCard создает новый кликабельный виджет
@@ -26,6 +28,17 @@ func NewClickableCard(content fyne.CanvasObject, onTapped func()) *ClickableCard
 
 // NewClickableCardWithDoubleTap создает новый кликабельный виджет с поддержкой двойного клика
 func NewClickableCardWithDoubleTap(content fyne.CanvasObject, onTapped func(), onDoubleTapped func()) *ClickableCard {
+	c := &ClickableCard{
+		content:        content,
+		onTapped:       onTapped,
+		onDoubleTapped: onDoubleTapped,
+	}
+	c.ExtendBaseWidget(c)
+	return c
+}
+
+// NewClickableCardWithAllEvents создает новый кликабельный виджет со всеми обработчиками событий
+func NewClickableCardWithAllEvents(content fyne.CanvasObject, onTapped func(), onDoubleTapped func(), onMouseIn func(), onMouseOut func()) *ClickableCard {
 	c := &ClickableCard{
 		content:        content,
 		onTapped:       onTapped,

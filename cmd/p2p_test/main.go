@@ -143,13 +143,33 @@ func createTestNode() (*TestNode, error) {
 		return nil, fmt.Errorf("ошибка генерации ключей: %w", err)
 	}
 
+	// Публичные relay-узлы libp2p
+	staticRelays := []string{
+		"/dnsaddr/relay.libp2p.io/p2p/QmNnooDu7bfjPFoTZYxMNLWUQJyrVwtbZg5gBMjTezGAJN",
+		"/dnsaddr/relay.libp2p.io/p2p/QmQCU2EcMqAqQPR2i9bChDtGNJchTbq5TbXJJ16u19uLTa",
+	}
+
+	// Парсим relay-узлы
+	var relayAddrs []peer.AddrInfo
+	for _, addrStr := range staticRelays {
+		addr, err := multiaddr.NewMultiaddr(addrStr)
+		if err != nil {
+			continue
+		}
+		info, err := peer.AddrInfoFromP2pAddr(addr)
+		if err != nil {
+			continue
+		}
+		relayAddrs = append(relayAddrs, *info)
+	}
+
 	// Опции хоста
 	opts := []libp2p.Option{
 		libp2p.Identity(privKey),
 		libp2p.ListenAddrStrings(fmt.Sprintf("/ip4/0.0.0.0/tcp/%d", *port)),
 		libp2p.NATPortMap(),
 		libp2p.EnableRelay(),
-		libp2p.EnableAutoRelay(),
+		libp2p.EnableAutoRelayWithStaticRelays(relayAddrs),
 		libp2p.EnableHolePunching(),
 	}
 
@@ -184,11 +204,11 @@ func createTestNode() (*TestNode, error) {
 	return node, nil
 }
 
-// initDHT инициализирует DHT
+// initDHT инициализирует DHT с префиксом проекта
 func (n *TestNode) initDHT() error {
 	dhtOpts := []dht.Option{
 		dht.Mode(dht.ModeAuto),
-		dht.ProtocolPrefix("/projectt"),
+		dht.ProtocolPrefix("/" + p2p.ProtocolPrefix),
 	}
 
 	kdht, err := dht.New(n.ctx, n.host, dhtOpts...)
@@ -422,8 +442,11 @@ func (n *TestNode) sendMessage(msg string) {
 	}
 }
 
-// connectToPeer подключается к пиру
+// connectToPeer подключается к пиру с обработкой префикса
 func (n *TestNode) connectToPeer(addrStr string) error {
+	// Удаляем префикс если есть
+	addrStr = strings.TrimPrefix(addrStr, p2p.ProtocolPrefix+"://")
+
 	addr, err := multiaddr.NewMultiaddr(addrStr)
 	if err != nil {
 		return fmt.Errorf("ошибка парсинга адреса: %w", err)
@@ -500,16 +523,18 @@ func (n *TestNode) close() {
 	}
 }
 
-// printNodeInfo выводит информацию об узле
+// printNodeInfo выводит информацию об узле с префиксом
 func printNodeInfo(node *TestNode, nodeID int) {
 	fmt.Println("═══════════════════════════════════════════════════════════")
 	fmt.Printf("Node ID:          %d\n", nodeID)
-	fmt.Printf("Peer ID:          %s\n", node.host.ID().String())
+	fmt.Printf("Peer ID:          %s\n", p2p.ProtocolPrefix+":"+node.host.ID().String())
 	fmt.Println()
 	fmt.Println("Адреса для подключения:")
 	for _, addr := range node.host.Addrs() {
 		fullAddr := fmt.Sprintf("%s/p2p/%s", addr.String(), node.host.ID().String())
-		fmt.Printf("  %s\n", fullAddr)
+		// Добавляем префикс
+		prefixedAddr := p2p.ProtocolPrefix + "://" + fullAddr
+		fmt.Printf("  %s\n", prefixedAddr)
 	}
 	fmt.Println("═══════════════════════════════════════════════════════════")
 }

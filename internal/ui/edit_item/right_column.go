@@ -1,29 +1,34 @@
 package edit_item
 
 import (
+	"image/color"
 	"projectT/internal/storage/database/models"
 
 	"fyne.io/fyne/v2"
+	"fyne.io/fyne/v2/canvas"
 	"fyne.io/fyne/v2/container"
 	"fyne.io/fyne/v2/widget"
 )
 
 // FormWidgets хранит ссылки на виджеты формы
 type FormWidgets struct {
-	TitleEntry       *widget.Entry
-	DescriptionEntry *widget.Entry
-	TagsEntry        *widget.Entry
-	LinksContainer   *fyne.Container
-	LinkEntries      []*widget.Entry
-	AddLinkButton    *widget.Button
-	Tabs             *container.AppTabs
-	ImageUploadArea  *fyne.Container // Область загрузки изображений
-	FileUploadArea   *fyne.Container // Область загрузки файлов
+	TitleEntry          *widget.Entry
+	BackgraundRectangle *canvas.Rectangle
+	DescriptionEntry    *widget.Entry
+	TagsEntry           *widget.Entry
+	LinksContainer      *fyne.Container
+	LinkEntries         []*widget.Entry
+	AddLinkButton       *widget.Button
+	Tabs                *container.AppTabs
+	ImageUploadArea     *fyne.Container // Область загрузки изображений
+	FileUploadArea      *fyne.Container // Область загрузки файлов
 }
 
 // CreateRightColumn создает правую колонку с привязкой к ViewModel
 func CreateRightColumn(viewModel *CreateItemViewModel) (*fyne.Container, *FormWidgets) {
 	widgets := &FormWidgets{}
+	widgets.BackgraundRectangle = canvas.NewRectangle(color.White)
+	widgets.BackgraundRectangle.SetMinSize(fyne.NewSize(400, 0))
 
 	// Создаем поля ввода
 	widgets.TitleEntry = widget.NewEntry()
@@ -108,7 +113,7 @@ func CreateRightColumn(viewModel *CreateItemViewModel) (*fyne.Container, *FormWi
 	// Обновляем видимость элементов формы в зависимости от типа элемента
 	UpdateFormVisibility(widgets, viewModel.ItemType)
 
-	return container.NewVBox(widgets.Tabs), widgets
+	return container.NewVBox(widgets.Tabs, widgets.BackgraundRectangle), widgets
 }
 
 func createElementForm(widgets *FormWidgets) *fyne.Container {
