@@ -38,7 +38,7 @@ func NewCompositeCard(item *models.Item) interfaces.CardRenderer {
 	}
 
 	// Разделяем блоки по типам
-	var textBlocks, imageBlocks, fileBlocks, linkBlocks []cards.Block
+	var textBlocks, imageBlocks, fileBlocks, linkBlocks, audioBlocks, videoBlocks []cards.Block
 
 	for _, block := range blocks {
 		switch block.Type {
@@ -50,6 +50,10 @@ func NewCompositeCard(item *models.Item) interfaces.CardRenderer {
 			fileBlocks = append(fileBlocks, block)
 		case "link":
 			linkBlocks = append(linkBlocks, block)
+		case "audio":
+			audioBlocks = append(audioBlocks, block)
+		case "video":
+			videoBlocks = append(videoBlocks, block)
 		}
 	}
 
@@ -120,6 +124,32 @@ func NewCompositeCard(item *models.Item) interfaces.CardRenderer {
 		linkCard := NewLinkCardWithCallback(&tempItem, nil)
 		if linkCard != nil && linkCard.GetContainer() != nil {
 			sections = append(sections, linkCard.GetContainer())
+		}
+	}
+
+	// 6. Секция аудио (если есть)
+	if len(audioBlocks) > 0 {
+		// Создаем временную модель данных для аудио
+		tempItem := *item
+		tempItem.ContentMeta = item.ContentMeta // используем оригинальные данные
+
+		// Создаем аудио карточку и получаем ее контейнер
+		audioCard := NewAudioCardWithCallback(&tempItem, nil)
+		if audioCard != nil && audioCard.GetContainer() != nil {
+			sections = append(sections, audioCard.GetContainer())
+		}
+	}
+
+	// 7. Секция видео (если есть)
+	if len(videoBlocks) > 0 {
+		// Создаем временную модель данных для видео
+		tempItem := *item
+		tempItem.ContentMeta = item.ContentMeta // используем оригинальные данные
+
+		// Создаем видео карточку и получаем ее контейнер
+		videoCard := NewVideoCardWithCallback(&tempItem, nil)
+		if videoCard != nil && videoCard.GetContainer() != nil {
+			sections = append(sections, videoCard.GetContainer())
 		}
 	}
 

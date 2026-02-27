@@ -122,6 +122,10 @@ func GetEmojiForItemType(itemType string) string {
 		return "🔗"
 	case "folder":
 		return "📁"
+	case "audio":
+		return "🎵"
+	case "video":
+		return "🎬"
 	default:
 		return ""
 	}
