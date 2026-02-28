@@ -1,6 +1,6 @@
 {
     "vscode-pets.theme": "winter",
     "vscode-pets.throwBallWithMouse": true,
-    "vscode-pets.petSize": "medium",
+    "vscode-pets.petSize": "small",
     "indentRainbow.indicatorStyle": "light"
 }
