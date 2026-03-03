@@ -1,0 +1,18 @@
+# ProjectT - Файл конфигурации
+# Подробнее: см. config.example.yaml
+
+database:
+  path: "./storage/projectT.db"
+  busy_timeout: 30000
+  max_open_conns: 1
+  max_idle_conns: 1
+
+storage:
+  path: "./storage"
+  files_dir: "files"
+
+p2p:
+  enabled: true
+  port: 4000
+  enable_relay: true
+  enable_relay_discovery: true

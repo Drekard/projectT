@@ -256,7 +256,7 @@ func processTags(ctx context.Context, itemID int, tagsInput string,
 }
 
 // SaveItem сохраняет элемент (создает или обновляет)
-func SaveItem(viewModel *CreateItemViewModel, formWidgets *FormWidgets, modalWindow fyne.Window) {
+func SaveItem(viewModel *CreateItemViewModel, formWidgets *FormWidgets, parentWindow fyne.Window) {
 	fmt.Println("=== НАЧАЛО СОХРАНЕНИЯ ===")
 
 	// 1. Обновляем ViewModel из UI
@@ -265,7 +265,7 @@ func SaveItem(viewModel *CreateItemViewModel, formWidgets *FormWidgets, modalWin
 
 	// 2. Проверяем заголовок только при создании элемента, не при редактировании
 	if viewModel.Title == "" && !viewModel.EditMode {
-		dialog.ShowError(errors.New("Введите заголовок"), modalWindow)
+		dialog.ShowError(errors.New("Введите заголовок"), parentWindow)
 		return
 	}
 
@@ -279,7 +279,7 @@ func SaveItem(viewModel *CreateItemViewModel, formWidgets *FormWidgets, modalWin
 		var err error
 		svcOldBlocks, err := contentService.JSONToBlocks(viewModel.ContentMeta)
 		if err != nil {
-			dialog.ShowError(fmt.Errorf("Ошибка разбора старого контента: %v", err), modalWindow)
+			dialog.ShowError(fmt.Errorf("Ошибка разбора старого контента: %v", err), parentWindow)
 			return
 		}
 		// Преобразуем блоки из сервиса в локальный тип
@@ -353,7 +353,7 @@ func SaveItem(viewModel *CreateItemViewModel, formWidgets *FormWidgets, modalWin
 			imgBlocks, processingErrors := contentService.ProcessFileData(&newImages, []string{})
 			if len(processingErrors) > 0 {
 				// Показываем только первую ошибку
-				dialog.ShowError(fmt.Errorf("Ошибка обработки файлов: %v", processingErrors[0]), modalWindow)
+				dialog.ShowError(fmt.Errorf("Ошибка обработки файлов: %v", processingErrors[0]), parentWindow)
 				return
 			}
 			// Преобразуем блоки из сервиса в локальный тип
@@ -382,7 +382,7 @@ func SaveItem(viewModel *CreateItemViewModel, formWidgets *FormWidgets, modalWin
 			fileBlocks, fileErrors := contentService.ProcessFileData(&newFiles, []string{})
 			if len(fileErrors) > 0 {
 				// Показываем только первую ошибку
-				dialog.ShowError(fmt.Errorf("Ошибка обработки файлов: %v", fileErrors[0]), modalWindow)
+				dialog.ShowError(fmt.Errorf("Ошибка обработки файлов: %v", fileErrors[0]), parentWindow)
 				return
 			}
 			// Преобразуем блоки из сервиса в локальный тип
@@ -421,7 +421,7 @@ func SaveItem(viewModel *CreateItemViewModel, formWidgets *FormWidgets, modalWin
 			imgBlocks, processingErrors := contentService.ProcessFileData(&viewModel.Images, []string{})
 			if len(processingErrors) > 0 {
 				// Показываем только первую ошибку
-				dialog.ShowError(fmt.Errorf("Ошибка обработки файлов: %v", processingErrors[0]), modalWindow)
+				dialog.ShowError(fmt.Errorf("Ошибка обработки файлов: %v", processingErrors[0]), parentWindow)
 				return
 			}
 			// Преобразуем блоки из сервиса в локальный тип
@@ -435,7 +435,7 @@ func SaveItem(viewModel *CreateItemViewModel, formWidgets *FormWidgets, modalWin
 			fileBlocks, fileErrors := contentService.ProcessFileData(&viewModel.Files, []string{})
 			if len(fileErrors) > 0 {
 				// Показываем только первую ошибку
-				dialog.ShowError(fmt.Errorf("Ошибка обработки файлов: %v", fileErrors[0]), modalWindow)
+				dialog.ShowError(fmt.Errorf("Ошибка обработки файлов: %v", fileErrors[0]), parentWindow)
 				return
 			}
 			// Преобразуем блоки из сервиса в локальный тип
@@ -467,7 +467,7 @@ func SaveItem(viewModel *CreateItemViewModel, formWidgets *FormWidgets, modalWin
 	// 8. Конвертируем блоки в JSON для сохранения
 	contentMeta, err := contentService.BlocksToJSON(serviceBlocks)
 	if err != nil {
-		dialog.ShowError(fmt.Errorf("Ошибка сериализации контента: %v", err), modalWindow)
+		dialog.ShowError(fmt.Errorf("Ошибка сериализации контента: %v", err), parentWindow)
 		return
 	}
 	fmt.Printf("Контент сериализован в JSON, длина: %d символов\n", len(contentMeta))
@@ -484,7 +484,7 @@ func SaveItem(viewModel *CreateItemViewModel, formWidgets *FormWidgets, modalWin
 		updatedItem, reallyOldBlocks, err := contentService.UpdateItemWithTransaction(ctx, viewModel.ID, viewModel.Title, viewModel.Description, itemType, contentMeta, viewModel.ParentID)
 		if err != nil {
 			fmt.Printf("ОШИБКА БД при обновлении: %v\n", err)
-			dialog.ShowError(fmt.Errorf("Ошибка БД: %v", err), modalWindow)
+			dialog.ShowError(fmt.Errorf("Ошибка БД: %v", err), parentWindow)
 			return
 		}
 
@@ -492,7 +492,7 @@ func SaveItem(viewModel *CreateItemViewModel, formWidgets *FormWidgets, modalWin
 
 		// Обрабатываем теги
 		if err := contentService.ProcessTags(ctx, updatedItem.ID, viewModel.Tags); err != nil {
-			dialog.ShowError(fmt.Errorf("Ошибка обработки тегов: %v", err), modalWindow)
+			dialog.ShowError(fmt.Errorf("Ошибка обработки тегов: %v", err), parentWindow)
 			// Не возвращаем ошибку, так как элемент уже обновлен
 		} else {
 			fmt.Println("Теги успешно обработаны")
@@ -513,7 +513,7 @@ func SaveItem(viewModel *CreateItemViewModel, formWidgets *FormWidgets, modalWin
 		item, err := contentService.CreateItemWithTransaction(ctx, viewModel.Title, viewModel.Description, itemType, contentMeta, viewModel.ParentID)
 		if err != nil {
 			fmt.Printf("ОШИБКА БД при создании: %v\n", err)
-			dialog.ShowError(fmt.Errorf("Ошибка БД: %v", err), modalWindow)
+			dialog.ShowError(fmt.Errorf("Ошибка БД: %v", err), parentWindow)
 			return
 		}
 
@@ -522,7 +522,7 @@ func SaveItem(viewModel *CreateItemViewModel, formWidgets *FormWidgets, modalWin
 		// Обрабатываем теги
 		if viewModel.Tags != "" {
 			if err := contentService.ProcessTags(ctx, item.ID, viewModel.Tags); err != nil {
-				dialog.ShowError(fmt.Errorf("Ошибка обработки тегов: %v", err), modalWindow)
+				dialog.ShowError(fmt.Errorf("Ошибка обработки тегов: %v", err), parentWindow)
 				// Не возвращаем ошибку, так как элемент уже создан
 			} else {
 				fmt.Println("Теги успешно обработаны")
@@ -531,7 +531,11 @@ func SaveItem(viewModel *CreateItemViewModel, formWidgets *FormWidgets, modalWin
 	}
 
 	fmt.Println("=== УСПЕШНО СОХРАНЕНО ===")
-	modalWindow.Close()
+	
+	// Закрываем диалог, если функция закрытия определена
+	if formWidgets.CloseDialog != nil {
+		formWidgets.CloseDialog()
+	}
 }
 
 // convertServiceBlocksToLocal преобразует блоки из сервиса в локальный тип

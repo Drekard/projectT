@@ -22,6 +22,7 @@ type FormWidgets struct {
 	Tabs                *container.AppTabs
 	ImageUploadArea     *fyne.Container // Область загрузки изображений
 	FileUploadArea      *fyne.Container // Область загрузки файлов
+	CloseDialog         func()          // Функция для закрытия диалога
 }
 
 // CreateRightColumn создает правую колонку с привязкой к ViewModel

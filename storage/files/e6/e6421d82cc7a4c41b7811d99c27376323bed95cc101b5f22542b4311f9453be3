@@ -1,0 +1,854 @@
+//internal\ui\modals\create_item\file_upload.go
+package create_item
+
+import (
+	"fmt"
+	"image/color"
+	"os/exec"
+	"strings"
+
+	"fyne.io/fyne/v2"
+	"fyne.io/fyne/v2/canvas"
+	"fyne.io/fyne/v2/container"
+	"fyne.io/fyne/v2/widget"
+)
+
+// FileUploadType определяет тип загрузки файла
+type FileUploadType int
+
+const (
+	ImageUpload FileUploadType = iota
+	FileUpload
+)
+
+// FileUploadConfig содержит конфигурацию для загрузки файлов
+type FileUploadConfig struct {
+	Label           string
+	Filter          []string
+	BackgroundColor color.Color
+	MinSize         fyne.Size
+	UploadType      FileUploadType
+}
+
+// FileUploadState содержит состояние для загрузки файлов
+type FileUploadState struct {
+	SelectedFiles *[]string
+	UpdateDisplay func()
+}
+
+// openWindowsFileDialog открывает стандартный диалог выбора файлов Windows
+func openWindowsFileDialog(filter []string, multiSelect bool) ([]string, error) {
+	// Создаем PowerShell скрипт для открытия диалога выбора файлов
+	psScript := `
+Add-Type -AssemblyName System.Windows.Forms
+$dialog = New-Object System.Windows.Forms.OpenFileDialog
+$dialog.Title = "Выберите файлы"
+$dialog.Multiselect = $true
+`
+
+	// Добавляем фильтр, если он задан
+	if len(filter) > 0 {
+		// Создаем строку фильтра в формате: "Image files (*.jpg, *.png)|*.jpg;*.png"
+		filterExtensions := []string{}
+
+		for _, ext := range filter {
+			cleanExt := strings.TrimPrefix(ext, ".")
+			filterExtensions = append(filterExtensions, "*."+cleanExt)
+		}
+
+		filterStr := strings.Join(filterExtensions, ";")
+		displayName := "Files"
+
+		// Определяем отображаемое имя в зависимости от типа фильтра
+		if len(filter) == 1 && (strings.Contains(filter[0], "jpg") ||
+			strings.Contains(filter[0], "jpeg") ||
+			strings.Contains(filter[0], "png") ||
+			strings.Contains(filter[0], "gif") ||
+			strings.Contains(filter[0], "bmp")) {
+			displayName = "Image files"
+		} else if len(filter) == 1 && (strings.Contains(filter[0], "pdf") ||
+			strings.Contains(filter[0], "doc") ||
+			strings.Contains(filter[0], "txt")) {
+			displayName = "Document files"
+		}
+
+		psScript += fmt.Sprintf(`$dialog.Filter = "%s (%s)|%s"`,
+			displayName,
+			strings.Join(filterExtensions, ", "),
+			filterStr)
+
+		// Добавляем опцию "Все файлы" для удобства
+		psScript += `
+$dialog.FilterIndex = 1
+$dialog.DefaultExt = "` + filterExtensions[0] + `"`
+	}
+
+	psScript += `
+$result = $dialog.ShowDialog()
+if ($result -eq [System.Windows.Forms.DialogResult]::OK) {
+    foreach ($file in $dialog.FileNames) {
+        Write-Output $file
+    }
+} else {
+    Write-Output ""
+}
+`
+
+	// Выполняем PowerShell скрипт
+	cmd := exec.Command("powershell", "-Command", psScript)
+	output, err := cmd.Output()
+	if err != nil {
+		// Проверяем, может быть это просто отмена выбора
+		if exitErr, ok := err.(*exec.ExitError); ok && exitErr.ExitCode() == 0 {
+			return []string{}, nil
+		}
+		return nil, fmt.Errorf("ошибка открытия диалога: %v", err)
+	}
+
+	// Парсим результат
+	outputStr := strings.TrimSpace(string(output))
+	if outputStr == "" {
+		return []string{}, nil
+	}
+
+	// Разделяем строки (PowerShell выводит каждое имя файла с новой строки)
+	lines := strings.ReplaceAll(outputStr, "\r\n", "\n")
+	files := strings.Split(lines, "\n")
+
+	// Очищаем пробелы
+	var cleanFiles []string
+	for _, file := range files {
+		cleanFile := strings.TrimSpace(file)
+		if cleanFile != "" && cleanFile != "\"" {
+			cleanFiles = append(cleanFiles, cleanFile)
+		}
+	}
+
+	return cleanFiles, nil
+}
+
+// CreateFileUploadArea создает область для загрузки файлов
+func CreateFileUploadArea(config FileUploadConfig, state *FileUploadState, parentWindow fyne.Window) *fyne.Container {
+	// Инициализируем SelectedFiles если nil
+	if state.SelectedFiles == nil {
+		emptySlice := []string{}
+		state.SelectedFiles = &emptySlice
+	}
+
+	// Инициализируем UpdateDisplay если nil (ВАЖНО!)
+	if state.UpdateDisplay == nil {
+		state.UpdateDisplay = func() {}
+	}
+
+	// Прямоугольник с фоном
+	box := canvas.NewRectangle(config.BackgroundColor)
+	box.CornerRadius = 8
+	box.SetMinSize(config.MinSize)
+
+	// Контейнер для отображения файлов
+	filesContainer := container.NewVBox()
+
+	// Метка
+	label := widget.NewLabel(config.Label)
+	label.Alignment = fyne.TextAlignCenter
+
+	// Контейнер для содержимого внутри box
+	contentContainer := container.NewVBox(filesContainer, container.NewCenter(label))
+
+	containerWithContent := container.NewStack(box, contentContainer)
+
+	// Кнопка для клика (скрывается под содержимым)
+	clickButton := widget.NewButton("", func() {
+		// Открываем стандартный диалог Windows
+		selectedFiles, err := openWindowsFileDialog(config.Filter, true)
+		if err != nil {
+			// В случае ошибки показываем сообщение
+			errorLabel := widget.NewLabel(fmt.Sprintf("Ошибка при выборе файлов:\n%v", err))
+			errorLabel.Wrapping = fyne.TextWrapWord
+
+			closeButton := widget.NewButton("Закрыть", nil)
+
+			popupContent := container.NewVBox(
+				errorLabel,
+				container.NewCenter(closeButton),
+			)
+
+			dialog := widget.NewModalPopUp(popupContent, parentWindow.Canvas())
+
+			closeButton.OnTapped = func() {
+				dialog.Hide()
+			}
+
+			dialog.Show()
+			return
+		}
+
+		if len(selectedFiles) > 0 {
+			// Добавляем выбранные файлы в список
+			*state.SelectedFiles = append(*state.SelectedFiles, selectedFiles...)
+			state.UpdateDisplay()
+		}
+	})
+	clickButton.Importance = widget.LowImportance
+
+	containerWithClick := container.NewStack(clickButton, containerWithContent)
+
+	// Переопределяем функцию обновления отображения
+	state.UpdateDisplay = func() {
+		filesContainer.Objects = []fyne.CanvasObject{}
+
+		// Разыменовываем указатель
+		selectedFiles := *state.SelectedFiles
+
+		// Добавляем выбранные файлы
+		for i, filepath := range selectedFiles {
+			// Извлекаем только имя файла из полного пути
+			filename := filepath
+			if lastSlash := strings.LastIndex(filepath, "\\"); lastSlash != -1 {
+				filename = filepath[lastSlash+1:]
+			} else if lastSlash := strings.LastIndex(filepath, "/"); lastSlash != -1 {
+				filename = filepath[lastSlash+1:]
+			}
+
+			// Создаем контейнер для каждого файла с именем и кнопкой удаления
+			fileLabel := widget.NewLabel(filename)
+
+			removeButton := widget.NewButton("❌", func(index int) func() {
+				return func() {
+					// Удаляем файл из списка
+					currentFiles := *state.SelectedFiles
+					newSelectedFiles := make([]string, 0, len(currentFiles)-1)
+					for j, name := range currentFiles {
+						if j != index {
+							newSelectedFiles = append(newSelectedFiles, name)
+						}
+					}
+					*state.SelectedFiles = newSelectedFiles
+					state.UpdateDisplay()
+				}
+			}(i))
+			removeButton.Importance = widget.LowImportance
+
+			hBox := container.NewHBox(fileLabel, container.NewPadded(removeButton))
+
+			// Добавляем горизонтальный разделитель после каждого элемента, кроме последнего
+			filesContainer.Add(hBox)
+			if i < len(selectedFiles)-1 {
+				filesContainer.Add(widget.NewSeparator())
+			}
+		}
+
+		// Обновляем содержимое контейнера
+		contentContainer.Objects = []fyne.CanvasObject{filesContainer, container.NewCenter(label)}
+		contentContainer.Refresh()
+	}
+
+	// Вызываем первоначальное отображение
+	state.UpdateDisplay()
+
+	return containerWithClick
+}
+
+
+//internal\ui\modals\create_item\modal.go
+package create_item
+
+import (
+	"fmt"
+	"projectT/internal/storage/database/queries"
+
+	"fyne.io/fyne/v2"
+	"fyne.io/fyne/v2/container"
+	"fyne.io/fyne/v2/dialog"
+)
+
+var createItemModalWindow fyne.Window
+
+// ShowCreateItemModal показывает модальное окно создания элемента
+func ShowCreateItemModal(parentWindow fyne.Window) {
+	ShowCreateItemModalWithItem(parentWindow, 0, 0) // 0 означает создание нового элемента в корне
+}
+
+// ShowCreateItemModalForEdit показывает модальное окно для редактирования элемента
+func ShowCreateItemModalForEdit(parentWindow fyne.Window, itemID int) {
+	ShowCreateItemModalWithItem(parentWindow, itemID, 0) // Редактируем элемент с указанным ID
+}
+
+// ShowCreateItemModalWithParent показывает модальное окно создания элемента с указанием родительской папки
+func ShowCreateItemModalWithParent(parentWindow fyne.Window, parentID int) {
+	ShowCreateItemModalWithItem(parentWindow, 0, parentID) // 0 означает создание нового элемента
+}
+
+// ShowCreateItemModalWithItem показывает модальное окно для создания или редактирования элемента
+func ShowCreateItemModalWithItem(parentWindow fyne.Window, itemID int, parentID int) {
+	// Проверяем, не открыто ли уже окно
+	if createItemModalWindow != nil {
+		// Если окно уже открыто, просто делаем его активным
+		createItemModalWindow.RequestFocus()
+		return
+	}
+
+	// Создаем новое окно
+	windowTitle := "Создать элемент"
+	if itemID != 0 {
+		// Режим редактирования - получаем название элемента
+		existingItem, err := queries.GetItemByID(itemID)
+		if err == nil && existingItem != nil {
+			windowTitle = fmt.Sprintf("Редактирование элемента \"%s\"", existingItem.Title)
+		} else {
+			windowTitle = "Редактирование элемента"
+		}
+	}
+
+	window := fyne.CurrentApp().NewWindow(windowTitle)
+	createItemModalWindow = window // Сохраняем ссылку на окно
+
+	// Создаем ViewModel
+	var viewModel *CreateItemViewModel
+	var err error
+
+	if itemID != 0 {
+		// Режим редактирования - загружаем существующий элемент
+		viewModel, err = NewCreateItemViewModelForEdit(itemID)
+		if err != nil {
+			dialog.ShowError(fmt.Errorf("Ошибка загрузки элемента для редактирования: %v", err), parentWindow)
+			return
+		}
+	} else {
+		// Режим создания - создаем новую ViewModel
+		viewModel = NewCreateItemViewModel()
+		if parentID != 0 {
+			viewModel.ParentID = &parentID // Устанавливаем родительскую папку, если она не корневая
+		}
+	}
+
+	rightColumn, formWidgets := CreateRightColumn(viewModel)
+	leftColumn := CreateLeftColumn(window, viewModel, formWidgets)
+
+	// Главный контейнер с двумя колонками
+	mainContainer := container.NewHSplit(leftColumn, rightColumn)
+	mainContainer.Offset = 0.3 // Левая колонка занимает 30% ширины
+
+	// Создаем контейнер с содержимым
+	modalContent := container.NewVBox(mainContainer)
+
+	// Устанавливаем контент и размеры
+	window.SetContent(modalContent)
+	window.Resize(fyne.NewSize(750, 300))
+
+	// При закрытии окна сбрасываем ссылку
+	window.SetOnClosed(func() {
+		createItemModalWindow = nil
+	})
+
+	window.Show()
+}
+
+
+//internal\storage\filesystem\manager.go
+package filesystem
+
+import (
+	"fmt"
+	"io"
+	"mime"
+	"net/http"
+	"os"
+	"path/filepath"
+)
+
+// FileData содержит информацию о файле
+type FileData struct {
+	Hash     string
+	Size     int64
+	MimeType string
+	Path     string
+}
+
+// SaveFile сохраняет файл на диск по хэш-ориентированной структуре
+// Принимает содержимое файла и возвращает хэш, размер и MIME-тип
+func SaveFile(fileBytes []byte) (*FileData, error) {
+	// Вычисляем хэш файла
+	hash := CalculateHash(fileBytes)
+
+	// Получаем путь для сохранения файла
+	filePath := GetFilePath(hash)
+
+	// Проверяем, существует ли уже файл с таким хэшем
+	if _, err := os.Stat(filePath); err == nil {
+		// Файл уже существует, возвращаем информацию о нем
+		info, err := os.Stat(filePath)
+		if err != nil {
+			return nil, err
+		}
+
+		// Определяем MIME-тип на основе расширения или содержимого
+		mimeType := mime.TypeByExtension(filepath.Ext(filePath))
+		if mimeType == "" {
+			mimeType = detectMimeType(fileBytes)
+		}
+
+		return &FileData{
+			Hash:     hash,
+			Size:     info.Size(),
+			MimeType: mimeType,
+			Path:     filePath,
+		}, nil
+	}
+
+	// Создаем родительскую директорию, если она не существует
+	if err := EnsureParentDir(filePath); err != nil {
+		return nil, fmt.Errorf("ошибка создания директории: %w", err)
+	}
+
+	// Сохраняем файл
+	if err := os.WriteFile(filePath, fileBytes, 0644); err != nil {
+		return nil, fmt.Errorf("ошибка сохранения файла: %w", err)
+	}
+
+	// Определяем MIME-тип
+	mimeType := detectMimeType(fileBytes)
+
+	// Получаем информацию о файле
+	info, err := os.Stat(filePath)
+	if err != nil {
+		return nil, fmt.Errorf("ошибка получения информации о файле: %w", err)
+	}
+
+	return &FileData{
+		Hash:     hash,
+		Size:     info.Size(),
+		MimeType: mimeType,
+		Path:     filePath,
+	}, nil
+}
+
+// ReadFile читает файл по его хэшу и возвращает его содержимое
+func ReadFile(hash string) ([]byte, error) {
+	filePath := GetFilePath(hash)
+
+	// Проверяем существование файла
+	if _, err := os.Stat(filePath); os.IsNotExist(err) {
+		return nil, fmt.Errorf("файл с хэшем %s не найден", hash)
+	}
+
+	// Читаем файл
+	fileBytes, err := os.ReadFile(filePath)
+	if err != nil {
+		return nil, fmt.Errorf("ошибка чтения файла: %w", err)
+	}
+
+	return fileBytes, nil
+}
+
+// DeleteFile удаляет файл с диска
+func DeleteFile(hash string) error {
+	filePath := GetFilePath(hash)
+
+	// Проверяем существование файла
+	if _, err := os.Stat(filePath); os.IsNotExist(err) {
+		return fmt.Errorf("файл с хэшем %s не найден", hash)
+	}
+
+	// Удаляем файл
+	if err := os.Remove(filePath); err != nil {
+		return fmt.Errorf("ошибка удаления файла: %w", err)
+	}
+
+	return nil
+}
+
+// GetFileInfo возвращает информацию о файле по его хэшу
+func GetFileInfo(hash string) (*FileData, error) {
+	filePath := GetFilePath(hash)
+
+	// Получаем информацию о файле
+	info, err := os.Stat(filePath)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return nil, fmt.Errorf("файл с хэшем %s не найден", hash)
+		}
+		return nil, fmt.Errorf("ошибка получения информации о файле: %w", err)
+	}
+
+	// Читаем первые байты файла для определения MIME-типа
+	file, err := os.Open(filePath)
+	if err != nil {
+		return nil, fmt.Errorf("ошибка открытия файла: %w", err)
+	}
+	defer file.Close()
+
+	buffer := make([]byte, 512)
+	_, err = file.Read(buffer)
+	if err != nil && err != io.EOF {
+		return nil, fmt.Errorf("ошибка чтения файла: %w", err)
+	}
+
+	mimeType := detectMimeType(buffer)
+
+	return &FileData{
+		Hash:     hash,
+		Size:     info.Size(),
+		MimeType: mimeType,
+		Path:     filePath,
+	}, nil
+}
+
+// detectMimeType определяет MIME-тип на основе содержимого файла
+func detectMimeType(fileBytes []byte) string {
+	mimeType := http.DetectContentType(fileBytes)
+	return mimeType
+}
+
+// Exists проверяет, существует ли файл с заданным хэшем
+func Exists(hash string) bool {
+	filePath := GetFilePath(hash)
+	_, err := os.Stat(filePath)
+	return !os.IsNotExist(err)
+}
+
+
+//internal\ui\modals\create_item\left_column.go
+package create_item
+
+import (
+	"encoding/json"
+	"fmt"
+	"image/color"
+	"projectT/internal/storage/database/models"
+	"projectT/internal/storage/database/queries"
+	"strings"
+
+	"fyne.io/fyne/v2"
+	"fyne.io/fyne/v2/container"
+	"fyne.io/fyne/v2/dialog"
+	"fyne.io/fyne/v2/widget"
+)
+
+// CreateLeftColumn создает левую колонку с кнопками загрузки
+func CreateLeftColumn(modalWindow fyne.Window, viewModel *CreateItemViewModel, formWidgets *FormWidgets) *fyne.Container {
+	// Создаем состояния для изображений и файлов
+	imageState := &FileUploadState{
+		SelectedFiles: &viewModel.Images,
+		UpdateDisplay: func() {},
+	}
+
+	fileState := &FileUploadState{
+		SelectedFiles: &viewModel.Files,
+		UpdateDisplay: func() {},
+	}
+
+	// Создаем область для загрузки изображений
+	imageConfig := FileUploadConfig{
+		Label:           "🖼️ Добавить изображение/обложку",
+		Filter:          []string{".png", ".jpg", ".jpeg", ".gif", ".bmp"},
+		BackgroundColor: color.RGBA{R: 30, G: 30, B: 30, A: 25},
+		MinSize:         fyne.NewSize(150, 100),
+		UploadType:      ImageUpload,
+	}
+
+	imageUploadArea := CreateFileUploadArea(imageConfig, imageState, modalWindow)
+
+	// Сохраняем ссылки на области загрузки в виджетах формы
+	formWidgets.ImageUploadArea = imageUploadArea
+
+	// Создаем область для загрузки файлов
+	fileConfig := FileUploadConfig{
+		Label:           "📎 Добавить файл",
+		Filter:          nil,
+		BackgroundColor: color.RGBA{R: 30, G: 30, B: 30, A: 25},
+		MinSize:         fyne.NewSize(150, 60),
+		UploadType:      FileUpload,
+	}
+
+	fileUploadArea := CreateFileUploadArea(fileConfig, fileState, modalWindow)
+
+	// Сохраняем ссылки на области загрузки в виджетах формы
+	formWidgets.FileUploadArea = fileUploadArea
+
+	// Кнопка "Создать" или "Сохранить изменения" в зависимости от режима
+	buttonText := "Создать"
+	if viewModel.EditMode {
+		buttonText = "Сохранить изменения"
+	}
+
+	createButton := widget.NewButton(buttonText, func() {
+		// Получаем данные из правой колонки и обновляем ViewModel
+		updateViewModelFromUI(viewModel, formWidgets, *imageState.SelectedFiles, *fileState.SelectedFiles)
+
+		// Создаем или обновляем элемент из ViewModel
+		createItemFromViewModel(viewModel, modalWindow)
+	})
+
+	// Компоновка левой колонки
+	leftContent := container.NewVBox(
+		formWidgets.ImageUploadArea,
+		widget.NewSeparator(),
+		formWidgets.FileUploadArea,
+		widget.NewSeparator(),
+		container.NewPadded(container.NewCenter(createButton)),
+	)
+
+	return leftContent
+}
+
+// updateViewModelFromUI обновляет ViewModel с данными из UI
+func updateViewModelFromUI(viewModel *CreateItemViewModel, formWidgets *FormWidgets, selectedImages, selectedFiles []string) {
+	// Определяем, какая вкладка активна
+	if formWidgets.Tabs.CurrentTab().Text == "Элемент" {
+		viewModel.Title = formWidgets.TitleEntry.Text
+		viewModel.Description = formWidgets.DescriptionEntry.Text
+		viewModel.Tags = formWidgets.TagsEntry.Text
+		viewModel.ItemType = models.ItemTypeText
+	} else if formWidgets.Tabs.CurrentTab().Text == "Папка" {
+		viewModel.Title = formWidgets.TitleEntry.Text
+		viewModel.Description = formWidgets.DescriptionEntry.Text
+		viewModel.Tags = formWidgets.TagsEntry.Text
+		viewModel.ItemType = models.ItemTypeFolder
+	}
+
+	viewModel.Images = selectedImages
+	viewModel.Files = selectedFiles
+
+	// Собираем ссылки из полей ввода
+	var links []string
+	for _, entry := range formWidgets.LinkEntries {
+		if entry.Text != "" {
+			links = append(links, entry.Text)
+		}
+	}
+	viewModel.Links = links
+}
+
+// createItemFromViewModel создает элемент из ViewModel
+func createItemFromViewModel(viewModel *CreateItemViewModel, modalWindow fyne.Window) {
+	// Подголняем структуру для хранения блоков
+	fmt.Printf("=== Отладочная информация ===\n")
+	fmt.Printf("Title: %s\n", viewModel.Title)
+	fmt.Printf("Description: %s\n", viewModel.Description)
+	fmt.Printf("Tags: %s\n", viewModel.Tags)
+	fmt.Printf("ItemType: %s (тип: %T)\n", viewModel.ItemType, viewModel.ItemType)
+	fmt.Printf("Images: %v\n", viewModel.Images)
+	fmt.Printf("Files: %v\n", viewModel.Files)
+	fmt.Printf("Links: %v\n", viewModel.Links)
+	fmt.Printf("===========================\n")
+
+	// Используем тип элемента, установленный в зависимости от выбранной вкладки
+	itemType := viewModel.ItemType
+
+	// Если тип элемента не определен (например, при создании), определяем его на основе содержимого
+	if itemType == "" || itemType == models.ItemTypeText {
+		// Проверяем наличие различных типов данных
+		hasDescription := viewModel.Description != ""
+		hasImages := len(viewModel.Images) > 0
+		hasFiles := len(viewModel.Files) > 0
+		hasLinks := len(viewModel.Links) > 0 && viewModel.Links[0] != ""
+
+		// Определяем тип в зависимости от содержимого
+		switch {
+		case hasLinks && (hasImages || hasFiles):
+			// Комбинация ссылки с файлом/изображением - комбинированный элемент
+			itemType = models.ItemTypeComposite
+		case hasFiles && (hasImages || hasLinks):
+			// Комбинация файлов с изображением/ссылкой - комбинированный элемент
+			itemType = models.ItemTypeComposite
+		case hasImages && (hasLinks || hasFiles):
+			// Комбинация изображений с чем-то еще - комбинированный элемент
+			itemType = models.ItemTypeComposite
+		case hasLinks:
+			// Только ссылка (или ссылка с описанием)
+			itemType = models.ItemTypeLink
+		case hasFiles:
+			// Только файлы (или файлы с описанием)
+			itemType = models.ItemTypeFile
+		case hasImages:
+			// Только изображения (или изображения с описанием)
+			itemType = models.ItemTypeImage
+		case hasDescription && !hasImages && !hasFiles && !hasLinks:
+			// Только описание без других типов данных - текстовый элемент
+			itemType = models.ItemTypeText
+		default:
+			// По умолчанию - текстовый элемент
+			itemType = models.ItemTypeText
+		}
+	}
+
+	type Block struct {
+		Type         string `json:"type"`
+		Content      string `json:"content,omitempty"`
+		FileHash     string `json:"file_hash,omitempty"`
+		OriginalName string `json:"original_name,omitempty"`
+		Description  string `json:"description,omitempty"`
+	}
+
+	var blocks []Block
+
+	// Обрабатываем изображения
+	for _, filename := range viewModel.Images {
+		blocks = append(blocks, Block{
+			Type:         "image",
+			OriginalName: filename,
+		})
+	}
+
+	// Обрабатываем остальные файлы
+	for _, filename := range viewModel.Files {
+		blocks = append(blocks, Block{
+			Type:         "file",
+			OriginalName: filename,
+		})
+	}
+
+	// Обрабатываем ссылки
+	for _, link := range viewModel.Links {
+		if link != "" {
+			blocks = append(blocks, Block{
+				Type:    "link",
+				Content: link,
+			})
+		}
+	}
+
+	// Преобразуем блоки в JSON
+	contentMeta, err := json.Marshal(blocks)
+	if err != nil {
+		dialog.ShowError(err, modalWindow)
+		return
+	}
+
+	// Создаем или обновляем элемент в зависимости от режима
+	var item *models.Item
+
+	if viewModel.EditMode && viewModel.ID != 0 {
+		// Режим редактирования - обновляем существующий элемент
+		existingItem, err := queries.GetItemByID(viewModel.ID)
+		if err != nil {
+			dialog.ShowError(fmt.Errorf("Ошибка получения элемента для редактирования: %v", err), modalWindow)
+			return
+		}
+
+		// Обновляем поля элемента
+		existingItem.Type = itemType
+		existingItem.Title = viewModel.Title
+		existingItem.Description = viewModel.Description
+		existingItem.ContentMeta = string(contentMeta)
+		existingItem.ParentID = viewModel.ParentID
+
+		// Обновляем элемент в базе данных
+		if err := queries.UpdateItem(existingItem); err != nil {
+			dialog.ShowError(fmt.Errorf("Ошибка обновления элемента: %v", err), modalWindow)
+			return
+		}
+
+		item = existingItem
+		fmt.Printf("Элемент успешно обновлен в базе данных с ID: %d\n", item.ID)
+	} else {
+		// Режим создания - создаем новый элемент
+		item = &models.Item{
+			Type:        itemType,
+			Title:       viewModel.Title,
+			Description: viewModel.Description,
+			ContentMeta: string(contentMeta),
+			ParentID:    viewModel.ParentID, // Устанавливаем родительскую папку
+		}
+
+		// Сохраняем элемент в базу данных
+		if err := queries.CreateItem(item); err != nil {
+			dialog.ShowError(err, modalWindow)
+			return
+		}
+
+		fmt.Printf("Элемент успешно добавлен в базу данных с ID: %d\n", item.ID)
+	}
+
+	fmt.Printf("Элемент успешно добавлен в базу данных с ID: %d\n", item.ID)
+
+	// Обрабатываем теги, если они есть
+	if viewModel.Tags != "" {
+		fmt.Printf("Обработка тегов: %s\n", viewModel.Tags)
+		// Разбиваем теги по запятой
+		tags := strings.Split(viewModel.Tags, ",")
+		for _, tagStr := range tags {
+			tagStr = strings.TrimSpace(tagStr)
+			if tagStr != "" {
+				// Проверяем, существует ли тег с таким именем
+				existingTag, err := queries.GetTagByName(tagStr)
+				if err != nil {
+					// Если тег не найден, создаем новый
+					fmt.Printf("Создание нового тега: %s\n", tagStr)
+					newTag := &models.Tag{Name: tagStr}
+					if err := queries.CreateTag(newTag); err != nil {
+						dialog.ShowError(fmt.Errorf("Ошибка при создании тега '%s': %v", tagStr, err), modalWindow)
+						continue // Продолжаем обработку следующих тегов
+					}
+					existingTag = newTag
+					fmt.Printf("Тег успешно создан с ID: %d\n", newTag.ID)
+				} else {
+					fmt.Printf("Тег уже существует: %s (ID: %d)\n", existingTag.Name, existingTag.ID)
+				}
+
+				// Привязываем тег к элементу
+				if err := queries.AddTagToItem(item.ID, existingTag.ID); err != nil {
+					dialog.ShowError(fmt.Errorf("Ошибка при привязке тега '%s' к элементу: %v", tagStr, err), modalWindow)
+				} else {
+					fmt.Printf("Тег '%s' успешно привязан к элементу\n", tagStr)
+				}
+			}
+		}
+		fmt.Printf("Обработка тегов завершена\n")
+	} else {
+		fmt.Println("Теги не указаны")
+	}
+
+	// Закрываем окно после успешного создания
+	modalWindow.Close()
+}
+
+//internal\storage\filesystem\storage.go
+package filesystem
+
+import (
+	"os"
+	"path/filepath"
+)
+
+const (
+	// StorageDir основная директория для хранения файлов
+	StorageDir = "./internal/storage"
+	// FilesDir поддиректория для файлов
+	FilesDir = "files"
+)
+
+// EnsureStorageStructure инициализирует структуру папок при старте приложения
+func EnsureStorageStructure() error {
+	// Создаем основную директорию для хранения
+	if err := os.MkdirAll(StorageDir, 0755); err != nil {
+		return err
+	}
+
+	// Создаем директорию для файлов
+	filesPath := filepath.Join(StorageDir, FilesDir)
+	if err := os.MkdirAll(filesPath, 0755); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+// GetFilePath возвращает полный путь к файлу по его хэшу
+func GetFilePath(hash string) string {
+	if len(hash) < 2 {
+		// Если хэш слишком короткий, возвращаем путь в корневую директорию файлов
+		return filepath.Join(StorageDir, FilesDir, hash)
+	}
+
+	// Формируем путь: storage/files/{первые_2_символа_хэша}/{полный_хэш}
+	prefix := hash[:2]
+	return filepath.Join(StorageDir, FilesDir, prefix, hash)
+}
+
+// EnsureParentDir создает родительскую директорию для файла, если она не существует
+func EnsureParentDir(filePath string) error {
+	parentDir := filepath.Dir(filePath)
+	return os.MkdirAll(parentDir, 0755)
+}

@@ -1,0 +1,55 @@
+# Go
+#*.exe
+#*.exe~
+*.dll
+*.so
+*.dylib
+*.test
+*.out
+bin/
+dist/
+vendor/
+
+# Тесты и покрытие
+coverage.out
+coverage.html
+*.coverprofile
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+*.sublime-project
+*.sublime-workspace
+
+# OS
+Thumbs.db
+.DS_Store
+desktop.ini
+$RECYCLE.BIN/
+System Volume Information/
+
+# Логи
+*.log
+
+# Временные файлы
+tmp/
+temp/
+*.tmp
+
+# Конфигурация с секретами
+config.local.yaml
+config.local.json
+*.secret
+*.key
+.env
+.env.local
+
+# Сборки
+#projectT.exe
+#projectT
+
+# GoReleaser
+.goreleaser.yml

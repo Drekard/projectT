@@ -1,49 +1,48 @@
 package filesystem
 
 import (
-	"fmt"
 	"os"
 	"path/filepath"
 )
 
-const (
-	// StorageDir основная директория для хранения файлов
-	StorageDir = "./internal/storage"
-	// FilesDir поддиректория для файлов
-	FilesDir = "files"
+var (
+	// storageRoot корневая директория для хранения файлов
+	storageRoot = "./storage"
+	// filesDir поддиректория для файлов
+	filesDir = "files"
 )
+
+// StorageConfig конфигурация файлового хранилища
+type StorageConfig interface {
+	GetPath() string
+	GetFilesDir() string
+}
+
+// defaultStorageConfig конфигурация по умолчанию для обратной совместимости
+type defaultStorageConfig struct{}
+
+func (defaultStorageConfig) GetPath() string     { return "./storage" }
+func (defaultStorageConfig) GetFilesDir() string { return "files" }
+
+// InitStorage инициализирует файловое хранилище с заданной конфигурацией
+func InitStorage(cfg StorageConfig) {
+	storageRoot = cfg.GetPath()
+	filesDir = cfg.GetFilesDir()
+}
 
 // EnsureStorageStructure инициализирует структуру папок при старте приложения
 func EnsureStorageStructure() error {
 	// Создаем основную директорию для хранения
-	if err := os.MkdirAll(StorageDir, 0755); err != nil {
+	if err := os.MkdirAll(storageRoot, 0755); err != nil {
 		return err
 	}
 
 	// Создаем директорию для файлов
-	filesPath := filepath.Join(StorageDir, FilesDir)
+	filesPath := filepath.Join(storageRoot, filesDir)
 	if err := os.MkdirAll(filesPath, 0755); err != nil {
 		return err
 	}
 
-	// Создаем поддиректории для хэшей (00-ff)
-	if err := CreateHashDirectories(); err != nil {
-		return err
-	}
-
-	return nil
-}
-
-// CreateHashDirectories создает 256 поддиректорий для хранения файлов по первым 2 символам хэша
-func CreateHashDirectories() error {
-	// Создаем директории от 00 до ff
-	for i := 0; i < 256; i++ {
-		dirName := fmt.Sprintf("%02x", i)
-		dirPath := filepath.Join(StorageDir, FilesDir, dirName)
-		if err := os.MkdirAll(dirPath, 0755); err != nil {
-			return err
-		}
-	}
 	return nil
 }
 
@@ -60,12 +59,12 @@ func GetFilePathWithExtension(hash string, ext string) string {
 
 	if len(hash) < 2 {
 		// Если хэш слишком короткий, возвращаем путь в корневую директорию файлов
-		return filepath.Join(StorageDir, FilesDir, filename)
+		return filepath.Join(storageRoot, filesDir, filename)
 	}
 
 	// Формируем путь: storage/files/{первые_2_символа_хэша}/{полный_хэш.расширение}
 	prefix := hash[:2]
-	return filepath.Join(StorageDir, FilesDir, prefix, filename)
+	return filepath.Join(storageRoot, filesDir, prefix, filename)
 }
 
 // GetFilePath возвращает полный путь к файлу по его хэшу (без расширения для обратной совместимости)
@@ -77,4 +76,14 @@ func GetFilePath(hash string) string {
 func EnsureParentDir(filePath string) error {
 	parentDir := filepath.Dir(filePath)
 	return os.MkdirAll(parentDir, 0755)
+}
+
+// GetStorageRoot возвращает корневую директорию хранилища
+func GetStorageRoot() string {
+	return storageRoot
+}
+
+// GetFilesDir возвращает директорию для файлов
+func GetFilesDir() string {
+	return filesDir
 }

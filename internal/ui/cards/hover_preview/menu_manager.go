@@ -60,6 +60,10 @@ func (mm *MenuManager) ShowSimpleMenu(item *models.Item, cont fyne.CanvasObject,
 		return
 	}
 
+	// Получаем позицию и размер карточки для центрирования попапов
+	cardPos := fyne.CurrentApp().Driver().AbsolutePositionForObject(cont)
+	cardSize := cont.MinSize()
+
 	// Создаем переменную для попапа, чтобы была возможность его закрыть из обработчика кнопки
 	var popup *widget.PopUp
 
@@ -74,7 +78,7 @@ func (mm *MenuManager) ShowSimpleMenu(item *models.Item, cont fyne.CanvasObject,
 	}
 
 	children = append(children,
-		getTagsContainer(item, mm),
+		getTagsContainer(item, mm, cardPos, cardSize),
 		widget.NewLabel("Создан: "+item.CreatedAt.Format("02.01.2006 15:04")),
 		widget.NewLabel("Изменен: "+item.UpdatedAt.Format("02.01.2006 15:04")),
 		container.NewBorder(
@@ -228,9 +232,6 @@ func (mm *MenuManager) ShowSimpleMenu(item *models.Item, cont fyne.CanvasObject,
 	content := container.NewVBox(children...)
 
 	popup = widget.NewPopUp(content, window)
-
-	// Позиция карточки
-	cardPos := fyne.CurrentApp().Driver().AbsolutePositionForObject(cont)
 
 	// Показываем прямо под карточкой
 	menuPos := fyne.NewPos(
@@ -517,7 +518,7 @@ func (r *TagButtonRenderer) Objects() []fyne.CanvasObject {
 func (r *TagButtonRenderer) Destroy() {}
 
 // getTagsContainer возвращает контейнер с цветными кнопками тегов для элемента
-func getTagsContainer(item *models.Item, handler SearchHandler) fyne.CanvasObject {
+func getTagsContainer(item *models.Item, handler SearchHandler, cardPos fyne.Position, cardSize fyne.Size) fyne.CanvasObject {
 	tags, err := queries.GetTagsForItem(context.Background(), item.ID)
 	if err != nil || len(tags) == 0 {
 		return container.NewHBox(widget.NewLabel("--теги отсутствуют--"))
@@ -545,7 +546,7 @@ func getTagsContainer(item *models.Item, handler SearchHandler) fyne.CanvasObjec
 				return func() {
 					// При одном клике показываем описание тега, если оно есть
 					if tagDescription != "" {
-						showTagDescriptionMenu(tagName, tagDescription)
+						showTagDescriptionMenu(tagName, tagDescription, cardPos, cardSize)
 					}
 				}
 			}(tag.Name, tag.Description),
@@ -567,7 +568,7 @@ func getTagsContainer(item *models.Item, handler SearchHandler) fyne.CanvasObjec
 }
 
 // showTagDescriptionMenu показывает меню с описанием тега
-func showTagDescriptionMenu(tagName, tagDescription string) {
+func showTagDescriptionMenu(tagName, tagDescription string, cardPos fyne.Position, cardSize fyne.Size) {
 	window := fyne.CurrentApp().Driver().AllWindows()[0]
 	if window == nil {
 		return
@@ -585,13 +586,12 @@ func showTagDescriptionMenu(tagName, tagDescription string) {
 
 	popup := widget.NewPopUp(content, canvas)
 
-	// Центрируем попап
+	// Центрируем попап по центру карточки
 	popupSize := popup.MinSize()
-	windowSize := canvas.Size()
 
 	popup.ShowAtPosition(fyne.NewPos(
-		(windowSize.Width-popupSize.Width)/2.5,
-		(windowSize.Height-popupSize.Height)/2.5,
+		cardPos.X+(cardSize.Width-popupSize.Width)/2,
+		cardPos.Y+(cardSize.Height-popupSize.Height)/2,
 	))
 
 	// Закрываем по клику вне попапа

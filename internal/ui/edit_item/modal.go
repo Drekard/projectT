@@ -30,6 +30,12 @@ func ShowCreateItemModalForEdit(parentWindow fyne.Window, itemID int) {
 	// Устанавливаем минимальный размер для диалога
 	modalContent.Resize(fyne.NewSize(750, 300))
 
+	// Создаем диалог, чтобы получить контроль над ним
+	d := dialog.NewCustom("Редактирование элемента", "Закрыть", modalContent, parentWindow)
+
+	// Устанавливаем функцию закрытия диалога
+	formWidgets.CloseDialog = d.Hide
+
 	// Показываем диалог
-	dialog.ShowCustom("Редактирование элемента", "Закрыть", modalContent, parentWindow)
+	d.Show()
 }
