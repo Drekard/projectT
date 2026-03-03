@@ -1,0 +1,62 @@
+# Pre-commit хуки для ProjectT
+# Документация: https://pre-commit.com
+
+repos:
+  # 1. Go модули - проверка зависимостей
+  - repo: local
+    hooks:
+      - id: go-mod-tidy
+        name: Go mod tidy
+        entry: go mod tidy
+        language: system
+        pass_filenames: false
+        always_run: true
+        stages: [pre-commit]
+        description: "Приводит go.mod в порядок перед коммитом"
+
+  # 2. Форматирование кода
+  - repo: local
+    hooks:
+      - id: go-fmt
+        name: Go fmt
+        entry: gofmt -w
+        language: system
+        types: [go]
+        stages: [pre-commit]
+        description: "Форматирует Go код"
+
+  # 3. Линтер
+  - repo: local
+    hooks:
+      - id: golangci-lint
+        name: GolangCI-Lint
+        entry: C:/Users/egors/go/bin/golangci-lint.exe run
+        language: system
+        types: [go]
+        pass_filenames: false
+        stages: [pre-commit]
+        description: "Запускает линтер для Go кода"
+
+  # 4. Сборка (быстрая проверка)
+  - repo: local
+    hooks:
+      - id: go-build
+        name: Go build
+        entry: go build -v ./...
+        language: system
+        pass_filenames: false
+        always_run: true
+        stages: [pre-commit]
+        description: "Проверяет, что проект собирается"
+
+  # 5. Тесты - запускаются только перед push
+  - repo: local
+    hooks:
+      - id: go-test
+        name: Go tests
+        entry: go test -v -race ./...
+        language: system
+        pass_filenames: false
+        always_run: true
+        stages: [pre-push]
+        description: "Запускает все тесты перед отправкой в репозиторий"
