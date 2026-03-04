@@ -15,6 +15,7 @@ import (
 	"github.com/libp2p/go-libp2p/core/peerstore"
 	"github.com/multiformats/go-multiaddr"
 
+	"projectT/internal/storage/database/models"
 	"projectT/internal/storage/database/queries"
 )
 
@@ -108,7 +109,27 @@ func (cs *ConnectionService) Stop() error {
 // initializeConnections инициализирует подключения к известным пирам
 func (cs *ConnectionService) initializeConnections() {
 	// Получаем все контакты из БД
-	contacts, err := queries.GetAllContacts()
+	// Оборачиваем вызов в recover для обработки паники при доступе к nil БД
+	var contacts []*models.Contact
+	var err error
+
+	func() {
+		defer func() {
+			if r := recover(); r != nil {
+				// БД не инициализирована - пропускаем загрузку контактов
+				contacts = nil
+				err = nil
+			}
+		}()
+
+		contacts, err = queries.GetAllContacts()
+	}()
+
+	// Если паника произошла, contacts будет nil
+	if contacts == nil && err == nil {
+		return
+	}
+
 	if err != nil {
 		log.Printf("Предупреждение: не удалось загрузить контакты: %v", err)
 		return
