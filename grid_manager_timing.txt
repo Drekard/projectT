@@ -1,44 +1,46 @@
 
 ================================================================================
-GRID MANAGER TIMING LOG - Session started at: 2026-03-04 19:03:34
+GRID MANAGER TIMING LOG - Session started at: 2026-03-04 19:54:32
 ================================================================================
 
-2026-03-04 19:03:34.302 | SYNC   | clear                               |          µs | ParentID:     0 | Items:     0
-2026-03-04 19:03:34.302 | ASYNC  | createCardsConcurrently             |          µs | ParentID:     0 | Items:     0 | Active Async:   1
-2026-03-04 19:03:34.302 | SYNC   | container_clear                     |          µs | ParentID:     0 | Items:     0
-2026-03-04 19:03:34.303 | SYNC   | calculate_columns                   |          µs | ParentID:     0 | Items:     0
-2026-03-04 19:03:34.303 | SYNC   | layoutEngine_CalculatePositions     |          µs | ParentID:     0 | Items:     0
-2026-03-04 19:03:34.303 | SYNC   | widget_resize_move                  |          µs | ParentID:     0 | Items:     0
-2026-03-04 19:03:34.303 | SYNC   | updateContainerSize                 |          µs | ParentID:     0 | Items:     0
-2026-03-04 19:03:34.303 | SYNC   | updateLayout_initial                |     1.6006ms | ParentID:     0 | Items:     0
-2026-03-04 19:03:34.326 | SYNC   | clear                               |          µs | ParentID:     0 | Items:     0
-2026-03-04 19:03:34.326 | SYNC   | spawn_goroutines                    |          µs | ParentID:     0 | Items:     2
-2026-03-04 19:03:34.333 | SYNC   | collect_results                     |       6.57ms | ParentID:     0 | Items:     2
-    └─ total_collected               :       6.57ms
-2026-03-04 19:03:34.347 | SYNC   | widget_refresh_and_sizing           |    13.5222ms | ParentID:     0 | Items:     2
+2026-03-04 19:54:32.941 | SYNC   | clear                               |          µs | ParentID:     0 | Items:     0
+2026-03-04 19:54:32.941 | ASYNC  | createCardsConcurrently             |          µs | ParentID:     0 | Items:     0 | Active Async:   1
+2026-03-04 19:54:32.941 | SYNC   | container_clear                     |          µs | ParentID:     0 | Items:     0
+2026-03-04 19:54:32.942 | SYNC   | calculate_columns                   |          µs | ParentID:     0 | Items:     0
+2026-03-04 19:54:32.942 | SYNC   | layoutEngine_CalculatePositions     |          µs | ParentID:     0 | Items:     0
+2026-03-04 19:54:32.942 | SYNC   | widget_resize_move                  |          µs | ParentID:     0 | Items:     0
+2026-03-04 19:54:32.942 | SYNC   | updateContainerSize                 |          µs | ParentID:     0 | Items:     0
+2026-03-04 19:54:32.942 | SYNC   | updateLayout_initial                |        ˇµs | ParentID:     0 | Items:     0
+2026-03-04 19:54:32.962 | SYNC   | clear                               |          µs | ParentID:     0 | Items:     0
+2026-03-04 19:54:32.962 | SYNC   | spawn_goroutines                    |          µs | ParentID:     0 | Items:     2
+2026-03-04 19:54:32.966 | SYNC   | collect_results                     |     3.9711ms | ParentID:     0 | Items:     2
+    └─ total_collected               :     3.9711ms
+2026-03-04 19:54:32.976 | SYNC   | widget_refresh_and_sizing           |    10.0699ms | ParentID:     0 | Items:     2
     └─ card_start[Корона]
-    └─ card[Корона]:type_element:    13.5222ms
+    └─ card[Корона]:type_element:    10.0699ms
     └─   └─ getCardSize
-    └─   └─ widget.MinSize       :    13.5222ms
+    └─   └─ widget.MinSize       :    10.0699ms
     └─ card_start[]
     └─ card[]:type_element
     └─   └─ getCardSize
     └─   └─ widget.MinSize
-    └─ === SUMMARY ===               :    13.5222ms
+    └─ === SUMMARY ===               :    10.0699ms
     └─ items[element]
     └─ total_cards
-2026-03-04 19:03:34.347 | ASYNC  | createCardsConcurrently             |     21.838ms | ParentID:     0 | Items:     2 | Active Async:   2
-2026-03-04 19:03:34.347 | SYNC   | container_clear                     |          µs | ParentID:     0 | Items:     2
-2026-03-04 19:03:34.347 | SYNC   | calculate_columns                   |          µs | ParentID:     0 | Items:     0
-2026-03-04 19:03:34.347 | SYNC   | layoutEngine_CalculatePositions     |          µs | ParentID:     0 | Items:     2
-2026-03-04 19:03:34.462 | SYNC   | widget_resize_move                  |          µs | ParentID:     0 | Items:     2
-2026-03-04 19:03:34.462 | SYNC   | updateContainerSize                 |          µs | ParentID:     0 | Items:     0
-2026-03-04 19:03:34.462 | SYNC   | updateLayout_initial                |   114.9809ms | ParentID:     0 | Items:     2
-2026-03-04 19:03:34.467 | SYNC   | clear                               |          µs | ParentID:     0 | Items:     0
-2026-03-04 19:03:34.467 | SYNC   | spawn_goroutines                    |          µs | ParentID:     0 | Items:     8
-2026-03-04 19:03:34.476 | SYNC   | collect_results                     |     8.7949ms | ParentID:     0 | Items:     8
-    └─ total_collected               :     8.7949ms
-2026-03-04 19:03:34.484 | SYNC   | widget_refresh_and_sizing           |     8.5969ms | ParentID:     0 | Items:     8
+2026-03-04 19:54:32.976 | ASYNC  | createCardsConcurrently             |     14.041ms | ParentID:     0 | Items:     2 | Active Async:   2
+2026-03-04 19:54:32.976 | SYNC   | container_clear                     |          µs | ParentID:     0 | Items:     2
+2026-03-04 19:54:32.976 | SYNC   | calculate_columns                   |          µs | ParentID:     0 | Items:     0
+2026-03-04 19:54:32.976 | SYNC   | layoutEngine_CalculatePositions     |          µs | ParentID:     0 | Items:     2
+2026-03-04 19:54:33.075 | SYNC   | widget_resize_stats                 |          µs | ParentID:     0 | Items:     2
+    └─ resize:2, cache_hit:0
+2026-03-04 19:54:33.075 | SYNC   | widget_resize_move                  |          µs | ParentID:     0 | Items:     2
+2026-03-04 19:54:33.075 | SYNC   | updateContainerSize                 |          µs | ParentID:     0 | Items:     0
+2026-03-04 19:54:33.075 | SYNC   | updateLayout_initial                |    99.4501ms | ParentID:     0 | Items:     2
+2026-03-04 19:54:33.083 | SYNC   | clear                               |          µs | ParentID:     0 | Items:     0
+2026-03-04 19:54:33.083 | SYNC   | spawn_goroutines                    |          µs | ParentID:     0 | Items:     8
+2026-03-04 19:54:33.086 | SYNC   | collect_results                     |     3.5513ms | ParentID:     0 | Items:     8
+    └─ total_collected               :     3.5513ms
+2026-03-04 19:54:33.096 | SYNC   | widget_refresh_and_sizing           |     9.8224ms | ParentID:     0 | Items:     8
     └─ card_start[Мой пинтерест]
     └─ card[Мой пинтерест]:type_element
     └─   └─ getCardSize
@@ -56,37 +58,39 @@ GRID MANAGER TIMING LOG - Session started at: 2026-03-04 19:03:34
     └─   └─ getCardSize
     └─   └─ widget.MinSize
     └─ card_start[Что-то]
-    └─ card[Что-то]:type_element
+    └─ card[Что-то]:type_element:     1.7555ms
     └─   └─ getCardSize
-    └─   └─ widget.MinSize
+    └─   └─ widget.MinSize       :     1.7555ms
     └─ card_start[Реактор]
     └─ card[Реактор]:type_element
     └─   └─ getCardSize
     └─   └─ widget.MinSize
     └─ card_start[Тест]
-    └─ card[Тест]:type_element   :     8.5969ms
+    └─ card[Тест]:type_element   :     8.0669ms
     └─   └─ getCardSize
-    └─   └─ widget.MinSize       :     8.5969ms
+    └─   └─ widget.MinSize       :     8.0669ms
     └─ card_start[Картинки]
     └─ card[Картинки]:type_folder
     └─   └─ getCardSize
     └─   └─ widget.MinSize
-    └─ === SUMMARY ===               :     8.5969ms
+    └─ === SUMMARY ===               :     9.8224ms
     └─ items[element]
     └─ items[folder]
     └─ total_cards
-2026-03-04 19:03:34.484 | ASYNC  | createCardsConcurrently             |    17.3918ms | ParentID:     0 | Items:     8 | Active Async:   3
-2026-03-04 19:03:34.484 | SYNC   | container_clear                     |          µs | ParentID:     0 | Items:     8
-2026-03-04 19:03:34.484 | SYNC   | calculate_columns                   |          µs | ParentID:     0 | Items:     0
-2026-03-04 19:03:34.484 | SYNC   | layoutEngine_CalculatePositions     |          µs | ParentID:     0 | Items:     8
-2026-03-04 19:03:34.523 | SYNC   | widget_resize_move                  |          µs | ParentID:     0 | Items:     8
-2026-03-04 19:03:34.523 | SYNC   | updateContainerSize                 |          µs | ParentID:     0 | Items:     0
-2026-03-04 19:03:34.523 | SYNC   | updateLayout_initial                |    38.3936ms | ParentID:     0 | Items:     8
-2026-03-04 19:03:34.528 | SYNC   | clear                               |          µs | ParentID:     0 | Items:     0
-2026-03-04 19:03:34.528 | SYNC   | spawn_goroutines                    |          µs | ParentID:     0 | Items:     8
-2026-03-04 19:03:34.531 | SYNC   | collect_results                     |     2.6274ms | ParentID:     0 | Items:     8
-    └─ total_collected               :     2.6274ms
-2026-03-04 19:03:34.532 | SYNC   | widget_refresh_and_sizing           |     1.0518ms | ParentID:     0 | Items:     8
+2026-03-04 19:54:33.096 | ASYNC  | createCardsConcurrently             |    13.3737ms | ParentID:     0 | Items:     8 | Active Async:   3
+2026-03-04 19:54:33.096 | SYNC   | container_clear                     |          µs | ParentID:     0 | Items:     8
+2026-03-04 19:54:33.096 | SYNC   | calculate_columns                   |          µs | ParentID:     0 | Items:     0
+2026-03-04 19:54:33.096 | SYNC   | layoutEngine_CalculatePositions     |          µs | ParentID:     0 | Items:     8
+2026-03-04 19:54:33.132 | SYNC   | widget_resize_stats                 |          µs | ParentID:     0 | Items:     8
+    └─ resize:8, cache_hit:0
+2026-03-04 19:54:33.132 | SYNC   | widget_resize_move                  |          µs | ParentID:     0 | Items:     8
+2026-03-04 19:54:33.132 | SYNC   | updateContainerSize                 |          µs | ParentID:     0 | Items:     0
+2026-03-04 19:54:33.132 | SYNC   | updateLayout_initial                |    36.1223ms | ParentID:     0 | Items:     8
+2026-03-04 19:54:33.140 | SYNC   | clear                               |          µs | ParentID:     0 | Items:     0
+2026-03-04 19:54:33.140 | SYNC   | spawn_goroutines                    |          µs | ParentID:     0 | Items:     8
+2026-03-04 19:54:33.144 | SYNC   | collect_results                     |     3.8085ms | ParentID:     0 | Items:     8
+    └─ total_collected               :     3.8085ms
+2026-03-04 19:54:33.144 | SYNC   | widget_refresh_and_sizing           |          µs | ParentID:     0 | Items:     8
     └─ card_start[Мой пинтерест]
     └─ card[Мой пинтерест]:type_element
     └─   └─ getCardSize
@@ -96,9 +100,9 @@ GRID MANAGER TIMING LOG - Session started at: 2026-03-04 19:03:34
     └─   └─ getCardSize
     └─   └─ widget.MinSize
     └─ card_start[]
-    └─ card[]:type_element           :     1.0518ms
+    └─ card[]:type_element
     └─   └─ getCardSize
-    └─   └─ widget.MinSize       :     1.0518ms
+    └─   └─ widget.MinSize
     └─ card_start[Учеба]
     └─ card[Учеба]:type_folder
     └─   └─ getCardSize
@@ -119,31 +123,76 @@ GRID MANAGER TIMING LOG - Session started at: 2026-03-04 19:03:34
     └─ card[Картинки]:type_folder
     └─   └─ getCardSize
     └─   └─ widget.MinSize
-    └─ === SUMMARY ===               :     1.0518ms
+    └─ === SUMMARY ===
     └─ items[element]
     └─ items[folder]
     └─ total_cards
-2026-03-04 19:03:34.532 | ASYNC  | createCardsConcurrently             |     3.6792ms | ParentID:     0 | Items:     8 | Active Async:   4
-2026-03-04 19:03:34.532 | SYNC   | container_clear                     |          µs | ParentID:     0 | Items:     8
-2026-03-04 19:03:34.532 | SYNC   | calculate_columns                   |          µs | ParentID:     0 | Items:     0
-2026-03-04 19:03:34.532 | SYNC   | layoutEngine_CalculatePositions     |          µs | ParentID:     0 | Items:     8
-2026-03-04 19:03:34.575 | SYNC   | widget_resize_move                  |          µs | ParentID:     0 | Items:     8
-2026-03-04 19:03:34.575 | SYNC   | updateContainerSize                 |          µs | ParentID:     0 | Items:     0
-2026-03-04 19:03:34.575 | SYNC   | updateLayout_initial                |    43.2733ms | ParentID:     0 | Items:     8
-2026-03-04 19:03:39.277 | SYNC   | DB_LoadAndSortItems                 |          µs | ParentID:     5 | Items:     0
-2026-03-04 19:03:39.277 | SYNC   | clear                               |          µs | ParentID:     5 | Items:     0
-2026-03-04 19:03:39.277 | SYNC   | spawn_goroutines                    |          µs | ParentID:     5 | Items:    10
-2026-03-04 19:03:39.295 | SYNC   | collect_results                     |    17.8913ms | ParentID:     5 | Items:    10
-    └─ total_collected               :    17.8913ms
-2026-03-04 19:03:39.297 | SYNC   | widget_refresh_and_sizing           |      2.311ms | ParentID:     5 | Items:    10
+2026-03-04 19:54:33.144 | ASYNC  | createCardsConcurrently             |     3.8085ms | ParentID:     0 | Items:     8 | Active Async:   4
+2026-03-04 19:54:33.144 | SYNC   | container_clear                     |          µs | ParentID:     0 | Items:     8
+2026-03-04 19:54:33.144 | SYNC   | calculate_columns                   |          µs | ParentID:     0 | Items:     0
+2026-03-04 19:54:33.144 | SYNC   | layoutEngine_CalculatePositions     |          µs | ParentID:     0 | Items:     8
+2026-03-04 19:54:33.182 | SYNC   | widget_resize_stats                 |          µs | ParentID:     0 | Items:     8
+    └─ resize:8, cache_hit:0
+2026-03-04 19:54:33.182 | SYNC   | widget_resize_move                  |          µs | ParentID:     0 | Items:     8
+2026-03-04 19:54:33.182 | SYNC   | updateContainerSize                 |          µs | ParentID:     0 | Items:     0
+2026-03-04 19:54:33.182 | SYNC   | updateLayout_initial                |    37.8796ms | ParentID:     0 | Items:     8
+2026-03-04 19:54:40.484 | SYNC   | clear                               |          µs | ParentID:     0 | Items:     0
+2026-03-04 19:54:40.485 | SYNC   | spawn_goroutines                    |        Ǽµs | ParentID:     0 | Items:    38
+2026-03-04 19:54:40.550 | SYNC   | collect_results                     |    65.0753ms | ParentID:     0 | Items:    38
+    └─ total_collected               :    65.0753ms
+2026-03-04 19:54:40.560 | SYNC   | widget_refresh_and_sizing           |     9.6395ms | ParentID:     0 | Items:    38
     └─ card_start[]
-    └─ card[]:type_element           :        Ȩµs
+    └─ card[]:type_element           :        Ōµs
     └─   └─ getCardSize
-    └─   └─ widget.MinSize       :        Ȩµs
+    └─   └─ widget.MinSize       :        Ōµs
     └─ card_start[]
     └─ card[]:type_element
     └─   └─ getCardSize
     └─   └─ widget.MinSize
+    └─ card_start[]
+    └─ card[]:type_element
+    └─   └─ getCardSize
+    └─   └─ widget.MinSize
+    └─ card_start[]
+    └─ card[]:type_element
+    └─   └─ getCardSize
+    └─   └─ widget.MinSize
+    └─ card_start[]
+    └─ card[]:type_element
+    └─   └─ getCardSize
+    └─   └─ widget.MinSize
+    └─ card_start[]
+    └─ card[]:type_element
+    └─   └─ getCardSize
+    └─   └─ widget.MinSize
+    └─ card_start[]
+    └─ card[]:type_element
+    └─   └─ getCardSize
+    └─   └─ widget.MinSize
+    └─ card_start[]
+    └─ card[]:type_element
+    └─   └─ getCardSize
+    └─   └─ widget.MinSize
+    └─ card_start[]
+    └─ card[]:type_element
+    └─   └─ getCardSize
+    └─   └─ widget.MinSize
+    └─ card_start[]
+    └─ card[]:type_element           :        ɟµs
+    └─   └─ getCardSize
+    └─   └─ widget.MinSize       :        ɟµs
+    └─ card_start[]
+    └─ card[]:type_element
+    └─   └─ getCardSize
+    └─   └─ widget.MinSize
+    └─ card_start[]
+    └─ card[]:type_element
+    └─   └─ getCardSize
+    └─   └─ widget.MinSize
+    └─ card_start[]
+    └─ card[]:type_element           :     1.1992ms
+    └─   └─ getCardSize
+    └─   └─ widget.MinSize       :     1.1992ms
     └─ card_start[]
     └─ card[]:type_element
     └─   └─ getCardSize
@@ -153,63 +202,123 @@ GRID MANAGER TIMING LOG - Session started at: 2026-03-04 19:03:34
     └─   └─ getCardSize
     └─   └─ widget.MinSize
     └─ card_start[Lose]
-    └─ card[Lose]:type_element       :        ɉµs
+    └─ card[Lose]:type_element       :        ˮµs
     └─   └─ getCardSize
-    └─   └─ widget.MinSize       :        ɉµs
+    └─   └─ widget.MinSize       :        ˮµs
     └─ card_start[Morrowind]
     └─ card[Morrowind]:type_folder
     └─   └─ getCardSize
     └─   └─ widget.MinSize
+    └─ card_start[Азура]
+    └─ card[Азура]:type_element
+    └─   └─ getCardSize
+    └─   └─ widget.MinSize
+    └─ card_start[Бланк задания]
+    └─ card[Бланк задания]:type_element:        Ȓµs
+    └─   └─ getCardSize
+    └─   └─ widget.MinSize       :        Ȓµs
+    └─ card_start[Вевук]
+    └─ card[Вевук]:type_element :        ɷµs
+    └─   └─ getCardSize
+    └─   └─ widget.MinSize       :        ɷµs
+    └─ card_start[Долги]
+    └─ card[Долги]:type_element :        ȥµs
+    └─   └─ getCardSize
+    └─   └─ widget.MinSize       :        ȥµs
+    └─ card_start[Золотые поля Телвани]
+    └─ card[Золотые поля Телвани]:type_element
+    └─   └─ getCardSize
+    └─   └─ widget.MinSize
+    └─ card_start[Картинки]
+    └─ card[Картинки]:type_folder:        Ȥµs
+    └─   └─ getCardSize
+    └─   └─ widget.MinSize       :        Ȥµs
     └─ card_start[Корона]
     └─ card[Корона]:type_element
     └─   └─ getCardSize
     └─   └─ widget.MinSize
     └─ card_start[Коты]
-    └─ card[Коты]:type_element   :        ʄµs
+    └─ card[Коты]:type_element   :        ƣµs
     └─   └─ getCardSize
-    └─   └─ widget.MinSize       :        ʄµs
-    └─ card_start[Пластиковый стул]
-    └─ card[Пластиковый стул]:type_element:        Ȑµs
+    └─   └─ widget.MinSize       :        ƣµs
+    └─ card_start[Лого для сервера]
+    └─ card[Лого для сервера]:type_element:        ̟µs
     └─   └─ getCardSize
-    └─   └─ widget.MinSize       :        Ȑµs
-    └─ card_start[Что-то]
-    └─ card[Что-то]:type_folder
+    └─   └─ widget.MinSize       :        ̟µs
+    └─ card_start[Мемчик]
+    └─ card[Мемчик]:type_element
     └─   └─ getCardSize
     └─   └─ widget.MinSize
-    └─ === SUMMARY ===               :      2.311ms
+    └─ card_start[Мой пинтерест]
+    └─ card[Мой пинтерест]:type_element
+    └─   └─ getCardSize
+    └─   └─ widget.MinSize
+    └─ card_start[Одна из работ]
+    └─ card[Одна из работ]:type_element
+    └─   └─ getCardSize
+    └─   └─ widget.MinSize
+    └─ card_start[Пластиковый стул]
+    └─ card[Пластиковый стул]:type_element:        ɸµs
+    └─   └─ getCardSize
+    └─   └─ widget.MinSize       :        ɸµs
+    └─ card_start[Презентация к курсовому]
+    └─ card[Презентация к курсовому]:type_element:     1.0663ms
+    └─   └─ getCardSize
+    └─   └─ widget.MinSize       :     1.0663ms
+    └─ card_start[Реактор]
+    └─ card[Реактор]:type_element
+    └─   └─ getCardSize
+    └─   └─ widget.MinSize
+    └─ card_start[Сер Алон]
+    └─ card[Сер Алон]:type_element:        ǲµs
+    └─   └─ getCardSize
+    └─   └─ widget.MinSize       :        ǲµs
+    └─ card_start[Тест]
+    └─ card[Тест]:type_element
+    └─   └─ getCardSize
+    └─   └─ widget.MinSize
+    └─ card_start[Учеба]
+    └─ card[Учеба]:type_folder
+    └─   └─ getCardSize
+    └─   └─ widget.MinSize
+    └─ card_start[Хз файл какой то]
+    └─ card[Хз файл какой то]:type_element:        Ǿµs
+    └─   └─ getCardSize
+    └─   └─ widget.MinSize       :        Ǿµs
+    └─ card_start[Что-то]
+    └─ card[Что-то]:type_element
+    └─   └─ getCardSize
+    └─   └─ widget.MinSize
+    └─ card_start[Что-то]
+    └─ card[Что-то]:type_folder :        ȳµs
+    └─   └─ getCardSize
+    └─   └─ widget.MinSize       :        ȳµs
+    └─ === SUMMARY ===               :     9.6395ms
     └─ items[element]
     └─ items[folder]
     └─ total_cards
-2026-03-04 19:03:39.298 | ASYNC  | createCardsConcurrently             |    21.3463ms | ParentID:     5 | Items:    10 | Active Async:   5
-2026-03-04 19:03:39.298 | SYNC   | container_clear                     |          µs | ParentID:     5 | Items:    10
-2026-03-04 19:03:39.298 | SYNC   | calculate_columns                   |          µs | ParentID:     5 | Items:     0
-2026-03-04 19:03:39.298 | SYNC   | layoutEngine_CalculatePositions     |          µs | ParentID:     5 | Items:    10
-2026-03-04 19:03:39.565 | SYNC   | widget_resize_move                  |          µs | ParentID:     5 | Items:    10
-2026-03-04 19:03:39.565 | SYNC   | updateContainerSize                 |          µs | ParentID:     5 | Items:     0
-2026-03-04 19:03:39.565 | SYNC   | updateLayout_initial                |   266.6509ms | ParentID:     5 | Items:    10
-2026-03-04 19:03:39.565 | SYNC   | LoadItems                           |   287.9972ms | ParentID:     5 | Items:    10
-2026-03-04 19:03:39.565 | SYNC   | LoadItemsByParentWithSort           |   287.9972ms | ParentID:     5 | Items:     0
-2026-03-04 19:03:48.576 | SYNC   | clear                               |          µs | ParentID:     5 | Items:     0
-2026-03-04 19:03:48.576 | SYNC   | spawn_goroutines                    |        ȫµs | ParentID:     5 | Items:    38
-2026-03-04 19:03:48.675 | SYNC   | collect_results                     |    98.6964ms | ParentID:     5 | Items:    38
-    └─ total_collected               :    98.6964ms
-2026-03-04 19:03:48.680 | SYNC   | widget_refresh_and_sizing           |     4.5651ms | ParentID:     5 | Items:    38
-    └─ card_start[]
-    └─ card[]:type_element
-    └─   └─ getCardSize
-    └─   └─ widget.MinSize
-    └─ card_start[]
-    └─ card[]:type_element           :        Ȓµs
-    └─   └─ getCardSize
-    └─   └─ widget.MinSize       :        Ȓµs
-    └─ card_start[]
-    └─ card[]:type_element
-    └─   └─ getCardSize
-    └─   └─ widget.MinSize
-    └─ card_start[]
-    └─ card[]:type_element
-    └─   └─ getCardSize
-    └─   └─ widget.MinSize
+2026-03-04 19:54:40.561 | ASYNC  | createCardsConcurrently             |    76.8122ms | ParentID:     0 | Items:    38 | Active Async:   5
+2026-03-04 19:54:40.561 | SYNC   | container_clear                     |          µs | ParentID:     0 | Items:    38
+2026-03-04 19:54:40.561 | SYNC   | calculate_columns                   |          µs | ParentID:     0 | Items:     0
+2026-03-04 19:54:40.561 | SYNC   | layoutEngine_CalculatePositions     |          µs | ParentID:     0 | Items:    38
+2026-03-04 19:54:41.702 | SYNC   | widget_resize_stats                 |          µs | ParentID:     0 | Items:    38
+    └─ resize:38, cache_hit:0
+2026-03-04 19:54:41.702 | SYNC   | widget_resize_move                  |          µs | ParentID:     0 | Items:    38
+2026-03-04 19:54:41.702 | SYNC   | updateContainerSize                 |          µs | ParentID:     0 | Items:     0
+2026-03-04 19:54:41.702 | SYNC   | updateLayout_initial                |   1.1410208s | ParentID:     0 | Items:    38
+2026-03-04 19:54:51.168 | SYNC   | container_clear                     |          µs | ParentID:     0 | Items:    38
+2026-03-04 19:54:51.168 | SYNC   | calculate_columns                   |          µs | ParentID:     0 | Items:     0
+2026-03-04 19:54:51.168 | SYNC   | layoutEngine_CalculatePositions     |          µs | ParentID:     0 | Items:    38
+2026-03-04 19:54:51.168 | SYNC   | widget_resize_stats                 |          µs | ParentID:     0 | Items:    38
+    └─ resize:0, cache_hit:38
+2026-03-04 19:54:51.168 | SYNC   | widget_resize_move                  |          µs | ParentID:     0 | Items:    38
+2026-03-04 19:54:51.168 | SYNC   | updateContainerSize                 |          µs | ParentID:     0 | Items:     0
+2026-03-04 19:54:53.502 | SYNC   | DB_LoadAndSortItems                 |        ɗµs | ParentID:     0 | Items:     0
+2026-03-04 19:54:53.503 | SYNC   | clear                               |          µs | ParentID:     0 | Items:     0
+2026-03-04 19:54:53.503 | SYNC   | spawn_goroutines                    |          µs | ParentID:     0 | Items:     8
+2026-03-04 19:54:53.505 | SYNC   | collect_results                     |     2.2464ms | ParentID:     0 | Items:     8
+    └─ total_collected               :     2.2464ms
+2026-03-04 19:54:53.506 | SYNC   | widget_refresh_and_sizing           |        ˵µs | ParentID:     0 | Items:     8
     └─ card_start[]
     └─ card[]:type_element
     └─   └─ getCardSize
@@ -218,34 +327,59 @@ GRID MANAGER TIMING LOG - Session started at: 2026-03-04 19:03:34
     └─ card[]:type_element
     └─   └─ getCardSize
     └─   └─ widget.MinSize
+    └─ card_start[Картинки]
+    └─ card[Картинки]:type_folder
+    └─   └─ getCardSize
+    └─   └─ widget.MinSize
+    └─ card_start[Мой пинтерест]
+    └─ card[Мой пинтерест]:type_element:        ˵µs
+    └─   └─ getCardSize
+    └─   └─ widget.MinSize       :        ˵µs
+    └─ card_start[Реактор]
+    └─ card[Реактор]:type_element
+    └─   └─ getCardSize
+    └─   └─ widget.MinSize
+    └─ card_start[Тест]
+    └─ card[Тест]:type_element
+    └─   └─ getCardSize
+    └─   └─ widget.MinSize
+    └─ card_start[Учеба]
+    └─ card[Учеба]:type_folder
+    └─   └─ getCardSize
+    └─   └─ widget.MinSize
+    └─ card_start[Что-то]
+    └─ card[Что-то]:type_element
+    └─   └─ getCardSize
+    └─   └─ widget.MinSize
+    └─ === SUMMARY ===               :        ˵µs
+    └─ items[element]
+    └─ items[folder]
+    └─ total_cards
+2026-03-04 19:54:53.506 | ASYNC  | createCardsConcurrently             |     3.0037ms | ParentID:     0 | Items:     8 | Active Async:   6
+2026-03-04 19:54:53.506 | SYNC   | container_clear                     |          µs | ParentID:     0 | Items:     8
+2026-03-04 19:54:53.506 | SYNC   | calculate_columns                   |          µs | ParentID:     0 | Items:     0
+2026-03-04 19:54:53.506 | SYNC   | layoutEngine_CalculatePositions     |          µs | ParentID:     0 | Items:     8
+2026-03-04 19:54:53.551 | SYNC   | widget_resize_stats                 |          µs | ParentID:     0 | Items:     8
+    └─ resize:8, cache_hit:0
+2026-03-04 19:54:53.551 | SYNC   | widget_resize_move                  |          µs | ParentID:     0 | Items:     8
+2026-03-04 19:54:53.551 | SYNC   | updateContainerSize                 |          µs | ParentID:     0 | Items:     0
+2026-03-04 19:54:53.551 | SYNC   | updateLayout_initial                |    45.1168ms | ParentID:     0 | Items:     8
+2026-03-04 19:54:53.551 | SYNC   | LoadItems                           |    48.7106ms | ParentID:     0 | Items:     8
+2026-03-04 19:54:53.551 | SYNC   | LoadItemsByParentWithSort           |    49.9489ms | ParentID:     0 | Items:     0
+2026-03-04 19:54:55.737 | SYNC   | DB_LoadAndSortItems                 |          µs | ParentID:     5 | Items:     0
+2026-03-04 19:54:55.737 | SYNC   | clear                               |          µs | ParentID:     5 | Items:     0
+2026-03-04 19:54:55.737 | SYNC   | spawn_goroutines                    |          µs | ParentID:     5 | Items:    10
+2026-03-04 19:54:55.749 | SYNC   | collect_results                     |    12.5451ms | ParentID:     5 | Items:    10
+    └─ total_collected               :    12.5451ms
+2026-03-04 19:54:55.750 | SYNC   | widget_refresh_and_sizing           |     1.1555ms | ParentID:     5 | Items:    10
+    └─ card_start[]
+    └─ card[]:type_element           :        ɴµs
+    └─   └─ getCardSize
+    └─   └─ widget.MinSize       :        ɴµs
     └─ card_start[]
     └─ card[]:type_element
     └─   └─ getCardSize
     └─   └─ widget.MinSize
-    └─ card_start[]
-    └─ card[]:type_element
-    └─   └─ getCardSize
-    └─   └─ widget.MinSize
-    └─ card_start[]
-    └─ card[]:type_element
-    └─   └─ getCardSize
-    └─   └─ widget.MinSize
-    └─ card_start[]
-    └─ card[]:type_element
-    └─   └─ getCardSize
-    └─   └─ widget.MinSize
-    └─ card_start[]
-    └─ card[]:type_element
-    └─   └─ getCardSize
-    └─   └─ widget.MinSize
-    └─ card_start[]
-    └─ card[]:type_element
-    └─   └─ getCardSize
-    └─   └─ widget.MinSize
-    └─ card_start[]
-    └─ card[]:type_element           :     1.1179ms
-    └─   └─ getCardSize
-    └─   └─ widget.MinSize       :     1.1179ms
     └─ card_start[]
     └─ card[]:type_element
     └─   └─ getCardSize
@@ -262,22 +396,126 @@ GRID MANAGER TIMING LOG - Session started at: 2026-03-04 19:03:34
     └─ card[Morrowind]:type_folder
     └─   └─ getCardSize
     └─   └─ widget.MinSize
+    └─ card_start[Корона]
+    └─ card[Корона]:type_element
+    └─   └─ getCardSize
+    └─   └─ widget.MinSize
+    └─ card_start[Коты]
+    └─ card[Коты]:type_element
+    └─   └─ getCardSize
+    └─   └─ widget.MinSize
+    └─ card_start[Пластиковый стул]
+    └─ card[Пластиковый стул]:type_element
+    └─   └─ getCardSize
+    └─   └─ widget.MinSize
+    └─ card_start[Что-то]
+    └─ card[Что-то]:type_folder :        Ȏµs
+    └─   └─ getCardSize
+    └─   └─ widget.MinSize       :        Ȏµs
+    └─ === SUMMARY ===               :     1.1555ms
+    └─ items[element]
+    └─ items[folder]
+    └─ total_cards
+2026-03-04 19:54:55.751 | ASYNC  | createCardsConcurrently             |    14.2505ms | ParentID:     5 | Items:    10 | Active Async:   7
+2026-03-04 19:54:55.751 | SYNC   | container_clear                     |          µs | ParentID:     5 | Items:    10
+2026-03-04 19:54:55.751 | SYNC   | calculate_columns                   |          µs | ParentID:     5 | Items:     0
+2026-03-04 19:54:55.751 | SYNC   | layoutEngine_CalculatePositions     |          µs | ParentID:     5 | Items:    10
+2026-03-04 19:54:56.011 | SYNC   | widget_resize_stats                 |          µs | ParentID:     5 | Items:    10
+    └─ resize:10, cache_hit:0
+2026-03-04 19:54:56.011 | SYNC   | widget_resize_move                  |          µs | ParentID:     5 | Items:    10
+2026-03-04 19:54:56.011 | SYNC   | updateContainerSize                 |          µs | ParentID:     5 | Items:     0
+2026-03-04 19:54:56.011 | SYNC   | updateLayout_initial                |   260.3564ms | ParentID:     5 | Items:    10
+2026-03-04 19:54:56.011 | SYNC   | LoadItems                           |   274.6069ms | ParentID:     5 | Items:    10
+2026-03-04 19:54:56.011 | SYNC   | LoadItemsByParentWithSort           |   274.6069ms | ParentID:     5 | Items:     0
+2026-03-04 19:55:01.568 | SYNC   | clear                               |          µs | ParentID:     5 | Items:     0
+2026-03-04 19:55:01.568 | SYNC   | spawn_goroutines                    |          µs | ParentID:     5 | Items:    38
+2026-03-04 19:55:01.619 | SYNC   | collect_results                     |    50.9763ms | ParentID:     5 | Items:    38
+    └─ total_collected               :    50.9763ms
+2026-03-04 19:55:01.621 | SYNC   | widget_refresh_and_sizing           |     1.6136ms | ParentID:     5 | Items:    38
+    └─ card_start[]
+    └─ card[]:type_element
+    └─   └─ getCardSize
+    └─   └─ widget.MinSize
+    └─ card_start[]
+    └─ card[]:type_element
+    └─   └─ getCardSize
+    └─   └─ widget.MinSize
+    └─ card_start[]
+    └─ card[]:type_element
+    └─   └─ getCardSize
+    └─   └─ widget.MinSize
+    └─ card_start[]
+    └─ card[]:type_element
+    └─   └─ getCardSize
+    └─   └─ widget.MinSize
+    └─ card_start[]
+    └─ card[]:type_element
+    └─   └─ getCardSize
+    └─   └─ widget.MinSize
+    └─ card_start[]
+    └─ card[]:type_element
+    └─   └─ getCardSize
+    └─   └─ widget.MinSize
+    └─ card_start[]
+    └─ card[]:type_element
+    └─   └─ getCardSize
+    └─   └─ widget.MinSize
+    └─ card_start[]
+    └─ card[]:type_element
+    └─   └─ getCardSize
+    └─   └─ widget.MinSize
+    └─ card_start[]
+    └─ card[]:type_element
+    └─   └─ getCardSize
+    └─   └─ widget.MinSize
+    └─ card_start[]
+    └─ card[]:type_element
+    └─   └─ getCardSize
+    └─   └─ widget.MinSize
+    └─ card_start[]
+    └─ card[]:type_element
+    └─   └─ getCardSize
+    └─   └─ widget.MinSize
+    └─ card_start[]
+    └─ card[]:type_element
+    └─   └─ getCardSize
+    └─   └─ widget.MinSize
+    └─ card_start[]
+    └─ card[]:type_element
+    └─   └─ getCardSize
+    └─   └─ widget.MinSize
+    └─ card_start[]
+    └─ card[]:type_element
+    └─   └─ getCardSize
+    └─   └─ widget.MinSize
+    └─ card_start[Dark Souls]
+    └─ card[Dark Souls]:type_folder  :        ȥµs
+    └─   └─ getCardSize
+    └─   └─ widget.MinSize       :        ȥµs
+    └─ card_start[Lose]
+    └─ card[Lose]:type_element
+    └─   └─ getCardSize
+    └─   └─ widget.MinSize
+    └─ card_start[Morrowind]
+    └─ card[Morrowind]:type_folder
+    └─   └─ getCardSize
+    └─   └─ widget.MinSize
     └─ card_start[Азура]
     └─ card[Азура]:type_element
     └─   └─ getCardSize
     └─   └─ widget.MinSize
     └─ card_start[Бланк задания]
-    └─ card[Бланк задания]:type_element:        ɇµs
+    └─ card[Бланк задания]:type_element
     └─   └─ getCardSize
-    └─   └─ widget.MinSize       :        ɇµs
+    └─   └─ widget.MinSize
     └─ card_start[Вевук]
     └─ card[Вевук]:type_element
     └─   └─ getCardSize
     └─   └─ widget.MinSize
     └─ card_start[Долги]
-    └─ card[Долги]:type_element :        ȹµs
+    └─ card[Долги]:type_element
     └─   └─ getCardSize
-    └─   └─ widget.MinSize       :        ȹµs
+    └─   └─ widget.MinSize
     └─ card_start[Золотые поля Телвани]
     └─ card[Золотые поля Телвани]:type_element
     └─   └─ getCardSize
@@ -295,13 +533,13 @@ GRID MANAGER TIMING LOG - Session started at: 2026-03-04 19:03:34
     └─   └─ getCardSize
     └─   └─ widget.MinSize
     └─ card_start[Лого для сервера]
-    └─ card[Лого для сервера]:type_element:        ȶµs
-    └─   └─ getCardSize
-    └─   └─ widget.MinSize       :        ȶµs
-    └─ card_start[Мемчик]
-    └─ card[Мемчик]:type_element
+    └─ card[Лого для сервера]:type_element
     └─   └─ getCardSize
     └─   └─ widget.MinSize
+    └─ card_start[Мемчик]
+    └─ card[Мемчик]:type_element:        Ȑµs
+    └─   └─ getCardSize
+    └─   └─ widget.MinSize       :        Ȑµs
     └─ card_start[Мой пинтерест]
     └─ card[Мой пинтерест]:type_element
     └─   └─ getCardSize
@@ -315,9 +553,9 @@ GRID MANAGER TIMING LOG - Session started at: 2026-03-04 19:03:34
     └─   └─ getCardSize
     └─   └─ widget.MinSize
     └─ card_start[Презентация к курсовому]
-    └─ card[Презентация к курсовому]:type_element:        Ɇµs
+    └─ card[Презентация к курсовому]:type_element
     └─   └─ getCardSize
-    └─   └─ widget.MinSize       :        Ɇµs
+    └─   └─ widget.MinSize
     └─ card_start[Реактор]
     └─ card[Реактор]:type_element
     └─   └─ getCardSize
@@ -335,74 +573,105 @@ GRID MANAGER TIMING LOG - Session started at: 2026-03-04 19:03:34
     └─   └─ getCardSize
     └─   └─ widget.MinSize
     └─ card_start[Хз файл какой то]
-    └─ card[Хз файл какой то]:type_element:        ɦµs
-    └─   └─ getCardSize
-    └─   └─ widget.MinSize       :        ɦµs
-    └─ card_start[Что-то]
-    └─ card[Что-то]:type_element
+    └─ card[Хз файл какой то]:type_element
     └─   └─ getCardSize
     └─   └─ widget.MinSize
+    └─ card_start[Что-то]
+    └─ card[Что-то]:type_element:        Șµs
+    └─   └─ getCardSize
+    └─   └─ widget.MinSize       :        Șµs
     └─ card_start[Что-то]
     └─ card[Что-то]:type_folder
     └─   └─ getCardSize
     └─   └─ widget.MinSize
-    └─ === SUMMARY ===               :     4.5651ms
+    └─ === SUMMARY ===               :     1.6136ms
     └─ items[element]
     └─ items[folder]
     └─ total_cards
-2026-03-04 19:03:48.682 | ASYNC  | createCardsConcurrently             |   106.5994ms | ParentID:     5 | Items:    38 | Active Async:   6
-2026-03-04 19:03:48.682 | SYNC   | container_clear                     |          µs | ParentID:     5 | Items:    38
-2026-03-04 19:03:48.682 | SYNC   | calculate_columns                   |          µs | ParentID:     5 | Items:     0
-2026-03-04 19:03:48.682 | SYNC   | layoutEngine_CalculatePositions     |          µs | ParentID:     5 | Items:    38
-2026-03-04 19:03:49.865 | SYNC   | widget_resize_move                  |          µs | ParentID:     5 | Items:    38
-2026-03-04 19:03:49.865 | SYNC   | updateContainerSize                 |          µs | ParentID:     5 | Items:     0
-2026-03-04 19:03:49.865 | SYNC   | updateLayout_initial                |   1.1829734s | ParentID:     5 | Items:    38
-2026-03-04 19:03:58.944 | SYNC   | container_clear                     |          µs | ParentID:     5 | Items:    38
-2026-03-04 19:03:58.944 | SYNC   | calculate_columns                   |          µs | ParentID:     5 | Items:     0
-2026-03-04 19:03:58.944 | SYNC   | layoutEngine_CalculatePositions     |          µs | ParentID:     5 | Items:    38
-2026-03-04 19:03:58.944 | SYNC   | widget_resize_move                  |          µs | ParentID:     5 | Items:    38
-2026-03-04 19:03:58.944 | SYNC   | updateContainerSize                 |          µs | ParentID:     5 | Items:     0
+2026-03-04 19:55:01.623 | ASYNC  | createCardsConcurrently             |    54.7614ms | ParentID:     5 | Items:    38 | Active Async:   8
+2026-03-04 19:55:01.623 | SYNC   | container_clear                     |          µs | ParentID:     5 | Items:    38
+2026-03-04 19:55:01.623 | SYNC   | calculate_columns                   |          µs | ParentID:     5 | Items:     0
+2026-03-04 19:55:01.623 | SYNC   | layoutEngine_CalculatePositions     |          µs | ParentID:     5 | Items:    38
+2026-03-04 19:55:02.757 | SYNC   | widget_resize_stats                 |          µs | ParentID:     5 | Items:    38
+    └─ resize:38, cache_hit:0
+2026-03-04 19:55:02.757 | SYNC   | widget_resize_move                  |          µs | ParentID:     5 | Items:    38
+2026-03-04 19:55:02.757 | SYNC   | updateContainerSize                 |          µs | ParentID:     5 | Items:     0
+2026-03-04 19:55:02.757 | SYNC   | updateLayout_initial                |   1.1345153s | ParentID:     5 | Items:    38
+2026-03-04 19:55:13.719 | SYNC   | container_clear                     |          µs | ParentID:     5 | Items:    38
+2026-03-04 19:55:13.719 | SYNC   | calculate_columns                   |          µs | ParentID:     5 | Items:     0
+2026-03-04 19:55:13.719 | SYNC   | layoutEngine_CalculatePositions     |          µs | ParentID:     5 | Items:    38
+2026-03-04 19:55:13.719 | SYNC   | widget_resize_stats                 |          µs | ParentID:     5 | Items:    38
+    └─ resize:0, cache_hit:38
+2026-03-04 19:55:13.719 | SYNC   | widget_resize_move                  |          µs | ParentID:     5 | Items:    38
+2026-03-04 19:55:13.719 | SYNC   | updateContainerSize                 |          µs | ParentID:     5 | Items:     0
 
 
-логи с консоли
+консольные логи
 C:\Users\egors\Desktop\projectT>go run cmd/main.go
-2026/03/04 19:03:33 P2P таблицы успешно созданы
-2026/03/04 19:03:34 Bootstrap-узлы успешно добавлены
-[ImageCard:] TOTAL creation time: 4.9208ms
-[ImageCard:Корона] TOTAL creation time: 4.9208ms
-[ImageCard:Тест] TOTAL creation time: 7.5556ms
-[ImageCard:] TOTAL creation time: 8.7949ms
-[ImageCard:] TOTAL creation time: 2.6274ms
-[ImageCard:Тест] TOTAL creation time: 2.6274ms
-[ImageCard:Корона] TOTAL creation time: 2.3018ms
-[ImageCard:] TOTAL creation time: 7.902ms
-[ImageCard:] TOTAL creation time: 8.4542ms
-[ImageCard:] TOTAL creation time: 8.4542ms
-[ImageCard:Пластиковый стул] TOTAL creation time: 8.4542ms
-[ImageCard:Lose] TOTAL creation time: 8.4542ms
-[ImageCard:Коты] TOTAL creation time: 17.8913ms
-[ImageCard:] TOTAL creation time: 2.4786ms
-[ImageCard:Тест] TOTAL creation time: 1.5559ms
-[ImageCard:] TOTAL creation time: 2.0753ms
-[ImageCard:Lose] TOTAL creation time: 2.1079ms
-[ImageCard:Корона] TOTAL creation time: 3.6467ms
-[ImageCard:] TOTAL creation time: 1.068ms
-[ImageCard:] TOTAL creation time: 5.2068ms
-[ImageCard:Пластиковый стул] TOTAL creation time: 1.5617ms
-[ImageCard:] TOTAL creation time: 1.7128ms
-[ImageCard:Коты] TOTAL creation time: 9.3628ms
-[ImageCard:] TOTAL creation time: 53.4084ms
-[ImageCard:Золотые поля Телвани] TOTAL creation time: 54.8046ms
-[ImageCard:] TOTAL creation time: 55.5582ms
-[ImageCard:Мемчик] TOTAL creation time: 41.701ms
-[ImageCard:Сер Алон] TOTAL creation time: 51.1906ms
-[ImageCard:Долги] TOTAL creation time: 59.4125ms
-[ImageCard:Одна из работ] TOTAL creation time: 52.9224ms
-[ImageCard:] TOTAL creation time: 66.3603ms
-[ImageCard:Азура] TOTAL creation time: 62.5512ms
-[ImageCard:] TOTAL creation time: 72.8612ms
-[ImageCard:] TOTAL creation time: 74.6865ms
-[ImageCard:Лого для сервера] TOTAL creation time: 76.5786ms
-[ImageCard:Презентация к курсовому] TOTAL creation time: 73.0564ms
-[ImageCard:Вевук] TOTAL creation time: 89.3562ms
-[ImageCard:] TOTAL creation time: 98.1477ms
+2026/03/04 19:54:32 P2P таблицы успешно созданы
+2026/03/04 19:54:32 Bootstrap-узлы успешно добавлены
+[ImageCard:] TOTAL creation time: 2.3039ms
+[ImageCard:Корона] TOTAL creation time: 2.3026ms
+[ImageCard:] TOTAL creation time: 3.5513ms
+[ImageCard:Тест] TOTAL creation time: 3.5513ms
+[ImageCard:Тест] TOTAL creation time: 3.8085ms
+[ImageCard:] TOTAL creation time: 2.0137ms
+[ImageCard:] TOTAL creation time: 1.833ms
+[ImageCard:Lose] TOTAL creation time: 3.3671ms
+[ImageCard:] TOTAL creation time: 1.2773ms
+[ImageCard:] TOTAL creation time: 1.2773ms
+[ImageCard:Лого для сервера] TOTAL creation time: 42.3478ms
+[ImageCard:] TOTAL creation time: 2.0357ms
+[ImageCard:] TOTAL creation time: 4.883ms
+[ImageCard:] TOTAL creation time: 2.5291ms
+[ImageCard:] TOTAL creation time: 2.0283ms
+[ImageCard:] TOTAL creation time: 6.9113ms
+[ImageCard:] TOTAL creation time: 2.0357ms
+[ImageCard:] TOTAL creation time: 1.833ms
+[ImageCard:Золотые поля Телвани] TOTAL creation time: 19.364ms
+[ImageCard:Сер Алон] TOTAL creation time: 16.1614ms
+[ImageCard:Мемчик] TOTAL creation time: 22.7778ms
+[ImageCard:Пластиковый стул] TOTAL creation time: 16.1614ms
+[ImageCard:Азура] TOTAL creation time: 560.2µs
+[ImageCard:Одна из работ] TOTAL creation time: 0s
+[ImageCard:Корона] TOTAL creation time: 3.3064ms
+[ImageCard:Презентация к курсовому] TOTAL creation time: 19.3819ms
+[ImageCard:Тест] TOTAL creation time: 2.5806ms
+[ImageCard:Коты] TOTAL creation time: 9.0009ms
+[ImageCard:Долги] TOTAL creation time: 3.7628ms
+[ImageCard:Вевук] TOTAL creation time: 23.6553ms
+[ImageCard:] TOTAL creation time: 49.4883ms
+[ImageCard:] TOTAL creation time: 2.2464ms
+[ImageCard:Тест] TOTAL creation time: 2.2464ms
+[ImageCard:Корона] TOTAL creation time: 2.2589ms
+[ImageCard:Lose] TOTAL creation time: 2.3066ms
+[ImageCard:] TOTAL creation time: 2.3066ms
+[ImageCard:] TOTAL creation time: 4.8527ms
+[ImageCard:Пластиковый стул] TOTAL creation time: 5.7671ms
+[ImageCard:] TOTAL creation time: 9.5864ms
+[ImageCard:Коты] TOTAL creation time: 11.4861ms
+[ImageCard:Одна из работ] TOTAL creation time: 2.6134ms
+[ImageCard:] TOTAL creation time: 1.5736ms
+[ImageCard:] TOTAL creation time: 2.6134ms
+[ImageCard:] TOTAL creation time: 1.0612ms
+[ImageCard:Долги] TOTAL creation time: 1.9061ms
+[ImageCard:Пластиковый стул] TOTAL creation time: 1.8865ms
+[ImageCard:] TOTAL creation time: 2.9477ms
+[ImageCard:Золотые поля Телвани] TOTAL creation time: 1.8861ms
+[ImageCard:Корона] TOTAL creation time: 1.8862ms
+[ImageCard:Мемчик] TOTAL creation time: 1.6691ms
+[ImageCard:] TOTAL creation time: 2.0676ms
+[ImageCard:Сер Алон] TOTAL creation time: 2.1819ms
+[ImageCard:] TOTAL creation time: 2.1819ms
+[ImageCard:] TOTAL creation time: 2.028ms
+[ImageCard:Тест] TOTAL creation time: 3.0677ms
+[ImageCard:] TOTAL creation time: 4.1214ms
+[ImageCard:] TOTAL creation time: 4.0067ms
+[ImageCard:] TOTAL creation time: 842.2µs
+[ImageCard:Lose] TOTAL creation time: 1.8764ms
+[ImageCard:Азура] TOTAL creation time: 3.3098ms
+[ImageCard:Презентация к курсовому] TOTAL creation time: 14.0937ms
+[ImageCard:Лого для сервера] TOTAL creation time: 14.605ms
+[ImageCard:Коты] TOTAL creation time: 14.711ms
+[ImageCard:Вевук] TOTAL creation time: 45.9142ms
+[ImageCard:] TOTAL creation time: 50.9763ms

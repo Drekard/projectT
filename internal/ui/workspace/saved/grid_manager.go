@@ -233,7 +233,7 @@ func (gm *GridManager) updateLayout() {
 
 		// Проверяем кэш размеров
 		cachedSize, hasCached := gm.widgetSizeCache[cardInfo.Item.ID]
-
+		
 		// Вызываем Resize() только если размера нет в кэше или он отличается
 		if !hasCached || cachedSize != targetSize {
 			cardInfo.Widget.Resize(targetSize)
@@ -328,9 +328,8 @@ func (gm *GridManager) loadItems(items []*db_models.Item, addCreateElement bool)
 	gm.clear()
 	clearSession.End()
 
-	// Очищаем кэш размеров виджетов при загрузке новых элементов
-	// Это нужно для корректной работы при смене папки/поиске
-	gm.widgetSizeCache = make(map[int]fyne.Size)
+	// НЕ очищаем кэш размеров виджетов — он используется для ускорения повторных загрузок
+	// Кэш очищается только при явном вызове Clear() или перезапуске приложения
 
 	// Предвыделяем память для карточек
 	capacity := len(items)
@@ -623,6 +622,8 @@ func (gm *GridManager) Clear() {
 func (gm *GridManager) clear() {
 	gm.cards = gm.cards[:0]
 	gm.container.Objects = gm.container.Objects[:0]
+	// Очищаем кэш размеров при полной очистке сетки
+	gm.widgetSizeCache = make(map[int]fyne.Size)
 	// НЕ вызываем container.Refresh() - Fyne сам перерисует после возврата
 }
 
