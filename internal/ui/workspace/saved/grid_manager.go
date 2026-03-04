@@ -1,6 +1,7 @@
 package saved
 
 import (
+	"fmt"
 	"image/color"
 	"math"
 	"sync"
@@ -36,7 +37,8 @@ type GridManager struct {
 	cardCache         *rendering.CardCache
 	navigationHandler navigation.NavigationHandlerInterface
 	currentParentID   int                                       // ID текущей папки
-	cardSizeCache     map[db_models.ItemType]ui_models.CardSize // Кэш размеров карточек
+	cardSizeCache     map[db_models.ItemType]ui_models.CardSize // Кэш размеров карточек по типу
+	widgetSizeCache   map[int]fyne.Size                         // Кэш фактических размеров виджетов по ID элемента
 	debouncer         *utils.Debouncer                          // Дебаунсер для обновления макета
 	throttler         *utils.SafeThrottler                      // Троттлер для обработки событий
 	sortOptions       *services.FilterOptions                   // Настройки сортировки и фильтрации
@@ -55,6 +57,7 @@ func NewGridManager() *GridManager {
 		cardCache:       rendering.NewCardCache(),
 		currentParentID: 0,
 		cardSizeCache:   make(map[db_models.ItemType]ui_models.CardSize),
+		widgetSizeCache: make(map[int]fyne.Size), // Инициализация кэша размеров виджетов
 		debouncer:       utils.NewDebouncer(utils.DebounceDelay * time.Millisecond),
 		throttler:       utils.NewSafeThrottler(utils.ThrottleInterval * time.Millisecond),
 		sortOptions:     services.GlobalSortSettingsService.GetFilterOptions(), // Используем глобальные настройки сортировки
@@ -212,7 +215,10 @@ func (gm *GridManager) updateLayout() {
 	width := gm.sizeManager.GetFixedWidth()
 
 	// Обновляем позиции и размеры карточек
-	// Оптимизация: НЕ вызываем Resize() если размер уже правильный
+	// Оптимизация: используем кэш размеров для избежания лишних Resize()
+	resizeCount := 0
+	skipCount := 0
+
 	for i, pos := range positions {
 		cardInfo := gm.cards[i]
 		cardInfo.Position = pos
@@ -223,13 +229,18 @@ func (gm *GridManager) updateLayout() {
 			actualHeight = utils.DefaultMinHeight
 		}
 
-		// Проверяем, нужно ли изменять размер
-		currentSize := cardInfo.Widget.Size()
 		targetSize := fyne.NewSize(width, actualHeight)
 
-		// Вызываем Resize() только если размер отличается
-		if currentSize != targetSize {
+		// Проверяем кэш размеров
+		cachedSize, hasCached := gm.widgetSizeCache[cardInfo.Item.ID]
+
+		// Вызываем Resize() только если размера нет в кэше или он отличается
+		if !hasCached || cachedSize != targetSize {
 			cardInfo.Widget.Resize(targetSize)
+			gm.widgetSizeCache[cardInfo.Item.ID] = targetSize // Кэшируем размер
+			resizeCount++
+		} else {
+			skipCount++
 		}
 
 		// Перемещаем виджет на новую позицию
@@ -238,6 +249,14 @@ func (gm *GridManager) updateLayout() {
 
 		gm.container.Objects = append(gm.container.Objects, cardInfo.Widget)
 	}
+
+	// Логирование статистики кэша
+	if resizeCount > 0 || skipCount > 0 {
+		statsSession := logger.StartTiming("widget_resize_stats", parentID, len(gm.cards))
+		statsSession.RecordSubOp(fmt.Sprintf("resize:%d, cache_hit:%d", resizeCount, skipCount), 0)
+		statsSession.End()
+	}
+
 	logger.StartTiming("widget_resize_move", parentID, len(gm.cards)).End()
 
 	gm.updateContainerSize()
@@ -308,6 +327,10 @@ func (gm *GridManager) loadItems(items []*db_models.Item, addCreateElement bool)
 	clearSession := logger.StartTiming("clear", parentID, 0)
 	gm.clear()
 	clearSession.End()
+
+	// Очищаем кэш размеров виджетов при загрузке новых элементов
+	// Это нужно для корректной работы при смене папки/поиске
+	gm.widgetSizeCache = make(map[int]fyne.Size)
 
 	// Предвыделяем память для карточек
 	capacity := len(items)
