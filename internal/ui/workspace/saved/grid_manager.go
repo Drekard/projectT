@@ -208,13 +208,14 @@ func (gm *GridManager) updateLayout() {
 	// Предвыделяем память для объектов контейнера
 	gm.container.Objects = make([]fyne.CanvasObject, 0, len(gm.cards))
 
+	// Вычисляем фиксированную ширину один раз
+	width := gm.sizeManager.GetFixedWidth()
+
 	// Обновляем позиции и размеры карточек
+	// Оптимизация: НЕ вызываем Resize() если размер уже правильный
 	for i, pos := range positions {
 		cardInfo := gm.cards[i]
 		cardInfo.Position = pos
-
-		// Для новой системы используем фиксированную ширину и переменную высоту
-		width := gm.sizeManager.GetFixedWidth()
 
 		// Используем уже вычисленную ActualHeight из createCardsConcurrently
 		actualHeight := cardInfo.ActualHeight
@@ -222,9 +223,16 @@ func (gm *GridManager) updateLayout() {
 			actualHeight = utils.DefaultMinHeight
 		}
 
-		// Обновляем размеры виджета
-		cardInfo.Widget.Resize(fyne.NewSize(width, actualHeight))
+		// Проверяем, нужно ли изменять размер
+		currentSize := cardInfo.Widget.Size()
+		targetSize := fyne.NewSize(width, actualHeight)
 
+		// Вызываем Resize() только если размер отличается
+		if currentSize != targetSize {
+			cardInfo.Widget.Resize(targetSize)
+		}
+
+		// Перемещаем виджет на новую позицию
 		x, _ := gm.sizeManager.CalculatePixelPosition(pos.X, pos.Y)
 		cardInfo.Widget.Move(fyne.NewPos(x, float32(pos.Y)))
 
@@ -246,8 +254,9 @@ func (gm *GridManager) onSizeChanged(pos fyne.Position) {
 	// Обновляем последнюю позицию скролла
 	gm.lastScrollPos = pos
 
-	// Если изменение скролла меньше порога, пропускаем обновление
-	if scrollDistance < gm.scrollThreshold {
+	// Если изменение скролла меньше порога (100 пикселей), пропускаем обновление
+	// Это предотвращает цепную реакцию перерисовок при скролле
+	if scrollDistance < 100 {
 		return
 	}
 
