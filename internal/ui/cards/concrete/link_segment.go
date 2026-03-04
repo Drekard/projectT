@@ -14,7 +14,8 @@ import (
 // LinkCard карточка для ссылок
 type LinkCard struct {
 	*cards.BaseCard
-	richText *widget.RichText
+	richText             *widget.RichText
+	isContentInitialized bool // Флаг: контент уже инициализирован
 }
 
 // NewLinkCard создает новую карточку для ссылки
@@ -65,6 +66,9 @@ func NewLinkCardWithCallback(item *models.Item, clickCallback func()) interfaces
 	// Контейнер без фона, рамки и отступов, так как будет использоваться внутри другой карточки
 	linkCard.Container = linkCard.richText
 
+	// Устанавливаем флаг, что контент инициализирован
+	linkCard.isContentInitialized = true
+
 	return linkCard
 }
 
@@ -82,8 +86,14 @@ func (lc *LinkCard) SetContainer(container fyne.CanvasObject) {
 }
 
 func (lc *LinkCard) UpdateContent() {
-	// Обновляем содержимое карточки
-	// Пересоздаем карточку с обновленным элементом
+	// Если контент уже инициализирован, просто обновляем контейнер
+	// Не пересоздаём карточку заново!
+	if lc.isContentInitialized {
+		lc.Container.Refresh()
+		return
+	}
+
+	// Первый вызов - пересоздаем карточку с обновленным элементом
 	newCard := NewLinkCardWithCallback(lc.Item, nil)
 
 	// Копируем контейнер новой карточки в текущую

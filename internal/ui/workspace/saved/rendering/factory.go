@@ -69,7 +69,7 @@ func (rf *RenderFactory) CreateCard(item *db_models.Item, options ...CardOption)
 func (rf *RenderFactory) CreateCardInfo(item *db_models.Item) *ui_models.CardInfo {
 	cardRenderer := rf.CreateCard(item)
 	widget := cardRenderer.GetWidget()
-	widget.Refresh()
+	// НЕ вызываем Refresh() - карточка уже инициализирована при создании
 
 	// Здесь должна быть логика получения размеров карточки из кэша или настройки по умолчанию
 	widthCells := 1 // Для 3-колоночной системы
@@ -127,7 +127,7 @@ func (rf *RenderFactory) CreateCardInfoWithNavigation(item *db_models.Item, navi
 		cardRenderer = rf.CreateCard(item)
 	}
 	widget := cardRenderer.GetWidget()
-	widget.Refresh()
+	// НЕ вызываем Refresh() - карточка уже инициализирована при создании
 
 	// Здесь должна быть логика получения размеров карточки из кэша или настройки по умолчанию
 	widthCells := 1 // Для 3-колоночной системы

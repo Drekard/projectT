@@ -13,7 +13,8 @@ import (
 // TextCard карточка для текстовых элементов
 type TextCard struct {
 	*cards.BaseCard
-	descLabel *widget.RichText //nolint:unused
+	descLabel            *widget.RichText //nolint:unused
+	isContentInitialized bool             // Флаг: контент уже инициализирован
 }
 
 // NewTextCard создает новую карточку для текста
@@ -45,6 +46,9 @@ func NewTextCardWithCallback(item *models.Item, clickCallback func()) interfaces
 	// Контейнер без фона, рамки и отступов, так как будет использоваться внутри другой карточки
 	textCard.Container = descriptionContainer
 
+	// Устанавливаем флаг, что контент инициализирован
+	textCard.isContentInitialized = true
+
 	return textCard
 }
 
@@ -62,8 +66,14 @@ func (tc *TextCard) SetContainer(container fyne.CanvasObject) {
 }
 
 func (tc *TextCard) UpdateContent() {
-	// Обновляем содержимое карточки
-	// Пересоздаем карточку с обновленным элементом
+	// Если контент уже инициализирован, просто обновляем контейнер
+	// Не пересоздаём карточку заново!
+	if tc.isContentInitialized {
+		tc.Container.Refresh()
+		return
+	}
+
+	// Первый вызов - пересоздаем карточку с обновленным элементом
 	newCard := NewTextCardWithCallback(tc.Item, nil)
 
 	// Копируем контейнер новой карточки в текущую

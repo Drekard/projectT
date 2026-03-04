@@ -15,6 +15,7 @@ import (
 	"projectT/internal/ui/cards"
 	"projectT/internal/ui/cards/hover_preview"
 	"projectT/internal/ui/cards/interfaces"
+	"time"
 
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/canvas"
@@ -35,6 +36,7 @@ type ImageCard struct {
 	fixedWidth            float32         // Фиксированная ширина контейнера
 	fixedHeight           float32         // Фиксированная высота контейнера
 	isFixedSizeCalculated bool            // Флаг, указывающий, что фиксированные размеры уже вычислены
+	isContentInitialized  bool            // Флаг: контент уже инициализирован (не нужно пересоздавать)
 }
 
 // NewImageCard создает новую карточку для изображения
@@ -44,6 +46,9 @@ func NewImageCard(item *models.Item) interfaces.CardRenderer {
 
 // NewImageCardWithCallback создает новую карточку для изображения с пользовательским обработчиком клика
 func NewImageCardWithCallback(item *models.Item, clickCallback func()) interfaces.CardRenderer {
+	logPrefix := fmt.Sprintf("[ImageCard:%s]", item.Title)
+	imgStart := time.Now()
+
 	imageCard := &ImageCard{
 		BaseCard: cards.NewBaseCard(item),
 	}
@@ -138,6 +143,11 @@ func NewImageCardWithCallback(item *models.Item, clickCallback func()) interface
 
 		// Контейнер без фона, рамки и отступов, так как будет использоваться внутри другой карточки
 		imageCard.Container = clickableCard
+
+		// Устанавливаем флаг, что контент инициализирован
+		imageCard.isContentInitialized = true
+
+		fmt.Printf("%s TOTAL creation time: %v\n", logPrefix, time.Since(imgStart))
 	} else {
 		// Если изображение не найдено
 		placeholder := widget.NewLabel("Изображение не найдено")
@@ -145,6 +155,7 @@ func NewImageCardWithCallback(item *models.Item, clickCallback func()) interface
 
 		// Контейнер без фона, рамки и отступов, так как будет использоваться внутри другой карточки
 		imageCard.Container = container.NewCenter(placeholder)
+		fmt.Printf("%s NO IMAGES FOUND\n", logPrefix)
 	}
 
 	return imageCard
@@ -164,8 +175,14 @@ func (ic *ImageCard) SetContainer(container fyne.CanvasObject) {
 }
 
 func (ic *ImageCard) UpdateContent() {
-	// Обновляем содержимое карточки
-	// Пересоздаем карточку с обновленным элементом
+	// Если контент уже инициализирован, просто обновляем контейнер
+	// Не пересоздаём изображения заново!
+	if ic.isContentInitialized {
+		ic.Container.Refresh()
+		return
+	}
+
+	// Первый вызов - пересоздаем карточку с обновленным элементом
 	newCard := NewImageCardWithCallback(ic.Item, nil)
 
 	// Копируем контейнер новой карточки в текущую

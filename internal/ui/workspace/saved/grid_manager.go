@@ -7,7 +7,7 @@ import (
 	"time"
 
 	"projectT/internal/services"
-	"projectT/internal/storage/database/models"
+	db_models "projectT/internal/storage/database/models"
 	ui_models "projectT/internal/ui/workspace/saved/models"
 	"projectT/internal/ui/workspace/saved/utils"
 
@@ -35,13 +35,13 @@ type GridManager struct {
 	renderFactory     *rendering.RenderFactory
 	cardCache         *rendering.CardCache
 	navigationHandler navigation.NavigationHandlerInterface
-	currentParentID   int                                    // ID текущей папки
-	cardSizeCache     map[models.ItemType]ui_models.CardSize // Кэш размеров карточек
-	debouncer         *utils.Debouncer                       // Дебаунсер для обновления макета
-	throttler         *utils.SafeThrottler                   // Троттлер для обработки событий
-	sortOptions       *services.FilterOptions                // Настройки сортировки и фильтрации
-	lastScrollPos     fyne.Position                          // Последняя позиция скролла для оптимизации
-	scrollThreshold   float32                                // Порог изменения скролла для обновления (в пикселях)
+	currentParentID   int                                       // ID текущей папки
+	cardSizeCache     map[db_models.ItemType]ui_models.CardSize // Кэш размеров карточек
+	debouncer         *utils.Debouncer                          // Дебаунсер для обновления макета
+	throttler         *utils.SafeThrottler                      // Троттлер для обработки событий
+	sortOptions       *services.FilterOptions                   // Настройки сортировки и фильтрации
+	lastScrollPos     fyne.Position                             // Последняя позиция скролла для оптимизации
+	scrollThreshold   float32                                   // Порог изменения скролла для обновления (в пикселях)
 }
 
 // NewGridManager создает новый менеджер сетки
@@ -54,7 +54,7 @@ func NewGridManager() *GridManager {
 		renderFactory:   rendering.NewRenderFactory(),
 		cardCache:       rendering.NewCardCache(),
 		currentParentID: 0,
-		cardSizeCache:   make(map[models.ItemType]ui_models.CardSize),
+		cardSizeCache:   make(map[db_models.ItemType]ui_models.CardSize),
 		debouncer:       utils.NewDebouncer(utils.DebounceDelay * time.Millisecond),
 		throttler:       utils.NewSafeThrottler(utils.ThrottleInterval * time.Millisecond),
 		sortOptions:     services.GlobalSortSettingsService.GetFilterOptions(), // Используем глобальные настройки сортировки
@@ -97,7 +97,7 @@ func (gm *GridManager) GetContainer() *container.Scroll {
 }
 
 // AddItem добавляет элемент в сетку
-func (gm *GridManager) AddItem(item *models.Item) error {
+func (gm *GridManager) AddItem(item *db_models.Item) error {
 	// Проверка дубликатов
 	if gm.hasItem(item.ID) {
 		return nil // Игнорируем дубликаты вместо возврата ошибки
@@ -126,15 +126,15 @@ func (gm *GridManager) hasItem(id int) bool {
 }
 
 // createCard создает карточку для элемента
-func (gm *GridManager) createCard(item *models.Item) *ui_models.CardInfo {
+func (gm *GridManager) createCard(item *db_models.Item) *ui_models.CardInfo {
 	var cardInfo *ui_models.CardInfo
 
 	// Проверяем, является ли элемент папкой и есть ли обработчик навигации
-	if item.Type == models.ItemTypeFolder && gm.navigationHandler != nil {
+	if item.Type == db_models.ItemTypeFolder && gm.navigationHandler != nil {
 		// Создаем карточку папки с обработчиком навигации
 		cardRenderer := gm.renderFactory.CreateCard(item, rendering.WithNavigation(gm.navigationHandler))
 		widget := cardRenderer.GetWidget()
-		widget.Refresh()
+		// НЕ вызываем Refresh() - карточка уже инициализирована при создании
 
 		widthCells, heightCells := gm.getCardSize(item)
 
@@ -234,11 +234,6 @@ func (gm *GridManager) updateLayout() {
 
 	gm.updateContainerSize()
 	logger.StartTiming("updateContainerSize", parentID, 0).End()
-
-	// Используем canvas.Refresh вместо container.Refresh для лучшей производительности
-	// canvas.Refresh обновляет весь холст, но работает эффективнее
-	canvas.Refresh(gm.container)
-	logger.StartTiming("canvas_Refresh", parentID, 0).End()
 }
 
 // Обработчик изменения размера
@@ -286,18 +281,18 @@ func (gm *GridManager) updateContainerSize() {
 }
 
 // LoadItems загружает элементы в сетку
-func (gm *GridManager) LoadItems(items []*models.Item) {
+func (gm *GridManager) LoadItems(items []*db_models.Item) {
 	gm.loadItems(items, true)
 }
 
 // LoadItemsWithoutCreateElement загружает элементы в сетку без добавления элемента "Создать элемент"
-func (gm *GridManager) LoadItemsWithoutCreateElement(items []*models.Item) {
+func (gm *GridManager) LoadItemsWithoutCreateElement(items []*db_models.Item) {
 	gm.loadItems(items, false)
 }
 
 // loadItems загружает элементы в сетку (внутренний метод)
 // if addCreateElement=true, добавляется элемент "Создать элемент"
-func (gm *GridManager) loadItems(items []*models.Item, addCreateElement bool) {
+func (gm *GridManager) loadItems(items []*db_models.Item, addCreateElement bool) {
 	logger := logging.GetLogger()
 	parentID := gm.currentParentID
 
@@ -329,10 +324,14 @@ func (gm *GridManager) loadItems(items []*models.Item, addCreateElement bool) {
 	updateLayoutSession := logger.StartTiming("updateLayout_initial", parentID, len(gm.cards))
 	gm.updateLayout()
 	updateLayoutSession.End()
+
+	// Вызываем canvas.Refresh() асинхронно через Go, чтобы избежать
+	// цепной реакции перерисовок через onSizeChanged()
+	go canvas.Refresh(gm.container)
 }
 
 // createCardsConcurrently создает карточки параллельно с использованием worker pool
-func (gm *GridManager) createCardsConcurrently(items []*models.Item) {
+func (gm *GridManager) createCardsConcurrently(items []*db_models.Item) {
 	if len(items) == 0 {
 		return
 	}
@@ -347,11 +346,37 @@ func (gm *GridManager) createCardsConcurrently(items []*models.Item) {
 	// Предвыделяем результат для сохранения в правильном порядке
 	results := make([]*ui_models.CardInfo, len(items))
 
+	// Считаем статистику по типам элементов
+	typeStats := make(map[db_models.ItemType]int)
+	for _, item := range items {
+		typeStats[item.Type]++
+	}
+
+	// Логирование статистики элементов
+	createCardsSession := logger.StartAsyncTiming("createCardsConcurrently", parentID, len(items))
+	createCardsSession.RecordSubOp("=== INPUT STATS ===", 0)
+	for itemType := range typeStats {
+		createCardsSession.RecordSubOp(
+			"items["+stringifyItemType(itemType)+"]",
+			0,
+		)
+	}
+
 	// Запускаем воркеров - создание виджетов происходит параллельно
 	wg.Add(len(items))
 	spawnSession := logger.StartTiming("spawn_goroutines", parentID, len(items))
+
+	// Логирование запуска каждой горутины
 	for i, item := range items {
-		go gm.renderFactory.CreateCardInfoConcurrent(i, item, gm.navigationHandler, resultChan, &wg)
+		itemStart := time.Now()
+		itemIndex := i // Сохраняем индекс для горутины
+		go func(it *db_models.Item, idx int) {
+			gm.renderFactory.CreateCardInfoConcurrent(idx, it, gm.navigationHandler, resultChan, &wg)
+			createCardsSession.RecordSubOp(
+				"goroutine["+it.Title+"]:spawn",
+				time.Since(itemStart),
+			)
+		}(item, itemIndex)
 	}
 	spawnSession.End()
 
@@ -363,41 +388,115 @@ func (gm *GridManager) createCardsConcurrently(items []*models.Item) {
 
 	// Собираем результаты (порядок сохраняется по индексу)
 	collectSession := logger.StartTiming("collect_results", parentID, len(items))
+	collectStart := time.Now()
+
+	receivedCount := 0
 	for result := range resultChan {
+		receivedStart := time.Now()
 		if result.Error != nil {
+			createCardsSession.RecordSubOp(
+				"result[index_"+intToString(result.Index)+"]:error",
+				time.Since(receivedStart),
+			)
 			continue
 		}
 		results[result.Index] = result.CardInfo
+		itemTitle := ""
+		if result.CardInfo.Item != nil {
+			itemTitle = result.CardInfo.Item.Title
+		}
+		createCardsSession.RecordSubOp(
+			"result["+itemTitle+"]:collect",
+			time.Since(receivedStart),
+		)
+		receivedCount++
 	}
+
+	collectSession.RecordSubOp(
+		"total_collected",
+		time.Since(collectStart),
+	)
 	collectSession.End()
 
 	// Вычисляем размеры и делаем refresh в main goroutine (требуется Fyne)
 	// Это делается последовательно, но быстро - только MinSize и Refresh
 	refreshSession := logger.StartTiming("widget_refresh_and_sizing", parentID, len(items))
+
+	// Считаем общую статистику по типам элементов
+	processedStats := make(map[db_models.ItemType]int)
+
 	for _, cardInfo := range results {
 		if cardInfo != nil {
+			itemStartTime := time.Now()
+			itemType := cardInfo.Item.Type
+
+			itemTitle := ""
+			if cardInfo.Item != nil {
+				itemTitle = cardInfo.Item.Title
+			}
+
+			// Логирование начала обработки элемента
+			refreshSession.RecordSubOp(
+				"card_start["+itemTitle+"]",
+				0,
+			)
+
 			// Применяем размеры из кэша
+			sizeStartTime := time.Now()
 			widthCells, heightCells := gm.getCardSize(cardInfo.Item)
 			cardInfo.WidthCells = widthCells
 			cardInfo.HeightCells = heightCells
+			sizeTime := time.Since(sizeStartTime)
 
-			// Вычисляем фактическую высоту и делаем refresh в main goroutine
+			// Вычисляем фактическую высоту в main goroutine
+			// НЕ вызываем Refresh() - карточки уже созданы в createCardsConcurrently
 			if cardInfo.Widget != nil {
-				cardInfo.Widget.Refresh()
+				minSizeStartTime := time.Now()
 				minSize := cardInfo.Widget.MinSize()
-				cardInfo.ActualHeight = minSize.Height
+				minSizeTime := time.Since(minSizeStartTime)
 
+				cardInfo.ActualHeight = minSize.Height
 				if cardInfo.ActualHeight < utils.DefaultMinHeight {
 					cardInfo.ActualHeight = utils.DefaultMinHeight
 				}
 
-				logger.StartTiming("widget_Refresh", parentID, 0).End()
-				logger.StartTiming("widget_MinSize", parentID, 0).End()
+				// Детальное логирование по каждому виджету
+				refreshSession.RecordSubOp(
+					"card["+itemTitle+"]:type_"+stringifyItemType(itemType),
+					time.Since(itemStartTime),
+				)
+				refreshSession.RecordSubOp(
+					"  └─ getCardSize",
+					sizeTime,
+				)
+				refreshSession.RecordSubOp(
+					"  └─ widget.MinSize",
+					minSizeTime,
+				)
 			}
 
 			gm.cards = append(gm.cards, cardInfo)
+			processedStats[itemType]++
 		}
 	}
+
+	// Финальная статистика по типам элементов
+	totalTime := refreshSession.Elapsed()
+	refreshSession.RecordSubOp(
+		"=== SUMMARY ===",
+		totalTime,
+	)
+	for itemType := range processedStats {
+		refreshSession.RecordSubOp(
+			"items["+stringifyItemType(itemType)+"]",
+			0,
+		)
+	}
+	refreshSession.RecordSubOp(
+		"total_cards",
+		0,
+	)
+
 	refreshSession.End()
 }
 
@@ -492,18 +591,55 @@ func (gm *GridManager) Clear() {
 func (gm *GridManager) clear() {
 	gm.cards = gm.cards[:0]
 	gm.container.Objects = gm.container.Objects[:0]
-	gm.container.Refresh()
+	// НЕ вызываем container.Refresh() - Fyne сам перерисует после возврата
 }
 
 // getCardSize возвращает размер карточки в ячейках
-func (gm *GridManager) getCardSize(item *models.Item) (int, int) {
+func (gm *GridManager) getCardSize(item *db_models.Item) (int, int) {
 	// Используем кэш для получения размеров
 	return gm.cardCache.GetCardSize(item.Type)
 }
 
 // Вычисление размера для текстовых элементов
-func (gm *GridManager) calculateTextSize(item *models.Item) (int, int) { //nolint:unused
+func (gm *GridManager) calculateTextSize(item *db_models.Item) (int, int) { //nolint:unused
 	// Для 3-колоночной системы все карточки имеют ширину 1 ячейку
 	// Высота будет определяться по содержимому
 	return 1, 1
+}
+
+// stringifyItemType преобразует тип элемента в строку
+func stringifyItemType(itemType db_models.ItemType) string {
+	switch itemType {
+	case db_models.ItemTypeFolder:
+		return "folder"
+	case db_models.ItemTypeElement:
+		return "element"
+	default:
+		return "unknown"
+	}
+}
+
+// intToString преобразует int в строку
+func intToString(n int) string {
+	if n == 0 {
+		return "0"
+	}
+
+	negative := false
+	if n < 0 {
+		negative = true
+		n = -n
+	}
+
+	digits := []byte{}
+	for n > 0 {
+		digits = append([]byte{byte('0' + n%10)}, digits...)
+		n /= 10
+	}
+
+	if negative {
+		digits = append([]byte{'-'}, digits...)
+	}
+
+	return string(digits)
 }

@@ -14,6 +14,7 @@ import (
 // CompositeCard карточка для составных элементов
 type CompositeCard struct {
 	*cards.BaseCard
+	isContentInitialized bool // Флаг: контент уже инициализирован
 }
 
 // NewCompositeCard создает новую карточку для составного элемента
@@ -84,7 +85,7 @@ func NewCompositeCard(item *models.Item) interfaces.CardRenderer {
 
 		// Создаем карточку текста и получаем ее контейнер
 		textCard := NewTextCardWithCallback(&tempItem, nil)
-		if textCard != nil && textCard.GetContainer() != nil {
+		if textCard.GetContainer() != nil {
 			sections = append(sections, textCard.GetContainer())
 		}
 	}
@@ -97,7 +98,9 @@ func NewCompositeCard(item *models.Item) interfaces.CardRenderer {
 
 		// Создаем карточку изображения и получаем ее контейнер
 		imageCard := NewImageCardWithCallback(&tempItem, nil)
-		sections = append(sections, imageCard.GetContainer())
+		if imageCard.GetContainer() != nil {
+			sections = append(sections, imageCard.GetContainer())
+		}
 	}
 
 	// 4. Секция файлов (если есть)
@@ -119,7 +122,7 @@ func NewCompositeCard(item *models.Item) interfaces.CardRenderer {
 
 		// Создаем карточку ссылки и получаем ее контейнер
 		linkCard := NewLinkCardWithCallback(&tempItem, nil)
-		if linkCard != nil && linkCard.GetContainer() != nil {
+		if linkCard.GetContainer() != nil {
 			sections = append(sections, linkCard.GetContainer())
 		}
 	}
@@ -170,6 +173,9 @@ func NewCompositeCard(item *models.Item) interfaces.CardRenderer {
 		},
 	)
 
+	// Устанавливаем флаг, что контент инициализирован
+	compositeCard.isContentInitialized = true
+
 	return compositeCard
 }
 
@@ -187,7 +193,14 @@ func (cc *CompositeCard) SetContainer(container fyne.CanvasObject) {
 }
 
 func (cc *CompositeCard) UpdateContent() {
-	// Пересоздаем карточку с обновленным элементом
+	// Если контент уже инициализирован, просто обновляем контейнер
+	// Не пересоздаём карточку заново!
+	if cc.isContentInitialized {
+		cc.Container.Refresh()
+		return
+	}
+
+	// Первый вызов - пересоздаем карточку с обновленным элементом
 	newCard := NewCompositeCard(cc.Item)
 
 	// Копируем контейнер новой карточки в текущую

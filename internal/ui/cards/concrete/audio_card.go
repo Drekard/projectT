@@ -31,16 +31,17 @@ import (
 // AudioCard карточка для аудиофайлов
 type AudioCard struct {
 	*cards.BaseCard
-	audioFiles      []*cards.Block
-	selectedFileIdx int
-	currentFileIdx  int
-	isPlaying       bool
-	isPaused        bool
-	playBtn         *widget.Button
-	progress        *widget.ProgressBar
-	timeLabel       *widget.Label
-	durationLabel   *widget.Label
-	volumeSlider    *widget.Slider
+	audioFiles           []*cards.Block
+	selectedFileIdx      int
+	currentFileIdx       int
+	isPlaying            bool
+	isPaused             bool
+	playBtn              *widget.Button
+	progress             *widget.ProgressBar
+	timeLabel            *widget.Label
+	durationLabel        *widget.Label
+	volumeSlider         *widget.Slider
+	isContentInitialized bool // Флаг: контент уже инициализирован
 
 	// Аудио плеер
 	ctrl     *beep.Ctrl
@@ -88,6 +89,9 @@ func NewAudioCardWithCallback(item *models.Item, clickCallback func()) interface
 
 	// Создаем UI для первого аудиофайла
 	audioCard.createAudioUI(0)
+
+	// Устанавливаем флаг, что контент инициализирован
+	audioCard.isContentInitialized = true
 
 	return audioCard
 }
@@ -529,6 +533,14 @@ func (ac *AudioCard) SetContainer(container fyne.CanvasObject) {
 }
 
 func (ac *AudioCard) UpdateContent() {
+	// Если контент уже инициализирован, просто обновляем контейнер
+	// Не пересоздаём карточку заново!
+	if ac.isContentInitialized {
+		ac.Container.Refresh()
+		return
+	}
+
+	// Первый вызов - пересоздаем карточку с обновленным элементом
 	newCard := NewAudioCardWithCallback(ac.Item, nil)
 	ac.Container = newCard.GetContainer()
 }

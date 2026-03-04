@@ -23,11 +23,12 @@ import (
 // FileCard карточка для файлов
 type FileCard struct {
 	*cards.BaseCard
-	nameLabel       *widget.RichText //nolint:unused
-	extraFilesBtn   *widget.Button   //nolint:unused
-	extraFiles      []string         //nolint:unused
-	fileBlocks      []*cards.Block
-	selectedFileIdx int
+	nameLabel            *widget.RichText //nolint:unused
+	extraFilesBtn        *widget.Button   //nolint:unused
+	extraFiles           []string         //nolint:unused
+	fileBlocks           []*cards.Block
+	selectedFileIdx      int
+	isContentInitialized bool // Флаг: контент уже инициализирован
 }
 
 // NewFileCard создает новую карточку для файла
@@ -160,6 +161,9 @@ func NewFileCardWithCallback(item *models.Item, clickCallback func()) interfaces
 		},
 	)
 
+	// Устанавливаем флаг, что контент инициализирован
+	fileCard.isContentInitialized = true
+
 	return fileCard
 }
 
@@ -177,8 +181,14 @@ func (fc *FileCard) SetContainer(container fyne.CanvasObject) {
 }
 
 func (fc *FileCard) UpdateContent() {
-	// Обновляем содержимое карточки
-	// Пересоздаем карточку с обновленным элементом
+	// Если контент уже инициализирован, просто обновляем контейнер
+	// Не пересоздаём карточку заново!
+	if fc.isContentInitialized {
+		fc.Container.Refresh()
+		return
+	}
+
+	// Первый вызов - пересоздаем карточку с обновленным элементом
 	newCard := NewFileCardWithCallback(fc.Item, nil)
 
 	// Копируем контейнер новой карточки в текущую

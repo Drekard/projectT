@@ -24,18 +24,19 @@ import (
 // VideoCard карточка для видеофайлов
 type VideoCard struct {
 	*cards.BaseCard
-	videoFiles      []*cards.Block
-	selectedFileIdx int
-	currentFileIdx  int
-	isPlaying       bool
-	isPaused        bool
-	playBtn         *widget.Button
-	progress        *widget.ProgressBar
-	timeLabel       *widget.Label
-	durationLabel   *widget.Label
-	volumeSlider    *widget.Slider
-	stopChan        chan struct{}
-	useVLC          bool
+	videoFiles           []*cards.Block
+	selectedFileIdx      int
+	currentFileIdx       int
+	isPlaying            bool
+	isPaused             bool
+	playBtn              *widget.Button
+	progress             *widget.ProgressBar
+	timeLabel            *widget.Label
+	durationLabel        *widget.Label
+	volumeSlider         *widget.Slider
+	stopChan             chan struct{}
+	useVLC               bool
+	isContentInitialized bool // Флаг: контент уже инициализирован
 }
 
 // NewVideoCard создает новую карточку для видео
@@ -86,6 +87,9 @@ func NewVideoCardWithCallback(item *models.Item, clickCallback func()) interface
 
 	// Создаем UI для первого видеофайла
 	videoCard.createVideoUI(0)
+
+	// Устанавливаем флаг, что контент инициализирован
+	videoCard.isContentInitialized = true
 
 	return videoCard
 }
@@ -432,6 +436,14 @@ func (vc *VideoCard) SetContainer(container fyne.CanvasObject) {
 }
 
 func (vc *VideoCard) UpdateContent() {
+	// Если контент уже инициализирован, просто обновляем контейнер
+	// Не пересоздаём карточку заново!
+	if vc.isContentInitialized {
+		vc.Container.Refresh()
+		return
+	}
+
+	// Первый вызов - пересоздаем карточку с обновленным элементом
 	newCard := NewVideoCardWithCallback(vc.Item, nil)
 	vc.Container = newCard.GetContainer()
 }

@@ -14,6 +14,7 @@ type Logger struct {
 	startTime    time.Time
 	asyncCounter int64
 	asyncMu      sync.Mutex
+	minDuration  time.Duration // Минимальная длительность для логирования
 }
 
 // TimingSession сессия замера времени для операции
@@ -51,8 +52,9 @@ func GetLogger() *Logger {
 			return
 		}
 		globalLogger = &Logger{
-			file:      file,
-			startTime: time.Now(),
+			file:        file,
+			startTime:   time.Now(),
+			minDuration: 100 * time.Microsecond, // Фильтруем операции быстрее 100µs
 		}
 		globalLogger.writeHeader()
 	})
@@ -154,10 +156,26 @@ func (ts *TimingSession) End() {
 	ts.logger.file.WriteString(logLine + "\n") //nolint:errcheck
 
 	// Записываем под-операции если они есть
+	// Фильтруем мгновенные операции (< minDuration)
 	if len(ts.subOps) > 0 {
+		// Сначала пишем summary с общей статистикой
+		hasSignificantOps := false
 		for _, subOp := range ts.subOps {
-			subOpLine := formatSubOpLogLine(subOp.Name, subOp.Duration, subOp.Timestamp)
-			ts.logger.file.WriteString(subOpLine + "\n") //nolint:errcheck
+			if subOp.Duration >= ts.logger.minDuration || subOp.Duration == 0 {
+				hasSignificantOps = true
+				break
+			}
+		}
+
+		if hasSignificantOps {
+			for _, subOp := range ts.subOps {
+				// Пропускаем мгновенные операции (но пишем с duration=0 для статистики)
+				if subOp.Duration < ts.logger.minDuration && subOp.Duration > 0 {
+					continue
+				}
+				subOpLine := formatSubOpLogLine(subOp.Name, subOp.Duration, subOp.Timestamp)
+				ts.logger.file.WriteString(subOpLine + "\n") //nolint:errcheck
+			}
 		}
 	}
 }
@@ -173,6 +191,13 @@ func (ts *TimingSession) RecordSubOp(name string, duration time.Duration) {
 		Timestamp: time.Now(),
 	}
 	ts.subOps = append(ts.subOps, subOp)
+}
+
+// Elapsed возвращает прошедшее время с начала сессии
+func (ts *TimingSession) Elapsed() time.Duration {
+	ts.mu.Lock()
+	defer ts.mu.Unlock()
+	return time.Since(ts.startTime)
 }
 
 // formatSyncLogLine форматирует строку лога для синхронной операции
@@ -222,12 +247,16 @@ func formatWithoutAsync(timestamp, operation, duration string, parentID, itemCou
 
 // formatSubOpLogLine форматирует строку под-операции
 func formatSubOpLogLine(name string, duration time.Duration, timestamp time.Time) string {
+	// Для операций с duration=0 (статистика) не пишем время
+	if duration == 0 {
+		return "    └─ " + name
+	}
+
 	durationStr := duration.String()
 	if duration < time.Millisecond {
 		durationStr = formatMicroseconds(duration)
 	}
-	return "    └─ " + padRight(name, 30) + ": " + padLeft(durationStr, 12) +
-		" at " + timestamp.Format("15:04:05.000")
+	return "    └─ " + padRight(name, 30) + ": " + padLeft(durationStr, 12)
 }
 
 // padRight дополняет строку пробелами справа до указанной длины

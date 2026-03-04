@@ -17,11 +17,12 @@ import (
 // FolderCard карточка для папок
 type FolderCard struct {
 	*cards.BaseCard
-	titleLabel   *widget.RichText    //nolint:unused
-	countLabel   *widget.Label       //nolint:unused
-	countSegment *widget.TextSegment // Сегмент для счетчика элементов
-	richText     *widget.RichText    // RichText для основного содержимого
-	lastClick    time.Time           //nolint:unused // Для обработки двойного клика
+	titleLabel           *widget.RichText    //nolint:unused
+	countLabel           *widget.Label       //nolint:unused
+	countSegment         *widget.TextSegment // Сегмент для счетчика элементов
+	richText             *widget.RichText    // RichText для основного содержимого
+	lastClick            time.Time           //nolint:unused // Для обработки двойного клика
+	isContentInitialized bool                // Флаг: контент уже инициализирован
 }
 
 // FolderCardNavigationHandler интерфейс для обработки навигации по папкам
@@ -124,6 +125,9 @@ func NewFolderCardWithNavigation(item *models.Item, navigationHandler FolderCard
 		}
 	}()
 
+	// Устанавливаем флаг, что контент инициализирован
+	folderCard.isContentInitialized = true
+
 	return folderCard
 }
 
@@ -141,8 +145,14 @@ func (fc *FolderCard) SetContainer(container fyne.CanvasObject) {
 }
 
 func (fc *FolderCard) UpdateContent() {
-	// Обновляем содержимое карточки
-	// Пересоздаем карточку с обновленным элементом
+	// Если контент уже инициализирован, просто обновляем контейнер
+	// Не пересоздаём карточку заново!
+	if fc.isContentInitialized {
+		fc.Container.Refresh()
+		return
+	}
+
+	// Первый вызов - пересоздаем карточку с обновленным элементом
 	newCard := NewFolderCardWithNavigation(fc.Item, nil)
 
 	// Копируем контейнер новой карточки в текущую
