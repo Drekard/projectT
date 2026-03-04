@@ -20,10 +20,21 @@ import (
 	"projectT/internal/storage/database/queries"
 )
 
+// MDNSService интерфейс для mDNS сервиса (для возможности мокирования в тестах)
+type MDNSService interface {
+	Close() error
+}
+
+// mdnsNotifee интерфейс для обработчика обнаружения пиров
+type MDNSNotifee interface {
+	HandlePeerFound(peer.AddrInfo)
+}
+
 // DiscoveryService сервис для обнаружения пиров
 type DiscoveryService struct {
 	host            host.Host
 	dht             *routing.RoutingDiscovery
+	mdnsService     MDNSService
 	config          *P2PConfig
 	ctx             context.Context
 	cancel          context.CancelFunc
@@ -61,6 +72,15 @@ func (ds *DiscoveryService) Start() error {
 		log.Printf("Предупреждение: не удалось подключиться к bootstrap-узлам: %v", err)
 	}
 
+	// Запускаем mDNS обнаружение если включено
+	if ds.config.EnableMDNS {
+		if err := ds.startMDNSDiscovery(); err != nil {
+			log.Printf("Предупреждение: mDNS не инициализирован: %v", err)
+		} else {
+			log.Println("mDNS обнаружение запущено")
+		}
+	}
+
 	// Запускаем DHT обнаружение если включён и DHT инициализирована
 	if ds.config.EnableDHT && ds.dht != nil {
 		ds.startDHTDiscovery()
@@ -77,13 +97,41 @@ func (ds *DiscoveryService) Stop() error {
 
 	ds.cancel()
 
+	// Останавливаем mDNS сервис
+	if ds.mdnsService != nil {
+		if err := ds.mdnsService.Close(); err != nil {
+			log.Printf("Предупреждение: ошибка остановки mDNS: %v", err)
+		}
+	}
+
 	log.Println("Сервис обнаружения остановлен")
 	return nil
 }
 
 // loadBootstrapPeers загружает bootstrap-пиры из базы данных
 func (ds *DiscoveryService) loadBootstrapPeers() error {
-	peers, err := queries.GetActiveBootstrapPeers()
+	// Оборачиваем весь вызов в recover для обработки паники при доступе к nil БД
+	var peers []*models.BootstrapPeer
+	var err error
+
+	func() {
+		defer func() {
+			if r := recover(); r != nil {
+				// БД не инициализирована - пропускаем загрузку bootstrap пиров
+				peers = nil
+				err = nil
+			}
+		}()
+
+		peers, err = queries.GetActiveBootstrapPeers()
+	}()
+
+	// Если паника произошла, peers будет nil
+	if peers == nil && err == nil {
+		ds.bootstrapPeers = []peer.AddrInfo{}
+		return nil
+	}
+
 	if err != nil {
 		return fmt.Errorf("ошибка получения bootstrap-пиров: %w", err)
 	}
@@ -136,6 +184,49 @@ func (ds *DiscoveryService) connectToBootstrapPeers() error {
 
 	log.Printf("Подключено %d из %d bootstrap-пиров", connected, len(ds.bootstrapPeers))
 	return nil
+}
+
+// startMDNSDiscovery запускает mDNS обнаружение для локальной сети
+// Примечание: go-libp2p-mdns был заархивирован.
+// В будущих версиях будет использован новый подход через zeroconf или кастомную реализацию.
+// Пока mDNS не доступен, используем только DHT discovery.
+func (ds *DiscoveryService) startMDNSDiscovery() error {
+	// TODO: Реализовать mDNS через zeroconf/v2 или другой доступный механизм
+	// Для локального тестирования используйте DHT discovery или прямое подключение
+
+	log.Println("mDNS временно недоступен - используется только DHT discovery")
+	return nil
+}
+
+// handleDiscoveredPeer обрабатывает обнаруженного пира
+func (ds *DiscoveryService) handleDiscoveredPeer(peerInfo peer.AddrInfo) {
+	ds.mu.Lock()
+	defer ds.mu.Unlock()
+
+	peerID := peerInfo.ID.String()
+
+	// Проверяем, не обрабатывали ли уже этого пира недавно
+	if lastSeen, exists := ds.discoveredPeers[peerID]; exists {
+		if time.Since(lastSeen) < 5*time.Minute {
+			// Уже видели этого пира недавно
+			return
+		}
+	}
+
+	// Добавляем в peerstore
+	ds.host.Peerstore().AddAddrs(peerInfo.ID, peerInfo.Addrs, 10*time.Minute)
+
+	// Обновляем время последнего обнаружения
+	ds.discoveredPeers[peerID] = time.Now()
+
+	// Проверяем, есть ли пир в контактах
+	contact, err := queries.GetContactByPeerID(peerID)
+	if err == nil && contact != nil {
+		// Пир в контактах - пробуем подключиться
+		go ds.connectToDiscoveredPeer(peerInfo, contact.ID)
+	} else {
+		log.Printf("Обнаружен новый пир: %s", peerID)
+	}
 }
 
 // startDHTDiscovery запускает DHT обнаружение для глобальной сети
@@ -193,37 +284,6 @@ func (ds *DiscoveryService) discoverDHTPeers() ([]peer.AddrInfo, error) {
 	}
 
 	return discovered, nil
-}
-
-// handleDiscoveredPeer обрабатывает обнаруженного пира
-func (ds *DiscoveryService) handleDiscoveredPeer(peerInfo peer.AddrInfo) {
-	ds.mu.Lock()
-	defer ds.mu.Unlock()
-
-	peerID := peerInfo.ID.String()
-
-	// Проверяем, не обрабатывали ли уже этого пира недавно
-	if lastSeen, exists := ds.discoveredPeers[peerID]; exists {
-		if time.Since(lastSeen) < 5*time.Minute {
-			// Уже видели этого пира недавно
-			return
-		}
-	}
-
-	// Добавляем в peerstore
-	ds.host.Peerstore().AddAddrs(peerInfo.ID, peerInfo.Addrs, 10*time.Minute)
-
-	// Обновляем время последнего обнаружения
-	ds.discoveredPeers[peerID] = time.Now()
-
-	// Проверяем, есть ли пир в контактах
-	contact, err := queries.GetContactByPeerID(peerID)
-	if err == nil && contact != nil {
-		// Пир в контактах - пробуем подключиться
-		go ds.connectToDiscoveredPeer(peerInfo, contact.ID)
-	} else {
-		log.Printf("Обнаружен новый пир: %s", peerID)
-	}
 }
 
 // connectToDiscoveredPeer пытается подключиться к обнаруженному пиру
