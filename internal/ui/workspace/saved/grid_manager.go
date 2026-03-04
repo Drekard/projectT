@@ -238,13 +238,10 @@ func (gm *GridManager) updateLayout() {
 		cachedSize, hasCached := gm.widgetSizeCache[cardInfo.Item.ID]
 
 		// Вызываем Resize() только если размера нет в кэше или он отличается
-		// Оптимизация: Lazy Layout — Fyne использует MinSize для расчёта
+		// Оптимизация: Lazy Layout — используем Resize() но без немедленной перерисовки
 		if !hasCached || cachedSize != targetSize {
-			// Устанавливаем MinSize — Fyne сам вызовет Resize() когда нужно
-			// Это избегает синхронной перерисовки
-			if w, ok := cardInfo.Widget.(interface{ SetMinSize(fyne.Size) }); ok {
-				w.SetMinSize(targetSize)
-			}
+			// Используем Resize() для корректной отрисовки
+			cardInfo.Widget.Resize(targetSize)
 			gm.widgetSizeCache[cardInfo.Item.ID] = targetSize // Кэшируем размер
 			resizeCount++
 		} else {
@@ -364,9 +361,9 @@ func (gm *GridManager) loadItems(items []*db_models.Item, addCreateElement bool)
 	gm.updateLayout()
 	updateLayoutSession.End()
 
-	// Вызываем canvas.Refresh() асинхронно через Go, чтобы избежать
-	// цепной реакции перерисовок через onSizeChanged()
-	go canvas.Refresh(gm.container)
+	// Вызываем canvas.Refresh() СИНХРОННО для корректной отрисовки
+	// Асинхронный вызов приводил к проблемам с отображением
+	canvas.Refresh(gm.container)
 }
 
 // createCardsConcurrently создает карточки параллельно с использованием worker pool
