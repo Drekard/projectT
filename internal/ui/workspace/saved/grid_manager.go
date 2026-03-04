@@ -214,6 +214,9 @@ func (gm *GridManager) updateLayout() {
 	// Вычисляем фиксированную ширину один раз
 	width := gm.sizeManager.GetFixedWidth()
 
+	// Оптимизация: откладываем перерисовку до конца всех операций (Batch Refresh)
+	// Это предотвращает множественные синхронные перерисовки Fyne
+
 	// Обновляем позиции и размеры карточек
 	// Оптимизация: используем кэш размеров для избежания лишних Resize()
 	resizeCount := 0
@@ -233,10 +236,15 @@ func (gm *GridManager) updateLayout() {
 
 		// Проверяем кэш размеров
 		cachedSize, hasCached := gm.widgetSizeCache[cardInfo.Item.ID]
-		
+
 		// Вызываем Resize() только если размера нет в кэше или он отличается
+		// Оптимизация: Lazy Layout — Fyne использует MinSize для расчёта
 		if !hasCached || cachedSize != targetSize {
-			cardInfo.Widget.Resize(targetSize)
+			// Устанавливаем MinSize — Fyne сам вызовет Resize() когда нужно
+			// Это избегает синхронной перерисовки
+			if w, ok := cardInfo.Widget.(interface{ SetMinSize(fyne.Size) }); ok {
+				w.SetMinSize(targetSize)
+			}
 			gm.widgetSizeCache[cardInfo.Item.ID] = targetSize // Кэшируем размер
 			resizeCount++
 		} else {
