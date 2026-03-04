@@ -28,10 +28,10 @@ func InitDB() {
 // defaultDBConfig конфигурация по умолчанию для обратной совместимости
 type defaultDBConfig struct{}
 
-func (defaultDBConfig) GetPath() string        { return "./storage/projectT.db" }
-func (defaultDBConfig) GetBusyTimeout() int    { return 30000 }
-func (defaultDBConfig) GetMaxOpenConns() int   { return 1 }
-func (defaultDBConfig) GetMaxIdleConns() int   { return 1 }
+func (defaultDBConfig) GetPath() string      { return "./storage/projectT.db" }
+func (defaultDBConfig) GetBusyTimeout() int  { return 30000 }
+func (defaultDBConfig) GetMaxOpenConns() int { return 1 }
+func (defaultDBConfig) GetMaxIdleConns() int { return 1 }
 
 // InitDBWithConfig инициализирует подключение к базе данных SQLite с заданной конфигурацией
 func InitDBWithConfig(cfg DatabaseConfig) {

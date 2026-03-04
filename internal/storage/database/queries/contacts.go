@@ -184,7 +184,7 @@ func UpdateContactStatus(id int, status string, lastSeen *time.Time) error {
 	} else {
 		lastSeenStr = nil
 	}
-	
+
 	_, err := database.DB.Exec(`
 		UPDATE contacts
 		SET status = ?, last_seen = ?, updated_at = CURRENT_TIMESTAMP

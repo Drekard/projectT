@@ -20,10 +20,10 @@ func GetProfile() (*models.Profile, error) {
 		// Если нет профиля в базе, создаем профиль по умолчанию
 		if err.Error() == "sql: no rows in result set" {
 			defaultProfile := &models.Profile{
-				Username:            "Аноним",
-				Status:              "Доступен",
-				AvatarPath:          "",
-				BackgroundPath:      "",
+				Username:              "Аноним",
+				Status:                "Доступен",
+				AvatarPath:            "",
+				BackgroundPath:        "",
 				ContentCharacteristic: "",
 			}
 			err = CreateProfile(defaultProfile)
@@ -35,14 +35,14 @@ func GetProfile() (*models.Profile, error) {
 		}
 		return nil, err
 	}
-	
+
 	// Преобразуем sql.NullString в обычную строку
 	if contentChar.Valid {
 		profile.ContentCharacteristic = contentChar.String
 	} else {
 		profile.ContentCharacteristic = ""
 	}
-	
+
 	return &profile, nil
 }
 

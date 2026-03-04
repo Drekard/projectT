@@ -66,22 +66,22 @@ type P2PConfig struct {
 // DefaultConfig возвращает конфигурацию по умолчанию
 func DefaultConfig() *P2PConfig {
 	return &P2PConfig{
-		ListenPort:       0, // 0 = случайный порт
+		ListenPort: 0, // 0 = случайный порт
 		ListenAddrs: []string{
 			"/ip4/0.0.0.0/tcp/0",
 			"/ip6/::/tcp/0",
 		},
-		ExternalAddrs:      []string{},
-		EnableNATPortMap:   true,
-		EnableRelay:        true,
-		EnableAutoRelay:    true,
-		EnableDHT:          true,
-		EnableMDNS:         true,
-		ConnectionTimeout:  30 * time.Second,
-		DialTimeout:        10 * time.Second,
-		KeepAlive:          30 * time.Second,
-		MaxConnections:     100,
-		MinConnections:     5,
-		BootstrapPeers:     []string{},
+		ExternalAddrs:     []string{},
+		EnableNATPortMap:  true,
+		EnableRelay:       true,
+		EnableAutoRelay:   true,
+		EnableDHT:         true,
+		EnableMDNS:        true,
+		ConnectionTimeout: 30 * time.Second,
+		DialTimeout:       10 * time.Second,
+		KeepAlive:         30 * time.Second,
+		MaxConnections:    100,
+		MinConnections:    5,
+		BootstrapPeers:    []string{},
 	}
 }

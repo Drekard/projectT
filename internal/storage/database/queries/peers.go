@@ -80,13 +80,13 @@ func UpdateP2PProfile(profile *models.P2PProfile) error {
 // UpdateP2PProfileField обновляет отдельное поле профиля P2P узла
 func UpdateP2PProfileField(field string, value interface{}) error {
 	validFields := map[string]bool{
-		"peer_id":        true,
-		"private_key":    true,
-		"public_key":     true,
+		"peer_id":          true,
+		"private_key":      true,
+		"public_key":       true,
 		"is_key_encrypted": true,
-		"username":       true,
-		"status":         true,
-		"listen_addrs":   true,
+		"username":         true,
+		"status":           true,
+		"listen_addrs":     true,
 	}
 
 	if !validFields[field] {
