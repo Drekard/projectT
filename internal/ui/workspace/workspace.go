@@ -52,7 +52,7 @@ type Workspace struct {
 	chatsUI           *chats.UI
 	window            fyne.Window
 	// Флаги для отслеживания, были ли UI-компоненты инициализированы
-	tagsInitialized bool
+	tagsInitialized  bool
 	chatsInitialized bool
 	// Фоновое изображение
 	background     *ScaledBackground // кастомный фон с масштабированием
@@ -154,7 +154,7 @@ func (ws *Workspace) UpdateContent(contentType string, param ...interface{}) {
 		if extraParam != nil {
 			// Если передан ID папки, переходим к этой папке
 			if folderID, ok := extraParam.(int); ok {
-				ws.NavigateToFolder(folderID)
+				_ = ws.NavigateToFolder(folderID)
 			}
 		}
 		newContent = ws.createSavedContent()
@@ -427,8 +427,7 @@ func (ws *Workspace) ApplyFilters(options services.FilterOptions) {
 		currentParentID := ws.navigationManager.GetCurrentFolderID()
 		err := ws.gridManager.LoadItemsByParentWithSort(currentParentID)
 		if err != nil {
-			// В случае ошибки можно залогировать или обработать по-другому
-			// Для простоты просто игнорируем ошибку в этом месте
+			_ = err //nolint:staticcheck // В случае ошибки можно залогировать или обработать по-другому
 		}
 	}
 }

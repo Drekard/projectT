@@ -128,7 +128,10 @@ func (p *UI) selectBackgroundImage() {
 	finalPath := filepath.Join(backgroundDir, safeFilename)
 
 	// Создаем директорию, если её нет
-	os.MkdirAll(backgroundDir, os.ModePerm)
+	if err := os.MkdirAll(backgroundDir, os.ModePerm); err != nil {
+		dialog.ShowError(fmt.Errorf("ошибка создания директории: %v", err), p.window)
+		return
+	}
 
 	// Копируем файл в assets/background
 	err = copyFile(originalFilePath, finalPath)
@@ -388,7 +391,7 @@ if ($result -eq [System.Windows.Forms.DialogResult]::OK) {
 			if _, err := os.Stat(cleanFile); err == nil {
 				cleanFiles = append(cleanFiles, cleanFile)
 			} else {
-				// Если файл не найден, продолжаем
+				_ = err //nolint:staticcheck // Если файл не найден, продолжаем
 			}
 		}
 	}

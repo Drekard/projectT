@@ -23,9 +23,9 @@ import (
 // FileCard карточка для файлов
 type FileCard struct {
 	*cards.BaseCard
-	nameLabel       *widget.RichText
-	extraFilesBtn   *widget.Button
-	extraFiles      []string
+	nameLabel       *widget.RichText //nolint:unused
+	extraFilesBtn   *widget.Button   //nolint:unused
+	extraFiles      []string         //nolint:unused
 	fileBlocks      []*cards.Block
 	selectedFileIdx int
 }
@@ -186,7 +186,7 @@ func (fc *FileCard) UpdateContent() {
 }
 
 // openFirstFileWithDefaultApp открывает первый файл в списке средствами Windows
-func (fc *FileCard) openFirstFileWithDefaultApp() {
+func (fc *FileCard) openFirstFileWithDefaultApp() { //nolint:unused
 	fmt.Printf("[DEBUG] Двойной клик по файловой карточке\n")
 
 	// Получаем все блоки файлов
@@ -242,14 +242,16 @@ func (fc *FileCard) openFirstFileWithDefaultApp() {
 
 		// Пробуем альтернативный способ через cmd start
 		cmd = exec.Command("cmd", "/c", "start", "", absPath)
-		cmd.Run()
+		if err := cmd.Run(); err != nil {
+			fmt.Printf("[ERROR] Ошибка при альтернативном открытии файла: %v\n", err)
+		}
 	} else {
 		fmt.Printf("[DEBUG] Файл успешно открыт\n")
 	}
 }
 
 // extractAllFilenames извлекает имена всех файлов из JSON-строки ContentMeta
-func (fc *FileCard) extractAllFilenames(contentMeta string) []string {
+func (fc *FileCard) extractAllFilenames(contentMeta string) []string { //nolint:unused
 	var filenames []string
 	if contentMeta == "" {
 		return filenames
@@ -344,5 +346,7 @@ func (fc *FileCard) openSpecificFileWithDefaultApp(index int) {
 	// Открываем файл через explorer.exe
 	fmt.Printf("[DEBUG] Открываем через explorer.exe: %s\n", absPath)
 	cmd := exec.Command("explorer.exe", absPath)
-	cmd.Run()
+	if err := cmd.Run(); err != nil {
+		fmt.Printf("[ERROR] Ошибка при открытии файла: %v\n", err)
+	}
 }

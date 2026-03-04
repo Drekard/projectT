@@ -138,7 +138,7 @@ if ($result -eq [System.Windows.Forms.DialogResult]::OK) {
 			if _, err := os.Stat(cleanFile); err == nil {
 				cleanFiles = append(cleanFiles, cleanFile)
 			} else {
-				// Если файл не найден, продолжаем
+				_ = err //nolint:staticcheck // Если файл не найден, продолжаем
 			}
 		}
 	}

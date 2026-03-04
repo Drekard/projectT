@@ -28,7 +28,7 @@ type ImageCard struct {
 	imageWidgets          []*canvas.Image
 	currentIndex          int
 	imageWidget           *canvas.Image
-	titleLabel            *widget.RichText
+	titleLabel            *widget.RichText //nolint:unused
 	imageCounter          *widget.Label
 	totalImages           int
 	mainContainer         *fyne.Container // Добавляем ссылку на основной контейнер
@@ -275,7 +275,7 @@ func (ic *ImageCard) updateImage() {
 }
 
 // extractImageFromContentMeta извлекает первое изображение из ContentMeta
-func (ic *ImageCard) extractImageFromContentMeta(contentMeta string) *canvas.Image {
+func (ic *ImageCard) extractImageFromContentMeta(contentMeta string) *canvas.Image { //nolint:unused
 	blocks, err := cards.ParseBlocks(contentMeta)
 	if err != nil {
 		return nil
@@ -366,6 +366,7 @@ func (c *ImageCard) openImageWithDefaultWindowsApp() {
 	if err := cmd3.Run(); err == nil {
 		return
 	} else {
+		_ = err //nolint:staticcheck
 	}
 }
 

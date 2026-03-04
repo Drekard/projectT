@@ -95,11 +95,11 @@ func (vc *VideoCard) initVLC() error {
 	// Примечание: Для полноценной работы VLC требуется установленный VLC Player
 	// и соответствующие переменные окружения (VLC_PLUGIN_PATH и т.д.)
 	// В данной реализации VLC отключен для упрощения развертывания
-	
+
 	// Если VLC нужен, раскомментируйте и установите VLC:
 	// https://www.videolan.org/vlc/
 	// После установки добавьте путь к VLC в PATH
-	
+
 	return fmt.Errorf("VLC не подключен (требуется установка VLC)")
 }
 
@@ -235,7 +235,7 @@ func (vc *VideoCard) loadVideoInfo(block *cards.Block) {
 	// Для системного плеера не получаем длительность
 	// Показываем заглушку
 	vc.durationLabel.SetText("--:--")
-	
+
 	// Примечание: Для получения длительности можно использовать:
 	// 1. ffprobe (часть ffmpeg) - требует установки ffmpeg
 	// 2. VLC - требует установки VLC
@@ -338,7 +338,7 @@ func (vc *VideoCard) stop() {
 }
 
 // updateProgress обновляет прогресс воспроизведения
-func (vc *VideoCard) updateProgress() {
+func (vc *VideoCard) updateProgress() { //nolint:unused
 	// Для системного плеера прогресс не отслеживается
 }
 
@@ -401,15 +401,17 @@ func (vc *VideoCard) openCurrentFileWithDefaultApp() {
 
 	// Открываем через explorer.exe
 	cmd := exec.Command("explorer.exe", absPath)
-	cmd.Run()
+	if err := cmd.Run(); err != nil {
+		fmt.Printf("[ERROR] Ошибка при открытии файла: %v\n", err)
+	}
 }
 
 // formatDurationVideo форматирует длительность в HH:MM:SS или MM:SS
-func formatDurationVideo(d time.Duration) string {
+func formatDurationVideo(d time.Duration) string { //nolint:unused
 	hours := int(d.Hours())
 	minutes := int(d.Minutes()) % 60
 	seconds := int(d.Seconds()) % 60
-	
+
 	if hours > 0 {
 		return fmt.Sprintf("%d:%02d:%02d", hours, minutes, seconds)
 	}

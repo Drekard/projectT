@@ -41,11 +41,11 @@ type AudioCard struct {
 	timeLabel       *widget.Label
 	durationLabel   *widget.Label
 	volumeSlider    *widget.Slider
-	
+
 	// Аудио плеер
-	ctrl      *beep.Ctrl
-	streamer  beep.Streamer
-	stopChan  chan struct{}
+	ctrl     *beep.Ctrl
+	streamer beep.Streamer //nolint:unused
+	stopChan chan struct{}
 }
 
 // NewAudioCard создает новую карточку для аудио
@@ -315,7 +315,7 @@ func (ac *AudioCard) play(filePath string) {
 	}
 
 	// Инициализируем спикер если нужно
-	speaker.Init(format.SampleRate, format.SampleRate.N(time.Second/10))
+	speaker.Init(format.SampleRate, format.SampleRate.N(time.Second/10)) //nolint:errcheck
 
 	// Создаем контроллер с паузой
 	ac.ctrl = &beep.Ctrl{
@@ -349,11 +349,11 @@ func (ac *AudioCard) updateProgress() {
 		case <-ticker.C:
 			if ac.ctrl != nil && !ac.ctrl.Paused {
 				elapsed := time.Since(startTime)
-				
+
 				// Получаем длительность из метки
 				durationText := ac.durationLabel.Text
 				duration := parseDuration(durationText)
-				
+
 				if duration > 0 {
 					progress := float64(elapsed.Seconds()) / float64(duration.Seconds())
 					if progress > 1.0 {
@@ -493,7 +493,9 @@ func (ac *AudioCard) openCurrentFileWithDefaultApp() {
 
 	// Открываем через explorer.exe
 	cmd := exec.Command("explorer.exe", absPath)
-	cmd.Run()
+	if err := cmd.Run(); err != nil {
+		fmt.Printf("[ERROR] Ошибка при открытии файла: %v\n", err)
+	}
 }
 
 // formatDuration форматирует длительность в MM:SS

@@ -175,7 +175,7 @@ func createInputForm(breadcrumbManager BreadcrumbManagerInterface, onClose func(
 			selectedType = ItemTypeFolder
 		}
 	}
-	
+
 	// Устанавливаем начальный тип элемента в соответствии с активной вкладкой (по умолчанию "Элемент")
 	selectedType = ItemTypeElement
 
@@ -244,11 +244,11 @@ func saveNewItemExtended(title, description, tags string, selectedFiles *[]strin
 			window = app.NewWindow("temp")
 		}
 	}
-	
+
 	// Use the selected folder ID from the global variable
 	// If it's nil (meaning "Сохраненное"), we use the current folder from breadcrumbs
 	parentID := selectedFolder.ID
-	
+
 	// Determine the item type based on the selected tab
 	var itemType models.ItemType
 	if selectedType == ItemTypeFolder {
@@ -256,12 +256,12 @@ func saveNewItemExtended(title, description, tags string, selectedFiles *[]strin
 	} else {
 		itemType = models.ItemTypeElement
 	}
-	
+
 	return CreateItem(title, description, tags, selectedFiles, linkEntries, parentID, itemType, window)
 }
 
 // saveNewItem сохраняет новый элемент в базу данных
-func saveNewItem(title, description, tags string) error {
+func saveNewItem(title, description, tags string) error { //nolint:unused
 	// Здесь должна быть реализация сохранения элемента
 	// Создаем новый элемент
 	newItem := &models.Item{

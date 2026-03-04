@@ -44,6 +44,7 @@ func NewCompositeCard(item *models.Item) interfaces.CardRenderer {
 		switch block.Type {
 		case "text":
 			textBlocks = append(textBlocks, block)
+			_ = textBlocks //nolint:staticcheck
 		case "image":
 			imageBlocks = append(imageBlocks, block)
 		case "file":
@@ -96,9 +97,7 @@ func NewCompositeCard(item *models.Item) interfaces.CardRenderer {
 
 		// Создаем карточку изображения и получаем ее контейнер
 		imageCard := NewImageCardWithCallback(&tempItem, nil)
-		if imageCard != nil && imageCard.GetContainer() != nil {
-			sections = append(sections, imageCard.GetContainer())
-		}
+		sections = append(sections, imageCard.GetContainer())
 	}
 
 	// 4. Секция файлов (если есть)
@@ -109,9 +108,7 @@ func NewCompositeCard(item *models.Item) interfaces.CardRenderer {
 
 		// Создаем карточку файла и получаем ее контейнер
 		fileCard := NewFileCardWithCallback(&tempItem, nil)
-		if fileCard != nil && fileCard.GetContainer() != nil {
-			sections = append(sections, fileCard.GetContainer())
-		}
+		sections = append(sections, fileCard.GetContainer())
 	}
 
 	// 5. Секция ссылок (если есть)
@@ -135,9 +132,7 @@ func NewCompositeCard(item *models.Item) interfaces.CardRenderer {
 
 		// Создаем аудио карточку и получаем ее контейнер
 		audioCard := NewAudioCardWithCallback(&tempItem, nil)
-		if audioCard != nil && audioCard.GetContainer() != nil {
-			sections = append(sections, audioCard.GetContainer())
-		}
+		sections = append(sections, audioCard.GetContainer())
 	}
 
 	// 7. Секция видео (если есть)
@@ -148,9 +143,7 @@ func NewCompositeCard(item *models.Item) interfaces.CardRenderer {
 
 		// Создаем видео карточку и получаем ее контейнер
 		videoCard := NewVideoCardWithCallback(&tempItem, nil)
-		if videoCard != nil && videoCard.GetContainer() != nil {
-			sections = append(sections, videoCard.GetContainer())
-		}
+		sections = append(sections, videoCard.GetContainer())
 	}
 
 	// Собираем все секции в вертикальный контейнер

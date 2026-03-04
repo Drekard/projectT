@@ -32,24 +32,24 @@ import (
 )
 
 var (
-	nodeID       = flag.Int("node", 1, "ID узла (1 или 2)")
-	port         = flag.Int("port", 4001, "Порт для прослушивания")
-	connectAddr  = flag.String("connect", "", "Адрес для подключения (multiaddr)")
-	enableDHT    = flag.Bool("dht", true, "Включить DHT обнаружение")
-	enableMDNS   = flag.Bool("mdns", false, "Включить mDNS обнаружение")
+	nodeID        = flag.Int("node", 1, "ID узла (1 или 2)")
+	port          = flag.Int("port", 4001, "Порт для прослушивания")
+	connectAddr   = flag.String("connect", "", "Адрес для подключения (multiaddr)")
+	enableDHT     = flag.Bool("dht", true, "Включить DHT обнаружение")
+	enableMDNS    = flag.Bool("mdns", false, "Включить mDNS обнаружение") //nolint:unused
 	bootstrapAddr = flag.String("bootstrap", "", "Bootstrap узел (multiaddr)")
 )
 
 // TestNode представляет тестовый узел
 type TestNode struct {
-	host       host.Host
-	dht        *dht.IpfsDHT
-	dhtDisc    *routing.RoutingDiscovery
-	pubsub     *pubsub.PubSub
-	ctx        context.Context
-	cancel     context.CancelFunc
-	chatTopic  *pubsub.Topic
-	sub        *pubsub.Subscription
+	host      host.Host
+	dht       *dht.IpfsDHT
+	dhtDisc   *routing.RoutingDiscovery
+	pubsub    *pubsub.PubSub
+	ctx       context.Context
+	cancel    context.CancelFunc
+	chatTopic *pubsub.Topic
+	sub       *pubsub.Subscription
 }
 
 // ChatMessage сообщение чата
@@ -437,7 +437,9 @@ func (n *TestNode) sendMessage(msg string) {
 		if err != nil {
 			continue
 		}
-		stream.Write([]byte(msg))
+		if _, err := stream.Write([]byte(msg)); err != nil {
+			log.Printf("Ошибка отправки сообщения: %v", err)
+		}
 		stream.Close()
 	}
 }

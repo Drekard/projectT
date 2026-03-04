@@ -10,7 +10,7 @@ type Debouncer struct {
 	mu       sync.Mutex
 	timer    *time.Timer
 	delay    time.Duration
-	callback func()
+	callback func() //nolint:unused
 }
 
 // NewDebouncer создает новый дебаунсер
@@ -45,7 +45,7 @@ type Throttler struct {
 	mu       sync.Mutex
 	lastCall time.Time
 	interval time.Duration
-	callback func()
+	callback func() //nolint:unused
 	running  bool
 }
 

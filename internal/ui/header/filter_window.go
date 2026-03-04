@@ -82,9 +82,6 @@ func (fwm *FilterWindowManager) createFilterWindowContent() *fyne.Container {
 
 // createFilterForm создает форму фильтров с 4 колонками и кнопкой "Применить"
 func (fwm *FilterWindowManager) createFilterForm() fyne.CanvasObject {
-	// Создаем вкладки для "Эта папка" и "Все элементы"
-	tabs := container.NewAppTabs()
-
 	// Колонка 1: Типы элементов
 	itemTypeGroup := widget.NewRadioGroup([]string{"Все", "Папки", "Картинки", "Файлы", "Ссылки", "Текст"}, func(value string) {
 		// Преобразуем отображаемое значение в внутреннее представление
@@ -243,9 +240,9 @@ func (fwm *FilterWindowManager) createFilterForm() fyne.CanvasObject {
 	allItemsTab := container.NewTabItem("Все элементы", allItemsContent)
 
 	// Обработчик смены вкладки
-	tabs = container.NewAppTabs(thisFolderTab, allItemsTab)
-	tabs.SetTabLocation(container.TabLocationTop)
-	tabs.OnSelected = func(tab *container.TabItem) {
+	filterTabs := container.NewAppTabs(thisFolderTab, allItemsTab)
+	filterTabs.SetTabLocation(container.TabLocationTop)
+	filterTabs.OnSelected = func(tab *container.TabItem) {
 		if tab.Text == "Эта папка" {
 			fwm.currentOpts.TabMode = "current_folder"
 		} else if tab.Text == "Все элементы" {
@@ -274,7 +271,7 @@ func (fwm *FilterWindowManager) createFilterForm() fyne.CanvasObject {
 
 	// Создаем вертикальный контейнер для всей формы
 	formContainer := container.NewVBox(
-		tabs,
+		filterTabs,
 		buttonContainer, // Перемещаем кнопку на один уровень с вкладками
 	)
 

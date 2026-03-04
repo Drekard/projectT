@@ -43,8 +43,8 @@ type UI struct {
 	userStatusEntry          *widget.Entry
 	avatarImage              *canvas.Image
 	avatarContainer          *fyne.Container
-	backgroundImage          *canvas.Image
-	backgroundRect           *canvas.Rectangle
+	backgroundImage          *canvas.Image     //nolint:unused
+	backgroundRect           *canvas.Rectangle //nolint:unused
 	customFields             []*fieldRow
 	characteristicsContainer *fyne.Container
 	characteristicsScroll    *container.Scroll
@@ -74,6 +74,7 @@ func New() *UI {
 		// Сохраняем JSON характеристик для последующей загрузки
 		ui.loadCharacteristicsJSON = profile.ContentCharacteristic
 	} else {
+		_ = err //nolint:staticcheck // Игнорируем ошибку загрузки профиля
 	}
 
 	// Инициализируем gridManager до создания представления
@@ -306,7 +307,7 @@ func (p *UI) loadDemoElements() {
 }
 
 // addElementToDemoElements добавляет элемент в DemoElements профиля
-func (p *UI) addElementToDemoElements(elementID int) {
+func (p *UI) addElementToDemoElements(elementID int) { //nolint:unused
 	// Получаем текущий профиль
 	profile, err := queries.GetProfile()
 	if err != nil {

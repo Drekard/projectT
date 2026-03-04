@@ -36,7 +36,7 @@ func CreateSearchBar(workspace SearchHandler) (*fyne.Container, *widget.Entry) {
 		// Если текст пустой, очищаем результаты поиска
 		if text == "" && lastQuery != "" {
 			if workspace != nil {
-				workspace.ClearSearch()
+				_ = workspace.ClearSearch()
 			}
 			lastQuery = ""
 			return
@@ -46,7 +46,7 @@ func CreateSearchBar(workspace SearchHandler) (*fyne.Container, *widget.Entry) {
 		searchTimer = time.AfterFunc(500*time.Millisecond, func() {
 			if text != lastQuery {
 				if workspace != nil {
-					workspace.SearchItems(text)
+					_ = workspace.SearchItems(text)
 				}
 				lastQuery = text
 			}

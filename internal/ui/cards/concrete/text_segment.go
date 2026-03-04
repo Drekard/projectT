@@ -13,7 +13,7 @@ import (
 // TextCard карточка для текстовых элементов
 type TextCard struct {
 	*cards.BaseCard
-	descLabel *widget.RichText
+	descLabel *widget.RichText //nolint:unused
 }
 
 // NewTextCard создает новую карточку для текста

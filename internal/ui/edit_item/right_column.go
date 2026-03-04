@@ -221,7 +221,7 @@ func addLinkEntry(widgets *FormWidgets) {
 }
 
 // addLinkEntryWithText добавляет поле ввода со ссылкой
-func addLinkEntryWithText(widgets *FormWidgets, text string) {
+func addLinkEntryWithText(widgets *FormWidgets, text string) { //nolint:unused
 	addLinkEntry(widgets)
 	if len(widgets.LinkEntries) > 0 {
 		widgets.LinkEntries[len(widgets.LinkEntries)-1].SetText(text)

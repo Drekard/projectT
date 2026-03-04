@@ -37,7 +37,7 @@ var (
 // updateViewModelFromUI обновляет ViewModel с данными из UI
 func updateViewModelFromUI(viewModel *CreateItemViewModel, formWidgets *FormWidgets) {
 
-	currentTab := formWidgets.Tabs.CurrentTab()
+	currentTab := formWidgets.Tabs.Selected()
 	if currentTab == nil {
 		return
 	}
@@ -66,7 +66,7 @@ func updateViewModelFromUI(viewModel *CreateItemViewModel, formWidgets *FormWidg
 }
 
 // processFileData обрабатывает файлы и возвращает блоки
-func processFileData(viewModel *CreateItemViewModel, modalWindow fyne.Window) ([]Block, []string) {
+func processFileData(viewModel *CreateItemViewModel, modalWindow fyne.Window) ([]Block, []string) { //nolint:unused
 	var blocks []Block
 	var errors []string
 
@@ -131,7 +131,7 @@ func processFileData(viewModel *CreateItemViewModel, modalWindow fyne.Window) ([
 }
 
 // determineItemType определяет тип элемента на основе содержимого
-func determineItemType(viewModel *CreateItemViewModel, blocks []Block) models.ItemType {
+func determineItemType(viewModel *CreateItemViewModel, blocks []Block) models.ItemType { //nolint:unused
 	if viewModel.ItemType == models.ItemTypeFolder {
 		return models.ItemTypeFolder
 	}
@@ -141,6 +141,8 @@ func determineItemType(viewModel *CreateItemViewModel, blocks []Block) models.It
 }
 
 // createOrUpdateItem создает или обновляет элемент с транзакцией
+//
+//nolint:unused
 func createOrUpdateItem(ctx context.Context, viewModel *CreateItemViewModel,
 	itemType models.ItemType, contentMeta string) (*models.Item, []Block, error) {
 
@@ -154,6 +156,8 @@ func createOrUpdateItem(ctx context.Context, viewModel *CreateItemViewModel,
 }
 
 // updateItemWithTransaction обновляет элемент в транзакции
+//
+//nolint:unused
 func updateItemWithTransaction(ctx context.Context, viewModel *CreateItemViewModel,
 	itemType models.ItemType, contentMeta string) (*models.Item, []Block, error) {
 
@@ -161,7 +165,9 @@ func updateItemWithTransaction(ctx context.Context, viewModel *CreateItemViewMod
 	if err != nil {
 		return nil, nil, fmt.Errorf("ошибка начала транзакции: %w", err)
 	}
-	defer tx.Rollback()
+	defer func() {
+		_ = tx.Rollback() // Игнорируем ошибку отката, т.к. коммит уже мог состояться
+	}()
 
 	// Получаем текущий элемент
 	item, err := queries.GetItemByID(viewModel.ID)
@@ -197,6 +203,8 @@ func updateItemWithTransaction(ctx context.Context, viewModel *CreateItemViewMod
 }
 
 // createItemWithTransaction создает элемент в транзакции
+//
+//nolint:unused
 func createItemWithTransaction(ctx context.Context, viewModel *CreateItemViewModel,
 	itemType models.ItemType, contentMeta string) (*models.Item, []Block, error) {
 
@@ -217,6 +225,8 @@ func createItemWithTransaction(ctx context.Context, viewModel *CreateItemViewMod
 }
 
 // processTags обрабатывает теги для элемента
+//
+//nolint:unused
 func processTags(ctx context.Context, itemID int, tagsInput string,
 	editMode bool, modalWindow fyne.Window) error {
 
@@ -531,7 +541,7 @@ func SaveItem(viewModel *CreateItemViewModel, formWidgets *FormWidgets, parentWi
 	}
 
 	fmt.Println("=== УСПЕШНО СОХРАНЕНО ===")
-	
+
 	// Закрываем диалог, если функция закрытия определена
 	if formWidgets.CloseDialog != nil {
 		formWidgets.CloseDialog()

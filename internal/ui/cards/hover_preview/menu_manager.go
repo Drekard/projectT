@@ -340,7 +340,7 @@ func getTitleForItem(item *models.Item) string {
 }
 
 // getTagsForItem возвращает строку с тегами для элемента
-func getTagsForItem(item *models.Item) string {
+func getTagsForItem(item *models.Item) string { //nolint:unused
 	tags, err := queries.GetTagsForItem(context.Background(), item.ID)
 	if err != nil || len(tags) == 0 {
 		return "--теги отсутствуют--"

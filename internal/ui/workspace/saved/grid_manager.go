@@ -3,7 +3,6 @@ package saved
 import (
 	"image/color"
 	"math"
-	"runtime"
 	"sync"
 	"time"
 
@@ -14,6 +13,7 @@ import (
 
 	"projectT/internal/ui/workspace/saved/layout"
 	"projectT/internal/ui/workspace/saved/loading"
+	"projectT/internal/ui/workspace/saved/logging"
 	"projectT/internal/ui/workspace/saved/navigation"
 	"projectT/internal/ui/workspace/saved/rendering"
 	"projectT/internal/ui/workspace/saved/sizing"
@@ -186,14 +186,20 @@ func (gm *GridManager) updateLayout() {
 		return
 	}
 
+	logger := logging.GetLogger()
+	parentID := gm.currentParentID
+
 	// Очищаем контейнер один раз
 	gm.container.Objects = gm.container.Objects[:0]
+	logger.StartTiming("container_clear", parentID, len(gm.cards)).End()
 
 	// Вычисляем количество колонок на основе доступной ширины
 	scrollSize := gm.scroll.Size()
 	availableWidth := gm.sizeManager.CalculateColumnCount(scrollSize.Width)
+	logger.StartTiming("calculate_columns", parentID, 0).End()
 
 	positions := gm.layoutEngine.CalculatePositions(gm.cards, availableWidth)
+	logger.StartTiming("layoutEngine_CalculatePositions", parentID, len(gm.cards)).End()
 
 	if len(positions) != len(gm.cards) {
 		return // Позиции будут пересчитаны при следующем обновлении
@@ -202,6 +208,7 @@ func (gm *GridManager) updateLayout() {
 	// Предвыделяем память для объектов контейнера
 	gm.container.Objects = make([]fyne.CanvasObject, 0, len(gm.cards))
 
+	// Обновляем позиции и размеры карточек
 	for i, pos := range positions {
 		cardInfo := gm.cards[i]
 		cardInfo.Position = pos
@@ -223,12 +230,15 @@ func (gm *GridManager) updateLayout() {
 
 		gm.container.Objects = append(gm.container.Objects, cardInfo.Widget)
 	}
+	logger.StartTiming("widget_resize_move", parentID, len(gm.cards)).End()
 
 	gm.updateContainerSize()
+	logger.StartTiming("updateContainerSize", parentID, 0).End()
 
 	// Используем canvas.Refresh вместо container.Refresh для лучшей производительности
 	// canvas.Refresh обновляет весь холст, но работает эффективнее
 	canvas.Refresh(gm.container)
+	logger.StartTiming("canvas_Refresh", parentID, 0).End()
 }
 
 // Обработчик изменения размера
@@ -288,7 +298,12 @@ func (gm *GridManager) LoadItemsWithoutCreateElement(items []*models.Item) {
 // loadItems загружает элементы в сетку (внутренний метод)
 // if addCreateElement=true, добавляется элемент "Создать элемент"
 func (gm *GridManager) loadItems(items []*models.Item, addCreateElement bool) {
+	logger := logging.GetLogger()
+	parentID := gm.currentParentID
+
+	clearSession := logger.StartTiming("clear", parentID, 0)
 	gm.clear()
+	clearSession.End()
 
 	// Предвыделяем память для карточек
 	capacity := len(items)
@@ -298,17 +313,22 @@ func (gm *GridManager) loadItems(items []*models.Item, addCreateElement bool) {
 	gm.cards = make([]*ui_models.CardInfo, 0, capacity)
 
 	// Добавляем переданные элементы параллельно с использованием worker pool
+	createCardsSession := logger.StartAsyncTiming("createCardsConcurrently", parentID, len(items))
 	gm.createCardsConcurrently(items)
+	createCardsSession.End()
 
 	// Добавляем элемент "Создать элемент" если требуется (последовательно, т.к. это один элемент)
 	if addCreateElement {
 		// Здесь можно добавить логику создания элемента "Создать элемент"
 		// Например: gm.cards = append(gm.cards, gm.createCreateElementCard())
+		_ = struct{}{} //nolint:staticcheck
 	}
 
 	// Обновляем макет один раз после добавления всех элементов
 	// Расчёт позиций остается последовательным
+	updateLayoutSession := logger.StartTiming("updateLayout_initial", parentID, len(gm.cards))
 	gm.updateLayout()
+	updateLayoutSession.End()
 }
 
 // createCardsConcurrently создает карточки параллельно с использованием worker pool
@@ -317,11 +337,8 @@ func (gm *GridManager) createCardsConcurrently(items []*models.Item) {
 		return
 	}
 
-	// Определяем количество воркеров (не больше количества процессоров и не больше количества элементов)
-	numWorkers := runtime.NumCPU()
-	if numWorkers > len(items) {
-		numWorkers = len(items)
-	}
+	logger := logging.GetLogger()
+	parentID := gm.currentParentID
 
 	// Создаем канал для результатов и WaitGroup
 	resultChan := make(chan rendering.CardCreationResult, len(items))
@@ -332,9 +349,11 @@ func (gm *GridManager) createCardsConcurrently(items []*models.Item) {
 
 	// Запускаем воркеров - создание виджетов происходит параллельно
 	wg.Add(len(items))
+	spawnSession := logger.StartTiming("spawn_goroutines", parentID, len(items))
 	for i, item := range items {
 		go gm.renderFactory.CreateCardInfoConcurrent(i, item, gm.navigationHandler, resultChan, &wg)
 	}
+	spawnSession.End()
 
 	// Закрываем канал результатов после завершения всех воркеров
 	go func() {
@@ -343,15 +362,18 @@ func (gm *GridManager) createCardsConcurrently(items []*models.Item) {
 	}()
 
 	// Собираем результаты (порядок сохраняется по индексу)
+	collectSession := logger.StartTiming("collect_results", parentID, len(items))
 	for result := range resultChan {
 		if result.Error != nil {
 			continue
 		}
 		results[result.Index] = result.CardInfo
 	}
+	collectSession.End()
 
 	// Вычисляем размеры и делаем refresh в main goroutine (требуется Fyne)
 	// Это делается последовательно, но быстро - только MinSize и Refresh
+	refreshSession := logger.StartTiming("widget_refresh_and_sizing", parentID, len(items))
 	for _, cardInfo := range results {
 		if cardInfo != nil {
 			// Применяем размеры из кэша
@@ -368,11 +390,15 @@ func (gm *GridManager) createCardsConcurrently(items []*models.Item) {
 				if cardInfo.ActualHeight < utils.DefaultMinHeight {
 					cardInfo.ActualHeight = utils.DefaultMinHeight
 				}
+
+				logger.StartTiming("widget_Refresh", parentID, 0).End()
+				logger.StartTiming("widget_MinSize", parentID, 0).End()
 			}
 
 			gm.cards = append(gm.cards, cardInfo)
 		}
 	}
+	refreshSession.End()
 }
 
 // LoadItemsByParent загружает элементы по родительскому ID
@@ -425,13 +451,24 @@ func (gm *GridManager) GetSortOptions() *services.FilterOptions {
 
 // LoadItemsByParentWithSort загружает элементы по родительскому ID с учетом настроек сортировки
 func (gm *GridManager) LoadItemsByParentWithSort(parentID int) error {
+	logger := logging.GetLogger()
+	session := logger.StartTiming("LoadItemsByParentWithSort", parentID, 0)
+	defer session.End()
+
+	loadSession := logger.StartTiming("DB_LoadAndSortItems", parentID, 0)
 	items, err := gm.itemLoader.LoadAndSortItemsByParent(parentID, gm.sortOptions)
+	loadSession.End()
+
 	if err != nil {
 		return err
 	}
 
 	gm.currentParentID = parentID
+
+	loadItemsSession := logger.StartTiming("LoadItems", parentID, len(items))
 	gm.LoadItems(items)
+	loadItemsSession.End()
+
 	return nil
 }
 
@@ -465,7 +502,7 @@ func (gm *GridManager) getCardSize(item *models.Item) (int, int) {
 }
 
 // Вычисление размера для текстовых элементов
-func (gm *GridManager) calculateTextSize(item *models.Item) (int, int) {
+func (gm *GridManager) calculateTextSize(item *models.Item) (int, int) { //nolint:unused
 	// Для 3-колоночной системы все карточки имеют ширину 1 ячейку
 	// Высота будет определяться по содержимому
 	return 1, 1

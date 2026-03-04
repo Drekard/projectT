@@ -11,7 +11,7 @@ func RunMigrations() {
 	_, err := DB.Exec(`
 		CREATE TABLE IF NOT EXISTS items (
 			id          INTEGER PRIMARY KEY,
-			type        TEXT NOT NULL CHECK (type IN ('text', 'link', 'folder', 'composite', 'image', 'file')),
+			type        TEXT NOT NULL CHECK (type IN ('folder', 'element')),
 			title       TEXT,
 			description TEXT,
 			content_meta TEXT,
@@ -121,7 +121,7 @@ func RunMigrations() {
 	if err != nil {
 		// Проверяем, возможно столбец уже существует
 		if err.Error() != "duplicate column name: color" {
-			// Логируем ошибку, но не выводим в пользовательский интерфейс
+			_ = err //nolint:staticcheck // Логируем ошибку, но не выводим в пользовательский интерфейс
 		}
 	}
 
@@ -129,7 +129,7 @@ func RunMigrations() {
 	_, err = DB.Exec(`ALTER TABLE tags ADD COLUMN description TEXT DEFAULT ''`)
 	// Игнорируем ошибку, если столбец уже существует
 	if err != nil {
-		// Логируем ошибку, но не выводим в пользовательский интерфейс
+		_ = err //nolint:staticcheck // Логируем ошибку, но не выводим в пользовательский интерфейс
 	}
 
 	// 7. ТАБЛИЦА ПРОФИЛЯ ПОЛЬЗОВАТЕЛЯ
@@ -183,7 +183,7 @@ func RunMigrations() {
 	// Добавляем индекс для производительности
 	_, err = DB.Exec(`CREATE INDEX IF NOT EXISTS idx_profile_username ON profile(username);`)
 	if err != nil {
-		// Логируем ошибку, но не выводим в пользовательский интерфейс
+		_ = err //nolint:staticcheck // Логируем ошибку, но не выводим в пользовательский интерфейс
 	}
 
 	// Создаём P2P таблицы

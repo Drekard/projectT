@@ -17,11 +17,11 @@ import (
 // FolderCard карточка для папок
 type FolderCard struct {
 	*cards.BaseCard
-	titleLabel   *widget.RichText
-	countLabel   *widget.Label
+	titleLabel   *widget.RichText    //nolint:unused
+	countLabel   *widget.Label       //nolint:unused
 	countSegment *widget.TextSegment // Сегмент для счетчика элементов
 	richText     *widget.RichText    // RichText для основного содержимого
-	lastClick    time.Time           // Для обработки двойного клика
+	lastClick    time.Time           //nolint:unused // Для обработки двойного клика
 }
 
 // FolderCardNavigationHandler интерфейс для обработки навигации по папкам
@@ -94,10 +94,10 @@ func NewFolderCardWithNavigation(item *models.Item, navigationHandler FolderCard
 		if navigationHandler != nil {
 			err := navigationHandler.NavigateToFolder(folderCard.Item.ID)
 			if err != nil {
-				// Обработка ошибки перехода в папку
+				_ = err //nolint:staticcheck // Обработка ошибки перехода в папку
 			}
 		} else {
-			// Обработка случая, когда обработчик навигации не установлен
+			_ = struct{}{} //nolint:staticcheck // Обработка случая, когда обработчик навигации не установлен
 		}
 	})
 

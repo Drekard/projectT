@@ -101,7 +101,7 @@ func (rf *RenderFactory) CreateCardInfo(item *db_models.Item) *ui_models.CardInf
 }
 
 // calculateImageCardHeight вычисляет высоту карточки изображения с учетом пропорций
-func (rf *RenderFactory) calculateImageCardHeight(widget fyne.CanvasObject, item *db_models.Item) float32 {
+func (rf *RenderFactory) calculateImageCardHeight(widget fyne.CanvasObject, item *db_models.Item) float32 { //nolint:unused
 	// Получаем минимальный размер виджета
 	minSize := widget.MinSize()
 

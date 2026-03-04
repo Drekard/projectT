@@ -34,7 +34,7 @@ var (
 )
 
 // extractLinks извлекает все HTTP/HTTPS ссылки из текста
-func extractLinks(text string) []string {
+func extractLinks(text string) []string { //nolint:unused
 	re := regexp.MustCompile(`https?://[^\s]+`)
 	links := re.FindAllString(text, -1)
 
@@ -49,7 +49,7 @@ func extractLinks(text string) []string {
 }
 
 // removeLinksFromText удаляет ссылки из текста, оставляя только описание
-func removeLinksFromText(text string, links []string) string {
+func removeLinksFromText(text string, links []string) string { //nolint:unused
 	result := text
 	for _, link := range links {
 		result = strings.ReplaceAll(result, link, "")
@@ -63,7 +63,7 @@ func removeLinksFromText(text string, links []string) string {
 }
 
 // processFileData обрабатывает файлы и возвращает блоки
-func processFileData(selectedFiles *[]string, linkEntries []string) ([]Block, []string) {
+func processFileData(selectedFiles *[]string, linkEntries []string) ([]Block, []string) { //nolint:unused
 	fmt.Printf("Начинаем обработку файлов, количество выбранных файлов: %d\n", len(*selectedFiles))
 	var blocks []Block
 	var errors []string
@@ -141,13 +141,13 @@ func processFileData(selectedFiles *[]string, linkEntries []string) ([]Block, []
 }
 
 // determineItemType определяет тип элемента на основе содержимого
-func determineItemType(description string, blocks []Block) models.ItemType {
+func determineItemType(description string, blocks []Block) models.ItemType { //nolint:unused
 	// Все элементы, кроме папок, теперь являются элементами типа Element
 	return models.ItemTypeElement
 }
 
 // createItemWithTransaction создает элемент в транзакции
-func createItemWithTransaction(ctx context.Context, title, description string, itemType models.ItemType, contentMeta string, parentID *int) (*models.Item, error) {
+func createItemWithTransaction(ctx context.Context, title, description string, itemType models.ItemType, contentMeta string, parentID *int) (*models.Item, error) { //nolint:unused
 	fmt.Println("Начинаем создание элемента в базе данных...")
 	fmt.Printf("Title: %s\n", title)
 	fmt.Printf("Description: %s\n", description)
@@ -175,7 +175,7 @@ func createItemWithTransaction(ctx context.Context, title, description string, i
 }
 
 // processTags обрабатывает теги для элемента
-func processTags(ctx context.Context, itemID int, tagsInput string) error {
+func processTags(ctx context.Context, itemID int, tagsInput string) error { //nolint:unused
 	fmt.Printf("Начинаем обработку тегов, itemID: %d, теги: '%s'\n", itemID, tagsInput)
 	if tagsInput == "" {
 		fmt.Println("Теги отсутствуют, возвращаемся")

@@ -24,11 +24,11 @@ func New() *UI {
 func (c *UI) createViewContent() fyne.CanvasObject {
 	// Create black background area on the left
 	leftPanel := canvas.NewRectangle(color.RGBA{R: 0, G: 0, B: 0, A: 255}) // Pure black
-	leftPanel.SetMinSize(fyne.NewSize(300, 0)) // Fixed width for the left panel
+	leftPanel.SetMinSize(fyne.NewSize(300, 0))                             // Fixed width for the left panel
 
 	// Create separator line
 	separator := canvas.NewRectangle(color.RGBA{R: 64, G: 64, B: 64, A: 255}) // Dark gray separator
-	separator.SetMinSize(fyne.NewSize(1, 0)) // 1 pixel wide separator
+	separator.SetMinSize(fyne.NewSize(1, 0))                                  // 1 pixel wide separator
 
 	// Create main content area (currently empty as placeholder)
 	mainContent := canvas.NewRectangle(color.RGBA{R: 32, G: 32, B: 32, A: 255}) // Slightly lighter gray background for contrast
@@ -38,7 +38,7 @@ func (c *UI) createViewContent() fyne.CanvasObject {
 }
 
 // createView обновляет визуальное представление UI чатов
-func (c *UI) createView() {
+func (c *UI) createView() { //nolint:unused
 	c.content = c.createViewContent()
 }
 

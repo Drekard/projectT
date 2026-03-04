@@ -51,7 +51,7 @@ func createFrequentlyUsedSection(handler NavigationHandler) *fyne.Container {
 					return func() {
 						// Переходим к выбранной папке
 						if handler != nil {
-							handler.NavigateToFolder(folderID)
+							_ = handler.NavigateToFolder(folderID)
 						}
 					}
 				}(folder.ID))
@@ -73,7 +73,7 @@ func createFrequentlyUsedSection(handler NavigationHandler) *fyne.Container {
 					return func() {
 						// Устанавливаем тег в поисковую строку
 						if handler != nil {
-							handler.SetSearchQuery(tagName)
+							_ = handler.SetSearchQuery(tagName)
 						}
 					}
 				}(tag.Name))
@@ -121,7 +121,7 @@ func createFrequentlyUsedSection(handler NavigationHandler) *fyne.Container {
 						return func() {
 							// Переходим к выбранной папке
 							if handler != nil {
-								handler.NavigateToFolder(folderID)
+								_ = handler.NavigateToFolder(folderID)
 							}
 						}
 					}(folder.ID))
@@ -143,7 +143,7 @@ func createFrequentlyUsedSection(handler NavigationHandler) *fyne.Container {
 						return func() {
 							// Устанавливаем тег в поисковую строку
 							if handler != nil {
-								handler.SetSearchQuery(tagName)
+								_ = handler.SetSearchQuery(tagName)
 							}
 						}
 					}(tag.Name))

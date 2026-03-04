@@ -330,7 +330,7 @@ func (ds *DiscoveryService) ClearDiscoveredPeers() {
 }
 
 // isLocalAddress проверяет, является ли адрес локальным
-func isLocalAddress(addr multiaddr.Multiaddr) bool {
+func isLocalAddress(addr multiaddr.Multiaddr) bool { //nolint:unused
 	// Извлекаем IP адрес из multiaddr
 	ipStr, err := addr.ValueForProtocol(multiaddr.P_IP4)
 	if err != nil {

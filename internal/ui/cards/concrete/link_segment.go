@@ -48,7 +48,7 @@ func NewLinkCardWithCallback(item *models.Item, clickCallback func()) interfaces
 		linkSegment.OnTapped = func(index int) func() {
 			return func() {
 				// Открываем URL
-				fyne.CurrentApp().OpenURL(hover_preview.ParseURL(allLinks[index]))
+				_ = fyne.CurrentApp().OpenURL(hover_preview.ParseURL(allLinks[index]))
 			}
 		}(i)
 

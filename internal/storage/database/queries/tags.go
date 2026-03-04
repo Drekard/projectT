@@ -21,7 +21,8 @@ var (
 )
 
 // checkTagTableStructure проверяет структуру таблицы тегов с кэшированием
-func checkTagTableStructure(ctx context.Context) (bool, error) {
+// Если tx передана, использует её, иначе использует database.DB
+func checkTagTableStructure(ctx context.Context, tx *sql.Tx) (bool, error) {
 	tagTableMutex.RLock()
 	// Кэшируем на 5 минут
 	if tagTableChecked && time.Since(tagTableCheckTime) < 5*time.Minute {
@@ -40,7 +41,15 @@ func checkTagTableStructure(ctx context.Context) (bool, error) {
 	}
 
 	query := `PRAGMA table_info(tags)`
-	rows, err := database.DB.QueryContext(ctx, query)
+	var rows *sql.Rows
+	var err error
+
+	if tx != nil {
+		rows, err = tx.QueryContext(ctx, query)
+	} else {
+		rows, err = database.DB.QueryContext(ctx, query)
+	}
+
 	if err != nil {
 		return false, fmt.Errorf("ошибка проверки структуры таблицы тегов: %w", err)
 	}
@@ -81,7 +90,7 @@ func BeginTransaction(ctx context.Context) (*sql.Tx, error) {
 
 // CreateTag создает новый тег в транзакции
 func CreateTag(ctx context.Context, tag *models.Tag) error {
-	hasDesc, err := checkTagTableStructure(ctx)
+	hasDesc, err := checkTagTableStructure(ctx, nil)
 	if err != nil {
 		return err
 	}
@@ -90,7 +99,9 @@ func CreateTag(ctx context.Context, tag *models.Tag) error {
 	if err != nil {
 		return fmt.Errorf("ошибка начала транзакции: %w", err)
 	}
-	defer tx.Rollback()
+	defer func() {
+		_ = tx.Rollback() // Игнорируем ошибку отката, т.к. коммит уже мог состояться
+	}()
 
 	var result sql.Result
 	if hasDesc {
@@ -123,7 +134,7 @@ func CreateTag(ctx context.Context, tag *models.Tag) error {
 
 // GetTagByID возвращает тег по ID
 func GetTagByID(ctx context.Context, id int) (*models.Tag, error) {
-	hasDesc, err := checkTagTableStructure(ctx)
+	hasDesc, err := checkTagTableStructure(ctx, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -154,7 +165,7 @@ func GetTagByID(ctx context.Context, id int) (*models.Tag, error) {
 
 // GetTagByName возвращает тег по имени
 func GetTagByName(ctx context.Context, name string) (*models.Tag, error) {
-	hasDesc, err := checkTagTableStructure(ctx)
+	hasDesc, err := checkTagTableStructure(ctx, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -238,7 +249,9 @@ func GetOrCreateTags(ctx context.Context, tagNames []string) ([]int, error) {
 	if err != nil {
 		return nil, fmt.Errorf("ошибка начала транзакции: %w", err)
 	}
-	defer tx.Rollback()
+	defer func() {
+		_ = tx.Rollback() // Игнорируем ошибку отката, т.к. коммит уже мог состояться
+	}()
 
 	// Получаем существующие теги
 	placeholders := make([]string, len(cleanNames))
@@ -274,7 +287,7 @@ func GetOrCreateTags(ctx context.Context, tagNames []string) ([]int, error) {
 	}
 
 	// Создаем отсутствующие теги
-	hasDesc, err := checkTagTableStructure(ctx)
+	hasDesc, err := checkTagTableStructure(ctx, tx)
 	if err != nil {
 		return nil, err
 	}
@@ -314,7 +327,7 @@ func GetOrCreateTags(ctx context.Context, tagNames []string) ([]int, error) {
 
 // GetAllTags возвращает все теги с подсчетом элементов
 func GetAllTags(ctx context.Context) ([]*models.Tag, error) {
-	hasDesc, err := checkTagTableStructure(ctx)
+	hasDesc, err := checkTagTableStructure(ctx, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -374,7 +387,7 @@ func GetAllTags(ctx context.Context) ([]*models.Tag, error) {
 
 // SearchTagsByName ищет теги по имени
 func SearchTagsByName(ctx context.Context, name string) ([]*models.Tag, error) {
-	hasDesc, err := checkTagTableStructure(ctx)
+	hasDesc, err := checkTagTableStructure(ctx, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -440,7 +453,7 @@ func SearchTagsByName(ctx context.Context, name string) ([]*models.Tag, error) {
 
 // UpdateTag обновляет тег
 func UpdateTag(ctx context.Context, tag *models.Tag) error {
-	hasDesc, err := checkTagTableStructure(ctx)
+	hasDesc, err := checkTagTableStructure(ctx, nil)
 	if err != nil {
 		return err
 	}
@@ -449,7 +462,9 @@ func UpdateTag(ctx context.Context, tag *models.Tag) error {
 	if err != nil {
 		return fmt.Errorf("ошибка начала транзакции: %w", err)
 	}
-	defer tx.Rollback()
+	defer func() {
+		_ = tx.Rollback() // Игнорируем ошибку отката, т.к. коммит уже мог состояться
+	}()
 
 	if hasDesc {
 		_, err = tx.ExecContext(ctx,
@@ -479,7 +494,9 @@ func DeleteTag(ctx context.Context, id int) error {
 	if err != nil {
 		return fmt.Errorf("ошибка начала транзакции: %w", err)
 	}
-	defer tx.Rollback()
+	defer func() {
+		_ = tx.Rollback() // Игнорируем ошибку отката, т.к. коммит уже мог состояться
+	}()
 
 	// Удаляем связи с элементами
 	_, err = tx.ExecContext(ctx, `DELETE FROM item_tags WHERE tag_id = ?`, id)
@@ -530,7 +547,9 @@ func ReplaceItemTags(ctx context.Context, itemID int, tagIDs []int) error {
 	if err != nil {
 		return fmt.Errorf("ошибка начала транзакции: %w", err)
 	}
-	defer tx.Rollback()
+	defer func() {
+		_ = tx.Rollback() // Игнорируем ошибку отката, т.к. коммит уже мог состояться
+	}()
 
 	// Удаляем старые теги
 	_, err = tx.ExecContext(ctx, `DELETE FROM item_tags WHERE item_id = ?`, itemID)
@@ -569,7 +588,7 @@ func ReplaceItemTags(ctx context.Context, itemID int, tagIDs []int) error {
 
 // GetTagsForItem возвращает все теги элемента
 func GetTagsForItem(ctx context.Context, itemID int) ([]*models.Tag, error) {
-	hasDesc, err := checkTagTableStructure(ctx)
+	hasDesc, err := checkTagTableStructure(ctx, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -700,9 +719,11 @@ func BulkUpdateTags(ctx context.Context, tags []*models.Tag) error {
 	if err != nil {
 		return fmt.Errorf("ошибка начала транзакции: %w", err)
 	}
-	defer tx.Rollback()
+	defer func() {
+		_ = tx.Rollback() // Игнорируем ошибку отката, т.к. коммит уже мог состояться
+	}()
 
-	hasDesc, err := checkTagTableStructure(ctx)
+	hasDesc, err := checkTagTableStructure(ctx, tx)
 	if err != nil {
 		return err
 	}

@@ -49,12 +49,12 @@ type ConnectionService struct {
 
 // PeerConnectionInfo информация о подключении к пиру
 type PeerConnectionInfo struct {
-	Status         ConnectionStatus
-	LastSeen       time.Time
-	LastPing       time.Time
+	Status          ConnectionStatus
+	LastSeen        time.Time
+	LastPing        time.Time
 	LastPingLatency time.Duration
-	ReconnectCount int
-	AddedAt        time.Time
+	ReconnectCount  int
+	AddedAt         time.Time
 }
 
 // NewConnectionService создаёт сервис мониторинга соединений
@@ -254,7 +254,10 @@ func (cs *ConnectionService) pingPeer(peerID peer.ID) {
 	}
 
 	// Читаем "pong"
-	stream.SetReadDeadline(time.Now().Add(5 * time.Second))
+	if err := stream.SetReadDeadline(time.Now().Add(5 * time.Second)); err != nil {
+		cs.handlePingFailure(peerID, fmt.Errorf("ошибка установки таймаута: %w", err))
+		return
+	}
 	response := make([]byte, 4)
 	n, err := stream.Read(response)
 	latency := time.Since(startTime)
@@ -330,7 +333,9 @@ func (cs *ConnectionService) handlePing(stream network.Stream) {
 
 	// Если получили "ping" - отвечаем "pong"
 	if len(request) >= 4 && request[:4] == "ping" {
-		stream.Write([]byte("pong"))
+		if _, err := stream.Write([]byte("pong")); err != nil {
+			log.Printf("Ошибка записи pong: %v", err)
+		}
 	}
 }
 

@@ -48,13 +48,13 @@ func CreateHeader(sidebarVisible *bool, onToggle func(), width float32, searchHa
 			func(opts services.FilterOptions) {
 				// Обработка применения фильтров - здесь будет вызов обновления сетки
 				// Обновляем сетку элементов в рабочей области
-				if searchHandler, ok := searchHandler.(interface{ ApplyFilters(services.FilterOptions) }); ok {
+				if filterHandler, ok := searchHandler.(interface{ ApplyFilters(services.FilterOptions) }); ok {
 					// Если интерфейс поддерживает применение фильтров, вызываем его
-					searchHandler.ApplyFilters(opts)
+					filterHandler.ApplyFilters(opts)
 				} else {
 					// Если не поддерживает, просто обновляем текущую папку
 					if workspaceHandler, ok := searchHandler.(interface{ RefreshCurrentFolder() error }); ok {
-						workspaceHandler.RefreshCurrentFolder()
+						_ = workspaceHandler.RefreshCurrentFolder()
 					}
 				}
 			},

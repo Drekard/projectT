@@ -37,17 +37,17 @@ type PeerAddress struct {
 
 // P2PNetwork представляет P2P сеть проекта
 type P2PNetwork struct {
-	host       host.Host
-	dht        *dht.IpfsDHT
+	host         host.Host
+	dht          *dht.IpfsDHT
 	dhtDiscovery *routing.RoutingDiscovery
-	pubsub     *pubsub.PubSub
-	discovery  *DiscoveryService
-	connections *ConnectionService
-	config     *P2PConfig
-	ctx        context.Context
-	cancel     context.CancelFunc
-	mu         sync.RWMutex
-	peerAddrs  map[peer.ID]multiaddr.Multiaddr
+	pubsub       *pubsub.PubSub
+	discovery    *DiscoveryService
+	connections  *ConnectionService
+	config       *P2PConfig
+	ctx          context.Context
+	cancel       context.CancelFunc
+	mu           sync.RWMutex
+	peerAddrs    map[peer.ID]multiaddr.Multiaddr
 }
 
 // NewP2PNetwork создаёт новый экземпляр P2P сети
@@ -353,12 +353,7 @@ func (n *P2PNetwork) ImportPeerAddress(addrStr string) (*PeerAddress, error) {
 		if !strings.Contains(err.Error(), "UNIQUE constraint failed") {
 			return nil, fmt.Errorf("ошибка создания контакта: %w", err)
 		}
-		// Контакт уже существует
-		existingContact, err := queries.GetContactByPeerID(info.ID.String())
-		if err != nil {
-			return nil, fmt.Errorf("контакт уже существует, но не удалось получить: %w", err)
-		}
-		contact = existingContact
+		// Контакт уже существует - игнорируем ошибку
 	}
 
 	return &PeerAddress{
@@ -517,7 +512,7 @@ func addPrefixToData(data []byte) []byte {
 }
 
 // removePrefixFromData удаляет префикс проекта из данных
-func removePrefixFromData(data []byte) ([]byte, error) {
+func removePrefixFromData(data []byte) ([]byte, error) { //nolint:unused
 	prefix := []byte(ProtocolPrefix + ":")
 	if len(data) < len(prefix) {
 		return nil, errors.New("данные слишком короткие для удаления префикса")
@@ -581,10 +576,10 @@ func (n *P2PNetwork) createHost(profile *models.P2PProfile) error {
 	opts := []libp2p.Option{
 		libp2p.Identity(privKey),
 		libp2p.ListenAddrStrings(n.config.ListenAddrs...),
-		libp2p.NATPortMap(),              // Проброс портов через NAT (UPnP/NAT-PMP)
-		libp2p.EnableRelay(),             // Включает relay для обхода NAT
+		libp2p.NATPortMap(),                                  // Проброс портов через NAT (UPnP/NAT-PMP)
+		libp2p.EnableRelay(),                                 // Включает relay для обхода NAT
 		libp2p.EnableAutoRelayWithStaticRelays(staticRelays), // Автовыбор relay
-		libp2p.EnableHolePunching(),      // 🔥 NAT Hole Punching для прямых соединений
+		libp2p.EnableHolePunching(),                          // 🔥 NAT Hole Punching для прямых соединений
 		libp2p.UserAgent("ProjectT/1.0"),
 	}
 
@@ -786,7 +781,7 @@ func (n *P2PNetwork) Discovery() *DiscoveryService {
 func (n *P2PNetwork) AddBootstrapPeer(multiaddr string) error {
 	n.mu.RLock()
 	defer n.mu.RUnlock()
-	
+
 	if n.discovery == nil {
 		return errors.New("сервис обнаружения не инициализирован")
 	}
@@ -797,7 +792,7 @@ func (n *P2PNetwork) AddBootstrapPeer(multiaddr string) error {
 func (n *P2PNetwork) RemoveBootstrapPeer(multiaddr string) error {
 	n.mu.RLock()
 	defer n.mu.RUnlock()
-	
+
 	if n.discovery == nil {
 		return errors.New("сервис обнаружения не инициализирован")
 	}
@@ -808,7 +803,7 @@ func (n *P2PNetwork) RemoveBootstrapPeer(multiaddr string) error {
 func (n *P2PNetwork) GetBootstrapPeers() ([]*models.BootstrapPeer, error) {
 	n.mu.RLock()
 	defer n.mu.RUnlock()
-	
+
 	if n.discovery == nil {
 		return nil, errors.New("сервис обнаружения не инициализирован")
 	}
@@ -837,7 +832,7 @@ func (n *P2PNetwork) Connections() *ConnectionService {
 func (n *P2PNetwork) GetConnectionStatus(peerID peer.ID) ConnectionStatus {
 	n.mu.RLock()
 	defer n.mu.RUnlock()
-	
+
 	if n.connections == nil {
 		return StatusUnknown
 	}
@@ -848,7 +843,7 @@ func (n *P2PNetwork) GetConnectionStatus(peerID peer.ID) ConnectionStatus {
 func (n *P2PNetwork) GetConnectedPeersCount() int {
 	n.mu.RLock()
 	defer n.mu.RUnlock()
-	
+
 	if n.connections == nil {
 		return 0
 	}
@@ -859,7 +854,7 @@ func (n *P2PNetwork) GetConnectedPeersCount() int {
 func (n *P2PNetwork) GetPeerInfo(peerID peer.ID) *PeerConnectionInfo {
 	n.mu.RLock()
 	defer n.mu.RUnlock()
-	
+
 	if n.connections == nil {
 		return nil
 	}

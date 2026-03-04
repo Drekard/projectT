@@ -65,11 +65,11 @@ func CreateMainLayout(window fyne.Window) *fyne.Container {
 	ml.workspace.GetNavigationManager().SetBreadcrumbUpdateCallback(breadcrumbManager.UpdateBreadcrumbs)
 
 	breadcrumbManager.SetNavigationCallback(func(folderID int) {
-		ml.workspace.NavigateToFolder(folderID)
+		_ = ml.workspace.NavigateToFolder(folderID)
 	})
 
 	breadcrumbManager.SetRefreshCallback(func() {
-		ml.workspace.RefreshCurrentFolder()
+		_ = ml.workspace.RefreshCurrentFolder()
 	})
 
 	headerBg := canvas.NewRectangle(color.RGBA{0, 0, 0, 255})

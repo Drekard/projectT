@@ -92,11 +92,11 @@ func DefaultConfig() *Config {
 	if cwd == "" {
 		cwd = "."
 	}
-	
+
 	return &Config{
 		Database: DatabaseConfig{
-			Path:        filepath.Join(cwd, "storage", "projectT.db"),
-			BusyTimeout: 30000,
+			Path:         filepath.Join(cwd, "storage", "projectT.db"),
+			BusyTimeout:  30000,
 			MaxOpenConns: 1,
 			MaxIdleConns: 1,
 		},
@@ -131,18 +131,21 @@ func NewLoader() *Loader {
 // 3. Config file (файл config.yaml)
 // 4. Default values (значения по умолчанию) - низший приоритет
 func (l *Loader) Load() (*Config, error) {
-	// 1. Сначала загружаем из файла конфигурации
-	if err := l.loadFromFile(); err != nil {
-		return nil, fmt.Errorf("ошибка загрузки из файла: %w", err)
+	// Парсим все флаги сразу, но используем их в правильном порядке
+	flags := l.parseAllFlags()
+
+	// 1. Сначала загружаем из файла конфигурации (если указан)
+	if flags.configFile != "" {
+		if err := l.loadFromYAML(flags.configFile); err != nil {
+			return nil, fmt.Errorf("ошибка загрузки файла конфигурации %s: %w", flags.configFile, err)
+		}
 	}
 
 	// 2. Переопределяем из переменных окружения
 	l.loadFromEnv()
 
 	// 3. Переопределяем из флагов командной строки
-	if err := l.loadFromFlags(); err != nil {
-		return nil, fmt.Errorf("ошибка загрузки флагов: %w", err)
-	}
+	l.applyFlags(flags)
 
 	// 4. Нормализуем пути (делаем абсолютными если относительные)
 	l.normalizePaths()
@@ -150,32 +153,66 @@ func (l *Loader) Load() (*Config, error) {
 	return l.config, nil
 }
 
-// loadFromFile загружает конфигурацию из YAML файла
-func (l *Loader) loadFromFile() error {
-	// Ищем файл config.yaml в текущей директории и в директории приложения
-	configPaths := []string{
-		"config.yaml",
-		"config.yml",
-		filepath.Join(".", "config", "config.yaml"),
-	}
+// parsedFlags хранит распарсенные флаги
+type parsedFlags struct {
+	configFile      string
+	dbPath          string
+	dbBusyTimeout   int
+	storagePath     string
+	storageFilesDir string
+	p2pEnabled      bool
+	p2pPort         int
+	p2pRelay        bool
+	p2pRelayDisc    bool
+}
 
-	// Также проверяем путь относительно исполняемого файла
-	if execPath, err := os.Executable(); err == nil {
-		execDir := filepath.Dir(execPath)
-		configPaths = append(configPaths,
-			filepath.Join(execDir, "config.yaml"),
-			filepath.Join(execDir, "config", "config.yaml"),
-		)
-	}
+// parseAllFlags парсит все флаги командной строки
+func (l *Loader) parseAllFlags() *parsedFlags {
+	flags := &parsedFlags{}
+	flagSet := flag.NewFlagSet("projectT", flag.ContinueOnError)
 
-	for _, path := range configPaths {
-		if _, err := os.Stat(path); err == nil {
-			return l.loadFromYAML(path)
-		}
-	}
+	flagSet.StringVar(&flags.configFile, "config", "", "Путь к файлу конфигурации (YAML)")
+	flagSet.StringVar(&flags.dbPath, "db-path", "", "Путь к файлу базы данных SQLite")
+	flagSet.IntVar(&flags.dbBusyTimeout, "db-timeout", 0, "Таймаут ожидания БД (мс)")
+	flagSet.StringVar(&flags.storagePath, "storage-path", "", "Путь к корневой директории хранилища")
+	flagSet.StringVar(&flags.storageFilesDir, "storage-files-dir", "", "Поддиректория для файлов")
+	flagSet.BoolVar(&flags.p2pEnabled, "p2p-enabled", false, "Включить P2P режим")
+	flagSet.IntVar(&flags.p2pPort, "p2p-port", 0, "Порт для P2P соединений")
+	flagSet.BoolVar(&flags.p2pRelay, "p2p-relay", false, "Использовать relay для обхода NAT")
+	flagSet.BoolVar(&flags.p2pRelayDisc, "p2p-relay-discovery", false, "Автообнаружение relay")
 
-	// Файл не найден - это не ошибка, используем значения по умолчанию
-	return nil
+	// Игнорируем ошибку парсинга - флаги могут быть не переданы
+	_ = flagSet.Parse(os.Args[1:])
+
+	return flags
+}
+
+// applyFlags применяет распарсенные флаги к конфигурации
+func (l *Loader) applyFlags(flags *parsedFlags) {
+	if flags.dbPath != "" {
+		l.config.Database.Path = filepath.ToSlash(flags.dbPath)
+	}
+	if flags.dbBusyTimeout > 0 {
+		l.config.Database.BusyTimeout = flags.dbBusyTimeout
+	}
+	if flags.storagePath != "" {
+		l.config.Storage.Path = filepath.ToSlash(flags.storagePath)
+	}
+	if flags.storageFilesDir != "" {
+		l.config.Storage.FilesDir = flags.storageFilesDir
+	}
+	if flags.p2pEnabled {
+		l.config.P2P.Enabled = flags.p2pEnabled
+	}
+	if flags.p2pPort > 0 {
+		l.config.P2P.Port = flags.p2pPort
+	}
+	if flags.p2pRelay {
+		l.config.P2P.EnableRelay = flags.p2pRelay
+	}
+	if flags.p2pRelayDisc {
+		l.config.P2P.EnableRelayDiscovery = flags.p2pRelayDisc
+	}
 }
 
 // loadFromYAML загружает конфигурацию из указанного YAML файла
@@ -201,6 +238,10 @@ func (l *Loader) loadFromYAML(path string) error {
 		return err
 	}
 
+	// Нормализуем пути из YAML в Unix-стиль
+	l.config.Database.Path = filepath.ToSlash(l.config.Database.Path)
+	l.config.Storage.Path = filepath.ToSlash(l.config.Storage.Path)
+
 	return nil
 }
 
@@ -208,7 +249,7 @@ func (l *Loader) loadFromYAML(path string) error {
 func (l *Loader) loadFromEnv() {
 	// Database
 	if val := os.Getenv("PROJECTT_DB_PATH"); val != "" {
-		l.config.Database.Path = val
+		l.config.Database.Path = filepath.ToSlash(val)
 	}
 	if val := os.Getenv("PROJECTT_DB_BUSY_TIMEOUT"); val != "" {
 		if timeout := parseInt(val); timeout > 0 {
@@ -218,7 +259,7 @@ func (l *Loader) loadFromEnv() {
 
 	// Storage
 	if val := os.Getenv("PROJECTT_STORAGE_PATH"); val != "" {
-		l.config.Storage.Path = val
+		l.config.Storage.Path = filepath.ToSlash(val)
 	}
 	if val := os.Getenv("PROJECTT_STORAGE_FILES_DIR"); val != "" {
 		l.config.Storage.FilesDir = val
@@ -241,87 +282,22 @@ func (l *Loader) loadFromEnv() {
 	}
 }
 
-// loadFromFlags загружает конфигурацию из флагов командной строки
-func (l *Loader) loadFromFlags() error {
-	// Определяем флаги
-	var (
-		configFile      string
-		dbPath          string
-		dbBusyTimeout   int
-		storagePath     string
-		storageFilesDir string
-		p2pEnabled      bool
-		p2pPort         int
-		p2pRelay        bool
-		p2pRelayDisc    bool
-	)
-
-	flagSet := flag.NewFlagSet("projectT", flag.ContinueOnError)
-
-	flagSet.StringVar(&configFile, "config", "", "Путь к файлу конфигурации (YAML)")
-	flagSet.StringVar(&dbPath, "db-path", "", "Путь к файлу базы данных SQLite")
-	flagSet.IntVar(&dbBusyTimeout, "db-timeout", 0, "Таймаут ожидания БД (мс)")
-	flagSet.StringVar(&storagePath, "storage-path", "", "Путь к корневой директории хранилища")
-	flagSet.StringVar(&storageFilesDir, "storage-files-dir", "", "Поддиректория для файлов")
-	flagSet.BoolVar(&p2pEnabled, "p2p-enabled", false, "Включить P2P режим")
-	flagSet.IntVar(&p2pPort, "p2p-port", 0, "Порт для P2P соединений")
-	flagSet.BoolVar(&p2pRelay, "p2p-relay", false, "Использовать relay для обхода NAT")
-	flagSet.BoolVar(&p2pRelayDisc, "p2p-relay-discovery", false, "Автообнаружение relay")
-
-	// Игнорируем ошибку парсинга - флаги могут быть не переданы
-	_ = flagSet.Parse(os.Args[1:])
-
-	// Если указан файл конфигурации - загружаем его
-	if configFile != "" {
-		if err := l.loadFromYAML(configFile); err != nil {
-			return fmt.Errorf("ошибка загрузки файла конфигурации %s: %w", configFile, err)
-		}
-	}
-
-	// Переопределяем значения из флагов (если они были установлены)
-	if dbPath != "" {
-		l.config.Database.Path = dbPath
-	}
-	if dbBusyTimeout > 0 {
-		l.config.Database.BusyTimeout = dbBusyTimeout
-	}
-	if storagePath != "" {
-		l.config.Storage.Path = storagePath
-	}
-	if storageFilesDir != "" {
-		l.config.Storage.FilesDir = storageFilesDir
-	}
-	if p2pEnabled {
-		l.config.P2P.Enabled = p2pEnabled
-	}
-	if p2pPort > 0 {
-		l.config.P2P.Port = p2pPort
-	}
-	if p2pRelay {
-		l.config.P2P.EnableRelay = p2pRelay
-	}
-	if p2pRelayDisc {
-		l.config.P2P.EnableRelayDiscovery = p2pRelayDisc
-	}
-
-	return nil
-}
-
 // normalizePaths нормализует пути (конвертирует относительные в абсолютные)
 // Относительные пути разрешаются относительно текущей рабочей директории
 // Это обеспечивает корректную работу как при go run, так и при запуске exe
+// Пути всегда приводятся к Unix-стилю (с forward slashes) для кроссплатформенности
 func (l *Loader) normalizePaths() {
 	// Нормализуем путь к базе данных
 	if !filepath.IsAbs(l.config.Database.Path) {
 		if abs, err := filepath.Abs(l.config.Database.Path); err == nil {
-			l.config.Database.Path = abs
+			l.config.Database.Path = filepath.ToSlash(abs)
 		}
 	}
 
 	// Нормализуем путь к хранилищу
 	if !filepath.IsAbs(l.config.Storage.Path) {
 		if abs, err := filepath.Abs(l.config.Storage.Path); err == nil {
-			l.config.Storage.Path = abs
+			l.config.Storage.Path = filepath.ToSlash(abs)
 		}
 	}
 }
@@ -329,7 +305,7 @@ func (l *Loader) normalizePaths() {
 // parseInt парсит строку в int
 func parseInt(s string) int {
 	var result int
-	fmt.Sscanf(s, "%d", &result)
+	fmt.Sscanf(s, "%d", &result) //nolint:errcheck
 	return result
 }
 

@@ -57,6 +57,7 @@ func CreateBreadcrumbs() (*fyne.Container, *BreadcrumbManager) {
 		if bm.onRefresh != nil {
 			bm.onRefresh()
 		} else {
+			_ = struct{}{} //nolint:staticcheck // Пустой обработчик по умолчанию
 		}
 	})
 	refreshButton.Importance = widget.LowImportance
@@ -75,7 +76,7 @@ func CreateBreadcrumbs() (*fyne.Container, *BreadcrumbManager) {
 		buttons,
 		container.NewPadded(content),
 	)
-	breadcrumbs := container.NewMax(bg, padded)
+	breadcrumbs := container.NewStack(bg, padded)
 	breadcrumbs.Resize(fyne.NewSize(400, 36))
 
 	return breadcrumbs, bm
@@ -113,7 +114,7 @@ func (bm *BreadcrumbManager) AddItem(title string, folderID int) {
 }
 
 // clearItemsAfterIndex удаляет все элементы после указанного индекса
-func (bm *BreadcrumbManager) clearItemsAfterIndex(index int) {
+func (bm *BreadcrumbManager) clearItemsAfterIndex(index int) { //nolint:unused
 	if index >= len(bm.items) {
 		return
 	}

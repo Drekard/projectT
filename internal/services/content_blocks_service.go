@@ -215,7 +215,9 @@ func (s *ContentBlocksService) UpdateItemWithTransaction(ctx context.Context, it
 	if err != nil {
 		return nil, nil, fmt.Errorf("ошибка начала транзакции: %w", err)
 	}
-	defer tx.Rollback()
+	defer func() {
+		_ = tx.Rollback() // Игнорируем ошибку отката, т.к. коммит уже мог состояться
+	}()
 
 	// Получаем текущий элемент напрямую в транзакции
 	var item models.Item
