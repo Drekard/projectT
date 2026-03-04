@@ -644,7 +644,7 @@ func GetTagsForItem(ctx context.Context, itemID int) ([]*models.Tag, error) {
 // GetItemsForTag возвращает все элементы тега
 func GetItemsForTag(ctx context.Context, tagID int) ([]*models.Item, error) {
 	query := `
-		SELECT i.id, i.type, i.title, i.content, i.content_meta, 
+		SELECT i.id, i.type, i.title, i.description, i.content_meta,
 		       i.parent_id, i.created_at, i.updated_at
 		FROM items i
 		INNER JOIN item_tags it ON i.id = it.item_id

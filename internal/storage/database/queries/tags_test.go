@@ -2,6 +2,7 @@ package queries
 
 import (
 	"context"
+	"fmt"
 	"testing"
 
 	"projectT/internal/storage/database/models"
@@ -356,7 +357,7 @@ func TestSearchTagsByName_Limit(t *testing.T) {
 	// Создаём много тегов с одинаковым префиксом
 	for i := 0; i < 60; i++ {
 		tag := &models.Tag{
-			Name:  "tag-" + string(rune('A'+i%26)),
+			Name:  "tag-" + fmt.Sprintf("%03d", i),
 			Color: "#CCCCCC",
 		}
 		err := CreateTag(ctx, tag)

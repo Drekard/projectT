@@ -493,7 +493,7 @@ func TestItem_Integration(t *testing.T) {
 	assert.Equal(t, sql.ErrNoRows, err)
 }
 
-// TestGetItemsByParent_WithSoftDelete проверяет что удалённые элементы не возвращаются
+// TestGetItemsByParent_WithTimestamps проверяет что timestamps устанавливаются
 func TestGetItemsByParent_WithTimestamps(t *testing.T) {
 	cleanup := setupTestDB(t)
 	defer cleanup()
@@ -506,19 +506,23 @@ func TestGetItemsByParent_WithTimestamps(t *testing.T) {
 	err := CreateItem(item)
 	require.NoError(t, err)
 
+	// Получаем элемент из БД для проверки timestamps
+	createdItem, err := GetItemByID(item.ID)
+	require.NoError(t, err)
+
 	// Проверяем что timestamps установлены
-	assert.False(t, item.CreatedAt.IsZero())
-	assert.False(t, item.UpdatedAt.IsZero())
+	assert.False(t, createdItem.CreatedAt.IsZero())
+	assert.False(t, createdItem.UpdatedAt.IsZero())
 
 	// Ждём немного и обновляем
 	time.Sleep(10 * time.Millisecond)
 
-	item.Title = "Updated"
-	err = UpdateItem(item)
+	createdItem.Title = "Updated"
+	err = UpdateItem(createdItem)
 	require.NoError(t, err)
 
 	// Проверяем что updated_at обновился
-	updatedItem, err := GetItemByID(item.ID)
+	updatedItem, err := GetItemByID(createdItem.ID)
 	require.NoError(t, err)
-	assert.True(t, updatedItem.UpdatedAt.After(item.CreatedAt))
+	assert.True(t, updatedItem.UpdatedAt.After(createdItem.CreatedAt))
 }
