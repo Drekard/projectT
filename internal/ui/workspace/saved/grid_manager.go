@@ -206,9 +206,6 @@ func (gm *GridManager) updateLayout() {
 	// Вычисляем фиксированную ширину один раз
 	width := gm.sizeManager.GetFixedWidth()
 
-	// Оптимизация: откладываем перерисовку до конца всех операций (Batch Refresh)
-	// Это предотвращает множественные синхронные перерисовки Fyne
-
 	// Обновляем позиции и размеры карточек
 	// Оптимизация: используем кэш размеров для избежания лишних Resize()
 	resizeCount := 0
@@ -230,9 +227,7 @@ func (gm *GridManager) updateLayout() {
 		cachedSize, hasCached := gm.widgetSizeCache[cardInfo.Item.ID]
 
 		// Вызываем Resize() только если размера нет в кэше или он отличается
-		// Оптимизация: Lazy Layout — используем Resize() но без немедленной перерисовки
 		if !hasCached || cachedSize != targetSize {
-			// Используем Resize() для корректной отрисовки
 			cardInfo.Widget.Resize(targetSize)
 			gm.widgetSizeCache[cardInfo.Item.ID] = targetSize // Кэшируем размер
 			resizeCount++
@@ -334,9 +329,9 @@ func (gm *GridManager) loadItems(items []*db_models.Item, addCreateElement bool)
 	// Расчёт позиций остается последовательным
 	gm.updateLayout()
 
-	// Вызываем canvas.Refresh() СИНХРОННО для корректной отрисовки
-	// Асинхронный вызов приводил к проблемам с отображением
-	canvas.Refresh(gm.container)
+	// Вызываем canvas.Refresh() асинхронно через Go, чтобы избежать
+	// цепной реакции перерисовок через onSizeChanged()
+	go canvas.Refresh(gm.container)
 }
 
 // createCardsConcurrently создает карточки параллельно с использованием worker pool
@@ -352,16 +347,8 @@ func (gm *GridManager) createCardsConcurrently(items []*db_models.Item) {
 	// Предвыделяем результат для сохранения в правильном порядке
 	results := make([]*ui_models.CardInfo, len(items))
 
-	// Считаем статистику по типам элементов
-	typeStats := make(map[db_models.ItemType]int)
-	for _, item := range items {
-		typeStats[item.Type]++
-	}
-
 	// Запускаем воркеров - создание виджетов происходит параллельно
 	wg.Add(len(items))
-
-	// Логирование запуска каждой горутины
 	for i, item := range items {
 		itemIndex := i // Сохраняем индекс для горутины
 		go func(it *db_models.Item, idx int) {
@@ -376,25 +363,17 @@ func (gm *GridManager) createCardsConcurrently(items []*db_models.Item) {
 	}()
 
 	// Собираем результаты (порядок сохраняется по индексу)
-	receivedCount := 0
 	for result := range resultChan {
 		if result.Error != nil {
 			continue
 		}
 		results[result.Index] = result.CardInfo
-		receivedCount++
 	}
 
 	// Вычисляем размеры и делаем refresh в main goroutine (требуется Fyne)
 	// Это делается последовательно, но быстро - только MinSize и Refresh
-
-	// Считаем общую статистику по типам элементов
-	processedStats := make(map[db_models.ItemType]int)
-
 	for _, cardInfo := range results {
 		if cardInfo != nil {
-			itemType := cardInfo.Item.Type
-
 			// Применяем размеры из кэша
 			widthCells, heightCells := gm.getCardSize(cardInfo.Item)
 			cardInfo.WidthCells = widthCells
@@ -412,7 +391,6 @@ func (gm *GridManager) createCardsConcurrently(items []*db_models.Item) {
 			}
 
 			gm.cards = append(gm.cards, cardInfo)
-			processedStats[itemType]++
 		}
 	}
 }
@@ -468,13 +446,11 @@ func (gm *GridManager) GetSortOptions() *services.FilterOptions {
 // LoadItemsByParentWithSort загружает элементы по родительскому ID с учетом настроек сортировки
 func (gm *GridManager) LoadItemsByParentWithSort(parentID int) error {
 	items, err := gm.itemLoader.LoadAndSortItemsByParent(parentID, gm.sortOptions)
-
 	if err != nil {
 		return err
 	}
 
 	gm.currentParentID = parentID
-
 	gm.LoadItems(items)
 
 	return nil
@@ -513,7 +489,7 @@ func (gm *GridManager) getCardSize(item *db_models.Item) (int, int) {
 
 // Вычисление размера для текстовых элементов
 func (gm *GridManager) calculateTextSize(item *db_models.Item) (int, int) { //nolint:unused
-	// Для 3-колоночной системы все карточки имеют ширину 1 ячейки
+	// Для 3-колоночной системы все карточки имеют ширину 1 ячейку
 	// Высота будет определяться по содержимому
 	return 1, 1
 }

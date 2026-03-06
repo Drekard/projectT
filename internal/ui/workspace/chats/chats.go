@@ -1,63 +1,97 @@
 package chats
 
 import (
-	"image/color"
+	"projectT/internal/storage/database/models"
+	"projectT/internal/ui/workspace/chats/widgets"
 
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/canvas"
 	"fyne.io/fyne/v2/container"
+	"fyne.io/fyne/v2/widget"
 )
 
-// UI represents the chats interface
+// UI представляет интерфейс чатов
 type UI struct {
-	content fyne.CanvasObject
+	content        fyne.CanvasObject
+	window         fyne.Window
+	currentChatID  int
+	contacts       []*models.Contact
+	chatsList      *fyne.Container
+	chatArea       *fyne.Container
+	profileArea    *fyne.Container
+	contactsPanel  *fyne.Container
+	messageScroll  *container.Scroll
+	messagesList   *fyne.Container
+	messageEntry   *widget.Entry
+	sendButton     *widget.Button
+	contactsIcon   *widgets.ChatIcon
+	favoritesIcon  *widgets.ChatIcon
+	chatIcons      []*widgets.ChatIcon
+	chatTitle      *widget.Label
+	chatStatus     *widget.Label
+	profileAvatar  *canvas.Circle
+	profileName    *widget.Label
+	profileStatus  *widget.Label
+	profileAddress *widget.Label
+	onContactClick func(contactID int)
+	onSendMessage  func(text string)
 }
 
-// New creates and returns a new chats UI
+// New создает и возвращает новый UI чатов
 func New() *UI {
-	ui := &UI{}
+	ui := &UI{
+		chatIcons: make([]*widgets.ChatIcon, 0),
+		contacts:  make([]*models.Contact, 0),
+	}
 	ui.content = ui.createViewContent()
 	return ui
 }
 
-// createViewContent creates and returns the visual representation of the chats UI
-func (c *UI) createViewContent() fyne.CanvasObject {
-	// Create black background area on the left
-	leftPanel := canvas.NewRectangle(color.RGBA{R: 0, G: 0, B: 0, A: 255}) // Pure black
-	leftPanel.SetMinSize(fyne.NewSize(300, 0))                             // Fixed width for the left panel
-
-	// Create separator line
-	separator := canvas.NewRectangle(color.RGBA{R: 64, G: 64, B: 64, A: 255}) // Dark gray separator
-	separator.SetMinSize(fyne.NewSize(1, 0))                                  // 1 pixel wide separator
-
-	// Create main content area (currently empty as placeholder)
-	mainContent := canvas.NewRectangle(color.RGBA{R: 32, G: 32, B: 32, A: 255}) // Slightly lighter gray background for contrast
-
-	// Arrange the elements horizontally: left panel + separator + main content
-	return container.NewHBox(leftPanel, separator, mainContent)
+// SetWindow устанавливает окно
+func (ui *UI) SetWindow(window fyne.Window) {
+	ui.window = window
 }
 
-// createView обновляет визуальное представление UI чатов
-func (c *UI) createView() { //nolint:unused
-	c.content = c.createViewContent()
+// createViewContent создает основное представление UI чатов
+func (ui *UI) createViewContent() fyne.CanvasObject {
+	// Левая панель со списком чатов
+	leftPanel := ui.createLeftPanel()
+
+	// Центральная область с чатом
+	ui.chatArea = ui.createChatArea()
+
+	// Правая панель с профилем
+	ui.profileArea = ui.createProfileArea()
+
+	// Основная компоновка: левая панель | чат | профиль
+	mainContent := container.NewBorder(
+		nil, nil,
+		leftPanel,
+		ui.profileArea,
+		ui.chatArea,
+	)
+
+	return mainContent
 }
 
-// CreateView returns the canvas object for the chats view
-func (c *UI) CreateView() fyne.CanvasObject {
-	return c.content
-}
-
-// GetContent returns the content canvas object
-func (c *UI) GetContent() fyne.CanvasObject {
-	return c.content
-}
-
-// Refresh обновляет содержимое UI
-func (c *UI) Refresh() {
-	// В текущей реализации нет необходимости в обновлении, но метод предусмотрен для совместимости
-	// При необходимости здесь можно обновить содержимое чатов
-	c.content = c.createViewContent() // Пересоздаем представление
-	if c.content != nil {
-		c.content.Refresh()
+// Refresh обновляет UI
+func (ui *UI) Refresh() {
+	if ui.content != nil {
+		ui.content.Refresh()
 	}
+}
+
+// CreateView возвращает canvas object для UI чатов
+func (ui *UI) CreateView() fyne.CanvasObject {
+	return ui.content
+}
+
+// SetOnContactClick устанавливает обработчик клика по контакту
+func (ui *UI) SetOnContactClick(handler func(contactID int)) {
+	ui.onContactClick = handler
+}
+
+// SetOnSendMessage устанавливает обработчик отправки сообщения
+func (ui *UI) SetOnSendMessage(handler func(text string)) {
+	ui.onSendMessage = handler
 }

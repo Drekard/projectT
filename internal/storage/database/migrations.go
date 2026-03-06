@@ -16,7 +16,6 @@ func RunMigrations() {
 			description TEXT,
 			content_meta TEXT,
 			parent_id   INTEGER,
-			is_pinned   BOOLEAN DEFAULT 0,
 			created_at  DATETIME DEFAULT CURRENT_TIMESTAMP,
 			updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
 			FOREIGN KEY (parent_id) REFERENCES items (id) ON DELETE CASCADE

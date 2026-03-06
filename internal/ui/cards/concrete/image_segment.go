@@ -15,7 +15,6 @@ import (
 	"projectT/internal/ui/cards"
 	"projectT/internal/ui/cards/hover_preview"
 	"projectT/internal/ui/cards/interfaces"
-	"time"
 
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/canvas"
@@ -46,9 +45,6 @@ func NewImageCard(item *models.Item) interfaces.CardRenderer {
 
 // NewImageCardWithCallback создает новую карточку для изображения с пользовательским обработчиком клика
 func NewImageCardWithCallback(item *models.Item, clickCallback func()) interfaces.CardRenderer {
-	logPrefix := fmt.Sprintf("[ImageCard:%s]", item.Title)
-	imgStart := time.Now()
-
 	imageCard := &ImageCard{
 		BaseCard: cards.NewBaseCard(item),
 	}
@@ -146,8 +142,6 @@ func NewImageCardWithCallback(item *models.Item, clickCallback func()) interface
 
 		// Устанавливаем флаг, что контент инициализирован
 		imageCard.isContentInitialized = true
-
-		fmt.Printf("%s TOTAL creation time: %v\n", logPrefix, time.Since(imgStart))
 	} else {
 		// Если изображение не найдено
 		placeholder := widget.NewLabel("Изображение не найдено")
@@ -155,7 +149,6 @@ func NewImageCardWithCallback(item *models.Item, clickCallback func()) interface
 
 		// Контейнер без фона, рамки и отступов, так как будет использоваться внутри другой карточки
 		imageCard.Container = container.NewCenter(placeholder)
-		fmt.Printf("%s NO IMAGES FOUND\n", logPrefix)
 	}
 
 	return imageCard
@@ -335,14 +328,10 @@ func (c *ImageCard) openImageWithDefaultWindowsApp() {
 	// Ищем блок с текущим изображением
 	var targetBlock *cards.Block
 	imageIndex := 0
-	for i := range blocks {
-		fmt.Printf("[DEBUG] Блок %d: type=%s, file_hash=%s\n",
-			i, blocks[i].Type, blocks[i].FileHash)
-		if blocks[i].Type == "image" && blocks[i].FileHash != "" {
-			fmt.Printf("[DEBUG] Найден image блок #%d, ищем #%d\n",
-				imageIndex, c.currentIndex)
+	for _, block := range blocks {
+		if block.Type == "image" && block.FileHash != "" {
 			if imageIndex == c.currentIndex {
-				targetBlock = &blocks[i]
+				targetBlock = &block
 				break
 			}
 			imageIndex++
