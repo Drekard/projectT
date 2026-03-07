@@ -14,6 +14,9 @@ const ProtocolID = "/projectt/1.0.0"
 // ChatProtocolID идентификатор протокола чата
 const ChatProtocolID = "/projectt/chat/1.0.0"
 
+// HelperProtocolID идентификатор протокола помощника
+const HelperProtocolID = "/projectt/helper/1.0.0"
+
 // P2PConfig конфигурация P2P сети
 type P2PConfig struct {
 	// ListenPort порт для прослушивания входящих соединений
@@ -61,6 +64,15 @@ type P2PConfig struct {
 	// MasterPassword пароль для шифрования приватного ключа
 	// Если пустой - ключи не шифруются (не рекомендуется)
 	MasterPassword string
+
+	// STUNServer URL STUN сервера для обмена адресами (например, http://localhost:8080)
+	STUNServer string
+
+	// EnableSTUNClient включить STUN клиент
+	EnableSTUNClient bool
+
+	// EnableHelperMode включить режим помощника (хранение адресов пиров)
+	EnableHelperMode bool
 }
 
 // DefaultConfig возвращает конфигурацию по умолчанию
@@ -83,5 +95,7 @@ func DefaultConfig() *P2PConfig {
 		MaxConnections:    100,
 		MinConnections:    5,
 		BootstrapPeers:    []string{},
+		EnableSTUNClient:  false,
+		EnableHelperMode:  false,
 	}
 }

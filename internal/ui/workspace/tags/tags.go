@@ -89,9 +89,9 @@ func (t *UI) createTable() *widget.Table {
 			case 0: // ID
 				cellContainer.Add(widget.NewLabel(fmt.Sprintf("%d", tag.ID)))
 			case 1: // Цвет
-				circle := canvas.NewCircle(parseHexColor(tag.Color))
-				circle.Resize(fyne.NewSize(20, 20))
-				circle.StrokeWidth = 20
+				circle := canvas.NewRectangle(parseHexColor(tag.Color))
+				circle.CornerRadius = 17
+				circle.SetMinSize(fyne.NewSize(35, 35))
 				circle.StrokeColor = parseHexColor(tag.Color)
 
 				// Оборачиваем круг в контейнер с кнопкой для обработки кликов
