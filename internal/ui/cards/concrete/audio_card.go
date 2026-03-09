@@ -45,7 +45,6 @@ type AudioCard struct {
 
 	// Аудио плеер
 	ctrl     *beep.Ctrl
-	streamer beep.Streamer //nolint:unused
 	stopChan chan struct{}
 }
 

@@ -13,7 +13,7 @@ import (
 // GetContact получает контакт по ID
 func GetContact(id int) (*models.Contact, error) {
 	row := database.DB.QueryRow(`
-		SELECT id, peer_id, username, public_key, multiaddr, status, last_seen, notes, is_blocked, added_at, updated_at
+		SELECT id, peer_id, username, public_key, multiaddr, status, last_seen, notes, is_blocked, avatar_path, added_at, updated_at
 		FROM contacts
 		WHERE id = ?
 	`, id)
@@ -33,6 +33,7 @@ func GetContact(id int) (*models.Contact, error) {
 		&lastSeen,
 		&contact.Notes,
 		&contact.IsBlocked,
+		&contact.AvatarPath,
 		&createdAt,
 		&updatedAt,
 	)
@@ -57,7 +58,7 @@ func GetContact(id int) (*models.Contact, error) {
 // GetContactByPeerID получает контакт по PeerID
 func GetContactByPeerID(peerID string) (*models.Contact, error) {
 	row := database.DB.QueryRow(`
-		SELECT id, peer_id, username, public_key, multiaddr, status, last_seen, notes, is_blocked, added_at, updated_at
+		SELECT id, peer_id, username, public_key, multiaddr, status, last_seen, notes, is_blocked, avatar_path, added_at, updated_at
 		FROM contacts
 		WHERE peer_id = ?
 	`, peerID)
@@ -77,6 +78,7 @@ func GetContactByPeerID(peerID string) (*models.Contact, error) {
 		&lastSeen,
 		&contact.Notes,
 		&contact.IsBlocked,
+		&contact.AvatarPath,
 		&createdAt,
 		&updatedAt,
 	)
@@ -101,7 +103,7 @@ func GetContactByPeerID(peerID string) (*models.Contact, error) {
 // GetAllContacts получает все контакты
 func GetAllContacts() ([]*models.Contact, error) {
 	rows, err := database.DB.Query(`
-		SELECT id, peer_id, username, public_key, multiaddr, status, last_seen, notes, is_blocked, added_at, updated_at
+		SELECT id, peer_id, username, public_key, multiaddr, status, last_seen, notes, is_blocked, avatar_path, added_at, updated_at
 		FROM contacts
 		ORDER BY username
 	`)
@@ -127,6 +129,7 @@ func GetAllContacts() ([]*models.Contact, error) {
 			&lastSeen,
 			&contact.Notes,
 			&contact.IsBlocked,
+			&contact.AvatarPath,
 			&createdAt,
 			&updatedAt,
 		)
@@ -151,9 +154,9 @@ func GetAllContacts() ([]*models.Contact, error) {
 // CreateContact создаёт новый контакт
 func CreateContact(contact *models.Contact) error {
 	result, err := database.DB.Exec(`
-		INSERT INTO contacts (peer_id, username, public_key, multiaddr, status, last_seen, notes, is_blocked, added_at, updated_at)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
-	`, contact.PeerID, contact.Username, contact.PublicKey, contact.Multiaddr, contact.Status, contact.LastSeen, contact.Notes, contact.IsBlocked)
+		INSERT INTO contacts (peer_id, username, public_key, multiaddr, status, last_seen, notes, is_blocked, avatar_path, added_at, updated_at)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+	`, contact.PeerID, contact.Username, contact.PublicKey, contact.Multiaddr, contact.Status, contact.LastSeen, contact.Notes, contact.IsBlocked, contact.AvatarPath)
 	if err != nil {
 		return err
 	}
@@ -170,9 +173,9 @@ func CreateContact(contact *models.Contact) error {
 func UpdateContact(contact *models.Contact) error {
 	_, err := database.DB.Exec(`
 		UPDATE contacts
-		SET peer_id = ?, username = ?, public_key = ?, multiaddr = ?, status = ?, last_seen = ?, notes = ?, is_blocked = ?, updated_at = CURRENT_TIMESTAMP
+		SET peer_id = ?, username = ?, public_key = ?, multiaddr = ?, status = ?, last_seen = ?, notes = ?, is_blocked = ?, avatar_path = ?, updated_at = CURRENT_TIMESTAMP
 		WHERE id = ?
-	`, contact.PeerID, contact.Username, contact.PublicKey, contact.Multiaddr, contact.Status, contact.LastSeen, contact.Notes, contact.IsBlocked, contact.ID)
+	`, contact.PeerID, contact.Username, contact.PublicKey, contact.Multiaddr, contact.Status, contact.LastSeen, contact.Notes, contact.IsBlocked, contact.AvatarPath, contact.ID)
 	return err
 }
 
@@ -190,6 +193,26 @@ func UpdateContactStatus(id int, status string, lastSeen *time.Time) error {
 		SET status = ?, last_seen = ?, updated_at = CURRENT_TIMESTAMP
 		WHERE id = ?
 	`, status, lastSeenStr, id)
+	return err
+}
+
+// UpdateContactAvatar обновляет аватар контакта
+func UpdateContactAvatar(id int, avatarPath string) error {
+	_, err := database.DB.Exec(`
+		UPDATE contacts
+		SET avatar_path = ?, updated_at = CURRENT_TIMESTAMP
+		WHERE id = ?
+	`, avatarPath, id)
+	return err
+}
+
+// UpdateContactByPeerID обновляет информацию о контакте по PeerID (для обмена профилями)
+func UpdateContactByPeerID(peerID, username, avatarPath string) error {
+	_, err := database.DB.Exec(`
+		UPDATE contacts
+		SET username = ?, avatar_path = ?, updated_at = CURRENT_TIMESTAMP
+		WHERE peer_id = ?
+	`, username, avatarPath, peerID)
 	return err
 }
 
@@ -221,7 +244,7 @@ func IsContactBlocked(peerID string) (bool, error) {
 // SearchContacts ищет контакты по имени
 func SearchContacts(query string) ([]*models.Contact, error) {
 	rows, err := database.DB.Query(`
-		SELECT id, peer_id, username, public_key, multiaddr, status, last_seen, notes, is_blocked, added_at, updated_at
+		SELECT id, peer_id, username, public_key, multiaddr, status, last_seen, notes, is_blocked, avatar_path, added_at, updated_at
 		FROM contacts
 		WHERE username LIKE ?
 		ORDER BY username
@@ -248,6 +271,7 @@ func SearchContacts(query string) ([]*models.Contact, error) {
 			&lastSeen,
 			&contact.Notes,
 			&contact.IsBlocked,
+			&contact.AvatarPath,
 			&createdAt,
 			&updatedAt,
 		)

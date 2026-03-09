@@ -192,10 +192,37 @@ func RunMigrations() {
 
 // createP2PTables создаёт таблицы для P2P функциональности
 func createP2PTables() {
+	// Сначала применяем миграцию для существующей таблицы
+	// Добавляем profile_id если столбец не существует
+	_, err := DB.Exec(`ALTER TABLE p2p_profile ADD COLUMN profile_id INTEGER REFERENCES profile(id)`)
+	if err != nil {
+		// Игнорируем ошибку, если столбец уже существует
+		if !strings.Contains(err.Error(), "duplicate column name") && !strings.Contains(err.Error(), "column already exists") {
+			log.Printf("Ошибка при добавлении столбца profile_id: %v", err)
+		}
+	}
+
+	// Связываем существующие p2p_profile с profile
+	_, err = DB.Exec(`
+		UPDATE p2p_profile 
+		SET profile_id = (SELECT id FROM profile LIMIT 1)
+		WHERE profile_id IS NULL
+	`)
+	if err != nil {
+		log.Printf("Ошибка при связывании p2p_profile с profile: %v", err)
+	}
+
+	// Индекс для связи p2p_profile -> profile
+	_, err = DB.Exec(`CREATE INDEX IF NOT EXISTS idx_p2p_profile_profile_id ON p2p_profile(profile_id);`)
+	if err != nil {
+		log.Printf("Ошибка при создании индекса idx_p2p_profile_profile_id: %v", err)
+	}
+
 	// 1. Таблица p2p_profile - профиль P2P узла
-	_, err := DB.Exec(`
+	_, err = DB.Exec(`
 		CREATE TABLE IF NOT EXISTS p2p_profile (
 			id           INTEGER PRIMARY KEY CHECK (id = 1),
+			profile_id   INTEGER NOT NULL,
 			peer_id      TEXT UNIQUE NOT NULL,
 			private_key  BLOB NOT NULL,
 			public_key   BLOB NOT NULL,
@@ -203,7 +230,8 @@ func createP2PTables() {
 			status       TEXT DEFAULT 'online',
 			listen_addrs TEXT,
 			created_at   DATETIME DEFAULT CURRENT_TIMESTAMP,
-			updated_at   DATETIME DEFAULT CURRENT_TIMESTAMP
+			updated_at   DATETIME DEFAULT CURRENT_TIMESTAMP,
+			FOREIGN KEY (profile_id) REFERENCES profile(id) ON DELETE CASCADE
 		);
 	`)
 	if err != nil {
@@ -222,12 +250,22 @@ func createP2PTables() {
 			last_seen   DATETIME,
 			notes       TEXT,
 			is_blocked  BOOLEAN DEFAULT 0,
+			avatar_path TEXT,
 			added_at    DATETIME DEFAULT CURRENT_TIMESTAMP,
 			updated_at  DATETIME DEFAULT CURRENT_TIMESTAMP
 		);
 	`)
 	if err != nil {
 		log.Printf("Ошибка при создании таблицы contacts: %v", err)
+	}
+
+	// Миграция: добавляем avatar_path в существующую таблицу contacts
+	_, err = DB.Exec(`ALTER TABLE contacts ADD COLUMN avatar_path TEXT`)
+	if err != nil {
+		// Игнорируем ошибку, если столбец уже существует
+		if !strings.Contains(err.Error(), "duplicate column name") && !strings.Contains(err.Error(), "column already exists") {
+			log.Printf("Ошибка при добавлении столбца avatar_path: %v", err)
+		}
 	}
 
 	// 3. Таблица chat_messages - история сообщений

@@ -113,33 +113,6 @@ func (bm *BreadcrumbManager) AddItem(title string, folderID int) {
 	bm.container.Add(button)
 }
 
-// clearItemsAfterIndex удаляет все элементы после указанного индекса
-func (bm *BreadcrumbManager) clearItemsAfterIndex(index int) { //nolint:unused
-	if index >= len(bm.items) {
-		return
-	}
-
-	// Удаляем элементы после указанного индекса
-	remainingItems := bm.items[:index+1]
-
-	// Очищаем контейнер
-	bm.container.Objects = nil
-
-	// Добавляем оставшиеся элементы обратно
-	for i, item := range remainingItems {
-		if i > 0 {
-			// Добавляем разделитель
-			separator := canvas.NewText(" > ", color.RGBA{143, 143, 143, 255})
-			separator.TextSize = 14
-			bm.container.Add(separator)
-		}
-		bm.container.Add(item.button)
-	}
-
-	// Обновляем список элементов
-	bm.items = remainingItems
-}
-
 // UpdateBreadcrumbs обновляет хлебные крошки на основе пути
 func (bm *BreadcrumbManager) UpdateBreadcrumbs(path []*models.Item) {
 	bm.Clear()

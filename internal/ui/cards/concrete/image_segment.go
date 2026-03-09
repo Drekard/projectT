@@ -28,7 +28,6 @@ type ImageCard struct {
 	imageWidgets          []*canvas.Image
 	currentIndex          int
 	imageWidget           *canvas.Image
-	titleLabel            *widget.RichText //nolint:unused
 	imageCounter          *widget.Label
 	totalImages           int
 	mainContainer         *fyne.Container // Добавляем ссылку на основной контейнер
@@ -282,34 +281,6 @@ func (ic *ImageCard) updateImage() {
 	if ic.Container != nil {
 		ic.Container.Refresh()
 	}
-}
-
-// extractImageFromContentMeta извлекает первое изображение из ContentMeta
-func (ic *ImageCard) extractImageFromContentMeta(contentMeta string) *canvas.Image { //nolint:unused
-	blocks, err := cards.ParseBlocks(contentMeta)
-	if err != nil {
-		return nil
-	}
-
-	// Ищем первое изображение в блоках
-	for _, block := range blocks {
-		if block.Type == "image" && block.FileHash != "" {
-			// Загружаем содержимое файла изображения из файловой системы по хешу
-			fileContent, _, err := filesystem.ReadFileByHash(block.FileHash)
-			if err != nil || fileContent == nil {
-				continue // Пропускаем, если не удалось прочитать файл
-			}
-
-			// Создаем изображение из байтов
-			img := canvas.NewImageFromReader(bytes.NewReader(fileContent), "")
-			if img != nil {
-				img.FillMode = canvas.ImageFillContain
-				return img
-			}
-		}
-	}
-
-	return nil
 }
 
 // openImageWithDefaultWindowsApp открывает изображение средствами Windows

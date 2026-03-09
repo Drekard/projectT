@@ -11,9 +11,6 @@ type ClickableCard struct {
 	content        fyne.CanvasObject
 	onTapped       func()
 	onDoubleTapped func()
-	onTappedXY     func(fyne.Position) //nolint:unused
-	onMouseIn      func()              //nolint:unused
-	onMouseOut     func()              //nolint:unused
 }
 
 // NewClickableCard создает новый кликабельный виджет

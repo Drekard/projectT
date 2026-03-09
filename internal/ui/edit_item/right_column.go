@@ -219,11 +219,3 @@ func addLinkEntry(widgets *FormWidgets) {
 	widgets.LinksContainer.Add(stretchContainer)
 	widgets.LinkEntries = append(widgets.LinkEntries, entry)
 }
-
-// addLinkEntryWithText добавляет поле ввода со ссылкой
-func addLinkEntryWithText(widgets *FormWidgets, text string) { //nolint:unused
-	addLinkEntry(widgets)
-	if len(widgets.LinkEntries) > 0 {
-		widgets.LinkEntries[len(widgets.LinkEntries)-1].SetText(text)
-	}
-}

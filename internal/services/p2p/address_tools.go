@@ -546,15 +546,3 @@ func addPrefixToData(data []byte) []byte {
 	copy(result[len(prefix):], data)
 	return result
 }
-
-// removePrefixFromData удаляет префикс проекта из данных
-func removePrefixFromData(data []byte) ([]byte, error) { //nolint:unused
-	prefix := []byte(ProtocolPrefix + ":")
-	if len(data) < len(prefix) {
-		return nil, errors.New("данные слишком короткие для удаления префикса")
-	}
-	if !strings.HasPrefix(string(data), ProtocolPrefix+":") {
-		return nil, errors.New("данные не содержат префикс проекта")
-	}
-	return data[len(prefix):], nil
-}

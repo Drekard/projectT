@@ -9,11 +9,13 @@ import (
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/canvas"
 	"fyne.io/fyne/v2/container"
+	"fyne.io/fyne/v2/theme"
+	"fyne.io/fyne/v2/widget"
 )
 
 // createLeftPanel создает левую панель со списком чатов
 func (ui *UI) createLeftPanel() *fyne.Container {
-	// Заголовок с кнопкой контактов
+	// Заголовок с иконками
 	header := ui.createLeftPanelHeader()
 
 	// Список чатов
@@ -30,28 +32,76 @@ func (ui *UI) createLeftPanel() *fyne.Container {
 
 // createLeftPanelHeader создает заголовок левой панели с иконками
 func (ui *UI) createLeftPanelHeader() *fyne.Container {
-	// Иконка контактов (серая)
-	contactsColor := color.RGBA{R: 158, G: 158, B: 158, A: 255}
-	ui.contactsIcon = widgets.NewChatIcon(contactsColor, 0, widgets.StatusOffline, func() {
-		ui.showContactsPanel()
-	})
+	// Иконка контактов
+	contactsIcon := ui.createContactsIcon()
 
-	// Иконка избранного (зеленая)
-	favoritesColor := color.RGBA{R: 76, G: 175, B: 80, A: 255}
-	ui.favoritesIcon = widgets.NewChatIcon(favoritesColor, 0, widgets.StatusOnline, func() {
-		ui.showFavorites()
-	})
+	// Иконка чата с собой
+	selfChatIcon := ui.createSelfChatIcon()
 
 	// Вертикальная компоновка иконок
 	icons := container.NewVBox(
-		ui.contactsIcon,
-		ui.favoritesIcon,
+		contactsIcon,
+		selfChatIcon,
 	)
 
 	return container.NewPadded(icons)
 }
 
-// createChatsList создает список чатов
+// createContactsIcon создает иконку для панели контактов
+func (ui *UI) createContactsIcon() *fyne.Container {
+	// Создаем фон с закругленными углами
+	avatar := canvas.NewRectangle(color.RGBA{R: 158, G: 158, B: 158, A: 0})
+	avatar.CornerRadius = 15
+	avatar.StrokeColor = color.RGBA{R: 255, G: 255, B: 255, A: 100}
+	avatar.StrokeWidth = 1
+	avatar.SetMinSize(fyne.NewSize(50, 50))
+
+	// Создаем индикатор статуса
+	statusInd := widgets.NewStatusIndicator(widgets.StatusOffline)
+
+	// Собираем все элементы в стек
+	stack := container.NewStack(avatar, statusInd)
+
+	// Создаем кнопку с иконкой поверх графики
+	btn := widget.NewButtonWithIcon("", theme.AccountIcon(), func() {
+		ui.showContactsPanel()
+	})
+	btn.Importance = widget.LowImportance
+
+	// Оборачиваем кнопку в контейнер с фиксированным размером
+	btnWrapper := canvas.NewRectangle(color.Transparent)
+	btnWrapper.SetMinSize(fyne.NewSize(50, 50))
+	btnContainer := container.NewStack(btnWrapper, btn)
+
+	// Оборачиваем в контейнер
+	return container.NewStack(stack, btnContainer)
+}
+
+// createSelfChatIcon создает иконку для чата с самим собой
+func (ui *UI) createSelfChatIcon() *fyne.Container {
+	// Создаем фон с закругленными углами
+	avatar := canvas.NewRectangle(color.RGBA{R: 100, G: 100, B: 100, A: 0})
+	avatar.CornerRadius = 15
+	avatar.StrokeColor = color.RGBA{R: 255, G: 255, B: 255, A: 100}
+	avatar.StrokeWidth = 1
+	avatar.SetMinSize(fyne.NewSize(50, 50))
+
+	// Создаем кнопку с иконкой поверх графики
+	btn := widget.NewButtonWithIcon("", theme.MailAttachmentIcon(), func() {
+		ui.showSelfChat()
+	})
+	btn.Importance = widget.LowImportance
+
+	// Оборачиваем кнопку в контейнер с фиксированным размером
+	btnWrapper := canvas.NewRectangle(color.Transparent)
+	btnWrapper.SetMinSize(fyne.NewSize(50, 50))
+	btnContainer := container.NewStack(btnWrapper, btn)
+
+	// Оборачиваем в контейнер
+	return container.NewStack(avatar, btnContainer)
+}
+
+// createChatsList создает список чатов с пирами
 func (ui *UI) createChatsList() *fyne.Container {
 	// Создаем контейнер для чатов
 	chats := container.NewVBox()
@@ -83,7 +133,8 @@ func (ui *UI) createChatsList() *fyne.Container {
 			unreadCount = i + 1
 		}
 
-		chatIcon := widgets.NewChatIcon(colors[i%len(colors)], unreadCount, widgets.StatusOnline, func() {
+		// Тип 3: PeerChatIcon - аватарка для чата с пиром
+		chatIcon := widgets.NewChatIcon(widgets.PeerChatIcon, colors[i%len(colors)], unreadCount, widgets.StatusOnline, func() {
 			ui.selectChat(contact)
 		})
 		ui.chatIcons = append(ui.chatIcons, chatIcon)
@@ -100,8 +151,9 @@ func (ui *UI) showContactsPanel() {
 	ui.chatArea.Refresh()
 }
 
-// showFavorites показывает избранное
-func (ui *UI) showFavorites() {
-	// TODO: реализовать отображение избранного
-	ui.showMessage("Избранное", "Здесь будут сохраненные сообщения")
+// showSelfChat показывает пустой чат с самим собой
+func (ui *UI) showSelfChat() {
+	selfChat := ui.createSelfChat()
+	ui.chatArea.Objects = []fyne.CanvasObject{selfChat}
+	ui.chatArea.Refresh()
 }

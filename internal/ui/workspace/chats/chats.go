@@ -12,29 +12,33 @@ import (
 
 // UI представляет интерфейс чатов
 type UI struct {
-	content        fyne.CanvasObject
-	window         fyne.Window
-	currentChatID  int
-	contacts       []*models.Contact
-	chatsList      *fyne.Container
-	chatArea       *fyne.Container
-	profileArea    *fyne.Container
-	contactsPanel  *fyne.Container
-	messageScroll  *container.Scroll
-	messagesList   *fyne.Container
-	messageEntry   *widget.Entry
-	sendButton     *widget.Button
-	contactsIcon   *widgets.ChatIcon
-	favoritesIcon  *widgets.ChatIcon
-	chatIcons      []*widgets.ChatIcon
-	chatTitle      *widget.Label
-	chatStatus     *widget.Label
-	profileAvatar  *canvas.Circle
-	profileName    *widget.Label
-	profileStatus  *widget.Label
-	profileAddress *widget.Label
-	onContactClick func(contactID int)
-	onSendMessage  func(text string)
+	content               fyne.CanvasObject
+	window                fyne.Window
+	currentChatID         int
+	contacts              []*models.Contact
+	chatsList             *fyne.Container
+	chatArea              *fyne.Container
+	profileArea           *fyne.Container
+	contactsPanel         *fyne.Container
+	messageScroll         *container.Scroll
+	messagesList          *fyne.Container
+	messageEntry          *widget.Entry
+	sendButton            *widget.Button
+	chatIcons             []*widgets.ChatIcon
+	chatTitle             *widget.Label
+	chatStatus            *widget.Label
+	profileAvatar         *canvas.Circle
+	profileName           *widget.Label
+	profileStatus         *widget.Label
+	profileAddress        *widget.Label
+	myAddressLabel        *widget.Label
+	connectionStatusLabel *widget.Label
+	peersCountLabel       *widget.Label
+	portEntry             *widget.Entry
+	autoStartCheck        *widget.Check
+	contactsListInPanel   *fyne.Container
+	onContactClick        func(contactID int)
+	onSendMessage         func(text string)
 }
 
 // New создает и возвращает новый UI чатов

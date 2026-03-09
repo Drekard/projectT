@@ -2,12 +2,8 @@ package edit_item
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
-	"os"
-	"path"
-	"strings"
 	"time"
 
 	"fyne.io/fyne/v2"
@@ -15,7 +11,6 @@ import (
 
 	"projectT/internal/services"
 	"projectT/internal/storage/database/models"
-	"projectT/internal/storage/database/queries"
 	"projectT/internal/storage/filesystem"
 )
 
@@ -63,206 +58,6 @@ func updateViewModelFromUI(viewModel *CreateItemViewModel, formWidgets *FormWidg
 		}
 	}
 	viewModel.Links = links
-}
-
-// processFileData обрабатывает файлы и возвращает блоки
-func processFileData(viewModel *CreateItemViewModel, modalWindow fyne.Window) ([]Block, []string) { //nolint:unused
-	var blocks []Block
-	var errors []string
-
-	// Вспомогательная функция для обработки одного файла
-	processSingleFile := func(filepath, blockType string) (Block, error) {
-		// Проверяем существование файла
-		if _, err := os.Stat(filepath); os.IsNotExist(err) {
-			return Block{}, fmt.Errorf("файл не существует: %s", filepath)
-		}
-
-		// Читаем файл
-		fileBytes, err := os.ReadFile(filepath)
-		if err != nil {
-			return Block{}, fmt.Errorf("ошибка чтения файла %s: %v", filepath, err)
-		}
-
-		// Сохраняем в файловую систему
-		fileData, err := filesystem.SaveFileWithOriginalName(fileBytes, filepath)
-		if err != nil {
-			return Block{}, fmt.Errorf("ошибка сохранения файла %s: %v", filepath, err)
-		}
-
-		return Block{
-			Type:         blockType,
-			FileHash:     fileData.Hash,
-			OriginalName: path.Base(filepath),
-			Extension:    strings.TrimPrefix(path.Ext(filepath), "."),
-		}, nil
-	}
-
-	// Обрабатываем изображения
-	for _, filepath := range viewModel.Images {
-		block, err := processSingleFile(filepath, "image")
-		if err != nil {
-			errors = append(errors, err.Error())
-			continue
-		}
-		blocks = append(blocks, block)
-	}
-
-	// Обрабатываем файлы
-	for _, filepath := range viewModel.Files {
-		block, err := processSingleFile(filepath, "file")
-		if err != nil {
-			errors = append(errors, err.Error())
-			continue
-		}
-		blocks = append(blocks, block)
-	}
-
-	// Обрабатываем ссылки
-	for _, link := range viewModel.Links {
-		if link != "" {
-			blocks = append(blocks, Block{
-				Type:    "link",
-				Content: link,
-			})
-		}
-	}
-
-	return blocks, errors
-}
-
-// determineItemType определяет тип элемента на основе содержимого
-func determineItemType(viewModel *CreateItemViewModel, blocks []Block) models.ItemType { //nolint:unused
-	if viewModel.ItemType == models.ItemTypeFolder {
-		return models.ItemTypeFolder
-	}
-
-	// Все элементы, кроме папок, теперь являются элементами типа Element
-	return models.ItemTypeElement
-}
-
-// createOrUpdateItem создает или обновляет элемент с транзакцией
-//
-//nolint:unused
-func createOrUpdateItem(ctx context.Context, viewModel *CreateItemViewModel,
-	itemType models.ItemType, contentMeta string) (*models.Item, []Block, error) {
-
-	if viewModel.EditMode && viewModel.ID != 0 {
-		// Режим редактирования
-		return updateItemWithTransaction(ctx, viewModel, itemType, contentMeta)
-	}
-
-	// Режим создания
-	return createItemWithTransaction(ctx, viewModel, itemType, contentMeta)
-}
-
-// updateItemWithTransaction обновляет элемент в транзакции
-//
-//nolint:unused
-func updateItemWithTransaction(ctx context.Context, viewModel *CreateItemViewModel,
-	itemType models.ItemType, contentMeta string) (*models.Item, []Block, error) {
-
-	tx, err := queries.BeginTransaction(ctx)
-	if err != nil {
-		return nil, nil, fmt.Errorf("ошибка начала транзакции: %w", err)
-	}
-	defer func() {
-		_ = tx.Rollback() // Игнорируем ошибку отката, т.к. коммит уже мог состояться
-	}()
-
-	// Получаем текущий элемент
-	item, err := queries.GetItemByID(viewModel.ID)
-	if err != nil {
-		return nil, nil, fmt.Errorf("ошибка получения элемента: %w", err)
-	}
-
-	// Сохраняем старые блоки для последующей очистки
-	var oldBlocks []Block
-	if item.ContentMeta != "" {
-		if err := json.Unmarshal([]byte(item.ContentMeta), &oldBlocks); err != nil {
-			// Логируем ошибку, но продолжаем
-			fmt.Printf("WARN: ошибка разбора старых блоков: %v\n", err)
-		}
-	}
-
-	// Обновляем элемент
-	item.Type = itemType
-	item.Title = viewModel.Title
-	item.Description = viewModel.Description
-	item.ContentMeta = contentMeta
-	item.ParentID = viewModel.ParentID
-
-	if err := queries.UpdateItem(item); err != nil {
-		return nil, nil, fmt.Errorf("ошибка обновления элемента: %w", err)
-	}
-
-	if err := tx.Commit(); err != nil {
-		return nil, nil, fmt.Errorf("ошибка коммита транзакции: %w", err)
-	}
-
-	return item, oldBlocks, nil
-}
-
-// createItemWithTransaction создает элемент в транзакции
-//
-//nolint:unused
-func createItemWithTransaction(ctx context.Context, viewModel *CreateItemViewModel,
-	itemType models.ItemType, contentMeta string) (*models.Item, []Block, error) {
-
-	// Создаем элемент
-	item := &models.Item{
-		Type:        itemType,
-		Title:       viewModel.Title,
-		Description: viewModel.Description,
-		ContentMeta: contentMeta,
-		ParentID:    viewModel.ParentID,
-	}
-
-	if err := queries.CreateItem(item); err != nil {
-		return nil, nil, fmt.Errorf("ошибка создания элемента: %w", err)
-	}
-
-	return item, []Block{}, nil
-}
-
-// processTags обрабатывает теги для элемента
-//
-//nolint:unused
-func processTags(ctx context.Context, itemID int, tagsInput string,
-	editMode bool, modalWindow fyne.Window) error {
-
-	if tagsInput == "" {
-		if editMode {
-			// В режиме редактирования при пустых тегах удаляем все
-			return queries.ReplaceItemTags(ctx, itemID, []int{})
-		}
-		return nil
-	}
-
-	// Разбиваем и очищаем теги
-	tagNames := strings.Split(tagsInput, ",")
-	var cleanTagNames []string
-	for _, name := range tagNames {
-		name = strings.TrimSpace(name)
-		if name != "" {
-			cleanTagNames = append(cleanTagNames, name)
-		}
-	}
-
-	if len(cleanTagNames) == 0 {
-		if editMode {
-			return queries.ReplaceItemTags(ctx, itemID, []int{})
-		}
-		return nil
-	}
-
-	// Получаем или создаем теги
-	tagIDs, err := queries.GetOrCreateTags(ctx, cleanTagNames)
-	if err != nil {
-		return fmt.Errorf("ошибка обработки тегов: %w", err)
-	}
-
-	// Привязываем теги к элементу
-	return queries.ReplaceItemTags(ctx, itemID, tagIDs)
 }
 
 // SaveItem сохраняет элемент (создает или обновляет)

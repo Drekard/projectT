@@ -18,12 +18,6 @@ type StorageConfig interface {
 	GetFilesDir() string
 }
 
-// defaultStorageConfig конфигурация по умолчанию для обратной совместимости
-type defaultStorageConfig struct{} //nolint:unused
-
-func (defaultStorageConfig) GetPath() string     { return "./storage" } //nolint:unused
-func (defaultStorageConfig) GetFilesDir() string { return "files" }     //nolint:unused
-
 // InitStorage инициализирует файловое хранилище с заданной конфигурацией
 func InitStorage(cfg StorageConfig) {
 	storageRoot = cfg.GetPath()

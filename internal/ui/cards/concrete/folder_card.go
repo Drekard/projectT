@@ -7,7 +7,6 @@ import (
 	"projectT/internal/ui/cards"
 	"projectT/internal/ui/cards/hover_preview"
 	"projectT/internal/ui/cards/interfaces"
-	"time"
 
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/container"
@@ -17,11 +16,8 @@ import (
 // FolderCard карточка для папок
 type FolderCard struct {
 	*cards.BaseCard
-	titleLabel           *widget.RichText    //nolint:unused
-	countLabel           *widget.Label       //nolint:unused
 	countSegment         *widget.TextSegment // Сегмент для счетчика элементов
 	richText             *widget.RichText    // RichText для основного содержимого
-	lastClick            time.Time           //nolint:unused // Для обработки двойного клика
 	isContentInitialized bool                // Флаг: контент уже инициализирован
 }
 

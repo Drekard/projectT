@@ -1,13 +1,9 @@
 package create_item
 
 import (
-	"context"
 	"image/color"
-	"strings"
 
-	"projectT/internal/services"
 	"projectT/internal/storage/database/models"
-	"projectT/internal/storage/database/queries"
 
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/canvas"
@@ -258,50 +254,4 @@ func saveNewItemExtended(title, description, tags string, selectedFiles *[]strin
 	}
 
 	return CreateItem(title, description, tags, selectedFiles, linkEntries, parentID, itemType, window)
-}
-
-// saveNewItem сохраняет новый элемент в базу данных
-func saveNewItem(title, description, tags string) error { //nolint:unused
-	// Здесь должна быть реализация сохранения элемента
-	// Создаем новый элемент
-	newItem := &models.Item{
-		Type:        models.ItemTypeElement, // По умолчанию элемент
-		Title:       title,
-		Description: description,
-		ParentID:    selectedFolder.ID, // Устанавливаем выбранную папку как родителя
-	}
-
-	// Вызываем функцию сохранения из queries
-	err := queries.CreateItem(newItem)
-	if err != nil {
-		return err
-	}
-
-	// Если были указаны теги, обрабатываем их
-	if tags != "" {
-		// Разбиваем теги по запятой и сохраняем их
-		tagService := services.NewTagsService()
-		tagNames := strings.Split(tags, ",")
-		for _, tagName := range tagNames {
-			tagName = strings.TrimSpace(tagName)
-			if tagName != "" {
-				// Получаем или создаем тег
-				ctx := context.Background()
-				tag, err := tagService.GetOrCreateTag(ctx, tagName)
-				if err != nil {
-					// Логируем ошибку, но не прерываем процесс
-					continue
-				}
-
-				// Добавляем тег к элементу
-				err = tagService.AddTagToItem(ctx, newItem.ID, tag.ID)
-				if err != nil {
-					// Логируем ошибку, но не прерываем процесс
-					continue
-				}
-			}
-		}
-	}
-
-	return nil
 }

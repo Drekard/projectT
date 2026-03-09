@@ -341,11 +341,6 @@ func (vc *VideoCard) stop() {
 	vc.timeLabel.Refresh()
 }
 
-// updateProgress обновляет прогресс воспроизведения
-func (vc *VideoCard) updateProgress() { //nolint:unused
-	// Для системного плеера прогресс не отслеживается
-}
-
 // setVolume устанавливает громкость
 func (vc *VideoCard) setVolume(value float64) {
 	// Для системного плеера громкость не управляется
@@ -408,18 +403,6 @@ func (vc *VideoCard) openCurrentFileWithDefaultApp() {
 	if err := cmd.Run(); err != nil {
 		fmt.Printf("[ERROR] Ошибка при открытии файла: %v\n", err)
 	}
-}
-
-// formatDurationVideo форматирует длительность в HH:MM:SS или MM:SS
-func formatDurationVideo(d time.Duration) string { //nolint:unused
-	hours := int(d.Hours())
-	minutes := int(d.Minutes()) % 60
-	seconds := int(d.Seconds()) % 60
-
-	if hours > 0 {
-		return fmt.Sprintf("%d:%02d:%02d", hours, minutes, seconds)
-	}
-	return fmt.Sprintf("%d:%02d", minutes, seconds)
 }
 
 // Методы интерфейса CardRenderer

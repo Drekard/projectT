@@ -13,8 +13,7 @@ import (
 // TextCard карточка для текстовых элементов
 type TextCard struct {
 	*cards.BaseCard
-	descLabel            *widget.RichText //nolint:unused
-	isContentInitialized bool             // Флаг: контент уже инициализирован
+	isContentInitialized bool // Флаг: контент уже инициализирован
 }
 
 // NewTextCard создает новую карточку для текста

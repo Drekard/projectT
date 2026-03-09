@@ -486,10 +486,3 @@ func (gm *GridManager) getCardSize(item *db_models.Item) (int, int) {
 	// Используем кэш для получения размеров
 	return gm.cardCache.GetCardSize(item.Type)
 }
-
-// Вычисление размера для текстовых элементов
-func (gm *GridManager) calculateTextSize(item *db_models.Item) (int, int) { //nolint:unused
-	// Для 3-колоночной системы все карточки имеют ширину 1 ячейку
-	// Высота будет определяться по содержимому
-	return 1, 1
-}

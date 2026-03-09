@@ -8,8 +8,6 @@ import (
 	interfaces "projectT/internal/ui/cards/interfaces"
 	ui_models "projectT/internal/ui/workspace/saved/models"
 	"projectT/internal/ui/workspace/saved/utils"
-
-	"fyne.io/fyne/v2"
 )
 
 // FolderCardNavigationHandler интерфейс для обработки навигации по папкам
@@ -98,24 +96,6 @@ func (rf *RenderFactory) CreateCardInfo(item *db_models.Item) *ui_models.CardInf
 	}
 
 	return result
-}
-
-// calculateImageCardHeight вычисляет высоту карточки изображения с учетом пропорций
-func (rf *RenderFactory) calculateImageCardHeight(widget fyne.CanvasObject, item *db_models.Item) float32 { //nolint:unused
-	// Получаем минимальный размер виджета
-	minSize := widget.MinSize()
-
-	// Если минимальная высота слишком большая, возможно это связано с аномальным масштабированием
-	// Попробуем вычислить разумную высоту для карточки изображения
-
-	// Для карточек с несколькими сегментами, особенно с изображениями размером 300px,
-	// может потребоваться дополнительная корректировка высоты
-	if minSize.Height > utils.AnomalousHeightThreshold {
-		// Если высота аномально большая, возвращаем разумное значение
-		return utils.DefaultAnomalousHeight
-	}
-
-	return minSize.Height
 }
 
 // CreateCardInfoWithNavigation создает информацию о карточке с обработчиком навигации

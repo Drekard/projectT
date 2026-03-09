@@ -41,8 +41,6 @@ type UI struct {
 	userStatusEntry          *widget.Entry
 	avatarImage              *canvas.Image
 	avatarContainer          *fyne.Container
-	backgroundImage          *canvas.Image     //nolint:unused
-	backgroundRect           *canvas.Rectangle //nolint:unused
 	customFields             []*fieldRow
 	characteristicsContainer *fyne.Container
 	characteristicsScroll    *container.Scroll
@@ -77,7 +75,6 @@ func New() *UI {
 
 	// Инициализируем gridManager до создания представления
 	ui.gridManager = saved.NewGridManager()
-	ui.loadDemoElements()
 
 	ui.createView()
 
@@ -282,80 +279,4 @@ func (p *UI) updatePinnedItems(gridManager *saved.GridManager) {
 
 	// Обновляем элементы в GridManager
 	gridManager.LoadItemsWithoutCreateElement(pinnedItems)
-}
-
-// loadDemoElements загружает элементы из поля DemoElements профиля
-func (p *UI) loadDemoElements() {
-	// Загружаем профиль для получения DemoElements
-	profile, err := queries.GetProfile()
-	if err != nil {
-		return
-	}
-
-	// Парсим JSON-массив ID элементов
-	var elementIDs []int
-	if profile.DemoElements != "" {
-		err := json.Unmarshal([]byte(profile.DemoElements), &elementIDs)
-		if err != nil {
-			return
-		}
-	}
-
-	// Загружаем элементы по ID и передаем их в GridManager
-	var items []*models.Item
-	for _, id := range elementIDs {
-		item, err := queries.GetItemByID(id)
-		if err != nil {
-			continue
-		}
-		items = append(items, item)
-	}
-
-	// Загружаем элементы в GridManager
-	p.gridManager.LoadItemsWithoutCreateElement(items)
-}
-
-// addElementToDemoElements добавляет элемент в DemoElements профиля
-func (p *UI) addElementToDemoElements(elementID int) { //nolint:unused
-	// Получаем текущий профиль
-	profile, err := queries.GetProfile()
-	if err != nil {
-		return
-	}
-
-	// Парсим текущие ID элементов
-	var currentElementIDs []int
-	if profile.DemoElements != "" {
-		err := json.Unmarshal([]byte(profile.DemoElements), &currentElementIDs)
-		if err != nil {
-			return
-		}
-	}
-
-	// Проверяем, не добавлен ли уже элемент
-	for _, id := range currentElementIDs {
-		if id == elementID {
-			return
-		}
-	}
-
-	// Добавляем новый ID
-	currentElementIDs = append(currentElementIDs, elementID)
-
-	// Сохраняем обновленный список обратно в профиль
-	updatedJSON, err := json.Marshal(currentElementIDs)
-	if err != nil {
-		return
-	}
-
-	profile.DemoElements = string(updatedJSON)
-
-	// Обновляем профиль в базе данных
-	err = queries.UpdateProfileField("demo_elements", profile.DemoElements, profile.ID)
-	if err != nil {
-		return
-	}
-
-	// Перезагружаем элементы в сетке
-	p.loadDemoElements()
 }

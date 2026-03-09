@@ -9,7 +9,6 @@ import (
 	"projectT/internal/storage/database/models"
 	"projectT/internal/storage/database/queries"
 	"projectT/internal/ui/edit_item"
-	"strings"
 	"time"
 
 	"fyne.io/fyne/v2"
@@ -337,21 +336,6 @@ func getTitleForItem(item *models.Item) string {
 		return "--заголовок отсутствует--"
 	}
 	return "**" + item.Title + "**"
-}
-
-// getTagsForItem возвращает строку с тегами для элемента
-func getTagsForItem(item *models.Item) string { //nolint:unused
-	tags, err := queries.GetTagsForItem(context.Background(), item.ID)
-	if err != nil || len(tags) == 0 {
-		return "--теги отсутствуют--"
-	}
-
-	var tagNames []string
-	for _, tag := range tags {
-		tagNames = append(tagNames, tag.Name)
-	}
-
-	return strings.Join(tagNames, ", ")
 }
 
 // parseHexColor преобразует HEX цвет в RGBA

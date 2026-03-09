@@ -7,10 +7,9 @@ import (
 
 // Debouncer реализует функциональность дебаунсинга
 type Debouncer struct {
-	mu       sync.Mutex
-	timer    *time.Timer
-	delay    time.Duration
-	callback func() //nolint:unused
+	mu    sync.Mutex
+	timer *time.Timer
+	delay time.Duration
 }
 
 // NewDebouncer создает новый дебаунсер
@@ -29,13 +28,9 @@ func (d *Debouncer) Call(fn func()) {
 		d.timer.Stop()
 	}
 
-	d.callback = fn
 	d.timer = time.AfterFunc(d.delay, func() {
 		d.mu.Lock()
-		if d.callback != nil {
-			d.callback()
-		}
-		d.timer = nil
+		fn()
 		d.mu.Unlock()
 	})
 }
@@ -45,7 +40,6 @@ type Throttler struct {
 	mu       sync.Mutex
 	lastCall time.Time
 	interval time.Duration
-	callback func() //nolint:unused
 	running  bool
 }
 

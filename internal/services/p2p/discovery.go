@@ -7,7 +7,6 @@ import (
 	"database/sql"
 	"fmt"
 	"log"
-	"net"
 	"sync"
 	"time"
 
@@ -387,24 +386,4 @@ func (ds *DiscoveryService) ClearDiscoveredPeers() {
 	defer ds.mu.Unlock()
 
 	ds.discoveredPeers = make(map[string]time.Time)
-}
-
-// isLocalAddress проверяет, является ли адрес локальным
-func isLocalAddress(addr multiaddr.Multiaddr) bool { //nolint:unused
-	// Извлекаем IP адрес из multiaddr
-	ipStr, err := addr.ValueForProtocol(multiaddr.P_IP4)
-	if err != nil {
-		ipStr, err = addr.ValueForProtocol(multiaddr.P_IP6)
-		if err != nil {
-			return false
-		}
-	}
-
-	ip := net.ParseIP(ipStr)
-	if ip == nil {
-		return false
-	}
-
-	// Проверяем, является ли адрес локальным
-	return ip.IsLoopback() || ip.IsPrivate() || ip.IsLinkLocalUnicast() || ip.IsLinkLocalMulticast()
 }
