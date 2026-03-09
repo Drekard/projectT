@@ -12,95 +12,11 @@ import (
 	"strings"
 	"unicode/utf8"
 
+	"fyne.io/fyne/v2"
+	"fyne.io/fyne/v2/canvas"
 	"fyne.io/fyne/v2/dialog"
-	"fyne.io/fyne/v2/theme"
 	"golang.org/x/text/encoding/charmap"
 )
-
-// toggleEditMode переключает режим редактирования
-func (p *UI) toggleEditMode() {
-	p.editMode = !p.editMode
-
-	if p.editMode {
-		// Переход в режим редактирования
-		p.editButton.SetIcon(theme.CancelIcon())
-
-		// Показываем поля ввода
-		p.userNameEntry.SetText(p.userNameLabel.Text)
-		p.userNameEntry.Show()
-		p.userNameLabel.Hide()
-
-		p.userStatusEntry.SetText(p.userStatusLabel.Text)
-		p.userStatusEntry.Show()
-		if p.userStatusLabel != nil {
-			p.userStatusLabel.Hide()
-		}
-
-		// Показываем поля ввода для кастомных полей
-		for _, field := range p.customFields {
-			field.titleLabel.Hide()
-			field.titleEntry.Show()
-			field.valueEntry.Show()
-		}
-
-		// Показываем кнопку добавления характеристики
-		p.addCharacteristicButton.Show()
-
-		// Показываем кнопку применения
-		p.applyButton.Show()
-
-	} else {
-		// Выход из режима редактирования
-		p.editButton.SetIcon(theme.DocumentCreateIcon())
-
-		// Скрываем поля ввода
-		p.userNameEntry.Hide()
-		p.userNameLabel.Show()
-
-		p.userStatusEntry.Hide()
-		if p.userStatusLabel != nil {
-			p.userStatusLabel.Show()
-		}
-
-		// Скрываем поля ввода для кастомных полей
-		for _, field := range p.customFields {
-			field.titleEntry.Hide()
-			field.titleLabel.Show()
-			field.valueEntry.Hide()
-		}
-
-		// Скрываем кнопку добавления характеристики
-		p.addCharacteristicButton.Hide()
-
-		// Скрываем кнопку применения
-		p.applyButton.Hide()
-	}
-
-	p.content.Refresh()
-}
-
-// applyChanges применяет изменения из полей ввода
-func (p *UI) applyChanges() {
-	// Применяем изменения из полей ввода
-	p.userNameLabel.SetText(p.userNameEntry.Text)
-	if p.userStatusLabel != nil {
-		p.userStatusLabel.SetText(p.userStatusEntry.Text)
-	}
-
-	// Обновляем значения кастомных полей
-	for _, field := range p.customFields {
-		field.titleLabel.SetText(field.titleEntry.Text + ":")
-		// В новой реализации нет отдельного поля для отображения значения
-		// Значение остается в поле ввода
-	}
-
-	// Выходим из режима редактирования
-	p.editMode = false
-	p.toggleEditMode()
-
-	// Сохраняем изменения в базу данных
-	p.saveToDatabase()
-}
 
 // selectBackgroundImage открывает диалог выбора изображения для фона
 func (p *UI) selectBackgroundImage() {
@@ -151,79 +67,13 @@ func (p *UI) selectBackgroundImage() {
 	// Обновляем путь в UI
 	p.backgroundPath = finalPath
 
-	// Обновляем UI
+	// Сохраняем изменения в БД
+	p.saveToDatabase()
+
+	// Обновляем UI профиля
 	p.createView()
 
-	// Восстанавливаем правильное состояние кнопок в зависимости от режима редактирования
-	if p.editMode {
-		p.addCharacteristicButton.Show()
-	} else {
-		p.addCharacteristicButton.Hide()
-	}
-
-	p.content.Refresh()
-}
-
-// deleteBackgroundImage очищает текущее фоновое изображение (не удаляет файл с диска)
-func (p *UI) deleteBackgroundImage() {
-	// Проверяем, есть ли у нас путь к фоновому изображению
-	if p.backgroundPath == "" {
-		// Если фонового изображения нет, выводим сообщение
-		dialog.ShowInformation("Информация", "Фоновое изображение отсутствует", p.window)
-		return
-	}
-
-	// Подтверждение очистки фона
-	dialog.ShowConfirm("Подтверждение", "Вы уверены, что хотите очистить фоновое изображение?", func(confirmed bool) {
-		if confirmed {
-			// Используем сервис для очистки фона
-			backgroundService := background.NewService()
-			err := backgroundService.ClearBackground()
-			if err != nil {
-				dialog.ShowError(fmt.Errorf("ошибка очистки фона: %v", err), p.window)
-				return
-			}
-
-			// Обновляем путь в UI
-			p.backgroundPath = ""
-
-			// Обновляем UI
-			p.createView()
-
-			// Восстанавливаем правильное состояние кнопок в зависимости от режима редактирования
-			if p.editMode {
-				p.addCharacteristicButton.Show()
-			} else {
-				p.addCharacteristicButton.Hide()
-			}
-
-			p.content.Refresh()
-		}
-	}, p.window)
-}
-
-// cancelChanges отменяет изменения и возвращается к просмотру
-func (p *UI) cancelChanges() {
-	// Отменяем изменения и возвращаемся к просмотру
-	p.userNameEntry.SetText(p.userNameLabel.Text)
-	p.userStatusEntry.SetText(p.userStatusLabel.Text)
-
-	// Сбрасываем значения кастомных полей
-	for _, field := range p.customFields {
-		field.titleEntry.SetText(strings.TrimSuffix(field.titleLabel.Text, ":"))
-		// В новой реализации нет отдельного поля для отображения значения
-		// Поле ввода остается с текущим значением
-	}
-
-	// Перезагружаем характеристики из базы данных, чтобы отменить изменения
-	profile, err := queries.GetProfile()
-	if err == nil {
-		p.LoadCharacteristicsFromJSON(profile.ContentCharacteristic)
-	}
-
-	// Выходим из режима редактирования
-	p.editMode = false
-	p.toggleEditMode()
+	dialog.ShowInformation("Успех", "Фон успешно установлен", p.window)
 }
 
 // saveToDatabase сохраняет изменения в базу данных
@@ -238,6 +88,8 @@ func (p *UI) saveToDatabase() {
 	// Обновляем основные поля профиля
 	profile.Username = p.userNameEntry.Text
 	profile.Status = p.userStatusEntry.Text
+	profile.AvatarPath = p.avatarPath
+	profile.BackgroundPath = p.backgroundPath
 
 	// Сохраняем характеристики в JSON-формате
 	characteristicsJSON, err := p.SaveCharacteristicsToJSON()
@@ -397,4 +249,68 @@ if ($result -eq [System.Windows.Forms.DialogResult]::OK) {
 	}
 
 	return cleanFiles, nil
+}
+
+// selectAvatarImage открывает диалог выбора изображения для аватара
+func (p *UI) selectAvatarImage() {
+	// Используем Windows-диалог как в файле file_upload.go
+	selectedFiles, err := openWindowsFileDialog([]string{".png", ".jpg", ".jpeg", ".gif", ".bmp"}, false)
+	if err != nil {
+		dialog.ShowError(err, p.window)
+		return
+	}
+
+	if len(selectedFiles) == 0 {
+		return // пользователь отменил операцию
+	}
+
+	originalFilePath := selectedFiles[0]
+
+	// Создаем имя файла на основе оригинального имени
+	originalFilename := filepath.Base(originalFilePath)
+	ext := filepath.Ext(originalFilename)
+	filename := strings.TrimSuffix(originalFilename, ext)
+	safeFilename := fmt.Sprintf("%s%s", filename, ext)
+
+	// Путь для сохранения в assets/avatars
+	avatarDir := "assets/avatars"
+	finalPath := filepath.Join(avatarDir, safeFilename)
+
+	// Создаем директорию, если её нет
+	if err := os.MkdirAll(avatarDir, os.ModePerm); err != nil {
+		dialog.ShowError(fmt.Errorf("ошибка создания директории: %v", err), p.window)
+		return
+	}
+
+	// Копируем файл в assets/avatars
+	err = copyFile(originalFilePath, finalPath)
+	if err != nil {
+		dialog.ShowError(fmt.Errorf("ошибка копирования файла: %v", err), p.window)
+		return
+	}
+
+	// Обновляем путь в UI
+	p.avatarPath = finalPath
+
+	// Сохраняем изменения в базу данных
+	p.saveToDatabase()
+
+	// Обновляем изображение аватара напрямую
+	if p.avatarContainer != nil && len(p.avatarContainer.Objects) > 0 {
+		if avatarClickable, ok := p.avatarContainer.Objects[0].(*AvatarClickableImage); ok {
+			// Создаем новое изображение
+			newImage := canvas.NewImageFromFile(finalPath)
+			newImage.FillMode = canvas.ImageFillContain
+			newImage.SetMinSize(fyne.NewSize(100, 100))
+
+			// Обновляем p.avatarImage для консистентности
+			p.avatarImage = newImage
+
+			// Обновляем content в AvatarClickableImage
+			avatarClickable.content = newImage
+			avatarClickable.Refresh()
+		}
+	}
+
+	dialog.ShowInformation("Успех", "Аватар успешно установлен", p.window)
 }

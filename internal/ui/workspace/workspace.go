@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"image/color"
 	"projectT/internal/services"
-	"projectT/internal/services/background"
 	"projectT/internal/storage/database/models"
 	"projectT/internal/storage/database/queries"
 	"projectT/internal/ui/workspace/chats"
@@ -59,8 +58,6 @@ type Workspace struct {
 	backgroundRect *canvas.Rectangle // прямоугольник фона по умолчанию
 	// Режим отображения элементов
 	showMode string // "current_folder" или "all_items"
-	// Флаг для предотвращения рекурсивного обновления фона
-	updatingBackground bool
 }
 
 // CreateWorkspace создает и возвращает рабочую область
@@ -99,17 +96,6 @@ func CreateWorkspace(window fyne.Window) *Workspace {
 
 	// Загружаем начальный контент (сохраненное)
 	ws.loadSavedContent()
-
-	// Подписываемся на события изменения фона
-	backgroundEventChan := background.GetEventManager().Subscribe()
-	go func() {
-		for eventType := range backgroundEventChan {
-			if eventType == "background_changed" || eventType == "background_cleared" {
-				// Обновляем фон рабочей области
-				ws.UpdateBackground()
-			}
-		}
-	}()
 
 	return ws
 }
@@ -365,41 +351,6 @@ func (ws *Workspace) GetContainer() *fyne.Container {
 	}
 	// Иначе используем стандартный фон
 	return container.NewStack(ws.backgroundRect, ws.container)
-}
-
-// UpdateBackground обновляет фон рабочей области
-func (ws *Workspace) UpdateBackground() {
-	// Предотвращаем рекурсивные вызовы
-	if ws.updatingBackground {
-		return
-	}
-
-	ws.updatingBackground = true
-
-	// Загружаем фоновое изображение из профиля
-	profile, err := queries.GetProfile()
-	if err == nil && profile.BackgroundPath != "" {
-		// Создаем кастомный фон с масштабированием
-		ws.background = NewScaledBackground(profile.BackgroundPath)
-	} else {
-		// Используем стандартный фон (черный прямоугольник)
-		ws.background = nil
-	}
-
-	// Обновляем контейнер, чтобы применить изменения фона
-	var newContainer *fyne.Container
-	if ws.background != nil {
-		newContainer = container.NewStack(ws.background, ws.container)
-	} else {
-		newContainer = container.NewStack(ws.backgroundRect, ws.container)
-	}
-
-	// Заменяем объекты в основном контейнере
-	ws.container.Objects = newContainer.Objects
-	ws.container.Refresh()
-
-	// Сбрасываем флаг
-	ws.updatingBackground = false
 }
 
 // ApplyFilters применяет фильтры и обновляет сетку элементов

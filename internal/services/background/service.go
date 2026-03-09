@@ -66,11 +66,6 @@ func (s *Service) ClearBackground() error {
 	}
 	fmt.Println("DEBUG: Service - Фон успешно очищен в базе данных")
 
-	// Уведомляем всех подписчиков об изменении фона
-	eventManager := GetEventManager()
-	fmt.Println("DEBUG: Service - Отправка уведомления об очистке фона")
-	eventManager.Notify("background_cleared")
-
 	return nil
 }
 

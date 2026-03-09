@@ -121,9 +121,35 @@ func (p *UI) scheduleAutoSave(row *fieldRow) {
 	})
 }
 
+// scheduleProfileAutoSave планирует автосохранение профиля (имя и статус) через 2 секунды
+func (p *UI) scheduleProfileAutoSave() {
+	// Отменяем предыдущие таймеры, если они существуют
+	if p.userNameTimer != nil {
+		p.userNameTimer.Stop()
+	}
+	if p.userStatusTimer != nil {
+		p.userStatusTimer.Stop()
+	}
+
+	// Создаем новый таймер на 2 секунды
+	p.userNameTimer = time.AfterFunc(2*time.Second, func() {
+		p.autoSaveProfile()
+	})
+	p.userStatusTimer = p.userNameTimer
+}
+
+// autoSaveProfile сохраняет имя и статус профиля в базу данных
+func (p *UI) autoSaveProfile() {
+	p.saveCharacteristicsToDB()
+}
+
 // autoSaveField сохраняет поле в базу данных
 func (p *UI) autoSaveField(row *fieldRow) {
+	p.saveCharacteristicsToDB()
+}
 
+// saveCharacteristicsToDB сохраняет все характеристики в базу данных
+func (p *UI) saveCharacteristicsToDB() {
 	// Получаем текущий профиль
 	profile, err := queries.GetProfile()
 	if err != nil {
@@ -146,7 +172,6 @@ func (p *UI) autoSaveField(row *fieldRow) {
 	if err != nil {
 		return
 	}
-
 }
 
 // RemoveCharacteristic удаляет характеристику из интерфейса
@@ -166,6 +191,9 @@ func (p *UI) RemoveCharacteristic(row *fieldRow) {
 			break
 		}
 	}
+
+	// Сохраняем изменения в базу данных
+	p.saveCharacteristicsToDB()
 }
 
 // LoadCharacteristicsFromJSON загружает характеристики из JSON-строки
@@ -229,18 +257,50 @@ func (p *UI) SaveCharacteristicsToJSON() (string, error) {
 
 // showBackgroundDialog показывает диалоговое окно для управления фоновым изображением
 func (p *UI) showBackgroundDialog() {
+	p.showImageDialog("Фон", "assets/background", "Нет сохраненных фонов", "Загрузить фон", "Удалить фон", func(imagePath string) error {
+		backgroundService := background.NewService()
+		err := backgroundService.SetBackground(imagePath)
+		if err != nil {
+			return fmt.Errorf("ошибка установки фона: %v", err)
+		}
+		p.backgroundPath = imagePath
+		return nil
+	}, func() {
+		backgroundService := background.NewService()
+		_ = backgroundService.ClearBackground() //nolint:errcheck
+		p.backgroundPath = ""
+	})
+}
 
+// showAvatarDialog показывает диалоговое окно для управления аватаром
+func (p *UI) showAvatarDialog() {
+	p.showImageDialog("Аватар", "assets/avatars", "Нет сохраненных аватаров", "Загрузить аватар", "", func(imagePath string) error {
+		p.avatarPath = imagePath
+		return nil
+	}, func() {
+		p.avatarPath = ""
+	})
+}
+
+// showImageDialog показывает диалоговое окно для выбора изображения
+func (p *UI) showImageDialog(
+	title string,
+	assetsDir string,
+	noImagesLabel string,
+	loadButtonLabel string,
+	deleteButtonLabel string,
+	onSelect func(imagePath string) error,
+	onDelete func(),
+) {
 	// Создаем контейнер для миниатюр
 	thumbnailsContainer := container.NewVBox()
 
-	// Получаем список файлов из директории assets/background
-	backgroundDir := "assets/background"
-	files, err := os.ReadDir(backgroundDir)
+	// Получаем список файлов из директории
+	files, err := os.ReadDir(assetsDir)
 	if err != nil {
 		// Если директория не существует или произошла ошибка, создаем пустой контейнер
-		thumbnailsContainer.Add(widget.NewLabel("Нет сохраненных фонов"))
+		thumbnailsContainer.Add(widget.NewLabel(noImagesLabel))
 	} else {
-
 		// Фильтруем только файлы изображений
 		imageExtensions := map[string]bool{
 			".jpg":  true,
@@ -252,11 +312,10 @@ func (p *UI) showBackgroundDialog() {
 
 		hasImages := false
 		for _, file := range files {
-			if !file.IsDir() { // Проверяем, что это файл, а не директория
+			if !file.IsDir() {
 				ext := strings.ToLower(filepath.Ext(file.Name()))
 				if imageExtensions[ext] {
-					// Создаем путь к файлу
-					imagePath := filepath.Join(backgroundDir, file.Name())
+					imagePath := filepath.Join(assetsDir, file.Name())
 
 					// Создаем миниатюру изображения
 					imageThumb := canvas.NewImageFromFile(imagePath)
@@ -269,39 +328,23 @@ func (p *UI) showBackgroundDialog() {
 
 					thumbContainer := container.NewVBox(imageThumb, fileLabel)
 
-					// Добавляем возможность выбора этого фона
-					thumbButton := widget.NewButton("", func() {
-						// Используем сервис для установки фона
-						backgroundService := background.NewService()
-						err := backgroundService.SetBackground(imagePath)
+					// Добавляем возможность выбора по двойному клику
+					clickableThumb := NewThumbnailClickable(thumbContainer, func() {
+						err := onSelect(imagePath)
 						if err != nil {
-							dialog.ShowError(fmt.Errorf("ошибка установки фона: %v", err), p.window)
+							dialog.ShowError(err, p.window)
 							return
 						}
 
-						// Обновляем путь в UI
-						p.backgroundPath = imagePath
+						// Сохраняем в БД
+						p.saveToDatabase()
 
-						// Обновляем UI
+						// Обновляем UI профиля
 						p.createView()
 
-						// Восстанавливаем правильное состояние кнопок в зависимости от режима редактирования
-						if p.editMode {
-							p.addCharacteristicButton.Show()
-						} else {
-							p.addCharacteristicButton.Hide()
-						}
-
-						p.content.Refresh()
-
-						// Закрываем диалог
-						dialog.ShowInformation("Успех", "Фон успешно установлен", p.window)
+						// Закрываем диалог и показываем уведомление
+						dialog.ShowInformation("Успех", fmt.Sprintf("%s успешно установлен", strings.ToLower(title)), p.window)
 					})
-					thumbButton.Importance = widget.LowImportance
-					thumbButton.Hidden = true // Скрываем кнопку, но она нужна для обработки клика по контейнеру
-
-					// Объединяем миниатюру и кнопку
-					clickableThumb := container.NewStack(thumbContainer, thumbButton)
 
 					thumbnailsContainer.Add(clickableThumb)
 					hasImages = true
@@ -310,29 +353,41 @@ func (p *UI) showBackgroundDialog() {
 		}
 
 		if !hasImages {
-			thumbnailsContainer.Add(widget.NewLabel("Нет сохраненных фонов"))
+			thumbnailsContainer.Add(widget.NewLabel(noImagesLabel))
 		}
 	}
 
 	// Создаем кнопки
-	loadButton := widget.NewButton("Загрузить фон", func() {
-		p.selectBackgroundImage()
-	})
-
-	deleteButton := widget.NewButton("Удалить фон", func() {
-		p.deleteBackgroundImage()
+	loadButton := widget.NewButton(loadButtonLabel, func() {
+		if title == "Фон" {
+			p.selectBackgroundImage()
+		} else {
+			p.selectAvatarImage()
+		}
 	})
 
 	// Создаем контейнер для кнопок
-	buttonsContainer := container.NewHBox(loadButton, deleteButton)
+	var buttonsContainer fyne.CanvasObject
+	if deleteButtonLabel != "" {
+		deleteButton := widget.NewButton(deleteButtonLabel, func() {
+			onDelete()
+			p.saveToDatabase()
+
+			// Обновляем UI профиля
+			p.createView()
+		})
+		buttonsContainer = container.NewHBox(loadButton, deleteButton)
+	} else {
+		buttonsContainer = container.NewHBox(loadButton)
+	}
 
 	// Создаем основной контейнер для диалога
 	dialogContent := container.NewVBox(
-		widget.NewLabel("Выберите фоновое изображение:"),
+		widget.NewLabel(fmt.Sprintf("Выберите %s:", strings.ToLower(title))),
 		thumbnailsContainer,
-		buttonsContainer,
+		container.NewCenter(buttonsContainer),
 	)
 
 	// Показываем диалог
-	dialog.ShowCustom("Фон", "Закрыть", dialogContent, p.window)
+	dialog.ShowCustom(title, "Закрыть", dialogContent, p.window)
 }

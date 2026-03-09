@@ -12,7 +12,6 @@ import (
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/canvas"
 	"fyne.io/fyne/v2/container"
-	"fyne.io/fyne/v2/theme"
 	"fyne.io/fyne/v2/widget"
 )
 
@@ -36,7 +35,6 @@ type fieldRow struct {
 
 type UI struct {
 	content                  fyne.CanvasObject
-	editMode                 bool
 	userNameLabel            *widget.Label
 	userStatusLabel          *widget.Label
 	userNameEntry            *widget.Entry
@@ -48,10 +46,8 @@ type UI struct {
 	customFields             []*fieldRow
 	characteristicsContainer *fyne.Container
 	characteristicsScroll    *container.Scroll
-	editButton               *widget.Button
 	backgroundButton         *widget.Button
-	applyButton              *widget.Button
-	cancelButton             *widget.Button
+	avatarButton             *widget.Button
 	addCharacteristicButton  *widget.Button
 	loadCharacteristicsJSON  string
 	nextID                   int
@@ -59,6 +55,8 @@ type UI struct {
 	backgroundPath           string
 	window                   fyne.Window
 	gridManager              *saved.GridManager
+	userNameTimer            *time.Timer
+	userStatusTimer          *time.Timer
 }
 
 func New() *UI {
@@ -135,63 +133,74 @@ func (p *UI) createComponents() {
 	p.avatarImage.FillMode = canvas.ImageFillContain
 	p.avatarImage.SetMinSize(fyne.NewSize(100, 100))
 
+	// Оборачиваем изображение в кликабельный виджет
+	avatarClickable := NewAvatarClickableImage(p.avatarImage, nil)
+
 	// Контейнер для аватара
-	p.avatarContainer = container.NewCenter(p.avatarImage)
+	p.avatarContainer = container.NewCenter(avatarClickable)
 
 	// Информация о пользователе
 	p.userNameLabel = widget.NewLabel("Имя пользователя")
 	p.userStatusLabel = widget.NewLabel("Статус")
 
-	p.userNameEntry = widget.NewEntry()
-	p.userNameEntry.SetText(p.userNameLabel.Text)
-	p.userNameEntry.Hide()
+	// Загружаем данные из профиля
+	profile, err := queries.GetProfile()
+	if err == nil {
+		p.userNameEntry = widget.NewEntry()
+		p.userNameEntry.SetText(profile.Username)
+		p.userNameEntry.OnChanged = func(text string) {
+			p.scheduleProfileAutoSave()
+		}
 
-	p.userStatusEntry = widget.NewEntry()
-	p.userStatusEntry.SetText(p.userStatusLabel.Text)
-	p.userStatusEntry.Hide()
+		p.userStatusEntry = widget.NewEntry()
+		p.userStatusEntry.SetText(profile.Status)
+		p.userStatusEntry.OnChanged = func(text string) {
+			p.scheduleProfileAutoSave()
+		}
+	} else {
+		p.userNameEntry = widget.NewEntry()
+		p.userNameEntry.SetText(p.userNameLabel.Text)
+		p.userNameEntry.OnChanged = func(text string) {
+			p.scheduleProfileAutoSave()
+		}
 
-	// Кнопки
-	p.editButton = widget.NewButtonWithIcon("", theme.DocumentCreateIcon(), func() {
-		p.toggleEditMode()
-	})
+		p.userStatusEntry = widget.NewEntry()
+		p.userStatusEntry.SetText(p.userStatusLabel.Text)
+		p.userStatusEntry.OnChanged = func(text string) {
+			p.scheduleProfileAutoSave()
+		}
+	}
 
 	p.backgroundButton = widget.NewButton("Фон", func() {
 		p.showBackgroundDialog()
 	})
 
-	p.applyButton = widget.NewButtonWithIcon("Применить", theme.ConfirmIcon(), func() {
-		p.applyChanges()
+	p.avatarButton = widget.NewButton("Аватар", func() {
+		p.showAvatarDialog()
 	})
-	p.applyButton.Hide()
-
-	p.cancelButton = widget.NewButtonWithIcon("Отмена", theme.CancelIcon(), func() {
-		p.cancelChanges()
-	})
-	p.cancelButton.Hide()
 }
 
 func (p *UI) createTopPart() fyne.CanvasObject {
 	leftTopPartWrapper := canvas.NewRectangle(color.Transparent)
 	leftTopPartWrapper.SetMinSize(fyne.NewSize(300, 0))
 
+	// Объединяем Label и Entry через Stack для имени
+	entryNameWrapper := canvas.NewRectangle(color.Transparent)
+	entryNameWrapper.SetMinSize(fyne.NewSize(200, 40))
+	nameContainer := container.NewStack(entryNameWrapper, p.userNameEntry)
+
+	// Объединяем Label и Entry через Stack для статуса
+	entryStatusWrapper := canvas.NewRectangle(color.Transparent)
+	entryStatusWrapper.SetMinSize(fyne.NewSize(200, 40))
+	statusContainer := container.NewStack(entryStatusWrapper, p.userStatusEntry)
+
 	// Левая часть верхней секции (аватар, имя, статус, кнопки)
 	leftTopPart := container.NewVBox(
 		leftTopPartWrapper,
 		container.NewCenter(p.avatarContainer),
-		container.NewCenter(
-			p.userNameLabel,
-			p.userNameEntry,
-		),
-		container.NewCenter(
-			p.userStatusLabel,
-			p.userStatusEntry,
-		),
-		container.NewHBox(
-			p.editButton,
-			p.backgroundButton,
-			p.applyButton,
-			p.cancelButton,
-		),
+		container.NewCenter(nameContainer),
+		container.NewCenter(statusContainer),
+		container.NewCenter(container.NewHBox(p.backgroundButton, p.avatarButton)),
 	)
 
 	// Правая часть верхней секции - прокручиваемый список характеристик
