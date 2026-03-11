@@ -18,7 +18,7 @@ func (ui *UI) createLeftPanel() *fyne.Container {
 	header := ui.createLeftPanelHeader()
 
 	// Список чатов
-	//ui.chatsList = ui.createChatsList()
+	ui.chatsList = container.NewVBox()
 
 	// Вертикальная компоновка
 	content := container.NewVBox(header, ui.chatsList)

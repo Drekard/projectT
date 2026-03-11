@@ -213,7 +213,10 @@ func (ui *UI) createConnectedPeersSection() *fyne.Container {
 	// Список подключённых пиров
 	ui.connectedPeersList = container.NewVBox()
 
-	return container.NewVBox(headerRow, ui.connectedPeersList)
+	// Список контактов в панели управления
+	ui.contactsListInPanel = container.NewVBox()
+
+	return container.NewVBox(headerRow, ui.connectedPeersList, ui.contactsListInPanel)
 }
 
 // createP2PSettingsSection создает секцию настроек P2P

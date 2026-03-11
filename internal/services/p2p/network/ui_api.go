@@ -273,16 +273,21 @@ func (api *UIP2P) GetConnectedPeers() []*PeerInfo {
 		}
 
 		latencyMs := int64(0)
+		status := ""
+		lastSeen := time.Time{}
+
 		if info != nil {
 			latencyMs = info.LastPingLatency.Milliseconds()
+			status = string(info.Status)
+			lastSeen = info.LastSeen
 		}
 
 		peers = append(peers, &PeerInfo{
 			PeerID:      peerID.String(),
 			Username:    username,
-			Status:      string(info.Status),
+			Status:      status,
 			IsConnected: true,
-			LastSeen:    info.LastSeen,
+			LastSeen:    lastSeen,
 			LatencyMs:   latencyMs,
 		})
 	}
