@@ -1,11 +1,9 @@
 package chats
 
 import (
-	"time"
-
 	"projectT/internal/services/p2p/network"
 	"projectT/internal/storage/database/models"
-	"projectT/internal/ui/workspace/chats/widgets"
+	"projectT/internal/ui/workspace/chats/center"
 
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/canvas"
@@ -19,14 +17,12 @@ type UI struct {
 	window                fyne.Window
 	p2pUI                 *network.UIP2P
 	currentChatID         int
+	currentContact        *models.Contact
 	contacts              []*models.Contact
 	chatsList             *fyne.Container
 	chatArea              *fyne.Container
+	chatPanel             *center.ChatPanel
 	profileArea           *fyne.Container
-	messageScroll         *container.Scroll
-	messagesList          *fyne.Container
-	chatTitle             *widget.Label
-	chatStatus            *widget.Label
 	profileAvatar         *canvas.Circle
 	profileName           *widget.Label
 	profileStatus         *widget.Label
@@ -129,58 +125,14 @@ func (ui *UI) SetP2PService(p2pUI *network.UIP2P) {
 
 // selectChat выбирает чат с пиром
 func (ui *UI) selectChat(contact *models.Contact) {
-	ui.currentChatID = 0 // TODO: использовать реальный ID
-	ui.updateChatHeader(contact.Username, contact.PeerID)
-	ui.loadMessages(contact)
+	ui.currentContact = contact
+	ui.currentChatID = contact.ID
+
+	// Создаём панель чата
+	chatPanel := ui.createChatPanel(contact)
+	ui.chatArea.Objects = []fyne.CanvasObject{chatPanel}
+	ui.chatArea.Refresh()
+
+	// Обновляем профиль
 	ui.updateProfile(contact)
-}
-
-// updateChatHeader обновляет заголовок чата
-func (ui *UI) updateChatHeader(name, address string) {
-	if ui.chatTitle != nil {
-		ui.chatTitle.SetText(name)
-	}
-	if ui.chatStatus != nil {
-		ui.chatStatus.SetText("онлайн • " + address)
-	}
-	if ui.chatArea != nil {
-		ui.chatArea.Refresh()
-	}
-}
-
-// loadMessages загружает сообщения чата
-func (ui *UI) loadMessages(contact *models.Contact) {
-	// Инициализируем при необходимости
-	if ui.messagesList == nil {
-		ui.messagesList = container.NewVBox()
-	}
-	if ui.messageScroll == nil {
-		ui.messageScroll = container.NewScroll(ui.messagesList)
-	}
-
-	ui.messagesList.Objects = nil
-
-	// Тестовые сообщения
-	messages := []struct {
-		text     string
-		time     time.Time
-		position widgets.MessagePosition
-	}{
-		{"Привет! Как дела?", time.Now().Add(-2 * time.Hour), widgets.MessageLeft},
-		{"Привет! Все хорошо, спасибо!", time.Now().Add(-2*time.Hour + 5*time.Minute), widgets.MessageRight},
-		{"Работаешь над новым проектом?", time.Now().Add(-1 * time.Hour), widgets.MessageLeft},
-		{"Да, делаю мессенджер на Go", time.Now().Add(-55 * time.Minute), widgets.MessageRight},
-		{"Звучит круто! Покажешь потом?", time.Now().Add(-30 * time.Minute), widgets.MessageLeft},
-		{"Конечно! Скоро будет готово", time.Now().Add(-25 * time.Minute), widgets.MessageRight},
-	}
-
-	for _, msg := range messages {
-		bubble := widgets.NewMessageBubble(msg.text, msg.time, msg.position)
-		ui.messagesList.Add(bubble)
-	}
-
-	ui.messagesList.Refresh()
-
-	// Прокрутка вниз
-	ui.messageScroll.ScrollToBottom()
 }

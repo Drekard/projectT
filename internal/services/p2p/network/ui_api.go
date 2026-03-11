@@ -443,3 +443,21 @@ func (api *UIP2P) RequestAllProfiles() {
 
 	api.network.profileExchange.RequestProfilesForAllContacts(ctx)
 }
+
+// GetPeerID декодирует PeerID из строки
+func (api *UIP2P) GetPeerID(peerIDStr string) (peer.ID, error) {
+	return peer.Decode(peerIDStr)
+}
+
+// SendMessage отправляет текстовое сообщение пиру
+func (api *UIP2P) SendMessage(peerID peer.ID, content string) error {
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	return api.network.SendTextMessage(ctx, peerID, content)
+}
+
+// GetMessagesForContact получает сообщения для контакта
+func (api *UIP2P) GetMessagesForContact(contactID, limit, offset int) ([]*models.ChatMessage, error) {
+	return api.network.GetMessagesForContact(contactID, limit, offset)
+}
