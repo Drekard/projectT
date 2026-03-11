@@ -66,12 +66,12 @@ func (ds *DiscoveryService) Start() error {
 		log.Printf("Предупреждение: не удалось загрузить bootstrap-пиры: %v", err)
 	}
 
-	// Подключаемся к bootstrap-узлам
-	if err := ds.connectToBootstrapPeers(); err != nil {
-		log.Printf("Предупреждение: не удалось подключиться к bootstrap-узлам: %v", err)
-	}
+	// НЕ подключаемся к bootstrap-узлам автоматически - только по запросу пользователя
+	// if err := ds.connectToBootstrapPeers(); err != nil {
+	// 	log.Printf("Предупреждение: не удалось подключиться к bootstrap-узлам: %v", err)
+	// }
 
-	// Запускаем mDNS обнаружение если включено
+	// Запускаем mDNS обнаружение если включено (только локальная сеть)
 	if ds.config.EnableMDNS {
 		if err := ds.startMDNSDiscovery(); err != nil {
 			log.Printf("Предупреждение: mDNS не инициализирован: %v", err)
@@ -80,12 +80,31 @@ func (ds *DiscoveryService) Start() error {
 		}
 	}
 
-	// Запускаем DHT обнаружение если включён и DHT инициализирована
-	if ds.config.EnableDHT && ds.dht != nil {
-		ds.startDHTDiscovery()
+	// НЕ запускаем DHT обнаружение автоматически - только по запросу пользователя
+	// if ds.config.EnableDHT && ds.dht != nil {
+	// 	ds.startDHTDiscovery()
+	// }
+
+	log.Println("Сервис обнаружения запущен (ожидание ручного подключения)")
+	return nil
+}
+
+// StartDiscovery запускает обнаружение пиров (DHT + bootstrap) по запросу пользователя
+func (ds *DiscoveryService) StartDiscovery() error {
+	ds.mu.Lock()
+	defer ds.mu.Unlock()
+
+	// Подключаемся к bootstrap-узлам
+	if err := ds.connectToBootstrapPeers(); err != nil {
+		log.Printf("Предупреждение: не удалось подключиться к bootstrap-узлам: %v", err)
 	}
 
-	log.Println("Сервис обнаружения запущен")
+	// Запускаем DHT обнаружение
+	if ds.config.EnableDHT && ds.dht != nil {
+		ds.startDHTDiscovery()
+		log.Println("DHT обнаружение запущено")
+	}
+
 	return nil
 }
 

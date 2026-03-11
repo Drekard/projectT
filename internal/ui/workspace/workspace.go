@@ -15,6 +15,8 @@ import (
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/canvas"
 	"fyne.io/fyne/v2/container"
+	p2p_network "projectT/internal/services/p2p/network"
+	p2p_ui "projectT/internal/services/p2p/network"
 )
 
 // itemsService - глобальный экземпляр сервиса элементов
@@ -50,6 +52,7 @@ type Workspace struct {
 	tagsUI            *tags.UI
 	chatsUI           *chats.UI
 	window            fyne.Window
+	p2pNetwork        *p2p_network.P2PNetwork // P2P сеть
 	// Флаги для отслеживания, были ли UI-компоненты инициализированы
 	tagsInitialized  bool
 	chatsInitialized bool
@@ -61,12 +64,13 @@ type Workspace struct {
 }
 
 // CreateWorkspace создает и возвращает рабочую область
-func CreateWorkspace(window fyne.Window) *Workspace {
+func CreateWorkspace(window fyne.Window, p2pNetwork *p2p_network.P2PNetwork) *Workspace {
 	ws := &Workspace{
 		container:    container.NewStack(),
 		currentType:  ContentTypeSaved,
 		contentCache: make(map[ContentType]fyne.CanvasObject),
 		window:       window,
+		p2pNetwork:   p2pNetwork,
 	}
 
 	// Инициализируем UI компоненты
@@ -328,6 +332,15 @@ func (ws *Workspace) initializeChatsUI() {
 	if !ws.chatsInitialized {
 		ws.chatsUI = chats.New()
 		ws.chatsInitialized = true
+
+		// Устанавливаем окно для chats UI
+		ws.chatsUI.SetWindow(ws.window)
+
+		// Устанавливаем P2P сервис если доступен
+		if ws.p2pNetwork != nil {
+			p2pUI := p2p_ui.NewUIP2P(ws.p2pNetwork)
+			ws.chatsUI.SetP2PService(p2pUI)
+		}
 	}
 }
 

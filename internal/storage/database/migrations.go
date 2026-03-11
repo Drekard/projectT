@@ -187,6 +187,10 @@ func RunMigrations() {
 
 	// Создаём P2P таблицы
 	createP2PTables()
+
+	// Очищаем старые bootstrap пиры (если они были добавлены в предыдущих версиях)
+	clearOldBootstrapPeers()
+
 	seedBootstrapPeers()
 }
 
@@ -321,24 +325,19 @@ func createP2PTables() {
 }
 
 // seedBootstrapPeers добавляет предопределённые bootstrap-узлы
+// Отключено - пользователь добавляет bootstrap пиры самостоятельно
 func seedBootstrapPeers() {
-	// Добавляем несколько публичных bootstrap-узлов libp2p
-	bootstrapPeers := []string{
-		"/dnsaddr/bootstrap.libp2p.io/p2p/QmNnooDu7bfjPFoTZYxMNLWUQJyrVwtbZg5gBMjTezGAJN",
-		"/dnsaddr/bootstrap.libp2p.io/p2p/QmQCU2EcMqAqQPR2i9bChDtGNJchTbq5TbXJJ16u19uLTa",
-		"/dnsaddr/bootstrap.libp2p.io/p2p/QmbLHAnMoJPWSCR5Zhtx6BHJX9KiKNN6tpvbUcqanj75Nb",
-		"/dnsaddr/bootstrap.libp2p.io/p2p/QmcZf59bWwK5XFi76CZX8cbJ4BhTzzA3gU1ZjYZcYW3dwt",
-	}
+	// Bootstrap пиры не добавляются по умолчанию
+	// Пользователь может добавить их через настройки P2P в приложении
+	log.Println("Bootstrap-узлы не добавлены (добавьте вручную через настройки)")
+}
 
-	for _, addr := range bootstrapPeers {
-		_, err := DB.Exec(`
-			INSERT OR IGNORE INTO bootstrap_peers (multiaddr, is_active, added_at)
-			VALUES (?, 1, CURRENT_TIMESTAMP)
-		`, addr)
-		if err != nil {
-			log.Printf("Ошибка при добавлении bootstrap-узла %s: %v", addr, err)
-		}
+// clearOldBootstrapPeers очищает старые bootstrap пиры
+func clearOldBootstrapPeers() {
+	_, err := DB.Exec(`DELETE FROM bootstrap_peers`)
+	if err != nil {
+		log.Printf("Предупреждение: не удалось очистить bootstrap пиры: %v", err)
+	} else {
+		log.Println("Старые bootstrap пиры очищены")
 	}
-
-	log.Println("Bootstrap-узлы успешно добавлены")
 }

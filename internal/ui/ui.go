@@ -1,6 +1,7 @@
 package ui
 
 import (
+	"projectT/internal/services/p2p/network"
 	"projectT/internal/ui/layout"
 
 	"fyne.io/fyne/v2"
@@ -13,11 +14,11 @@ type UI struct {
 }
 
 // NewUI создает новый экземпляр UI
-func NewUI(window fyne.Window) *UI {
+func NewUI(window fyne.Window, p2pNetwork *network.P2PNetwork) *UI {
 	window.SetPadded(false)
 
 	ui := &UI{
-		mainLayout: layout.CreateMainLayout(window),
+		mainLayout: layout.CreateMainLayout(window, p2pNetwork),
 		window:     window,
 	}
 

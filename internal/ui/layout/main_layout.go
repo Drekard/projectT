@@ -8,6 +8,7 @@ import (
 	"projectT/internal/ui/workspace"
 
 	"image/color"
+	p2p_network "projectT/internal/services/p2p/network"
 
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/canvas"
@@ -26,10 +27,10 @@ type MainLayout struct {
 }
 
 // CreateMainLayout создает основной макет приложения
-func CreateMainLayout(window fyne.Window) *fyne.Container {
+func CreateMainLayout(window fyne.Window, p2pNetwork *p2p_network.P2PNetwork) *fyne.Container {
 	widthHeaderSidebar := float32(180)
 
-	appWorkspace := workspace.CreateWorkspace(window)
+	appWorkspace := workspace.CreateWorkspace(window, p2pNetwork)
 
 	ml := &MainLayout{
 		workspace:          appWorkspace,

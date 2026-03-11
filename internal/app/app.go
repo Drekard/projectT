@@ -4,6 +4,7 @@ import (
 	"log"
 
 	"projectT/internal/config"
+	"projectT/internal/services/p2p/network"
 	"projectT/internal/storage/database"
 	"projectT/internal/storage/filesystem"
 	"projectT/internal/ui"
@@ -18,6 +19,7 @@ type App struct {
 	mainWindow fyne.Window
 	UI         *ui.UI
 	config     *config.Config
+	p2pNetwork *network.P2PNetwork
 }
 
 func NewApp() *App {
@@ -44,22 +46,47 @@ func NewApp() *App {
 	iconRes, _ := fyne.LoadResourceFromPath("./assets/icons/ProjctT.png")
 	window.SetIcon(iconRes)
 
+	// Инициализируем P2P сеть
+	p2pNetwork := network.NewP2PNetwork()
+
 	return &App{
 		fyneApp:    fyneApp,
 		mainWindow: window,
 		UI:         nil,
 		config:     cfg,
+		p2pNetwork: p2pNetwork,
 	}
 }
 
 func (a *App) Run() {
 	a.fyneApp.Settings().SetTheme(theme.GetFyneTheme())
 
-	a.UI = ui.NewUI(a.mainWindow)
+	// Запускаем P2P если включён в конфигурации
+	if a.config.P2P.Enabled {
+		if err := a.p2pNetwork.Start(); err != nil {
+			log.Printf("Предупреждение: P2P не запущен: %v", err)
+		} else {
+			log.Println("P2P запущен")
+		}
+	}
+
+	a.UI = ui.NewUI(a.mainWindow, a.p2pNetwork)
 	a.mainWindow.ShowAndRun()
+
+	// Останавливаем P2P при выходе
+	if a.p2pNetwork != nil {
+		if err := a.p2pNetwork.Stop(); err != nil {
+			log.Printf("Предупреждение: ошибка остановки P2P: %v", err)
+		}
+	}
 }
 
 // GetConfig возвращает текущую конфигурацию приложения
 func (a *App) GetConfig() *config.Config {
 	return a.config
+}
+
+// GetP2PNetwork возвращает P2P сеть
+func (a *App) GetP2PNetwork() *network.P2PNetwork {
+	return a.p2pNetwork
 }
