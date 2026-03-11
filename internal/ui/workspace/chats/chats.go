@@ -150,6 +150,14 @@ func (ui *UI) updateChatHeader(name, address string) {
 
 // loadMessages загружает сообщения чата
 func (ui *UI) loadMessages(contact *models.Contact) {
+	// Инициализируем при необходимости
+	if ui.messagesList == nil {
+		ui.messagesList = container.NewVBox()
+	}
+	if ui.messageScroll == nil {
+		ui.messageScroll = container.NewScroll(ui.messagesList)
+	}
+
 	ui.messagesList.Objects = nil
 
 	// Тестовые сообщения
