@@ -79,7 +79,7 @@ func (p *UI) selectBackgroundImage() {
 // saveToDatabase сохраняет изменения в базу данных
 func (p *UI) saveToDatabase() {
 	// Получаем текущий профиль
-	profile, err := queries.GetProfile()
+	profile, err := queries.GetLocalProfile()
 	if err != nil {
 		dialog.ShowError(fmt.Errorf("ошибка получения профиля: %v", err), p.window)
 		return
@@ -97,10 +97,10 @@ func (p *UI) saveToDatabase() {
 		dialog.ShowError(fmt.Errorf("ошибка сохранения характеристик: %v", err), p.window)
 		return
 	}
-	profile.ContentCharacteristic = characteristicsJSON
+	profile.ContentChar = characteristicsJSON
 
 	// Сохраняем изменения в базу данных
-	err = queries.UpdateProfile(profile)
+	err = queries.UpdateLocalProfile(profile)
 	if err != nil {
 		dialog.ShowError(fmt.Errorf("ошибка сохранения профиля: %v", err), p.window)
 		return

@@ -2,6 +2,7 @@ package queries
 
 import (
 	"database/sql"
+	"errors"
 	"projectT/internal/storage/database"
 	"projectT/internal/storage/database/models"
 	"time"
@@ -10,10 +11,10 @@ import (
 // CreateItem создает новый элемент
 func CreateItem(item *models.Item) error {
 	query := `
-		INSERT INTO items (type, title, description, content_meta, parent_id, created_at, updated_at)
-		VALUES (?, ?, ?, ?, ?, ?, ?)
+		INSERT INTO items (type, title, description, content_meta, parent_id, content_hash, created_at, updated_at)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?)
 	`
-	result, err := database.DB.Exec(query, item.Type, item.Title, item.Description, item.ContentMeta, item.ParentID, time.Now(), time.Now())
+	result, err := database.DB.Exec(query, item.Type, item.Title, item.Description, item.ContentMeta, item.ParentID, item.ContentHash, time.Now(), time.Now())
 	if err != nil {
 		return err
 	}
@@ -32,14 +33,14 @@ func CreateItem(item *models.Item) error {
 // GetItemByID возвращает элемент по ID
 func GetItemByID(id int) (*models.Item, error) {
 	query := `
-		SELECT id, type, title, description, content_meta, parent_id, created_at, updated_at
+		SELECT id, type, title, description, content_meta, parent_id, content_hash, created_at, updated_at
 		FROM items
 	WHERE id = ?
 	`
 	var item models.Item
 	var parentID sql.NullInt64
 	err := database.DB.QueryRow(query, id).Scan(
-		&item.ID, &item.Type, &item.Title, &item.Description, &item.ContentMeta, &parentID, &item.CreatedAt, &item.UpdatedAt,
+		&item.ID, &item.Type, &item.Title, &item.Description, &item.ContentMeta, &parentID, &item.ContentHash, &item.CreatedAt, &item.UpdatedAt,
 	)
 	if err != nil {
 		return nil, err
@@ -53,15 +54,59 @@ func GetItemByID(id int) (*models.Item, error) {
 	return &item, nil
 }
 
+// GetItemByHash возвращает элемент по хешу содержимого
+func GetItemByHash(contentHash string) (*models.Item, error) {
+	query := `
+		SELECT id, type, title, description, content_meta, parent_id, content_hash, created_at, updated_at
+		FROM items
+	WHERE content_hash = ?
+	`
+	var item models.Item
+	var parentID sql.NullInt64
+	err := database.DB.QueryRow(query, contentHash).Scan(
+		&item.ID, &item.Type, &item.Title, &item.Description, &item.ContentMeta, &parentID, &item.ContentHash, &item.CreatedAt, &item.UpdatedAt,
+	)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil, errors.New("элемент не найден")
+		}
+		return nil, err
+	}
+
+	if parentID.Valid {
+		parentIDValue := int(parentID.Int64)
+		item.ParentID = &parentIDValue
+	}
+
+	return &item, nil
+}
+
 // GetItemsByParent возвращает элементы по родительскому ID
 func GetItemsByParent(parentID int) ([]*models.Item, error) {
-	query := `
-		SELECT id, type, title, description, content_meta, parent_id, created_at, updated_at
-		FROM items
-		WHERE (parent_id = ? OR (parent_id IS NULL AND ? = 0))
-		ORDER BY updated_at DESC
-	`
-	rows, err := database.DB.Query(query, parentID, parentID)
+	var query string
+	var rows *sql.Rows
+	var err error
+
+	if parentID == 0 {
+		// Для корневого уровня (parent_id = 0 или parent_id IS NULL)
+		query = `
+			SELECT id, type, title, description, content_meta, parent_id, content_hash, created_at, updated_at
+			FROM items
+			WHERE parent_id = 0 OR parent_id IS NULL
+			ORDER BY updated_at DESC
+		`
+		rows, err = database.DB.Query(query)
+	} else {
+		// Для конкретной папки
+		query = `
+			SELECT id, type, title, description, content_meta, parent_id, content_hash, created_at, updated_at
+			FROM items
+			WHERE parent_id = ?
+			ORDER BY updated_at DESC
+		`
+		rows, err = database.DB.Query(query, parentID)
+	}
+
 	if err != nil {
 		return nil, err
 	}
@@ -72,7 +117,7 @@ func GetItemsByParent(parentID int) ([]*models.Item, error) {
 		var item models.Item
 		var parentID sql.NullInt64
 		err := rows.Scan(
-			&item.ID, &item.Type, &item.Title, &item.Description, &item.ContentMeta, &parentID, &item.CreatedAt, &item.UpdatedAt,
+			&item.ID, &item.Type, &item.Title, &item.Description, &item.ContentMeta, &parentID, &item.ContentHash, &item.CreatedAt, &item.UpdatedAt,
 		)
 		if err != nil {
 			return nil, err
@@ -92,7 +137,7 @@ func GetItemsByParent(parentID int) ([]*models.Item, error) {
 // GetAllItems возвращает все элементы из базы данных
 func GetAllItems() ([]*models.Item, error) {
 	db := database.DB
-	query := `SELECT id, type, title, description, content_meta, parent_id, created_at, updated_at FROM items ORDER BY created_at DESC`
+	query := `SELECT id, type, title, description, content_meta, parent_id, content_hash, created_at, updated_at FROM items ORDER BY created_at DESC`
 	rows, err := db.Query(query)
 	if err != nil {
 		return nil, err
@@ -111,6 +156,7 @@ func GetAllItems() ([]*models.Item, error) {
 			&item.Description,
 			&item.ContentMeta,
 			&parentID,
+			&item.ContentHash,
 			&item.CreatedAt,
 			&item.UpdatedAt,
 		)
@@ -152,10 +198,10 @@ func IsItemPinned(itemID int) (bool, error) {
 func UpdateItem(item *models.Item) error {
 	query := `
 	UPDATE items
-	SET type = ?, title = ?, description = ?, content_meta = ?, parent_id = ?, updated_at = ?
+	SET type = ?, title = ?, description = ?, content_meta = ?, parent_id = ?, content_hash = ?, updated_at = ?
 	WHERE id = ?
 	`
-	_, err := database.DB.Exec(query, item.Type, item.Title, item.Description, item.ContentMeta, item.ParentID, time.Now(), item.ID)
+	_, err := database.DB.Exec(query, item.Type, item.Title, item.Description, item.ContentMeta, item.ParentID, item.ContentHash, time.Now(), item.ID)
 	return err
 }
 
@@ -173,7 +219,7 @@ func SearchItems(query string) ([]*models.Item, error) {
 
 	// SQL-запрос для поиска по названию и через связь с тегами
 	sqlQuery := `
-	SELECT DISTINCT i.id, i.type, i.title, i.description, i.content_meta, i.parent_id, i.created_at, i.updated_at
+	SELECT DISTINCT i.id, i.type, i.title, i.description, i.content_meta, i.parent_id, i.content_hash, i.created_at, i.updated_at
 	FROM items i
 	LEFT JOIN item_tags it ON i.id = it.item_id
 	LEFT JOIN tags t ON it.tag_id = t.id
@@ -193,7 +239,7 @@ func SearchItems(query string) ([]*models.Item, error) {
 		var parentID sql.NullInt64
 
 		err := rows.Scan(
-			&item.ID, &item.Type, &item.Title, &item.Description, &item.ContentMeta, &parentID, &item.CreatedAt, &item.UpdatedAt,
+			&item.ID, &item.Type, &item.Title, &item.Description, &item.ContentMeta, &parentID, &item.ContentHash, &item.CreatedAt, &item.UpdatedAt,
 		)
 		if err != nil {
 			return nil, err

@@ -61,14 +61,14 @@ func New() *UI {
 	ui := &UI{}
 
 	// Загружаем профиль из базы данных
-	profile, err := queries.GetProfile()
+	profile, err := queries.GetLocalProfile()
 	if err == nil {
 		// Устанавливаем пути из базы данных
 		ui.avatarPath = profile.AvatarPath
 		ui.backgroundPath = profile.BackgroundPath
 
 		// Сохраняем JSON характеристик для последующей загрузки
-		ui.loadCharacteristicsJSON = profile.ContentCharacteristic
+		ui.loadCharacteristicsJSON = profile.ContentChar
 	} else {
 		_ = err //nolint:staticcheck // Игнорируем ошибку загрузки профиля
 	}
@@ -141,7 +141,7 @@ func (p *UI) createComponents() {
 	p.userStatusLabel = widget.NewLabel("Статус")
 
 	// Загружаем данные из профиля
-	profile, err := queries.GetProfile()
+	profile, err := queries.GetLocalProfile()
 	if err == nil {
 		p.userNameEntry = widget.NewEntry()
 		p.userNameEntry.SetText(profile.Username)

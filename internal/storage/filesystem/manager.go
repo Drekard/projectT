@@ -214,3 +214,206 @@ func ReadFileByHash(hash string) ([]byte, *FileData, error) {
 
 	return content, fileInfo, nil
 }
+
+// SaveAvatar сохраняет аватарку для профиля
+// peerID - идентификатор пира (для remote профилей) или "local" (для локального)
+// fileBytes - содержимое файла аватарки
+func SaveAvatar(peerID string, fileBytes []byte) (string, error) {
+	// Извлекаем расширение (определяем по MIME-типу)
+	mimeType := detectMimeType(fileBytes)
+	exts, _ := mime.ExtensionsByType(mimeType)
+	ext := ".png" // по умолчанию
+	if len(exts) > 0 {
+		ext = exts[0]
+	}
+
+	// Формируем имя файла: {peerID}.{ext}
+	fileName := peerID + ext
+	filePath := filepath.Join("storage", "avatars", fileName)
+
+	// Проверяем, существует ли уже файл
+	if _, err := os.Stat(filePath); err == nil {
+		// Файл уже существует, возвращаем путь
+		return filePath, nil
+	}
+
+	// Создаем директорию для аватарок
+	if err := os.MkdirAll(filepath.Dir(filePath), 0755); err != nil {
+		return "", fmt.Errorf("ошибка создания директории для аватарки: %w", err)
+	}
+
+	// Сохраняем файл
+	if err := os.WriteFile(filePath, fileBytes, 0644); err != nil {
+		return "", fmt.Errorf("ошибка сохранения аватарки: %w", err)
+	}
+
+	return filePath, nil
+}
+
+// GetAvatar возвращает путь к аватарке по peerID
+func GetAvatar(peerID string) (string, error) {
+	// Ищем файл аватарки по peerID
+	avatarDir := filepath.Join("storage", "avatars")
+
+	// Проверяем существование директории
+	if _, err := os.Stat(avatarDir); os.IsNotExist(err) {
+		return "", fmt.Errorf("директория аватарок не найдена")
+	}
+
+	// Ищем файл с именем, начинающимся с peerID
+	pattern := filepath.Join(avatarDir, peerID+"*")
+	matches, err := filepath.Glob(pattern)
+	if err != nil {
+		return "", fmt.Errorf("ошибка поиска аватарки: %w", err)
+	}
+
+	if len(matches) == 0 {
+		return "", fmt.Errorf("аватарка для пира %s не найдена", peerID)
+	}
+
+	// Возвращаем первый найденный файл
+	return matches[0], nil
+}
+
+// ReadAvatar читает содержимое аватарки по peerID
+func ReadAvatar(peerID string) ([]byte, error) {
+	filePath, err := GetAvatar(peerID)
+	if err != nil {
+		return nil, err
+	}
+
+	return os.ReadFile(filePath)
+}
+
+// DeleteAvatar удаляет аватарку по peerID
+func DeleteAvatar(peerID string) error {
+	filePath, err := GetAvatar(peerID)
+	if err != nil {
+		// Если файл не найден, считаем удаление успешным
+		if os.IsNotExist(err) {
+			return nil
+		}
+		return err
+	}
+
+	return os.Remove(filePath)
+}
+
+// SaveItemFile сохраняет файл элемента
+// itemID - локальный ID элемента
+// fileBytes - содержимое файла
+// isRemote - true если файл от другого пира
+// sourcePeerID - peerID владельца (если isRemote = true)
+func SaveItemFile(itemID int, fileBytes []byte, isRemote bool, sourcePeerID string) (*FileData, error) {
+	// Определяем MIME-тип и расширение
+	mimeType := detectMimeType(fileBytes)
+	exts, _ := mime.ExtensionsByType(mimeType)
+	ext := ".dat" // по умолчанию
+	if len(exts) > 0 {
+		ext = exts[0]
+	}
+
+	// Вычисляем хэш файла
+	hash := CalculateHash(fileBytes)
+
+	// Формируем путь к файлу
+	var filePath string
+	if isRemote {
+		// Для чужих файлов: storage/remote/{peerID}/items/{hash}{ext}
+		filePath = filepath.Join("storage", "remote", sourcePeerID, "items", hash+ext)
+	} else {
+		// Для своих файлов: storage/items/{itemID}/{hash}{ext}
+		filePath = filepath.Join("storage", "items", fmt.Sprintf("%d", itemID), hash+ext)
+	}
+
+	// Проверяем, существует ли уже файл
+	if _, err := os.Stat(filePath); err == nil {
+		// Файл уже существует, возвращаем информацию
+		info, err := os.Stat(filePath)
+		if err != nil {
+			return nil, err
+		}
+
+		return &FileData{
+			Hash:     hash,
+			Size:     info.Size(),
+			MimeType: mimeType,
+			Path:     filePath,
+		}, nil
+	}
+
+	// Создаем директорию
+	if err := os.MkdirAll(filepath.Dir(filePath), 0755); err != nil {
+		return nil, fmt.Errorf("ошибка создания директории: %w", err)
+	}
+
+	// Сохраняем файл
+	if err := os.WriteFile(filePath, fileBytes, 0644); err != nil {
+		return nil, fmt.Errorf("ошибка сохранения файла: %w", err)
+	}
+
+	// Получаем информацию о файле
+	info, err := os.Stat(filePath)
+	if err != nil {
+		return nil, fmt.Errorf("ошибка получения информации о файле: %w", err)
+	}
+
+	return &FileData{
+		Hash:     hash,
+		Size:     info.Size(),
+		MimeType: mimeType,
+		Path:     filePath,
+	}, nil
+}
+
+// GetItemFile возвращает путь к файлу элемента
+func GetItemFile(itemID int, hash string) (string, error) {
+	// Сначала ищем в локальных файлах
+	localPath := filepath.Join("storage", "items", fmt.Sprintf("%d", itemID), hash+"*")
+	matches, err := filepath.Glob(localPath)
+	if err == nil && len(matches) > 0 {
+		return matches[0], nil
+	}
+
+	// Если не найдено, возвращаем ошибку
+	return "", fmt.Errorf("файл элемента %d с хэшем %s не найден", itemID, hash)
+}
+
+// GetRemoteItemFile возвращает путь к чужому файлу элемента
+func GetRemoteItemFile(sourcePeerID, hash string) (string, error) {
+	// Ищем в чужих файлах
+	remotePath := filepath.Join("storage", "remote", sourcePeerID, "items", hash+"*")
+	matches, err := filepath.Glob(remotePath)
+	if err == nil && len(matches) > 0 {
+		return matches[0], nil
+	}
+
+	// Если не найдено, возвращаем ошибку
+	return "", fmt.Errorf("файл пира %s с хэшем %s не найден", sourcePeerID, hash)
+}
+
+// DeleteItemFiles удаляет все файлы элемента
+func DeleteItemFiles(itemID int) error {
+	itemDir := filepath.Join("storage", "items", fmt.Sprintf("%d", itemID))
+
+	// Проверяем существование директории
+	if _, err := os.Stat(itemDir); os.IsNotExist(err) {
+		return nil // Директория не существует, считаем удаление успешным
+	}
+
+	// Удаляем директорию со всем содержимым
+	return os.RemoveAll(itemDir)
+}
+
+// DeleteRemoteItemFiles удаляет все файлы от указанного пира
+func DeleteRemoteItemFiles(sourcePeerID string) error {
+	remoteDir := filepath.Join("storage", "remote", sourcePeerID)
+
+	// Проверяем существование директории
+	if _, err := os.Stat(remoteDir); os.IsNotExist(err) {
+		return nil // Директория не существует, считаем удаление успешным
+	}
+
+	// Удаляем директорию со всем содержимым
+	return os.RemoveAll(remoteDir)
+}

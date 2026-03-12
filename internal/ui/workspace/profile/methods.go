@@ -151,7 +151,7 @@ func (p *UI) autoSaveField(row *fieldRow) {
 // saveCharacteristicsToDB сохраняет все характеристики в базу данных
 func (p *UI) saveCharacteristicsToDB() {
 	// Получаем текущий профиль
-	profile, err := queries.GetProfile()
+	profile, err := queries.GetLocalProfile()
 	if err != nil {
 		return
 	}
@@ -165,10 +165,10 @@ func (p *UI) saveCharacteristicsToDB() {
 	if err != nil {
 		return
 	}
-	profile.ContentCharacteristic = characteristicsJSON
+	profile.ContentChar = characteristicsJSON
 
 	// Сохраняем изменения в базу данных
-	err = queries.UpdateProfile(profile)
+	err = queries.UpdateLocalProfile(profile)
 	if err != nil {
 		return
 	}

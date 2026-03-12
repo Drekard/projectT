@@ -6,55 +6,69 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
 	"log"
 	"time"
 
+	"github.com/libp2p/go-libp2p/core/crypto"
 	"github.com/libp2p/go-libp2p/core/host"
 	"github.com/libp2p/go-libp2p/core/network"
 	"github.com/libp2p/go-libp2p/core/peer"
 
 	"projectT/internal/storage/database/models"
 	"projectT/internal/storage/database/queries"
+	"projectT/internal/storage/filesystem"
 )
 
-// ProfileProtocolID идентификатор протокола обмена профилями
-const ProfileProtocolID = "/" + ProtocolPrefix + "/profile/1.0.0"
+// ProfileProtocolID идентификатор протокола обмена профилями (версия 2.0 для новой схемы)
+const ProfileProtocolID = "/projectt/profile/2.0.0"
 
 // ProfileRequest запрос профиля
-type ProfileRequest struct{}
+type ProfileRequest struct {
+	RequestFull bool `json:"request_full"` // Запрос полного профиля с подписью
+}
 
-// ProfileResponse ответ с профилем
+// ProfileResponse ответ с профилем (полная версия)
 type ProfileResponse struct {
-	Username   string `json:"username"`
-	AvatarPath string `json:"avatar_path"`
-	Status     string `json:"status"`
-	PublicKey  []byte `json:"public_key,omitempty"`
+	PeerID         string `json:"peer_id"`
+	Username       string `json:"username"`
+	Status         string `json:"status"`
+	AvatarPath     string `json:"avatar_path"`
+	BackgroundPath string `json:"background_path"`
+	ContentChar    string `json:"content_characteristic"`
+	DemoElements   string `json:"demo_elements"`
+	PublicKey      []byte `json:"public_key"`
+	Signature      []byte `json:"signature,omitempty"` // Подпись профиля
+	Timestamp      int64  `json:"timestamp"`
+}
+
+// ProfileWithSignature профиль вместе с подписью для проверки
+type ProfileWithSignature struct {
+	Profile   *models.Profile
+	PublicKey []byte
+	Signature []byte
 }
 
 // ProfileExchangeService сервис для обмена профилями между пирами
 type ProfileExchangeService struct {
-	host          host.Host
-	localUsername string
-	localAvatar   string
-	localStatus   string
-	localPubKey   []byte
+	host         host.Host
+	localPrivKey crypto.PrivKey
+	localPubKey  crypto.PubKey
 }
 
 // NewProfileExchangeService создаёт сервис обмена профилями
-func NewProfileExchangeService(host host.Host, username, avatarPath, status string, pubKey []byte) *ProfileExchangeService {
+func NewProfileExchangeService(host host.Host, privKey crypto.PrivKey, pubKey crypto.PubKey) *ProfileExchangeService {
 	return &ProfileExchangeService{
-		host:          host,
-		localUsername: username,
-		localAvatar:   avatarPath,
-		localStatus:   status,
-		localPubKey:   pubKey,
+		host:         host,
+		localPrivKey: privKey,
+		localPubKey:  pubKey,
 	}
 }
 
 // Start запускает сервис обмена профилями
 func (pes *ProfileExchangeService) Start() error {
 	pes.host.SetStreamHandler(ProfileProtocolID, pes.handleProfileRequest)
-	log.Println("ProfileExchangeService запущен")
+	log.Println("ProfileExchangeService v2.0 запущен")
 	return nil
 }
 
@@ -64,14 +78,6 @@ func (pes *ProfileExchangeService) Stop() error {
 	return nil
 }
 
-// UpdateLocalProfile обновляет локальный профиль
-func (pes *ProfileExchangeService) UpdateLocalProfile(username, avatarPath, status string, pubKey []byte) {
-	pes.localUsername = username
-	pes.localAvatar = avatarPath
-	pes.localStatus = status
-	pes.localPubKey = pubKey
-}
-
 // handleProfileRequest обрабатывает входящий запрос профиля
 func (pes *ProfileExchangeService) handleProfileRequest(stream network.Stream) {
 	defer stream.Close()
@@ -79,24 +85,57 @@ func (pes *ProfileExchangeService) handleProfileRequest(stream network.Stream) {
 	remotePeer := stream.Conn().RemotePeer()
 	log.Printf("Получен запрос профиля от: %s", remotePeer.String())
 
-	// Читаем запрос (может быть пустым)
+	// Читаем запрос
 	reader := bufio.NewReader(stream)
-	reqBuf := make([]byte, 1)
-	_, err := reader.Read(reqBuf)
-	if err != nil && err.Error() != "EOF" {
+	reqData, err := io.ReadAll(reader)
+	if err != nil {
 		log.Printf("Ошибка чтения запроса профиля: %v", err)
+		return
+	}
+
+	var req ProfileRequest
+	if len(reqData) > 0 {
+		if err := json.Unmarshal(reqData, &req); err != nil {
+			log.Printf("Ошибка десериализации запроса: %v", err)
+			// Продолжаем с запросом по умолчанию
+		}
+	}
+
+	// Получаем локальный профиль
+	localProfile, err := queries.GetLocalProfile()
+	if err != nil {
+		log.Printf("Ошибка получения локального профиля: %v", err)
+		return
+	}
+
+	// Получаем ключи
+	localKeys, err := queries.GetProfileKeys(localProfile.ID)
+	if err != nil {
+		log.Printf("Ошибка получения ключей: %v", err)
+		return
 	}
 
 	// Формируем ответ
 	response := &ProfileResponse{
-		Username:  pes.localUsername,
-		Status:    pes.localStatus,
-		PublicKey: pes.localPubKey,
+		PeerID:         localProfile.PeerID,
+		Username:       localProfile.Username,
+		Status:         localProfile.Status,
+		AvatarPath:     localProfile.AvatarPath,
+		BackgroundPath: localProfile.BackgroundPath,
+		ContentChar:    localProfile.ContentChar,
+		DemoElements:   localProfile.DemoElements,
+		PublicKey:      localKeys.PublicKey,
+		Timestamp:      time.Now().UnixNano(),
 	}
 
-	// Добавляем аватар если есть
-	if pes.localAvatar != "" {
-		response.AvatarPath = pes.localAvatar
+	// Подписываем профиль если запрошено
+	if req.RequestFull {
+		signature, err := pes.signProfile(localProfile)
+		if err != nil {
+			log.Printf("Ошибка подписи профиля: %v", err)
+		} else {
+			response.Signature = signature
+		}
 	}
 
 	// Сериализуем ответ
@@ -122,7 +161,7 @@ func (pes *ProfileExchangeService) handleProfileRequest(stream network.Stream) {
 }
 
 // RequestPeerProfile запрашивает профиль у удалённого пира
-func (pes *ProfileExchangeService) RequestPeerProfile(ctx context.Context, peerID peer.ID) (*ProfileResponse, error) {
+func (pes *ProfileExchangeService) RequestPeerProfile(ctx context.Context, peerID peer.ID) (*ProfileWithSignature, error) {
 	// Создаём стрим
 	stream, err := pes.host.NewStream(ctx, peerID, ProfileProtocolID)
 	if err != nil {
@@ -130,9 +169,12 @@ func (pes *ProfileExchangeService) RequestPeerProfile(ctx context.Context, peerI
 	}
 	defer stream.Close()
 
-	// Отправляем запрос (пустой)
+	// Отправляем запрос
+	req := &ProfileRequest{RequestFull: true}
+	reqData, _ := json.Marshal(req)
+
 	writer := bufio.NewWriter(stream)
-	if _, err := writer.Write([]byte{0x01}); err != nil {
+	if _, err := writer.Write(reqData); err != nil {
 		return nil, fmt.Errorf("ошибка отправки запроса: %w", err)
 	}
 
@@ -141,53 +183,186 @@ func (pes *ProfileExchangeService) RequestPeerProfile(ctx context.Context, peerI
 	}
 
 	// Устанавливаем таймаут
-	if err := stream.SetReadDeadline(time.Now().Add(5 * time.Second)); err != nil {
+	if err := stream.SetReadDeadline(time.Now().Add(10 * time.Second)); err != nil {
 		log.Printf("Предупреждение: не удалось установить таймаут: %v", err)
 	}
 
 	// Читаем ответ
 	reader := bufio.NewReader(stream)
-	decoder := json.NewDecoder(reader)
 	response := &ProfileResponse{}
 
-	if err := decoder.Decode(response); err != nil {
+	if err := json.NewDecoder(reader).Decode(response); err != nil {
 		return nil, fmt.Errorf("ошибка чтения ответа: %w", err)
 	}
 
+	// Преобразуем в модель
+	profile := &models.Profile{
+		OwnerType:      models.OwnerTypeRemote,
+		PeerID:         response.PeerID,
+		Username:       response.Username,
+		Status:         response.Status,
+		AvatarPath:     response.AvatarPath,
+		BackgroundPath: response.BackgroundPath,
+		ContentChar:    response.ContentChar,
+		DemoElements:   response.DemoElements,
+	}
+
+	now := time.Now()
+	profile.CachedAt = &now
+
+	// Проверяем подпись если есть
+	if len(response.Signature) > 0 {
+		// TODO: Проверка подписи
+		log.Printf("Получена подпись профиля, проверка...")
+	}
+
 	// Сохраняем профиль в БД
-	if err := pes.savePeerProfile(peerID, response); err != nil {
+	if err := pes.savePeerProfile(profile, response.PublicKey, response.Signature); err != nil {
 		log.Printf("Предупреждение: не удалось сохранить профиль: %v", err)
 	}
 
-	log.Printf("Получен профиль от %s: username=%s, avatar=%s", peerID, response.Username, response.AvatarPath)
-	return response, nil
+	log.Printf("Получен профиль от %s: username=%s", peerID, response.Username)
+	return &ProfileWithSignature{
+		Profile:   profile,
+		PublicKey: response.PublicKey,
+		Signature: response.Signature,
+	}, nil
 }
 
 // savePeerProfile сохраняет профиль пира в базу данных
-func (pes *ProfileExchangeService) savePeerProfile(peerID peer.ID, profile *ProfileResponse) error {
-	// Проверяем, есть ли контакт
-	_, err := queries.GetContactByPeerID(peerID.String())
-	if err != nil {
-		// Контакт не найден - создаём новый
-		contact := &models.Contact{
-			PeerID:     peerID.String(),
-			Username:   profile.Username,
-			AvatarPath: profile.AvatarPath,
-			Status:     profile.Status,
-			PublicKey:  profile.PublicKey,
+func (pes *ProfileExchangeService) savePeerProfile(profile *models.Profile, publicKey, signature []byte) error {
+	// Проверяем, есть ли уже профиль
+	existing, err := queries.GetProfileByPeerID(profile.PeerID)
+	if err == nil && existing != nil {
+		// Профиль существует - обновляем
+		if err := queries.UpdateRemoteProfile(profile); err != nil {
+			return fmt.Errorf("ошибка обновления профиля: %w", err)
 		}
-		if createErr := queries.CreateContact(contact); createErr != nil {
-			return fmt.Errorf("ошибка создания контакта: %w", createErr)
+	} else {
+		// Профиль не найден - создаём
+		if err := queries.CreateRemoteProfile(profile); err != nil {
+			return fmt.Errorf("ошибка создания профиля: %w", err)
 		}
-		return nil
 	}
 
-	// Контакт существует - обновляем профиль
-	if err := queries.UpdateContactByPeerID(peerID.String(), profile.Username, profile.AvatarPath); err != nil {
-		return fmt.Errorf("ошибка обновления контакта: %w", err)
+	// Сохраняем ключи
+	if len(publicKey) > 0 {
+		key := &models.ProfileKey{
+			ProfileID:      profile.ID,
+			PublicKey:      publicKey,
+			Signature:      signature,
+			IsKeyEncrypted: false,
+		}
+		// Проверяем, существуют ли уже ключи
+		exists, err := queries.ProfileKeysExists(profile.ID)
+		if err != nil {
+			exists = false
+		}
+		if exists {
+			if err := queries.UpdateProfileKeys(key); err != nil {
+				return fmt.Errorf("ошибка обновления ключей: %w", err)
+			}
+		} else {
+			if err := queries.CreateProfileKeys(key); err != nil {
+				return fmt.Errorf("ошибка сохранения ключей: %w", err)
+			}
+		}
+	}
+
+	// Обновляем контакт если существует
+	contact, err := queries.GetContactByPeerID(profile.PeerID)
+	if err == nil && contact != nil {
+		// Обновляем имя и аватар контакта
+		if err := queries.UpdateContactByPeerID(profile.PeerID, profile.Username, profile.AvatarPath); err != nil {
+			log.Printf("Предупреждение: не удалось обновить контакт: %v", err)
+		}
 	}
 
 	return nil
+}
+
+// signProfile подписывает профиль локального пользователя
+func (pes *ProfileExchangeService) signProfile(profile *models.Profile) ([]byte, error) {
+	if pes.localPrivKey == nil {
+		return nil, fmt.Errorf("приватный ключ не установлен")
+	}
+
+	// Данные для подписи
+	data := fmt.Sprintf("%s|%s|%s|%s|%s|%s",
+		profile.PeerID,
+		profile.Username,
+		profile.Status,
+		profile.AvatarPath,
+		profile.ContentChar,
+		profile.DemoElements,
+	)
+
+	// Подписываем
+	signature, err := pes.localPrivKey.Sign([]byte(data))
+	if err != nil {
+		return nil, fmt.Errorf("ошибка подписи: %w", err)
+	}
+
+	return signature, nil
+}
+
+// VerifyProfileSignature проверяет подпись профиля
+func (pes *ProfileExchangeService) VerifyProfileSignature(profile *models.Profile, publicKey, signature []byte) (bool, error) {
+	if len(signature) == 0 {
+		return false, fmt.Errorf("подпись отсутствует")
+	}
+
+	if len(publicKey) == 0 {
+		return false, fmt.Errorf("публичный ключ отсутствует")
+	}
+
+	// Восстанавливаем публичный ключ
+	pubKey, err := crypto.UnmarshalPublicKey(publicKey)
+	if err != nil {
+		return false, fmt.Errorf("ошибка восстановления публичного ключа: %w", err)
+	}
+
+	// Данные для проверки
+	data := fmt.Sprintf("%s|%s|%s|%s|%s|%s",
+		profile.PeerID,
+		profile.Username,
+		profile.Status,
+		profile.AvatarPath,
+		profile.ContentChar,
+		profile.DemoElements,
+	)
+
+	// Проверяем подпись
+	valid, err := pubKey.Verify([]byte(data), signature)
+	if err != nil {
+		return false, fmt.Errorf("ошибка проверки подписи: %w", err)
+	}
+
+	return valid, nil
+}
+
+// GetFullProfile возвращает полный локальный профиль с подписью
+func (pes *ProfileExchangeService) GetFullProfile() (*ProfileWithSignature, error) {
+	profile, err := queries.GetLocalProfile()
+	if err != nil {
+		return nil, fmt.Errorf("ошибка получения профиля: %w", err)
+	}
+
+	keys, err := queries.GetProfileKeys(profile.ID)
+	if err != nil {
+		return nil, fmt.Errorf("ошибка получения ключей: %w", err)
+	}
+
+	signature, err := pes.signProfile(profile)
+	if err != nil {
+		return nil, fmt.Errorf("ошибка подписи профиля: %w", err)
+	}
+
+	return &ProfileWithSignature{
+		Profile:   profile,
+		PublicKey: keys.PublicKey,
+		Signature: signature,
+	}, nil
 }
 
 // RequestProfilesForAllContacts запрашивает профили для всех контактов
@@ -218,4 +393,27 @@ func (pes *ProfileExchangeService) RequestProfilesForAllContacts(ctx context.Con
 			}
 		}(peerID)
 	}
+}
+
+// SaveAvatarFromData сохраняет аватарку из полученных данных
+func (pes *ProfileExchangeService) SaveAvatarFromData(peerID string, avatarData []byte) (string, error) {
+	if len(avatarData) == 0 {
+		return "", nil
+	}
+
+	// Сохраняем аватарку в файловую систему
+	filePath, err := filesystem.SaveAvatar(peerID, avatarData)
+	if err != nil {
+		return "", fmt.Errorf("ошибка сохранения аватарки: %w", err)
+	}
+
+	// Обновляем профиль в БД
+	profile, err := queries.GetProfileByPeerID(peerID)
+	if err == nil && profile != nil {
+		if err := queries.UpdateLocalProfileField("avatar_path", filePath); err != nil {
+			log.Printf("Предупреждение: не удалось обновить путь к аватарке: %v", err)
+		}
+	}
+
+	return filePath, nil
 }

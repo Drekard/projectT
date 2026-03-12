@@ -8,6 +8,7 @@ import (
 	"projectT/internal/services/pinned"
 	"projectT/internal/storage/database/models"
 	"projectT/internal/storage/database/queries"
+	"projectT/internal/storage/filesystem"
 	"projectT/internal/ui/edit_item"
 	"time"
 
@@ -279,7 +280,22 @@ func (mm *MenuManager) deleteItem(item *models.Item) error {
 		}
 	}
 
-	// Удаляем сам элемент
+	// ✅ Получаем файлы элемента перед удалением
+	files, err := queries.GetFilesByItemID(item.ID)
+	if err == nil && len(files) > 0 {
+		// ✅ Удаляем файлы с диска
+		for _, file := range files {
+			if err := filesystem.DeleteFile(file.Hash); err != nil {
+				fmt.Printf("WARN: ошибка удаления файла %s: %v\n", file.Hash, err)
+			}
+		}
+		// ✅ Удаляем записи о файлах из БД
+		if err := queries.DeleteFilesByItemID(item.ID); err != nil {
+			fmt.Printf("WARN: ошибка удаления записей о файлах: %v\n", err)
+		}
+	}
+
+	// ✅ Удаляем сам элемент
 	if err := queries.DeleteItem(item.ID); err != nil {
 		return fmt.Errorf("ошибка удаления элемента: %v", err)
 	}

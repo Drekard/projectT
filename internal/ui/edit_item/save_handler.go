@@ -11,6 +11,7 @@ import (
 
 	"projectT/internal/services"
 	"projectT/internal/storage/database/models"
+	"projectT/internal/storage/database/queries"
 	"projectT/internal/storage/filesystem"
 )
 
@@ -295,6 +296,11 @@ func SaveItem(viewModel *CreateItemViewModel, formWidgets *FormWidgets, parentWi
 
 		fmt.Printf("Элемент обновлен, ID: %d\n", updatedItem.ID)
 
+		// Сохраняем информацию о файлах в item_files
+		if err := contentService.SaveItemFiles(updatedItem.ID, serviceBlocks); err != nil {
+			fmt.Printf("WARN: ошибка сохранения файлов: %v\n", err)
+		}
+
 		// Обрабатываем теги
 		if err := contentService.ProcessTags(ctx, updatedItem.ID, viewModel.Tags); err != nil {
 			dialog.ShowError(fmt.Errorf("Ошибка обработки тегов: %v", err), parentWindow)
@@ -308,7 +314,7 @@ func SaveItem(viewModel *CreateItemViewModel, formWidgets *FormWidgets, parentWi
 		// Преобразуем блоки для очистки
 		localReallyOldBlocks := convertServiceBlocksToLocal(reallyOldBlocks)
 		localNewBlocks := convertServiceBlocksToLocal(newServiceBlocks)
-		cleanupOldFiles(localReallyOldBlocks, localNewBlocks)
+		cleanupOldFiles(localReallyOldBlocks, localNewBlocks, updatedItem.ID)
 		fmt.Println("Старые файлы очищены")
 
 	} else {
@@ -323,6 +329,11 @@ func SaveItem(viewModel *CreateItemViewModel, formWidgets *FormWidgets, parentWi
 		}
 
 		fmt.Printf("Элемент создан, ID: %d\n", item.ID)
+
+		// Сохраняем информацию о файлах в item_files
+		if err := contentService.SaveItemFiles(item.ID, serviceBlocks); err != nil {
+			fmt.Printf("WARN: ошибка сохранения файлов: %v\n", err)
+		}
 
 		// Обрабатываем теги
 		if viewModel.Tags != "" {
@@ -376,7 +387,7 @@ func convertLocalBlocksToService(localBlocks []Block) []services.Block {
 }
 
 // cleanupOldFiles удаляет неиспользуемые файлы
-func cleanupOldFiles(oldBlocks, newBlocks []Block) {
+func cleanupOldFiles(oldBlocks, newBlocks []Block, itemID int) {
 	// Создаем мапу новых хэшей
 	newHashes := make(map[string]bool)
 	for _, block := range newBlocks {
@@ -388,8 +399,13 @@ func cleanupOldFiles(oldBlocks, newBlocks []Block) {
 	// Удаляем старые файлы, которых нет в новых
 	for _, block := range oldBlocks {
 		if block.FileHash != "" && !newHashes[block.FileHash] {
+			// ✅ Сначала удаляем запись из item_files
+			if err := queries.DeleteItemFile(itemID, block.FileHash); err != nil {
+				fmt.Printf("WARN: ошибка удаления записи о файле %s: %v\n", block.FileHash, err)
+			}
+
+			// ✅ Затем удаляем файл с диска
 			if err := filesystem.DeleteFile(block.FileHash); err != nil {
-				// Логируем, но не прерываем
 				fmt.Printf("WARN: ошибка удаления файла %s: %v\n", block.FileHash, err)
 			}
 		}

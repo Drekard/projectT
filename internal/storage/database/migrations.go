@@ -6,6 +6,7 @@ import (
 )
 
 // RunMigrations выполняет миграции базы данных
+// Порядок миграций важен! Сначала создаются основные таблицы, затем новые, затем перенос данных
 func RunMigrations() {
 	// 1. ТАБЛИЦА ЭЛЕМЕНТОВ (основная)
 	_, err := DB.Exec(`
@@ -131,118 +132,131 @@ func RunMigrations() {
 		_ = err //nolint:staticcheck // Логируем ошибку, но не выводим в пользовательский интерфейс
 	}
 
-	// 7. ТАБЛИЦА ПРОФИЛЯ ПОЛЬЗОВАТЕЛЯ
-	_, err = DB.Exec(`
-		CREATE TABLE IF NOT EXISTS profile (
-			id INTEGER PRIMARY KEY,
-			username TEXT NOT NULL DEFAULT 'Аноним',
-			status TEXT NOT NULL DEFAULT 'Доступен',
-			avatar_path TEXT,
-			background_path TEXT DEFAULT '',
-			content_characteristic TEXT,
-			demo_elements TEXT,
-			created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-			updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
-		);
-	`)
-	if err != nil {
-		log.Fatal("Ошибка при создании таблицы profile:", err)
-	}
-
-	// Добавляем поле background_path, если оно не существует
-	_, err = DB.Exec(`ALTER TABLE profile ADD COLUMN background_path TEXT DEFAULT ''`)
-	// Игнорируем ошибку, если столбец уже существует
-	if err != nil {
-		// Проверяем, возможно столбец уже существует
-		if !strings.Contains(err.Error(), "duplicate column name") && !strings.Contains(err.Error(), "column already exists") {
-			log.Printf("Ошибка при добавлении столбца background_path: %v", err)
-		}
-	}
-
-	// Добавляем поле content_characteristic, если оно не существует
-	_, err = DB.Exec(`ALTER TABLE profile ADD COLUMN content_characteristic TEXT`)
-	// Игнорируем ошибку, если столбец уже существует
-	if err != nil {
-		// Проверяем, возможно столбец уже существует
-		if !strings.Contains(err.Error(), "duplicate column name") && !strings.Contains(err.Error(), "column already exists") {
-			log.Printf("Ошибка при добавлении столбца content_characteristic: %v", err)
-		}
-	}
-
-	// Добавляем поле demo_elements, если оно не существует
-	_, err = DB.Exec(`ALTER TABLE profile ADD COLUMN demo_elements TEXT`)
-	// Игнорируем ошибку, если столбец уже существует
-	if err != nil {
-		// Проверяем, возможно столбец уже существует
-		if !strings.Contains(err.Error(), "duplicate column name") && !strings.Contains(err.Error(), "column already exists") {
-			log.Printf("Ошибка при добавлении столбца demo_elements: %v", err)
-		}
-	}
-
-	// Добавляем индекс для производительности
-	_, err = DB.Exec(`CREATE INDEX IF NOT EXISTS idx_profile_username ON profile(username);`)
-	if err != nil {
-		_ = err //nolint:staticcheck // Логируем ошибку, но не выводим в пользовательский интерфейс
-	}
-
-	// Создаём P2P таблицы
-	createP2PTables()
-
-	// Очищаем старые bootstrap пиры (если они были добавлены в предыдущих версиях)
-	clearOldBootstrapPeers()
+	// Создаём новые таблицы для профилей и элементов
+	createNewProfileTables()
 
 	seedBootstrapPeers()
 }
 
-// createP2PTables создаёт таблицы для P2P функциональности
-func createP2PTables() {
-	// Сначала применяем миграцию для существующей таблицы
-	// Добавляем profile_id если столбец не существует
-	_, err := DB.Exec(`ALTER TABLE p2p_profile ADD COLUMN profile_id INTEGER REFERENCES profile(id)`)
+// createNewProfileTables создаёт новые таблицы для профилей и элементов
+// Это новая схема с поддержкой множественных профилей (локальный + чужие)
+func createNewProfileTables() {
+	// 1. TABLE profiles - универсальная таблица для всех профилей
+	_, err := DB.Exec(`
+		CREATE TABLE IF NOT EXISTS profiles (
+			id              INTEGER PRIMARY KEY,
+			owner_type      TEXT NOT NULL CHECK (owner_type IN ('local', 'remote')),
+			peer_id         TEXT UNIQUE NOT NULL,
+			username        TEXT NOT NULL,
+			status          TEXT DEFAULT 'online',
+			avatar_path     TEXT,
+			background_path TEXT DEFAULT '',
+			content_char    TEXT,
+			demo_elements   TEXT,
+			cached_at       DATETIME,
+			created_at      DATETIME DEFAULT CURRENT_TIMESTAMP,
+			updated_at      DATETIME DEFAULT CURRENT_TIMESTAMP
+		)
+	`)
+	if err != nil {
+		log.Printf("Ошибка при создании таблицы profiles: %v", err)
+	}
+
+	// Индексы для profiles
+	_, err = DB.Exec(`CREATE INDEX IF NOT EXISTS idx_profiles_peer_id ON profiles(peer_id)`)
+	if err != nil {
+		log.Printf("Ошибка при создании индекса idx_profiles_peer_id: %v", err)
+	}
+
+	_, err = DB.Exec(`CREATE INDEX IF NOT EXISTS idx_profiles_owner_type ON profiles(owner_type)`)
+	if err != nil {
+		log.Printf("Ошибка при создании индекса idx_profiles_owner_type: %v", err)
+	}
+
+	// 2. TABLE profile_keys - криптографические ключи
+	_, err = DB.Exec(`
+		CREATE TABLE IF NOT EXISTS profile_keys (
+			profile_id      INTEGER PRIMARY KEY REFERENCES profiles(id) ON DELETE CASCADE,
+			private_key     BLOB,
+			public_key      BLOB NOT NULL,
+			signature       BLOB,
+			is_key_encrypted BOOLEAN DEFAULT 0
+		)
+	`)
+	if err != nil {
+		log.Printf("Ошибка при создании таблицы profile_keys: %v", err)
+	}
+
+	// 3. TABLE remote_items - кэшированные чужие элементы
+	_, err = DB.Exec(`
+		CREATE TABLE IF NOT EXISTS remote_items (
+			id              INTEGER PRIMARY KEY,
+			source_peer_id  TEXT NOT NULL REFERENCES profiles(peer_id),
+			original_id     INTEGER NOT NULL,
+			original_hash   TEXT NOT NULL,
+			title           TEXT,
+			description     TEXT,
+			content_meta    TEXT,
+			signature       BLOB,
+			version         INTEGER DEFAULT 1,
+			cached_at       DATETIME DEFAULT CURRENT_TIMESTAMP,
+			UNIQUE(source_peer_id, original_hash)
+		)
+	`)
+	if err != nil {
+		log.Printf("Ошибка при создании таблицы remote_items: %v", err)
+	}
+
+	// Индексы для remote_items
+	_, err = DB.Exec(`CREATE INDEX IF NOT EXISTS idx_remote_items_source_peer ON remote_items(source_peer_id)`)
+	if err != nil {
+		log.Printf("Ошибка при создании индекса idx_remote_items_source_peer: %v", err)
+	}
+
+	_, err = DB.Exec(`CREATE INDEX IF NOT EXISTS idx_remote_items_hash ON remote_items(original_hash)`)
+	if err != nil {
+		log.Printf("Ошибка при создании индекса idx_remote_items_hash: %v", err)
+	}
+
+	// 4. TABLE item_files - файлы элементов
+	_, err = DB.Exec(`
+		CREATE TABLE IF NOT EXISTS item_files (
+			item_id         INTEGER NOT NULL,
+			hash            TEXT NOT NULL,
+			file_path       TEXT NOT NULL,
+			size            INTEGER,
+			mime_type       TEXT,
+			is_remote       BOOLEAN DEFAULT 0,
+			source_peer_id  TEXT,
+			PRIMARY KEY (item_id, hash)
+		)
+	`)
+	if err != nil {
+		log.Printf("Ошибка при создании таблицы item_files: %v", err)
+	}
+
+	// Индекс для item_files
+	_, err = DB.Exec(`CREATE INDEX IF NOT EXISTS idx_item_files_item_id ON item_files(item_id)`)
+	if err != nil {
+		log.Printf("Ошибка при создании индекса idx_item_files_item_id: %v", err)
+	}
+
+	// 5. Добавляем content_hash в items (если ещё нет)
+	_, err = DB.Exec(`ALTER TABLE items ADD COLUMN content_hash TEXT`)
 	if err != nil {
 		// Игнорируем ошибку, если столбец уже существует
 		if !strings.Contains(err.Error(), "duplicate column name") && !strings.Contains(err.Error(), "column already exists") {
-			log.Printf("Ошибка при добавлении столбца profile_id: %v", err)
+			log.Printf("Ошибка при добавлении content_hash в items: %v", err)
 		}
 	}
 
-	// Связываем существующие p2p_profile с profile
-	_, err = DB.Exec(`
-		UPDATE p2p_profile 
-		SET profile_id = (SELECT id FROM profile LIMIT 1)
-		WHERE profile_id IS NULL
-	`)
+	// Индекс для content_hash
+	_, err = DB.Exec(`CREATE INDEX IF NOT EXISTS idx_items_content_hash ON items(content_hash)`)
 	if err != nil {
-		log.Printf("Ошибка при связывании p2p_profile с profile: %v", err)
+		log.Printf("Ошибка при создании индекса idx_items_content_hash: %v", err)
 	}
 
-	// Индекс для связи p2p_profile -> profile
-	_, err = DB.Exec(`CREATE INDEX IF NOT EXISTS idx_p2p_profile_profile_id ON p2p_profile(profile_id);`)
-	if err != nil {
-		log.Printf("Ошибка при создании индекса idx_p2p_profile_profile_id: %v", err)
-	}
-
-	// 1. Таблица p2p_profile - профиль P2P узла
-	_, err = DB.Exec(`
-		CREATE TABLE IF NOT EXISTS p2p_profile (
-			id           INTEGER PRIMARY KEY CHECK (id = 1),
-			profile_id   INTEGER NOT NULL,
-			peer_id      TEXT UNIQUE NOT NULL,
-			private_key  BLOB NOT NULL,
-			public_key   BLOB NOT NULL,
-			username     TEXT NOT NULL,
-			status       TEXT DEFAULT 'online',
-			listen_addrs TEXT,
-			created_at   DATETIME DEFAULT CURRENT_TIMESTAMP,
-			updated_at   DATETIME DEFAULT CURRENT_TIMESTAMP,
-			FOREIGN KEY (profile_id) REFERENCES profile(id) ON DELETE CASCADE
-		);
-	`)
-	if err != nil {
-		log.Printf("Ошибка при создании таблицы p2p_profile: %v", err)
-	}
-
-	// 2. Таблица contacts - адресная книга
+	// 6. Таблица contacts - адресная книга
 	_, err = DB.Exec(`
 		CREATE TABLE IF NOT EXISTS contacts (
 			id          INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -263,16 +277,7 @@ func createP2PTables() {
 		log.Printf("Ошибка при создании таблицы contacts: %v", err)
 	}
 
-	// Миграция: добавляем avatar_path в существующую таблицу contacts
-	_, err = DB.Exec(`ALTER TABLE contacts ADD COLUMN avatar_path TEXT`)
-	if err != nil {
-		// Игнорируем ошибку, если столбец уже существует
-		if !strings.Contains(err.Error(), "duplicate column name") && !strings.Contains(err.Error(), "column already exists") {
-			log.Printf("Ошибка при добавлении столбца avatar_path: %v", err)
-		}
-	}
-
-	// 3. Таблица chat_messages - история сообщений
+	// 7. Таблица chat_messages - история сообщений
 	_, err = DB.Exec(`
 		CREATE TABLE IF NOT EXISTS chat_messages (
 			id           INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -290,7 +295,7 @@ func createP2PTables() {
 		log.Printf("Ошибка при создании таблицы chat_messages: %v", err)
 	}
 
-	// 4. Таблица bootstrap_peers - узлы для входа в сеть
+	// 8. Таблица bootstrap_peers - узлы для входа в сеть
 	_, err = DB.Exec(`
 		CREATE TABLE IF NOT EXISTS bootstrap_peers (
 			id            INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -305,7 +310,7 @@ func createP2PTables() {
 		log.Printf("Ошибка при создании таблицы bootstrap_peers: %v", err)
 	}
 
-	// Создаём индексы для производительности
+	// Индексы для производительности
 	_, err = DB.Exec(`CREATE INDEX IF NOT EXISTS idx_contacts_peer_id ON contacts(peer_id);`)
 	if err != nil {
 		log.Printf("Ошибка при создании индекса idx_contacts_peer_id: %v", err)
@@ -321,7 +326,7 @@ func createP2PTables() {
 		log.Printf("Ошибка при создании индекса idx_bootstrap_peers_multiaddr: %v", err)
 	}
 
-	log.Println("P2P таблицы успешно созданы")
+	log.Println("Новые таблицы профилей и элементов созданы")
 }
 
 // seedBootstrapPeers добавляет предопределённые bootstrap-узлы
@@ -330,14 +335,4 @@ func seedBootstrapPeers() {
 	// Bootstrap пиры не добавляются по умолчанию
 	// Пользователь может добавить их через настройки P2P в приложении
 	log.Println("Bootstrap-узлы не добавлены (добавьте вручную через настройки)")
-}
-
-// clearOldBootstrapPeers очищает старые bootstrap пиры
-func clearOldBootstrapPeers() {
-	_, err := DB.Exec(`DELETE FROM bootstrap_peers`)
-	if err != nil {
-		log.Printf("Предупреждение: не удалось очистить bootstrap пиры: %v", err)
-	} else {
-		log.Println("Старые bootstrap пиры очищены")
-	}
 }

@@ -94,9 +94,12 @@ func (pm *ProfileManager) LoadOrCreateProfile() (*models.P2PProfile, error) {
 	}
 
 	// Получаем имя пользователя из профиля
-	username, err := queries.GetProfileUsername()
+	var username string
+	localProfile, err := queries.GetLocalProfile()
 	if err != nil {
 		username = fmt.Sprintf("User_%s", peerID.String()[:8])
+	} else {
+		username = localProfile.Username
 	}
 
 	// Создаём профиль

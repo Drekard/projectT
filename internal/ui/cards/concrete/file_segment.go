@@ -101,9 +101,24 @@ func NewFileCardWithCallback(item *models.Item, clickCallback func()) interfaces
 			container.NewCenter(fileIcon),
 		)
 
+		// Ограничиваем длину имени файла с сохранением расширения
+		displayName := fileName
+		if len(displayName) > 40 {
+			ext := filepath.Ext(displayName)
+			if ext != "" && len(ext) < len(displayName) {
+				// Оставляем место для расширения и троеточия
+				maxNameLen := 40 - len(ext) - 3
+				if maxNameLen > 0 {
+					displayName = displayName[:maxNameLen] + "... " + ext
+				}
+			} else {
+				displayName = displayName[:37] + "... "
+			}
+		}
+
 		// Создаем метку с именем файла
 		fileLabel := widget.NewRichText(&widget.TextSegment{
-			Text: fileName,
+			Text: displayName,
 			Style: widget.RichTextStyle{
 				TextStyle: fyne.TextStyle{Italic: true},
 			},

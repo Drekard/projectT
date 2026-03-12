@@ -13,6 +13,7 @@ const (
 // Item представляет элемент в системе
 type Item struct {
 	ID          int       `json:"id"`
+	ContentHash string    `json:"content_hash"` // Уникальный хеш содержимого
 	Type        ItemType  `json:"type"`
 	Title       string    `json:"title"`
 	Description string    `json:"description,omitempty"`

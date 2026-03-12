@@ -2,9 +2,7 @@
 package queries
 
 import (
-	"database/sql"
 	"errors"
-	"time"
 
 	"projectT/internal/storage/database"
 	"projectT/internal/storage/database/models"
@@ -13,131 +11,177 @@ import (
 // P2PProfileQueries содержит методы для работы с P2PProfile
 type P2PProfileQueries struct{}
 
-// GetP2PProfile получает профиль P2P узла
+// GetP2PProfile получает профиль P2P узла из таблиц profiles + profile_keys
 func GetP2PProfile() (*models.P2PProfile, error) {
-	row := database.DB.QueryRow(`
-		SELECT id, peer_id, private_key, public_key, is_key_encrypted, username, status, listen_addrs, created_at, updated_at
-		FROM p2p_profile
-		WHERE id = 1
-	`)
-
-	profile := &models.P2PProfile{}
-	var privateKey, publicKey []byte
-	var listenAddrs sql.NullString
-	var createdAt, updatedAt string
-	var isKeyEncrypted bool
-
-	err := row.Scan(
-		&profile.ID,
-		&profile.PeerID,
-		&privateKey,
-		&publicKey,
-		&isKeyEncrypted,
-		&profile.Username,
-		&profile.Status,
-		&listenAddrs,
-		&createdAt,
-		&updatedAt,
-	)
+	// Загружаем профиль из profiles (локальный)
+	localProfile, err := GetLocalProfile()
 	if err != nil {
-		if errors.Is(err, sql.ErrNoRows) {
-			return nil, errors.New("P2P профиль не найден")
-		}
-		return nil, err
+		return nil, errors.New("P2P профиль не найден: " + err.Error())
 	}
 
-	profile.PrivateKey = privateKey
-	profile.PublicKey = publicKey
-	profile.IsKeyEncrypted = isKeyEncrypted
-	if listenAddrs.Valid {
-		profile.ListenAddrs = listenAddrs.String
+	// Загружаем ключи из profile_keys
+	keys, err := GetProfileKeys(localProfile.ID)
+	if err != nil {
+		return nil, errors.New("ключи P2P профиля не найдены: " + err.Error())
 	}
-	profile.CreatedAt, _ = time.Parse("2006-01-02 15:04:05", createdAt)
-	profile.UpdatedAt, _ = time.Parse("2006-01-02 15:04:05", updatedAt)
 
-	return profile, nil
+	// Возвращаем объединённый P2PProfile
+	return &models.P2PProfile{
+		ID:             localProfile.ID,
+		PeerID:         localProfile.PeerID,
+		PrivateKey:     keys.PrivateKey,
+		PublicKey:      keys.PublicKey,
+		IsKeyEncrypted: keys.IsKeyEncrypted,
+		Username:       localProfile.Username,
+		Status:         localProfile.Status,
+		ListenAddrs:    "", // TODO: добавить listen_addrs в profiles или отдельную таблицу
+		CreatedAt:      localProfile.CreatedAt,
+		UpdatedAt:      localProfile.UpdatedAt,
+	}, nil
 }
 
-// CreateP2PProfile создаёт новый профиль P2P узла
+// CreateP2PProfile создаёт новый профиль P2P узла в profiles + profile_keys
 func CreateP2PProfile(profile *models.P2PProfile) error {
-	_, err := database.DB.Exec(`
-		INSERT INTO p2p_profile (id, peer_id, private_key, public_key, is_key_encrypted, username, status, listen_addrs, created_at, updated_at)
-		VALUES (1, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
-	`, profile.PeerID, profile.PrivateKey, profile.PublicKey, profile.IsKeyEncrypted, profile.Username, profile.Status, profile.ListenAddrs)
-	return err
+	// Создаём локальный профиль в profiles
+	localProfile := &models.Profile{
+		OwnerType: models.OwnerTypeLocal,
+		PeerID:    profile.PeerID,
+		Username:  profile.Username,
+		Status:    profile.Status,
+		CreatedAt: profile.CreatedAt,
+		UpdatedAt: profile.UpdatedAt,
+	}
+
+	// Вставляем профиль и получаем ID
+	query := `
+		INSERT INTO profiles (owner_type, peer_id, username, status, created_at, updated_at)
+		VALUES ('local', ?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+	`
+	result, err := database.DB.Exec(query, localProfile.PeerID, localProfile.Username, localProfile.Status)
+	if err != nil {
+		return err
+	}
+
+	id, err := result.LastInsertId()
+	if err != nil {
+		return err
+	}
+	localProfile.ID = int(id)
+
+	// Создаём ключи в profile_keys
+	keys := &models.ProfileKey{
+		ProfileID:      localProfile.ID,
+		PrivateKey:     profile.PrivateKey,
+		PublicKey:      profile.PublicKey,
+		IsKeyEncrypted: profile.IsKeyEncrypted,
+	}
+
+	return CreateProfileKeys(keys)
 }
 
-// UpdateP2PProfile обновляет профиль P2P узла
+// UpdateP2PProfile обновляет профиль P2P узла в profiles + profile_keys
 func UpdateP2PProfile(profile *models.P2PProfile) error {
-	_, err := database.DB.Exec(`
-		UPDATE p2p_profile
-		SET peer_id = ?, private_key = ?, public_key = ?, is_key_encrypted = ?, username = ?, status = ?, listen_addrs = ?, updated_at = CURRENT_TIMESTAMP
-		WHERE id = 1
-	`, profile.PeerID, profile.PrivateKey, profile.PublicKey, profile.IsKeyEncrypted, profile.Username, profile.Status, profile.ListenAddrs)
-	return err
+	// Обновляем профиль в profiles
+	err := UpdateLocalProfile(&models.Profile{
+		ID:        profile.ID,
+		PeerID:    profile.PeerID,
+		Username:  profile.Username,
+		Status:    profile.Status,
+		UpdatedAt: profile.UpdatedAt,
+	})
+	if err != nil {
+		return err
+	}
+
+	// Обновляем ключи в profile_keys
+	keys := &models.ProfileKey{
+		ProfileID:      profile.ID,
+		PrivateKey:     profile.PrivateKey,
+		PublicKey:      profile.PublicKey,
+		IsKeyEncrypted: profile.IsKeyEncrypted,
+	}
+
+	return UpdateProfileKeys(keys)
 }
 
 // UpdateP2PProfileField обновляет отдельное поле профиля P2P узла
 func UpdateP2PProfileField(field string, value interface{}) error {
-	validFields := map[string]bool{
-		"peer_id":          true,
+	// Поля профиля (profiles)
+	profileFields := map[string]bool{
+		"peer_id":      true,
+		"username":     true,
+		"status":       true,
+		"listen_addrs": true, // TODO: реализовать после добавления колонки
+	}
+
+	// Поля ключей (profile_keys)
+	keyFields := map[string]bool{
 		"private_key":      true,
 		"public_key":       true,
 		"is_key_encrypted": true,
-		"username":         true,
-		"status":           true,
-		"listen_addrs":     true,
 	}
 
-	if !validFields[field] {
-		return errors.New("недопустимое поле для обновления")
+	// Получаем ID локального профиля
+	localProfile, err := GetLocalProfile()
+	if err != nil {
+		return errors.New("не удалось получить локальный профиль: " + err.Error())
 	}
 
-	query := `UPDATE p2p_profile SET ` + field + ` = ?, updated_at = CURRENT_TIMESTAMP WHERE id = 1`
-	_, err := database.DB.Exec(query, value)
-	return err
+	if profileFields[field] {
+		// Особая обработка для listen_addrs (пока не реализовано)
+		if field == "listen_addrs" {
+			// TODO: добавить колонку listen_addrs в profiles
+			return errors.New("поле listen_addrs временно недоступно")
+		}
+		return UpdateLocalProfileField(field, value)
+	}
+
+	if keyFields[field] {
+		return UpdateProfileKeyField(localProfile.ID, field, value)
+	}
+
+	return errors.New("недопустимое поле для обновления: " + field)
 }
 
 // P2PProfileExists проверяет, существует ли профиль P2P узла
 func P2PProfileExists() (bool, error) {
-	var count int
-	err := database.DB.QueryRow(`SELECT COUNT(*) FROM p2p_profile WHERE id = 1`).Scan(&count)
+	// Проверяем наличие локального профиля
+	localProfile, err := GetLocalProfile()
 	if err != nil {
-		return false, err
+		return false, nil
 	}
-	return count > 0, nil
+
+	// Проверяем наличие ключей
+	return ProfileKeysExists(localProfile.ID)
 }
 
 // IsP2PKeyEncrypted проверяет, зашифрован ли приватный ключ в профиле
 func IsP2PKeyEncrypted() (bool, error) {
-	var isEncrypted bool
-	err := database.DB.QueryRow(`SELECT is_key_encrypted FROM p2p_profile WHERE id = 1`).Scan(&isEncrypted)
+	localProfile, err := GetLocalProfile()
 	if err != nil {
-		if errors.Is(err, sql.ErrNoRows) {
-			return false, errors.New("P2P профиль не найден")
-		}
-		return false, err
+		return false, errors.New("P2P профиль не найден")
 	}
-	return isEncrypted, nil
+
+	return IsProfileKeyEncrypted(localProfile.ID)
 }
 
 // UpdateP2PEncryptionStatus обновляет статус шифрования приватного ключа
 func UpdateP2PEncryptionStatus(isEncrypted bool) error {
-	_, err := database.DB.Exec(`
-		UPDATE p2p_profile
-		SET is_key_encrypted = ?, updated_at = CURRENT_TIMESTAMP
-		WHERE id = 1
-	`, isEncrypted)
-	return err
+	localProfile, err := GetLocalProfile()
+	if err != nil {
+		return errors.New("не удалось получить локальный профиль: " + err.Error())
+	}
+
+	return UpdateProfileEncryptionStatus(localProfile.ID, isEncrypted)
 }
 
 // ChangeP2PKeyPassword меняет пароль шифрования приватного ключа
 // Принимает новые зашифрованные данные и обновляет их в БД
 func ChangeP2PKeyPassword(encryptedKey []byte) error {
-	_, err := database.DB.Exec(`
-		UPDATE p2p_profile
-		SET private_key = ?, is_key_encrypted = 1, updated_at = CURRENT_TIMESTAMP
-		WHERE id = 1
-	`, encryptedKey)
-	return err
+	localProfile, err := GetLocalProfile()
+	if err != nil {
+		return errors.New("не удалось получить локальный профиль: " + err.Error())
+	}
+
+	return UpdateProfileKeyField(localProfile.ID, "private_key", encryptedKey)
 }

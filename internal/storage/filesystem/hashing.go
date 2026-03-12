@@ -3,12 +3,22 @@ package filesystem
 import (
 	"crypto/sha256"
 	"encoding/hex"
+	"fmt"
 	"regexp"
 )
 
 // CalculateHash вычисляет SHA-256 хэш для переданных байтов и возвращает его в виде hex-строки
 func CalculateHash(fileBytes []byte) string {
 	hash := sha256.Sum256(fileBytes)
+	return hex.EncodeToString(hash[:])
+}
+
+// GenerateContentHash генерирует хэш содержимого элемента на основе title, description и content_meta
+// Используется для дедупликации и идентификации элементов при обмене между пирами
+func GenerateContentHash(title, description, contentMeta string) string {
+	// Формируем строку для хэширования: title|description|content_meta
+	data := fmt.Sprintf("%s|%s|%s", title, description, contentMeta)
+	hash := sha256.Sum256([]byte(data))
 	return hex.EncodeToString(hash[:])
 }
 

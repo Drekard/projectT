@@ -5,8 +5,9 @@ import (
 	"errors"
 	"fmt"
 
+	"github.com/libp2p/go-libp2p/core/crypto"
+
 	p2p "projectT/internal/services/p2p"
-	"projectT/internal/storage/database/models"
 	"projectT/internal/storage/database/queries"
 )
 
@@ -48,30 +49,30 @@ func (n *P2PNetwork) initProfileExchange() error {
 		return errors.New("хост не инициализирован")
 	}
 
-	// Загружаем локальный профиль
-	profile, err := queries.GetP2PProfile()
+	// Получаем локальный профиль для получения ID
+	localProfile, err := queries.GetLocalProfile()
 	if err != nil {
-		return fmt.Errorf("ошибка загрузки профиля: %w", err)
+		return fmt.Errorf("ошибка получения профиля: %w", err)
 	}
 
-	// Получаем информацию о профиле из БД
-	userProfile, err := queries.GetProfile()
+	// Получаем ключи из profile_keys
+	keys, err := queries.GetProfileKeys(localProfile.ID)
 	if err != nil {
-		// Если профиль не найден, используем значения по умолчанию
-		userProfile = &models.Profile{
-			Username: "Аноним",
-			Status:   "Доступен",
-		}
+		return fmt.Errorf("ошибка получения ключей: %w", err)
 	}
 
-	// Создаём сервис обмена профилями
-	n.profileExchange = p2p.NewProfileExchangeService(
-		n.host,
-		userProfile.Username,
-		userProfile.AvatarPath,
-		userProfile.Status,
-		profile.PublicKey,
-	)
+	// Восстанавливаем приватный ключ для подписи
+	privKey, err := crypto.UnmarshalPrivateKey(keys.PrivateKey)
+	if err != nil {
+		return fmt.Errorf("ошибка восстановления приватного ключа: %w", err)
+	}
+
+	pubKey, err := crypto.UnmarshalPublicKey(keys.PublicKey)
+	if err != nil {
+		return fmt.Errorf("ошибка восстановления публичного ключа: %w", err)
+	}
+
+	n.profileExchange = p2p.NewProfileExchangeService(n.host, privKey, pubKey)
 
 	return n.profileExchange.Start()
 }

@@ -27,13 +27,16 @@ func TestNew(t *testing.T) {
 	database.RunMigrations()
 
 	// Создаём профиль по умолчанию
-	_ = queries.CreateProfile(&models.Profile{
-		Username:              "test",
-		Status:                "test",
-		AvatarPath:            "",
-		BackgroundPath:        "",
-		ContentCharacteristic: "",
-	})
+	localProfile := &models.Profile{
+		OwnerType:      models.OwnerTypeLocal,
+		PeerID:         "test_peer",
+		Username:       "test",
+		Status:         "test",
+		AvatarPath:     "",
+		BackgroundPath: "",
+		ContentChar:    "",
+	}
+	_ = queries.CreateRemoteProfile(localProfile)
 
 	// Тестируем создание нового экземпляра UI
 	ui := New()

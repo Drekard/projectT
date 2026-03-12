@@ -190,6 +190,10 @@ func (s *ContentBlocksService) CreateItemWithTransaction(ctx context.Context, ti
 	fmt.Printf("ContentMeta length: %d\n", len(contentMeta))
 	fmt.Printf("ParentID: %v\n", parentID)
 
+	// Генерируем content_hash для уникальной идентификации элемента
+	contentHash := filesystem.GenerateContentHash(title, description, contentMeta)
+	fmt.Printf("ContentHash: %s\n", contentHash)
+
 	// Создаем элемент
 	item := &models.Item{
 		Type:        itemType,
@@ -197,6 +201,7 @@ func (s *ContentBlocksService) CreateItemWithTransaction(ctx context.Context, ti
 		Description: description,
 		ContentMeta: contentMeta,
 		ParentID:    parentID,
+		ContentHash: contentHash,
 	}
 
 	fmt.Println("Вызываем queries.CreateItem...")
@@ -250,13 +255,16 @@ func (s *ContentBlocksService) UpdateItemWithTransaction(ctx context.Context, it
 		}
 	}
 
+	// Генерируем новый content_hash
+	newContentHash := filesystem.GenerateContentHash(title, description, contentMeta)
+
 	// Обновляем элемент в транзакции
 	updateQuery := `
 		UPDATE items
-		SET type = ?, title = ?, description = ?, content_meta = ?, parent_id = ?, updated_at = ?
+		SET type = ?, title = ?, description = ?, content_meta = ?, parent_id = ?, content_hash = ?, updated_at = ?
 		WHERE id = ?
 	`
-	_, err = tx.ExecContext(ctx, updateQuery, itemType, title, description, contentMeta, parentID, time.Now(), itemID)
+	_, err = tx.ExecContext(ctx, updateQuery, itemType, title, description, contentMeta, parentID, newContentHash, time.Now(), itemID)
 	if err != nil {
 		return nil, nil, fmt.Errorf("ошибка обновления элемента: %w", err)
 	}
@@ -271,8 +279,42 @@ func (s *ContentBlocksService) UpdateItemWithTransaction(ctx context.Context, it
 	item.Description = description
 	item.ContentMeta = contentMeta
 	item.ParentID = parentID
+	item.ContentHash = newContentHash
 
 	return &item, oldBlocks, nil
+}
+
+// SaveItemFiles сохраняет информацию о файлах элемента в таблицу item_files
+func (s *ContentBlocksService) SaveItemFiles(itemID int, blocks []Block) error {
+	for _, block := range blocks {
+		if block.FileHash != "" {
+			// Получаем информацию о файле
+			fileInfo, err := filesystem.GetFileInfo(block.FileHash)
+			if err != nil {
+				fmt.Printf("WARN: не удалось получить информацию о файле %s: %v\n", block.FileHash, err)
+				continue
+			}
+
+			// Создаём запись в item_files
+			itemFile := &models.ItemFile{
+				ItemID:       itemID,
+				Hash:         block.FileHash,
+				FilePath:     fileInfo.Path,
+				Size:         fileInfo.Size,
+				MimeType:     fileInfo.MimeType,
+				IsRemote:     false,
+				SourcePeerID: "",
+			}
+
+			if err := queries.CreateItemFile(itemFile); err != nil {
+				fmt.Printf("WARN: ошибка сохранения файла в item_files: %v\n", err)
+				// Не прерываем процесс, продолжаем с остальными файлами
+			} else {
+				fmt.Printf("Файл сохранён в item_files: %s\n", block.FileHash)
+			}
+		}
+	}
+	return nil
 }
 
 // ProcessTags обрабатывает теги для элемента

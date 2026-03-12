@@ -346,7 +346,7 @@ func (ws *Workspace) initializeChatsUI() {
 
 // loadBackground загружает фоновое изображение из профиля
 func (ws *Workspace) loadBackground() {
-	profile, err := queries.GetProfile()
+	profile, err := queries.GetLocalProfile()
 	if err == nil && profile.BackgroundPath != "" {
 		// Создаем кастомный фон с масштабированием
 		ws.background = NewScaledBackground(profile.BackgroundPath)

@@ -19,7 +19,7 @@ func (s *Service) SetBackground(backgroundPath string) error {
 	fmt.Printf("DEBUG: Service - Установка фона: %s\n", backgroundPath)
 
 	// Получаем текущий профиль
-	profile, err := queries.GetProfile()
+	profile, err := queries.GetLocalProfile()
 	if err != nil {
 		fmt.Printf("DEBUG: Service - Ошибка получения профиля: %v\n", err)
 		return err
@@ -29,7 +29,7 @@ func (s *Service) SetBackground(backgroundPath string) error {
 	profile.BackgroundPath = backgroundPath
 
 	// Сохраняем изменения в базу данных
-	err = queries.UpdateProfileField("background_path", backgroundPath, profile.ID)
+	err = queries.UpdateLocalProfileField("background_path", backgroundPath)
 	if err != nil {
 		fmt.Printf("DEBUG: Service - Ошибка сохранения пути к фону: %v\n", err)
 		return err
@@ -48,18 +48,11 @@ func (s *Service) SetBackground(backgroundPath string) error {
 func (s *Service) ClearBackground() error {
 	fmt.Println("DEBUG: Service - Очистка фона")
 
-	// Получаем текущий профиль
-	profile, err := queries.GetProfile()
-	if err != nil {
-		fmt.Printf("DEBUG: Service - Ошибка получения профиля: %v\n", err)
-		return err
-	}
-
 	// Очищаем путь к фоновому изображению
 	backgroundPath := ""
 
 	// Сохраняем изменения в базу данных
-	err = queries.UpdateProfileField("background_path", backgroundPath, profile.ID)
+	err := queries.UpdateLocalProfileField("background_path", backgroundPath)
 	if err != nil {
 		fmt.Printf("DEBUG: Service - Ошибка очистки фона: %v\n", err)
 		return err
@@ -71,7 +64,7 @@ func (s *Service) ClearBackground() error {
 
 // GetCurrentBackground возвращает текущий путь к фоновому изображению
 func (s *Service) GetCurrentBackground() (string, error) {
-	profile, err := queries.GetProfile()
+	profile, err := queries.GetLocalProfile()
 	if err != nil {
 		return "", err
 	}
