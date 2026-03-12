@@ -68,42 +68,42 @@ func (ui *UI) loadContactsToChatsList() {
 
 // createPeerItem создает элемент пира в списке
 func (ui *UI) createPeerItem(contact *models.Contact) *fyne.Container {
-	// Индикатор статуса (зелёный для онлайн, серый для оффлайн)
-	statusColor := color.RGBA{R: 158, G: 158, B: 158, A: 255}
-	statusText := "оффлайн"
-	if contact.Status == "online" || contact.Status == "connected" {
-		statusColor = color.RGBA{R: 76, G: 175, B: 80, A: 255}
-		statusText = "онлайн"
-	}
+	// Создаём иконку пира с аватаром
+	peerIcon := ui.createPeerAvatarIcon(contact)
 
-	statusInd := canvas.NewCircle(statusColor)
+	// Основная компоновка: иконка + разделитель
+	content := container.NewBorder(
+		nil, nil,
+		nil, nil,
+		peerIcon,
+		widget.NewSeparator(),
+	)
 
-	// Имя контакта
-	nameLabel := widget.NewLabel(contact.Username)
-	nameLabel.TextStyle = fyne.TextStyle{Bold: true}
+	return content
+}
 
-	// Статус
-	statusLabel := widget.NewLabel(statusText)
-	statusLabel.TextStyle = fyne.TextStyle{Italic: true}
+// createPeerAvatarIcon создает иконку пира с аватаром 50x50
+func (ui *UI) createPeerAvatarIcon(contact *models.Contact) *fyne.Container {
+	// Создаём фон с закругленными углами
+	avatarBg := canvas.NewRectangle(color.RGBA{R: 50, G: 50, B: 50, A: 255})
+	avatarBg.CornerRadius = 10
+	avatarBg.StrokeColor = color.RGBA{R: 255, G: 255, B: 255, A: 100}
+	avatarBg.StrokeWidth = 1
+	avatarBg.SetMinSize(fyne.NewSize(50, 50))
 
-	// Иконка пира (кнопка)
+	// Создаём кнопку с иконкой поверх фона
 	peerBtn := widget.NewButtonWithIcon("", theme.AccountIcon(), func() {
 		ui.openPeerChat(contact)
 	})
 	peerBtn.Importance = widget.LowImportance
 
-	// Компонуем имя и статус
-	infoContainer := container.NewVBox(nameLabel, statusLabel)
+	// Оборачиваем кнопку в контейнер с фиксированным размером
+	btnWrapper := canvas.NewRectangle(color.Transparent)
+	btnWrapper.SetMinSize(fyne.NewSize(50, 50))
+	btnContainer := container.NewStack(btnWrapper, peerBtn)
 
-	// Основная компоновка: статус + информация + кнопка
-	content := container.NewBorder(
-		nil, nil,
-		container.NewHBox(statusInd, infoContainer),
-		peerBtn,
-		widget.NewSeparator(),
-	)
-
-	return content
+	// Оборачиваем в контейнер с фоном
+	return container.NewStack(avatarBg, btnContainer)
 }
 
 // openPeerChat открывает чат с пиром
@@ -118,6 +118,19 @@ func (ui *UI) openPeerChat(contact *models.Contact) {
 
 	// Загружаем сообщения для контакта
 	ui.loadMessagesForContact(contact.ID)
+
+	// Запрашиваем профиль у пира если P2P инициализирован
+	if ui.p2pUI != nil {
+		go func() {
+			err := ui.p2pUI.RequestProfile(contact.PeerID)
+			if err != nil {
+				log.Printf("Не удалось запросить профиль у пира %s: %v", contact.PeerID, err)
+			}
+		}()
+	}
+
+	// Обновляем правую панель с профилем
+	ui.updateProfile(contact)
 
 	// Обновляем UI
 	if ui.chatArea != nil {
@@ -166,7 +179,7 @@ func (ui *UI) createContactsIcon() *fyne.Container {
 	return container.NewStack(avatar, btnContainer)
 }
 
-// createContactsIcon создает иконку для панели контактов
+// createFaworiteIcon создает иконку для чата Избранного
 func (ui *UI) createFaworiteIcon() *fyne.Container {
 	// Создаем фон с закругленными углами
 	avatar := canvas.NewRectangle(color.RGBA{R: 158, G: 158, B: 158, A: 0})

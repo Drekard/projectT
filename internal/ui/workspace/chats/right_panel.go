@@ -18,7 +18,7 @@ func (ui *UI) createProfileArea() *fyne.Container {
 	header := widget.NewLabel("Профиль")
 	header.TextStyle = fyne.TextStyle{Bold: true}
 
-	// Аватар
+	// Аватар - круг с цветным фоном
 	ui.profileAvatar = canvas.NewCircle(color.RGBA{R: 100, G: 100, B: 100, A: 255})
 
 	// Имя
@@ -80,19 +80,52 @@ func (ui *UI) createProfileArea() *fyne.Container {
 // updateProfile обновляет профиль собеседника
 func (ui *UI) updateProfile(contact *models.Contact) {
 	if ui.profileAvatar != nil {
-		ui.profileAvatar.FillColor = ui.getAvatarColorForContact(contact)
-		ui.profileAvatar.Refresh()
+		// Пробуем загрузить аватар из файла если указан путь
+		if contact.AvatarPath != "" {
+			// Загружаем изображение аватара в горутине
+			go func() {
+				avatarImg, err := fyne.LoadResourceFromPath(contact.AvatarPath)
+				if err == nil && avatarImg != nil {
+					// Создаём изображение
+					img := canvas.NewImageFromResource(avatarImg)
+					img.FillMode = canvas.ImageFillContain
+
+					// Обновляем UI в главном потоке
+					if ui.window != nil {
+						ui.window.Canvas().Refresh(ui.profileAvatar)
+					}
+				} else {
+					// Если не удалось загрузить, используем цвет
+					ui.profileAvatar.FillColor = ui.getAvatarColorForContact(contact)
+					ui.profileAvatar.Refresh()
+				}
+			}()
+		} else {
+			// Используем цветной аватар
+			ui.profileAvatar.FillColor = ui.getAvatarColorForContact(contact)
+			ui.profileAvatar.Refresh()
+		}
 	}
 	if ui.profileName != nil {
 		ui.profileName.SetText(contact.Username)
 		ui.profileName.Refresh()
 	}
 	if ui.profileStatus != nil {
-		ui.profileStatus.SetText("онлайн")
+		// Обновляем статус из контакта
+		statusText := "оффлайн"
+		if contact.Status == "online" || contact.Status == "connected" {
+			statusText = "онлайн"
+		}
+		ui.profileStatus.SetText(statusText)
 		ui.profileStatus.Refresh()
 	}
 	if ui.profileAddress != nil {
-		ui.profileAddress.SetText(contact.PeerID)
+		// Показываем сокращённый PeerID
+		peerID := contact.PeerID
+		if len(peerID) > 16 {
+			peerID = peerID[:8] + "..." + peerID[len(peerID)-8:]
+		}
+		ui.profileAddress.SetText(peerID)
 		ui.profileAddress.Refresh()
 	}
 }
