@@ -1,9 +1,14 @@
 package chats
 
 import (
+	"encoding/json"
+	"fmt"
 	"image/color"
+	"log"
+	"os"
 
 	"projectT/internal/storage/database/models"
+	"projectT/internal/storage/database/queries"
 
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/canvas"
@@ -12,141 +17,219 @@ import (
 	"fyne.io/fyne/v2/widget"
 )
 
-// createProfileArea создает правую панель с профилем
-func (ui *UI) createProfileArea() *fyne.Container {
-	// Заголовок
-	header := widget.NewLabel("Профиль")
-	header.TextStyle = fyne.TextStyle{Bold: true}
+// ContentCharacteristicItem представляет элемент характеристики
+type ContentCharacteristicItem struct {
+	ID    int    `json:"id"`
+	Title string `json:"title"`
+	Value string `json:"value"`
+}
 
-	// Аватар - круг с цветным фоном
-	ui.profileAvatar = canvas.NewCircle(color.RGBA{R: 100, G: 100, B: 100, A: 255})
+// createProfileArea создает правую панель с профилем собеседника
+func (ui *UI) createProfileArea() *fyne.Container {
+	// Аватар - изображение 100x100
+	ui.profileAvatar = canvas.NewImageFromResource(nil)
+	ui.profileAvatar.FillMode = canvas.ImageFillContain
+
+	// Черный фон 100x100 под аватарку
+	avatarBg := canvas.NewRectangle(color.RGBA{R: 0, G: 0, B: 0, A: 255})
+	avatarBg.SetMinSize(fyne.NewSize(100, 100))
+
+	// Аватарка поверх фона через Stack
+	avatarStack := container.NewStack(avatarBg, ui.profileAvatar)
 
 	// Имя
-	ui.profileName = widget.NewLabel("Имя собеседника")
+	ui.profileName = widget.NewLabel("")
+	ui.profileName.TextStyle = fyne.TextStyle{Bold: true}
 	ui.profileName.Alignment = fyne.TextAlignCenter
 
-	// Статус
-	ui.profileStatus = widget.NewLabel("онлайн")
+	// Текстовый статус пользователя (устанавливается вручную)
+	ui.profileStatus = widget.NewLabel("")
+	ui.profileStatus.TextStyle = fyne.TextStyle{Italic: true}
 	ui.profileStatus.Alignment = fyne.TextAlignCenter
 
-	// Адрес
-	ui.profileAddress = widget.NewLabel("address@example.com")
-	ui.profileAddress.Alignment = fyne.TextAlignCenter
+	// Отступы сверху и снизу
+	spacerTop := canvas.NewRectangle(color.Transparent)
+	spacerTop.SetMinSize(fyne.NewSize(0, 20))
+	spacerBottom := canvas.NewRectangle(color.Transparent)
+	spacerBottom.SetMinSize(fyne.NewSize(0, 20))
 
-	// Информация
-	info := container.NewVBox(
-		ui.profileAvatar,
-		layout.NewSpacer(),
+	// Контейнер для аватара и имени
+	headerContainer := container.NewVBox(
+		spacerTop,
+		container.NewCenter(avatarStack),
+		spacerBottom,
 		ui.profileName,
 		ui.profileStatus,
-		ui.profileAddress,
 		layout.NewSpacer(),
 	)
 
 	// Разделитель
-	separator := canvas.NewRectangle(color.RGBA{R: 64, G: 64, B: 64, A: 255})
+	separator1 := canvas.NewRectangle(color.RGBA{R: 64, G: 64, B: 64, A: 255})
+	separator1.SetMinSize(fyne.NewSize(200, 1))
 
-	// Настройки
-	settingsLabel := widget.NewLabel("Настройки чата")
+	// Заголовок характеристик
+	characteristicsTitle := widget.NewLabel("Характеристики")
+	characteristicsTitle.TextStyle = fyne.TextStyle{Bold: true}
 
-	muteButton := widget.NewButton("🔕 Уведомления", func() {
-		// TODO: реализовать отключение уведомлений
-	})
-	muteButton.Importance = widget.LowImportance
+	// Контейнер для характеристик
+	ui.characteristicsContainer = container.NewVBox()
+	characteristicsScroll := container.NewScroll(ui.characteristicsContainer)
+	characteristicsScroll.SetMinSize(fyne.NewSize(0, 200))
 
-	clearButton := widget.NewButton("🗑 Очистить историю", func() {
-		// TODO: реализовать очистку истории
-	})
-	clearButton.Importance = widget.LowImportance
-
-	settings := container.NewVBox(
-		separator,
-		settingsLabel,
-		muteButton,
-		clearButton,
-	)
-
-	content := container.NewVBox(
-		container.NewPadded(info),
-		container.NewPadded(settings),
+	// Основная информация
+	infoContainer := container.NewVBox(
+		container.NewPadded(headerContainer),
+		separator1,
+		container.NewPadded(container.NewVBox(characteristicsTitle, characteristicsScroll)),
 	)
 
 	// Фон
-	bg := canvas.NewRectangle(color.RGBA{R: 35, G: 35, B: 35, A: 255})
+	bg := canvas.NewRectangle(color.RGBA{R: 0, G: 0, B: 0, A: 255})
 
-	return container.NewStack(bg, content)
+	ui.profileArea = container.NewStack(bg, infoContainer)
+
+	// Загружаем профиль текущего пользователя при инициализации
+	ui.showUserProfile()
+
+	return ui.profileArea
+}
+
+// showUserProfile показывает профиль текущего пользователя в правой панели
+func (ui *UI) showUserProfile() {
+	// Загружаем локальный профиль
+	localProfile, err := queries.GetLocalProfile()
+	if err != nil {
+		log.Printf("Ошибка загрузки локального профиля: %v", err)
+		return
+	}
+
+	// Создаём временный контакт с данными профиля
+	tempContact := &models.Contact{
+		Username:   localProfile.Username,
+		Status:     localProfile.Status, // Текстовый статус из профиля
+		AvatarPath: localProfile.AvatarPath,
+		PeerID:     localProfile.PeerID,
+	}
+
+	// Обновляем правую панель с профилем пользователя
+	ui.updateProfile(tempContact)
+
+	// Загружаем характеристики из профиля
+	if localProfile.ContentChar != "" && ui.characteristicsContainer != nil {
+		ui.loadCharacteristics(localProfile.ContentChar)
+	}
 }
 
 // updateProfile обновляет профиль собеседника
 func (ui *UI) updateProfile(contact *models.Contact) {
-	if ui.profileAvatar != nil {
-		// Пробуем загрузить аватар из файла если указан путь
-		if contact.AvatarPath != "" {
-			// Загружаем изображение аватара в горутине
-			go func() {
-				avatarImg, err := fyne.LoadResourceFromPath(contact.AvatarPath)
-				if err == nil && avatarImg != nil {
-					// Создаём изображение
-					img := canvas.NewImageFromResource(avatarImg)
-					img.FillMode = canvas.ImageFillContain
-
-					// Обновляем UI в главном потоке
-					if ui.window != nil {
-						ui.window.Canvas().Refresh(ui.profileAvatar)
-					}
-				} else {
-					// Если не удалось загрузить, используем цвет
-					ui.profileAvatar.FillColor = ui.getAvatarColorForContact(contact)
-					ui.profileAvatar.Refresh()
-				}
-			}()
-		} else {
-			// Используем цветной аватар
-			ui.profileAvatar.FillColor = ui.getAvatarColorForContact(contact)
-			ui.profileAvatar.Refresh()
-		}
-	}
+	// Обновляем имя
 	if ui.profileName != nil {
 		ui.profileName.SetText(contact.Username)
-		ui.profileName.Refresh()
 	}
+
+	// Обновляем статус (текстовый, устанавливается пользователем)
 	if ui.profileStatus != nil {
-		// Обновляем статус из контакта
-		statusText := "оффлайн"
-		if contact.Status == "online" || contact.Status == "connected" {
-			statusText = "онлайн"
-		}
-		ui.profileStatus.SetText(statusText)
-		ui.profileStatus.Refresh()
+		ui.profileStatus.SetText(contact.Status)
 	}
-	if ui.profileAddress != nil {
-		// Показываем сокращённый PeerID
-		peerID := contact.PeerID
-		if len(peerID) > 16 {
-			peerID = peerID[:8] + "..." + peerID[len(peerID)-8:]
+
+	// Загружаем аватар
+	if ui.profileAvatar != nil {
+		ui.loadAvatar(contact.AvatarPath)
+	}
+
+	// Загружаем характеристики из профиля пира
+	if contact.PeerID != "" && ui.characteristicsContainer != nil {
+		// Загружаем профиль из таблицы profiles по PeerID
+		profile, err := queries.GetProfileByPeerID(contact.PeerID)
+		if err == nil && profile != nil {
+			if profile.ContentChar != "" {
+				ui.loadCharacteristics(profile.ContentChar)
+			} else {
+				// Если характеристик нет, очищаем контейнер
+				ui.characteristicsContainer.Objects = nil
+				ui.characteristicsContainer.Refresh()
+			}
 		}
-		ui.profileAddress.SetText(peerID)
-		ui.profileAddress.Refresh()
+	}
+
+	// Обновляем UI
+	if ui.profileArea != nil {
+		ui.profileArea.Refresh()
 	}
 }
 
-func (ui *UI) getAvatarColorForContact(contact *models.Contact) color.Color {
-	if contact == nil || contact.Username == "" {
-		return color.RGBA{R: 100, G: 100, B: 100, A: 255}
+// loadAvatar загружает аватар из локального хранилища
+func (ui *UI) loadAvatar(avatarPath string) {
+	if ui.profileAvatar == nil {
+		return
 	}
-	hash := 0
-	for _, c := range contact.Username {
-		hash = int(c) + (hash * 31)
+
+	if avatarPath == "" {
+		// Пустой аватар - скрываем изображение
+		ui.profileAvatar.Resource = nil
+		ui.profileAvatar.Refresh()
+		return
 	}
-	colors := []color.RGBA{
-		{R: 144, G: 238, B: 144, A: 255},
-		{R: 173, G: 216, B: 230, A: 255},
-		{R: 255, G: 182, B: 193, A: 255},
-		{R: 255, G: 218, B: 185, A: 255},
-		{R: 221, G: 160, B: 221, A: 255},
-		{R: 175, G: 238, B: 238, A: 255},
-		{R: 255, G: 255, B: 153, A: 255},
-		{R: 255, G: 224, B: 189, A: 255},
+
+	// Проверяем существование файла
+	if _, err := os.Stat(avatarPath); os.IsNotExist(err) {
+		log.Printf("Аватар не найден: %s", avatarPath)
+		ui.profileAvatar.Resource = nil
+		ui.profileAvatar.Refresh()
+		return
 	}
-	return colors[hash%len(colors)]
+
+	// Загружаем изображение
+	avatarImg, err := fyne.LoadResourceFromPath(avatarPath)
+	if err != nil {
+		log.Printf("Ошибка загрузки аватара: %v", err)
+		ui.profileAvatar.Resource = nil
+		ui.profileAvatar.Refresh()
+		return
+	}
+
+	// Устанавливаем изображение
+	ui.profileAvatar.Resource = avatarImg
+	ui.profileAvatar.FillMode = canvas.ImageFillContain
+	ui.profileAvatar.Refresh()
+}
+
+// loadCharacteristics загружает характеристики из JSON
+func (ui *UI) loadCharacteristics(jsonStr string) {
+	if ui.characteristicsContainer == nil {
+		return
+	}
+
+	ui.characteristicsContainer.Objects = nil
+
+	var characteristics []ContentCharacteristicItem
+	if jsonStr != "" {
+		err := json.Unmarshal([]byte(jsonStr), &characteristics)
+		if err != nil {
+			log.Printf("Ошибка парсинга характеристик: %v", err)
+			return
+		}
+	}
+
+	if len(characteristics) == 0 {
+		emptyLabel := widget.NewLabel("Нет характеристик")
+		emptyLabel.TextStyle = fyne.TextStyle{Italic: true}
+		ui.characteristicsContainer.Add(emptyLabel)
+	} else {
+		for _, item := range characteristics {
+			characteristicItem := ui.createCharacteristicItem(item.Title, item.Value)
+			ui.characteristicsContainer.Add(characteristicItem)
+		}
+	}
+
+	ui.characteristicsContainer.Refresh()
+}
+
+// createCharacteristicItem создает элемент характеристики (название: значение в одну строку)
+func (ui *UI) createCharacteristicItem(title, value string) *fyne.Container {
+	// Форматируем как "Название: Значение"
+	text := fmt.Sprintf("%s: %s", title, value)
+	label := widget.NewLabel(text)
+	label.Wrapping = fyne.TextWrapWord
+	return container.NewVBox(label)
 }

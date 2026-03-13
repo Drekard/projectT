@@ -65,7 +65,7 @@ func (ui *UI) createControlPanel() *fyne.Container {
 	scroll := container.NewScroll(content)
 
 	// Фон
-	bg := canvas.NewRectangle(color.RGBA{R: 45, G: 45, B: 45, A: 255})
+	bg := canvas.NewRectangle(color.RGBA{R: 0, G: 0, B: 0, A: 255})
 
 	return container.NewStack(bg, scroll)
 }

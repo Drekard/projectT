@@ -13,42 +13,42 @@ import (
 
 // UI представляет интерфейс чатов
 type UI struct {
-	content               fyne.CanvasObject
-	window                fyne.Window
-	p2pUI                 *network.UIP2P
-	currentChatID         int
-	currentContact        *models.Contact
-	contacts              []*models.Contact
-	chatsList             *fyne.Container
-	chatArea              *fyne.Container
-	chatPanel             *center.ChatPanel
-	profileArea           *fyne.Container
-	profileAvatar         *canvas.Circle
-	profileName           *widget.Label
-	profileStatus         *widget.Label
-	profileAddress        *widget.Label
-	myAddressLabel        *widget.Label
-	connectionStatusLabel *widget.Label
-	peersCountLabel       *widget.Label
-	natStatusLabel        *widget.Label
-	portEntry             *widget.Entry
-	contactsListInPanel   *fyne.Container
-	connectedPeersList    *fyne.Container
-	bootstrapList         *fyne.Container
-	discoveredPeersList   *fyne.Container
-	addressEntry          *widget.Entry
-	usernameEntry         *widget.Entry
-	bootstrapEntry        *widget.Entry
-	stunServerEntry       *widget.Entry
-	natPortMapCheck       *widget.Check
-	relayCheck            *widget.Check
-	autoRelayCheck        *widget.Check
-	dhtCheck              *widget.Check
-	mdnsCheck             *widget.Check
-	stunCheck             *widget.Check
-	helperModeCheck       *widget.Check
-	onContactClick        func(contactID int)
-	onSendMessage         func(text string)
+	content                  fyne.CanvasObject
+	window                   fyne.Window
+	p2pUI                    *network.UIP2P
+	currentChatID            int
+	currentContact           *models.Contact
+	contacts                 []*models.Contact
+	chatsList                *fyne.Container
+	chatArea                 *fyne.Container
+	chatPanel                *center.ChatPanel
+	profileArea              *fyne.Container
+	profileAvatar            *canvas.Image
+	profileName              *widget.Label
+	profileStatus            *widget.Label
+	characteristicsContainer *fyne.Container
+	myAddressLabel           *widget.Label
+	connectionStatusLabel    *widget.Label
+	peersCountLabel          *widget.Label
+	natStatusLabel           *widget.Label
+	portEntry                *widget.Entry
+	contactsListInPanel      *fyne.Container
+	connectedPeersList       *fyne.Container
+	bootstrapList            *fyne.Container
+	discoveredPeersList      *fyne.Container
+	addressEntry             *widget.Entry
+	usernameEntry            *widget.Entry
+	bootstrapEntry           *widget.Entry
+	stunServerEntry          *widget.Entry
+	natPortMapCheck          *widget.Check
+	relayCheck               *widget.Check
+	autoRelayCheck           *widget.Check
+	dhtCheck                 *widget.Check
+	mdnsCheck                *widget.Check
+	stunCheck                *widget.Check
+	helperModeCheck          *widget.Check
+	onContactClick           func(contactID int)
+	onSendMessage            func(text string)
 }
 
 // New создает и возвращает новый UI чатов

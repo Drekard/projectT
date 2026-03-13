@@ -4,6 +4,7 @@ package network
 import (
 	"context"
 	"fmt"
+	"log"
 	"time"
 
 	"github.com/libp2p/go-libp2p/core/peer"
@@ -222,16 +223,57 @@ func (api *UIP2P) AddContactByAddress(addrStr, username string) error {
 		return fmt.Errorf("P2P не запущен")
 	}
 
-	_, err := p2p.ImportPeerAddress(api.network.host, addrStr)
+	// Импортируем адрес пира и добавляем в peerstore
+	peerAddr, err := p2p.ImportPeerAddress(api.network.host, addrStr)
 	if err != nil {
-		return err
+		return fmt.Errorf("ошибка импорта адреса: %w", err)
 	}
 
-	// Обновляем имя контакта если указано
+	// Получаем PeerID пира
+	peerID, err := peer.Decode(peerAddr.PeerID)
+	if err != nil {
+		return fmt.Errorf("ошибка декодирования PeerID: %w", err)
+	}
+
+	// Пробуем подключиться к пиру для получения профиля
+	ctx, cancel := context.WithTimeout(api.network.ctx, 10*time.Second)
+	defer cancel()
+
+	// Подключаемся к пиру
+	if err := p2p.ConnectToPeer(ctx, api.network.host, addrStr); err != nil {
+		// Подключение не удалось, но контакт всё равно создан
+		// Профиль будет запрошен позже при следующей попытке
+		log.Printf("Не удалось подключиться к пиру %s: %v", peerID.String(), err)
+	} else {
+		// Подключение успешно — запрашиваем профиль
+		if api.network.profileExchange != nil {
+			go func() {
+				profileCtx, profileCancel := context.WithTimeout(context.Background(), 10*time.Second)
+				defer profileCancel()
+
+				// Запрашиваем профиль у пира
+				profileWithSig, err := api.network.profileExchange.RequestPeerProfile(profileCtx, peerID)
+				if err != nil {
+					log.Printf("Не удалось получить профиль у пира %s: %v", peerID.String(), err)
+					return
+				}
+
+				// Обновляем контакт с данными профиля
+				if profileWithSig != nil && profileWithSig.Profile != nil {
+					if err := queries.UpdateContactProfile(peerID.String(), profileWithSig.Profile.Username, profileWithSig.Profile.AvatarPath); err != nil {
+						log.Printf("Не удалось обновить контакт: %v", err)
+					} else {
+						log.Printf("Профиль пира %s получен и сохранён: %s", peerID.String(), profileWithSig.Profile.Username)
+					}
+				}
+			}()
+		}
+	}
+
+	// Обновляем имя контакта если указано пользователем
 	if username != "" {
-		contact, err := queries.GetContactByPeerID(api.network.host.ID().String())
-		if err == nil && contact != nil {
-			_ = queries.UpdateContactByPeerID(contact.PeerID, username, "")
+		if err := queries.UpdateContactByPeerID(peerID.String(), username, ""); err != nil {
+			log.Printf("Не удалось обновить имя контакта: %v", err)
 		}
 	}
 

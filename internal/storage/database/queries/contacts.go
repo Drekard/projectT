@@ -216,6 +216,21 @@ func UpdateContactByPeerID(peerID, username, avatarPath string) error {
 	return err
 }
 
+// UpdateContactProfile обновляет данные контакта из профиля пира
+func UpdateContactProfile(peerID, username, avatarPath string) error {
+	if avatarPath == "" {
+		// Если avatar_path пустой, обновляем только username
+		return UpdateContactByPeerID(peerID, username, "")
+	}
+
+	_, err := database.DB.Exec(`
+		UPDATE contacts
+		SET username = ?, avatar_path = ?, updated_at = CURRENT_TIMESTAMP
+		WHERE peer_id = ?
+	`, username, avatarPath, peerID)
+	return err
+}
+
 // DeleteContact удаляет контакт по ID
 func DeleteContact(id int) error {
 	_, err := database.DB.Exec(`DELETE FROM contacts WHERE id = ?`, id)
