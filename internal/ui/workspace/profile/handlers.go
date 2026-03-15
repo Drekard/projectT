@@ -87,7 +87,7 @@ func (p *UI) saveToDatabase() {
 
 	// Обновляем основные поля профиля
 	profile.Username = p.userNameEntry.Text
-	profile.Status = p.userStatusEntry.Text
+	profile.Title = p.userTitleEntry.Text
 	profile.AvatarPath = p.avatarPath
 	profile.BackgroundPath = p.backgroundPath
 

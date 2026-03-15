@@ -13,7 +13,7 @@ import (
 // GetLocalProfile возвращает локальный профиль пользователя
 func GetLocalProfile() (*models.Profile, error) {
 	query := `
-		SELECT id, owner_type, peer_id, username, status,
+		SELECT id, owner_type, peer_id, username, title,
 		       COALESCE(avatar_path, ''),
 		       COALESCE(background_path, ''),
 		       COALESCE(content_char, ''),
@@ -29,7 +29,7 @@ func GetLocalProfile() (*models.Profile, error) {
 
 	err := database.DB.QueryRow(query).Scan(
 		&profile.ID, &profile.OwnerType, &profile.PeerID, &profile.Username,
-		&profile.Status, &profile.AvatarPath, &profile.BackgroundPath,
+		&profile.Title, &profile.AvatarPath, &profile.BackgroundPath,
 		&profile.ContentChar, &profile.DemoElements, &cachedAt,
 		&createdAt, &updatedAt,
 	)
@@ -49,7 +49,7 @@ func GetLocalProfile() (*models.Profile, error) {
 // GetRemoteProfile возвращает чужой профиль по PeerID
 func GetRemoteProfile(peerID string) (*models.Profile, error) {
 	query := `
-		SELECT id, owner_type, peer_id, username, status,
+		SELECT id, owner_type, peer_id, username, title,
 		       COALESCE(avatar_path, ''),
 		       COALESCE(background_path, ''),
 		       COALESCE(content_char, ''),
@@ -65,7 +65,7 @@ func GetRemoteProfile(peerID string) (*models.Profile, error) {
 
 	err := database.DB.QueryRow(query).Scan(
 		&profile.ID, &profile.OwnerType, &profile.PeerID, &profile.Username,
-		&profile.Status, &profile.AvatarPath, &profile.BackgroundPath,
+		&profile.Title, &profile.AvatarPath, &profile.BackgroundPath,
 		&profile.ContentChar, &profile.DemoElements, &cachedAt,
 		&createdAt, &updatedAt,
 	)
@@ -86,12 +86,40 @@ func GetRemoteProfile(peerID string) (*models.Profile, error) {
 	return &profile, nil
 }
 
+// EnsureProfileForContact создаёт профиль для контакта если он ещё не существует
+// Используется при добавлении нового контакта в contacts
+func EnsureProfileForContact(peerID, username, avatarPath string) error {
+	// Проверяем, существует ли уже профиль
+	exists := false
+	err := database.DB.QueryRow(`
+		SELECT EXISTS(SELECT 1 FROM profiles WHERE peer_id = ?)
+	`, peerID).Scan(&exists)
+	if err != nil {
+		return err
+	}
+
+	// Если профиль уже существует - ничего не делаем
+	if exists {
+		return nil
+	}
+
+	// Создаём новый remote профиль
+	_, err = database.DB.Exec(`
+		INSERT INTO profiles (owner_type, peer_id, username, title, avatar_path,
+		                      background_path, content_char, demo_elements,
+		                      created_at, updated_at)
+		VALUES ('remote', ?, ?, ?, ?, '', '', '', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+	`, peerID, username, avatarPath)
+
+	return err
+}
+
 // GetAllRemoteProfiles возвращает все чужие профили
 func GetAllRemoteProfiles() ([]*models.Profile, error) {
 	query := `
-		SELECT id, owner_type, peer_id, username, status, avatar_path, background_path, 
-		       content_char, demo_elements, cached_at, created_at, updated_at 
-		FROM profiles 
+		SELECT id, owner_type, peer_id, username, title, avatar_path, background_path,
+		       content_char, demo_elements, cached_at, created_at, updated_at
+		FROM profiles
 		WHERE owner_type = 'remote'
 		ORDER BY username
 	`
@@ -109,7 +137,7 @@ func GetAllRemoteProfiles() ([]*models.Profile, error) {
 
 		err := rows.Scan(
 			&profile.ID, &profile.OwnerType, &profile.PeerID, &profile.Username,
-			&profile.Status, &profile.AvatarPath, &profile.BackgroundPath,
+			&profile.Title, &profile.AvatarPath, &profile.BackgroundPath,
 			&profile.ContentChar, &profile.DemoElements, &cachedAt,
 			&createdAt, &updatedAt,
 		)
@@ -133,12 +161,12 @@ func GetAllRemoteProfiles() ([]*models.Profile, error) {
 // CreateRemoteProfile создаёт чужой профиль
 func CreateRemoteProfile(profile *models.Profile) error {
 	query := `
-		INSERT INTO profiles (owner_type, peer_id, username, status, avatar_path, background_path, 
+		INSERT INTO profiles (owner_type, peer_id, username, title, avatar_path, background_path,
 		                      content_char, demo_elements, cached_at, created_at, updated_at)
 		VALUES ('remote', ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
 	`
 	result, err := database.DB.Exec(query,
-		profile.PeerID, profile.Username, profile.Status, profile.AvatarPath,
+		profile.PeerID, profile.Username, profile.Title, profile.AvatarPath,
 		profile.BackgroundPath, profile.ContentChar, profile.DemoElements,
 	)
 	if err != nil {
@@ -156,14 +184,14 @@ func CreateRemoteProfile(profile *models.Profile) error {
 // UpdateRemoteProfile обновляет чужой профиль
 func UpdateRemoteProfile(profile *models.Profile) error {
 	query := `
-		UPDATE profiles 
-		SET username = ?, status = ?, avatar_path = ?, background_path = ?, 
-		    content_char = ?, demo_elements = ?, cached_at = CURRENT_TIMESTAMP, 
+		UPDATE profiles
+		SET username = ?, title = ?, avatar_path = ?, background_path = ?,
+		    content_char = ?, demo_elements = ?, cached_at = CURRENT_TIMESTAMP,
 		    updated_at = CURRENT_TIMESTAMP
 		WHERE peer_id = ? AND owner_type = 'remote'
 	`
 	_, err := database.DB.Exec(query,
-		profile.Username, profile.Status, profile.AvatarPath, profile.BackgroundPath,
+		profile.Username, profile.Title, profile.AvatarPath, profile.BackgroundPath,
 		profile.ContentChar, profile.DemoElements, profile.PeerID,
 	)
 	return err
@@ -172,13 +200,13 @@ func UpdateRemoteProfile(profile *models.Profile) error {
 // UpdateLocalProfile обновляет локальный профиль
 func UpdateLocalProfile(profile *models.Profile) error {
 	query := `
-		UPDATE profiles 
-		SET username = ?, status = ?, avatar_path = ?, background_path = ?, 
+		UPDATE profiles
+		SET username = ?, title = ?, avatar_path = ?, background_path = ?,
 		    content_char = ?, demo_elements = ?, updated_at = CURRENT_TIMESTAMP
 		WHERE owner_type = 'local'
 	`
 	_, err := database.DB.Exec(query,
-		profile.Username, profile.Status, profile.AvatarPath, profile.BackgroundPath,
+		profile.Username, profile.Title, profile.AvatarPath, profile.BackgroundPath,
 		profile.ContentChar, profile.DemoElements,
 	)
 	return err
@@ -190,8 +218,8 @@ func UpdateLocalProfileField(field string, value interface{}) error {
 	switch field {
 	case "username":
 		query = `UPDATE profiles SET username = ?, updated_at = CURRENT_TIMESTAMP WHERE owner_type = 'local'`
-	case "status":
-		query = `UPDATE profiles SET status = ?, updated_at = CURRENT_TIMESTAMP WHERE owner_type = 'local'`
+	case "title":
+		query = `UPDATE profiles SET title = ?, updated_at = CURRENT_TIMESTAMP WHERE owner_type = 'local'`
 	case "avatar_path":
 		query = `UPDATE profiles SET avatar_path = ?, updated_at = CURRENT_TIMESTAMP WHERE owner_type = 'local'`
 	case "background_path":
@@ -223,7 +251,7 @@ func ProfileExists(peerID string) (bool, error) {
 // GetProfileByPeerID возвращает профиль (локальный или чужой) по PeerID
 func GetProfileByPeerID(peerID string) (*models.Profile, error) {
 	query := `
-		SELECT id, owner_type, peer_id, username, status,
+		SELECT id, owner_type, peer_id, username, title,
 		       COALESCE(avatar_path, ''),
 		       COALESCE(background_path, ''),
 		       COALESCE(content_char, ''),
@@ -239,7 +267,7 @@ func GetProfileByPeerID(peerID string) (*models.Profile, error) {
 
 	err := database.DB.QueryRow(query).Scan(
 		&profile.ID, &profile.OwnerType, &profile.PeerID, &profile.Username,
-		&profile.Status, &profile.AvatarPath, &profile.BackgroundPath,
+		&profile.Title, &profile.AvatarPath, &profile.BackgroundPath,
 		&profile.ContentChar, &profile.DemoElements, &cachedAt,
 		&createdAt, &updatedAt,
 	)

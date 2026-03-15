@@ -4,6 +4,7 @@ package queries
 import (
 	"database/sql"
 	"errors"
+	"fmt"
 	"time"
 
 	"projectT/internal/storage/database"
@@ -13,14 +14,14 @@ import (
 // GetChatMessage получает сообщение по ID
 func GetChatMessage(id int) (*models.ChatMessage, error) {
 	row := database.DB.QueryRow(`
-		SELECT id, contact_id, from_peer_id, content, content_type, metadata, is_read, sent_at
+		SELECT id, contact_id, from_peer_id, content, content_type, metadata, is_read, sent_at, COALESCE(updated_at, sent_at)
 		FROM chat_messages
 		WHERE id = ?
 	`, id)
 
 	message := &models.ChatMessage{}
 	var metadata sql.NullString
-	var sentAt string
+	var sentAt, updatedAt string
 
 	err := row.Scan(
 		&message.ID,
@@ -31,6 +32,7 @@ func GetChatMessage(id int) (*models.ChatMessage, error) {
 		&metadata,
 		&message.IsRead,
 		&sentAt,
+		&updatedAt,
 	)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
@@ -42,7 +44,8 @@ func GetChatMessage(id int) (*models.ChatMessage, error) {
 	if metadata.Valid {
 		message.Metadata = metadata.String
 	}
-	message.SentAt, _ = time.Parse("2006-01-02 15:04:05", sentAt)
+	message.SentAt, _ = parseTime(sentAt)
+	message.UpdatedAt, _ = parseTime(updatedAt)
 
 	return message, nil
 }
@@ -50,7 +53,7 @@ func GetChatMessage(id int) (*models.ChatMessage, error) {
 // GetMessagesForContact получает все сообщения для контакта
 func GetMessagesForContact(contactID int, limit, offset int) ([]*models.ChatMessage, error) {
 	rows, err := database.DB.Query(`
-		SELECT id, contact_id, from_peer_id, content, content_type, metadata, is_read, sent_at
+		SELECT id, contact_id, from_peer_id, content, content_type, metadata, is_read, sent_at, COALESCE(updated_at, sent_at)
 		FROM chat_messages
 		WHERE contact_id = ?
 		ORDER BY sent_at DESC
@@ -65,7 +68,7 @@ func GetMessagesForContact(contactID int, limit, offset int) ([]*models.ChatMess
 	for rows.Next() {
 		message := &models.ChatMessage{}
 		var metadata sql.NullString
-		var sentAt string
+		var sentAt, updatedAt string
 
 		err := rows.Scan(
 			&message.ID,
@@ -76,6 +79,7 @@ func GetMessagesForContact(contactID int, limit, offset int) ([]*models.ChatMess
 			&metadata,
 			&message.IsRead,
 			&sentAt,
+			&updatedAt,
 		)
 		if err != nil {
 			return nil, err
@@ -84,7 +88,10 @@ func GetMessagesForContact(contactID int, limit, offset int) ([]*models.ChatMess
 		if metadata.Valid {
 			message.Metadata = metadata.String
 		}
-		message.SentAt, _ = time.Parse("2006-01-02 15:04:05", sentAt)
+
+		// Пробуем распарсить в формате RFC3339, затем в SQL формате
+		message.SentAt, _ = parseTime(sentAt)
+		message.UpdatedAt, _ = parseTime(updatedAt)
 
 		messages = append(messages, message)
 	}
@@ -94,7 +101,26 @@ func GetMessagesForContact(contactID int, limit, offset int) ([]*models.ChatMess
 		messages[i], messages[j] = messages[j], messages[i]
 	}
 
+	fmt.Printf("[DEBUG] Загружено %d сообщений для контакта (contact_id=%d)\n", len(messages), contactID)
+
 	return messages, rows.Err()
+}
+
+// parseTime парсит время из строки в формате RFC3339 или SQL
+func parseTime(timeStr string) (time.Time, error) {
+	// Пробуем RFC3339 (ISO8601)
+	if t, err := time.Parse(time.RFC3339, timeStr); err == nil {
+		return t, nil
+	}
+	// Пробуем SQL формат
+	if t, err := time.Parse("2006-01-02 15:04:05", timeStr); err == nil {
+		return t, nil
+	}
+	// Пробуем SQL формат с T
+	if t, err := time.Parse("2006-01-02T15:04:05", timeStr); err == nil {
+		return t, nil
+	}
+	return time.Time{}, fmt.Errorf("не удалось распарсить время: %s", timeStr)
 }
 
 // GetUnreadMessagesCount получает количество непрочитанных сообщений для контакта
@@ -145,6 +171,16 @@ func MarkAllMessagesAsRead(contactID int) error {
 	return err
 }
 
+// UpdateChatMessage обновляет сообщение
+func UpdateChatMessage(message *models.ChatMessage) error {
+	_, err := database.DB.Exec(`
+		UPDATE chat_messages
+		SET content = ?, content_type = ?, metadata = ?, is_read = ?, updated_at = CURRENT_TIMESTAMP
+		WHERE id = ?
+	`, message.Content, message.ContentType, message.Metadata, message.IsRead, message.ID)
+	return err
+}
+
 // DeleteChatMessage удаляет сообщение по ID
 func DeleteChatMessage(id int) error {
 	_, err := database.DB.Exec(`DELETE FROM chat_messages WHERE id = ?`, id)
@@ -160,7 +196,7 @@ func DeleteMessagesForContact(contactID int) error {
 // GetLastMessageForContact получает последнее сообщение для контакта
 func GetLastMessageForContact(contactID int) (*models.ChatMessage, error) {
 	row := database.DB.QueryRow(`
-		SELECT id, contact_id, from_peer_id, content, content_type, metadata, is_read, sent_at
+		SELECT id, contact_id, from_peer_id, content, content_type, metadata, is_read, sent_at, COALESCE(updated_at, sent_at)
 		FROM chat_messages
 		WHERE contact_id = ?
 		ORDER BY sent_at DESC
@@ -169,7 +205,7 @@ func GetLastMessageForContact(contactID int) (*models.ChatMessage, error) {
 
 	message := &models.ChatMessage{}
 	var metadata sql.NullString
-	var sentAt string
+	var sentAt, updatedAt string
 
 	err := row.Scan(
 		&message.ID,
@@ -180,6 +216,7 @@ func GetLastMessageForContact(contactID int) (*models.ChatMessage, error) {
 		&metadata,
 		&message.IsRead,
 		&sentAt,
+		&updatedAt,
 	)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
@@ -192,6 +229,7 @@ func GetLastMessageForContact(contactID int) (*models.ChatMessage, error) {
 		message.Metadata = metadata.String
 	}
 	message.SentAt, _ = time.Parse("2006-01-02 15:04:05", sentAt)
+	message.UpdatedAt, _ = time.Parse("2006-01-02 15:04:05", updatedAt)
 
 	return message, nil
 }

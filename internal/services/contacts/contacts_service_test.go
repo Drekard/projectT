@@ -34,7 +34,7 @@ func TestContactWithStatus(t *testing.T) {
 		PeerID:    "QmTest123",
 		Username:  "TestUser",
 		Multiaddr: "/ip4/127.0.0.1/tcp/4001/p2p/QmTest123",
-		Status:    "online",
+		Title:     "online",
 		Notes:     "Тестовый контакт",
 		IsBlocked: false,
 	}
@@ -115,7 +115,7 @@ func TestContactWithStatus_IsOnline(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			contact := &ContactWithStatus{
 				Contact: &models.Contact{
-					Status: tt.status,
+					Title: tt.status,
 				},
 				IsOnline: tt.status == "online",
 			}
@@ -171,7 +171,7 @@ func TestContactWithStatus_Enrich(t *testing.T) {
 		ID:        1,
 		PeerID:    "QmTest",
 		Username:  "TestUser",
-		Status:    "offline",
+		Title:     "offline",
 		Multiaddr: "/ip4/127.0.0.1/tcp/4001/p2p/QmTest",
 	}
 
@@ -184,8 +184,8 @@ func TestContactWithStatus_Enrich(t *testing.T) {
 	if enriched.Username != "TestUser" {
 		t.Errorf("Username не сохранился: %s", enriched.Username)
 	}
-	if enriched.Status != "offline" {
-		t.Errorf("Статус изменился: %s", enriched.Status)
+	if enriched.Title != "offline" {
+		t.Errorf("Статус изменился: %s", enriched.Title)
 	}
 	if enriched.IsOnline {
 		t.Error("Ожидалось IsOnline=false")

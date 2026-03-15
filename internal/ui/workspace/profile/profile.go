@@ -35,10 +35,8 @@ type fieldRow struct {
 
 type UI struct {
 	content                  fyne.CanvasObject
-	userNameLabel            *widget.Label
-	userStatusLabel          *widget.Label
 	userNameEntry            *widget.Entry
-	userStatusEntry          *widget.Entry
+	userTitleEntry           *widget.Entry
 	avatarImage              *canvas.Image
 	avatarContainer          *fyne.Container
 	customFields             []*fieldRow
@@ -54,7 +52,7 @@ type UI struct {
 	window                   fyne.Window
 	gridManager              *saved.GridManager
 	userNameTimer            *time.Timer
-	userStatusTimer          *time.Timer
+	userTitleTimer           *time.Timer
 }
 
 func New() *UI {
@@ -136,36 +134,23 @@ func (p *UI) createComponents() {
 	// Контейнер для аватара
 	p.avatarContainer = container.NewCenter(avatarClickable)
 
-	// Информация о пользователе
-	p.userNameLabel = widget.NewLabel("Имя пользователя")
-	p.userStatusLabel = widget.NewLabel("Статус")
+	p.userNameEntry = widget.NewEntry()
+	p.userNameEntry.SetPlaceHolder("Логин")
+	p.userNameEntry.OnChanged = func(text string) {
+		p.scheduleProfileAutoSave()
+	}
+
+	p.userTitleEntry = widget.NewEntry()
+	p.userTitleEntry.SetPlaceHolder("Титул")
+	p.userTitleEntry.OnChanged = func(text string) {
+		p.scheduleProfileAutoSave()
+	}
 
 	// Загружаем данные из профиля
 	profile, err := queries.GetLocalProfile()
 	if err == nil {
-		p.userNameEntry = widget.NewEntry()
 		p.userNameEntry.SetText(profile.Username)
-		p.userNameEntry.OnChanged = func(text string) {
-			p.scheduleProfileAutoSave()
-		}
-
-		p.userStatusEntry = widget.NewEntry()
-		p.userStatusEntry.SetText(profile.Status)
-		p.userStatusEntry.OnChanged = func(text string) {
-			p.scheduleProfileAutoSave()
-		}
-	} else {
-		p.userNameEntry = widget.NewEntry()
-		p.userNameEntry.SetText(p.userNameLabel.Text)
-		p.userNameEntry.OnChanged = func(text string) {
-			p.scheduleProfileAutoSave()
-		}
-
-		p.userStatusEntry = widget.NewEntry()
-		p.userStatusEntry.SetText(p.userStatusLabel.Text)
-		p.userStatusEntry.OnChanged = func(text string) {
-			p.scheduleProfileAutoSave()
-		}
+		p.userTitleEntry.SetText(profile.Title)
 	}
 
 	p.backgroundButton = widget.NewButton("Фон", func() {
@@ -186,17 +171,17 @@ func (p *UI) createTopPart() fyne.CanvasObject {
 	entryNameWrapper.SetMinSize(fyne.NewSize(200, 40))
 	nameContainer := container.NewStack(entryNameWrapper, p.userNameEntry)
 
-	// Объединяем Label и Entry через Stack для статуса
-	entryStatusWrapper := canvas.NewRectangle(color.Transparent)
-	entryStatusWrapper.SetMinSize(fyne.NewSize(200, 40))
-	statusContainer := container.NewStack(entryStatusWrapper, p.userStatusEntry)
+	// Объединяем Label и Entry через Stack для титула
+	entryTitleWrapper := canvas.NewRectangle(color.Transparent)
+	entryTitleWrapper.SetMinSize(fyne.NewSize(200, 40))
+	titleContainer := container.NewStack(entryTitleWrapper, p.userTitleEntry)
 
-	// Левая часть верхней секции (аватар, имя, статус, кнопки)
+	// Левая часть верхней секции (аватар, имя, титул, кнопки)
 	leftTopPart := container.NewVBox(
 		leftTopPartWrapper,
 		container.NewCenter(p.avatarContainer),
 		container.NewCenter(nameContainer),
-		container.NewCenter(statusContainer),
+		container.NewCenter(titleContainer),
 		container.NewCenter(container.NewHBox(p.backgroundButton, p.avatarButton)),
 	)
 

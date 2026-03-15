@@ -32,7 +32,7 @@ type ProfileRequest struct {
 type ProfileResponse struct {
 	PeerID         string `json:"peer_id"`
 	Username       string `json:"username"`
-	Status         string `json:"status"`
+	Title          string `json:"title"`
 	AvatarPath     string `json:"avatar_path"`
 	BackgroundPath string `json:"background_path"`
 	ContentChar    string `json:"content_characteristic"`
@@ -119,7 +119,7 @@ func (pes *ProfileExchangeService) handleProfileRequest(stream network.Stream) {
 	response := &ProfileResponse{
 		PeerID:         localProfile.PeerID,
 		Username:       localProfile.Username,
-		Status:         localProfile.Status,
+		Title:          localProfile.Title,
 		AvatarPath:     localProfile.AvatarPath,
 		BackgroundPath: localProfile.BackgroundPath,
 		ContentChar:    localProfile.ContentChar,
@@ -200,7 +200,7 @@ func (pes *ProfileExchangeService) RequestPeerProfile(ctx context.Context, peerI
 		OwnerType:      models.OwnerTypeRemote,
 		PeerID:         response.PeerID,
 		Username:       response.Username,
-		Status:         response.Status,
+		Title:          response.Title,
 		AvatarPath:     response.AvatarPath,
 		BackgroundPath: response.BackgroundPath,
 		ContentChar:    response.ContentChar,
@@ -272,8 +272,8 @@ func (pes *ProfileExchangeService) savePeerProfile(profile *models.Profile, publ
 	// Обновляем контакт если существует
 	contact, err := queries.GetContactByPeerID(profile.PeerID)
 	if err == nil && contact != nil {
-		// Обновляем имя и аватар контакта
-		if err := queries.UpdateContactByPeerID(profile.PeerID, profile.Username, profile.AvatarPath); err != nil {
+		// Обновляем multiaddr контакта
+		if err := queries.UpdateContactByPeerID(profile.PeerID, contact.Multiaddr); err != nil {
 			log.Printf("Предупреждение: не удалось обновить контакт: %v", err)
 		}
 	}
@@ -291,7 +291,7 @@ func (pes *ProfileExchangeService) signProfile(profile *models.Profile) ([]byte,
 	data := fmt.Sprintf("%s|%s|%s|%s|%s|%s",
 		profile.PeerID,
 		profile.Username,
-		profile.Status,
+		profile.Title,
 		profile.AvatarPath,
 		profile.ContentChar,
 		profile.DemoElements,
@@ -326,7 +326,7 @@ func (pes *ProfileExchangeService) VerifyProfileSignature(profile *models.Profil
 	data := fmt.Sprintf("%s|%s|%s|%s|%s|%s",
 		profile.PeerID,
 		profile.Username,
-		profile.Status,
+		profile.Title,
 		profile.AvatarPath,
 		profile.ContentChar,
 		profile.DemoElements,

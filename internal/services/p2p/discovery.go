@@ -316,9 +316,9 @@ func (ds *DiscoveryService) connectToDiscoveredPeer(peerInfo peer.AddrInfo, cont
 
 	log.Printf("Подключено к пиру из контактов: %s", peerInfo.ID)
 
-	// Обновляем статус контакта
+	// Обновляем время последней активности контакта
 	now := time.Now()
-	_ = queries.UpdateContactStatus(contactID, "online", &now)
+	_ = queries.UpdateContactLastSeen(contactID, &now)
 }
 
 // AddBootstrapPeer добавляет bootstrap-узел в БД

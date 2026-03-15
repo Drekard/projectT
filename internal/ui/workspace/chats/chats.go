@@ -133,6 +133,6 @@ func (ui *UI) selectChat(contact *models.Contact) {
 	ui.chatArea.Objects = []fyne.CanvasObject{chatPanel}
 	ui.chatArea.Refresh()
 
-	// Обновляем профиль
+	// Обновляем профиль (для локального чата показываем свой профиль)
 	ui.updateProfile(contact)
 }

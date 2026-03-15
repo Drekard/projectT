@@ -19,7 +19,7 @@ type Profile struct {
 	OwnerType      OwnerType  `json:"owner_type"` // "local" или "remote"
 	PeerID         string     `json:"peer_id"`
 	Username       string     `json:"username"`
-	Status         string     `json:"status"`
+	Title          string     `json:"title"`
 	AvatarPath     string     `json:"avatar_path"`
 	BackgroundPath string     `json:"background_path"`
 	ContentChar    string     `json:"content_characteristic"`

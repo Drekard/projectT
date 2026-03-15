@@ -106,7 +106,7 @@ func (ui *UI) showUserProfile() {
 	// Создаём временный контакт с данными профиля
 	tempContact := &models.Contact{
 		Username:   localProfile.Username,
-		Status:     localProfile.Status, // Текстовый статус из профиля
+		Title:      localProfile.Title, // Титул из профиля
 		AvatarPath: localProfile.AvatarPath,
 		PeerID:     localProfile.PeerID,
 	}
@@ -122,14 +122,21 @@ func (ui *UI) showUserProfile() {
 
 // updateProfile обновляет профиль собеседника
 func (ui *UI) updateProfile(contact *models.Contact) {
+	// Проверяем, локальный ли это чат
+	if contact.IsLocalChat() {
+		// Для локального чата показываем профиль текущего пользователя
+		ui.showUserProfile()
+		return
+	}
+
 	// Обновляем имя
 	if ui.profileName != nil {
 		ui.profileName.SetText(contact.Username)
 	}
 
-	// Обновляем статус (текстовый, устанавливается пользователем)
+	// Обновляем статус (текстовый, из профиля)
 	if ui.profileStatus != nil {
-		ui.profileStatus.SetText(contact.Status)
+		ui.profileStatus.SetText(contact.Title)
 	}
 
 	// Загружаем аватар

@@ -11,7 +11,7 @@ type P2PProfile struct {
 	PublicKey      []byte    `json:"-"`                // Не экспортируем в JSON
 	IsKeyEncrypted bool      `json:"is_key_encrypted"` // Маркер: зашифрован ли приватный ключ
 	Username       string    `json:"username"`
-	Status         string    `json:"status"`
+	Title          string    `json:"title"`
 	ListenAddrs    string    `json:"listen_addrs"`
 	CreatedAt      time.Time `json:"created_at"`
 	UpdatedAt      time.Time `json:"updated_at"`

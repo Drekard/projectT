@@ -7,10 +7,11 @@ import (
 	"log"
 	"time"
 
-	"github.com/libp2p/go-libp2p/core/peer"
 	"projectT/internal/services/p2p"
 	"projectT/internal/storage/database/models"
 	"projectT/internal/storage/database/queries"
+
+	"github.com/libp2p/go-libp2p/core/peer"
 )
 
 // P2PStatus статус P2P подключения
@@ -258,10 +259,10 @@ func (api *UIP2P) AddContactByAddress(addrStr, username string) error {
 					return
 				}
 
-				// Обновляем контакт с данными профиля
+				// Обновляем remote профиль в БД
 				if profileWithSig != nil && profileWithSig.Profile != nil {
-					if err := queries.UpdateContactProfile(peerID.String(), profileWithSig.Profile.Username, profileWithSig.Profile.AvatarPath); err != nil {
-						log.Printf("Не удалось обновить контакт: %v", err)
+					if err := queries.UpdateRemoteProfile(profileWithSig.Profile); err != nil {
+						log.Printf("Не удалось обновить профиль пира %s: %v", peerID.String(), err)
 					} else {
 						log.Printf("Профиль пира %s получен и сохранён: %s", peerID.String(), profileWithSig.Profile.Username)
 					}
@@ -270,10 +271,11 @@ func (api *UIP2P) AddContactByAddress(addrStr, username string) error {
 		}
 	}
 
-	// Обновляем имя контакта если указано пользователем
-	if username != "" {
-		if err := queries.UpdateContactByPeerID(peerID.String(), username, ""); err != nil {
-			log.Printf("Не удалось обновить имя контакта: %v", err)
+	// Обновляем multiaddr контакта
+	contact, err := queries.GetContactByPeerID(peerID.String())
+	if err == nil && contact != nil && contact.Multiaddr != "" {
+		if err := queries.UpdateContactByPeerID(peerID.String(), contact.Multiaddr); err != nil {
+			log.Printf("Не удалось обновить multiaddr контакта: %v", err)
 		}
 	}
 
@@ -371,7 +373,7 @@ func (api *UIP2P) GetAllContacts() []*PeerInfo {
 		peers = append(peers, &PeerInfo{
 			PeerID:      contact.PeerID,
 			Username:    contact.Username,
-			Status:      contact.Status,
+			Status:      contact.Title, // Используем Title из profiles
 			IsConnected: isConnected,
 			LastSeen:    lastSeen,
 			LatencyMs:   latencyMs,

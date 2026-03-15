@@ -26,12 +26,6 @@ func (p *UI) GetContent() fyne.CanvasObject {
 	return p.content
 }
 
-// Методы для работы с данными (будут использоваться при интеграции с БД)
-func (p *UI) SetUserName(name string) {
-	p.userNameLabel.SetText(name)
-	p.userNameEntry.SetText(name)
-}
-
 // GetAvatarPath возвращает текущий путь к аватару
 func (p *UI) GetAvatarPath() string {
 	return p.avatarPath
@@ -40,13 +34,6 @@ func (p *UI) GetAvatarPath() string {
 // SetWindow устанавливает окно для UI
 func (p *UI) SetWindow(window fyne.Window) {
 	p.window = window
-}
-
-func (p *UI) SetUserStatus(status string) {
-	if p.userStatusLabel != nil {
-		p.userStatusLabel.SetText(status)
-	}
-	p.userStatusEntry.SetText(status)
 }
 
 func (p *UI) SetCustomField(index int, title, value string) {
@@ -121,21 +108,21 @@ func (p *UI) scheduleAutoSave(row *fieldRow) {
 	})
 }
 
-// scheduleProfileAutoSave планирует автосохранение профиля (имя и статус) через 2 секунды
+// scheduleProfileAutoSave планирует автосохранение профиля (имя и титул) через 2 секунды
 func (p *UI) scheduleProfileAutoSave() {
 	// Отменяем предыдущие таймеры, если они существуют
 	if p.userNameTimer != nil {
 		p.userNameTimer.Stop()
 	}
-	if p.userStatusTimer != nil {
-		p.userStatusTimer.Stop()
+	if p.userTitleTimer != nil {
+		p.userTitleTimer.Stop()
 	}
 
 	// Создаем новый таймер на 2 секунды
 	p.userNameTimer = time.AfterFunc(2*time.Second, func() {
 		p.autoSaveProfile()
 	})
-	p.userStatusTimer = p.userNameTimer
+	p.userTitleTimer = p.userNameTimer
 }
 
 // autoSaveProfile сохраняет имя и статус профиля в базу данных
@@ -158,7 +145,7 @@ func (p *UI) saveCharacteristicsToDB() {
 
 	// Обновляем основные поля профиля
 	profile.Username = p.userNameEntry.Text
-	profile.Status = p.userStatusEntry.Text
+	profile.Title = p.userTitleEntry.Text
 
 	// Обновляем характеристики в JSON-формате
 	characteristicsJSON, err := p.SaveCharacteristicsToJSON()

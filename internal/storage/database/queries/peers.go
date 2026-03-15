@@ -33,7 +33,7 @@ func GetP2PProfile() (*models.P2PProfile, error) {
 		PublicKey:      keys.PublicKey,
 		IsKeyEncrypted: keys.IsKeyEncrypted,
 		Username:       localProfile.Username,
-		Status:         localProfile.Status,
+		Title:          localProfile.Title,
 		ListenAddrs:    "", // TODO: добавить listen_addrs в profiles или отдельную таблицу
 		CreatedAt:      localProfile.CreatedAt,
 		UpdatedAt:      localProfile.UpdatedAt,
@@ -47,17 +47,17 @@ func CreateP2PProfile(profile *models.P2PProfile) error {
 		OwnerType: models.OwnerTypeLocal,
 		PeerID:    profile.PeerID,
 		Username:  profile.Username,
-		Status:    profile.Status,
+		Title:     profile.Title,
 		CreatedAt: profile.CreatedAt,
 		UpdatedAt: profile.UpdatedAt,
 	}
 
 	// Вставляем профиль и получаем ID
 	query := `
-		INSERT INTO profiles (owner_type, peer_id, username, status, created_at, updated_at)
+		INSERT INTO profiles (owner_type, peer_id, username, title, created_at, updated_at)
 		VALUES ('local', ?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
 	`
-	result, err := database.DB.Exec(query, localProfile.PeerID, localProfile.Username, localProfile.Status)
+	result, err := database.DB.Exec(query, localProfile.PeerID, localProfile.Username, localProfile.Title)
 	if err != nil {
 		return err
 	}
@@ -86,7 +86,7 @@ func UpdateP2PProfile(profile *models.P2PProfile) error {
 		ID:        profile.ID,
 		PeerID:    profile.PeerID,
 		Username:  profile.Username,
-		Status:    profile.Status,
+		Title:     profile.Title,
 		UpdatedAt: profile.UpdatedAt,
 	})
 	if err != nil {
@@ -110,7 +110,7 @@ func UpdateP2PProfileField(field string, value interface{}) error {
 	profileFields := map[string]bool{
 		"peer_id":      true,
 		"username":     true,
-		"status":       true,
+		"title":        true,
 		"listen_addrs": true, // TODO: реализовать после добавления колонки
 	}
 

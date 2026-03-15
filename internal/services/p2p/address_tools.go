@@ -434,14 +434,18 @@ func ImportPeerAddress(h host.Host, addrStr string) (*PeerAddress, error) {
 		return nil, fmt.Errorf("ошибка получения публичного ключа: %w", err)
 	}
 
+	// Создаём профиль для контакта если он ещё не существует
+	username := info.ID.String()[:8] // Первые 8 символов как временное имя
+	if err := queries.EnsureProfileForContact(info.ID.String(), username, ""); err != nil {
+		log.Printf("Предупреждение: не удалось создать профиль: %v", err)
+	}
+
 	// Создаём контакт в БД
 	contact := &models.Contact{
 		PeerID:    info.ID.String(),
-		Username:  info.ID.String()[:8], // Первые 8 символов как временное имя
 		Multiaddr: addrStr,
-		PublicKey: pubKeyBytes,
-		Status:    "offline",
 		Notes:     "",
+		IsBlocked: false,
 	}
 
 	if err := queries.CreateContact(contact); err != nil {

@@ -31,7 +31,7 @@ func TestNew(t *testing.T) {
 		OwnerType:      models.OwnerTypeLocal,
 		PeerID:         "test_peer",
 		Username:       "test",
-		Status:         "test",
+		Title:          "test",
 		AvatarPath:     "",
 		BackgroundPath: "",
 		ContentChar:    "",

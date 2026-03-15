@@ -110,7 +110,7 @@ func (pm *ProfileManager) LoadOrCreateProfile() (*models.P2PProfile, error) {
 		PublicKey:      pubKeyBytes,
 		IsKeyEncrypted: isEncrypted,
 		Username:       username,
-		Status:         "online",
+		Title:          "online",
 	}
 
 	if err := queries.CreateP2PProfile(profile); err != nil {

@@ -148,7 +148,7 @@ func createNewProfileTables() {
 			owner_type      TEXT NOT NULL CHECK (owner_type IN ('local', 'remote')),
 			peer_id         TEXT UNIQUE NOT NULL,
 			username        TEXT NOT NULL,
-			status          TEXT DEFAULT 'online',
+			title           TEXT,
 			avatar_path     TEXT,
 			background_path TEXT DEFAULT '',
 			content_char    TEXT,
@@ -256,19 +256,18 @@ func createNewProfileTables() {
 		log.Printf("Ошибка при создании индекса idx_items_content_hash: %v", err)
 	}
 
-	// 6. Таблица contacts - адресная книга
+	// 6. Таблица contacts - адресная книга (избранные пользователи)
+	// Хранит только уникальные данные: адрес для подключения, заметки, настройки
+	// Профиль пользователя (username, avatar, title) берётся из таблицы profiles
 	_, err = DB.Exec(`
 		CREATE TABLE IF NOT EXISTS contacts (
 			id          INTEGER PRIMARY KEY AUTOINCREMENT,
-			peer_id     TEXT UNIQUE NOT NULL,
-			username    TEXT NOT NULL,
-			public_key  BLOB,
+			peer_id     TEXT UNIQUE NOT NULL REFERENCES profiles(peer_id),
 			multiaddr   TEXT,
-			status      TEXT DEFAULT 'offline',
-			last_seen   DATETIME,
 			notes       TEXT,
 			is_blocked  BOOLEAN DEFAULT 0,
-			avatar_path TEXT,
+			is_favorite BOOLEAN DEFAULT 1,
+			last_seen   DATETIME,
 			added_at    DATETIME DEFAULT CURRENT_TIMESTAMP,
 			updated_at  DATETIME DEFAULT CURRENT_TIMESTAMP
 		);
@@ -288,11 +287,21 @@ func createNewProfileTables() {
 			metadata     TEXT,
 			is_read      BOOLEAN DEFAULT 0,
 			sent_at      DATETIME DEFAULT CURRENT_TIMESTAMP,
+			updated_at   DATETIME,
 			FOREIGN KEY (contact_id) REFERENCES contacts (id) ON DELETE CASCADE
 		);
 	`)
 	if err != nil {
 		log.Printf("Ошибка при создании таблицы chat_messages: %v", err)
+	}
+
+	// Добавляем колонку updated_at если она не существует (для существующих БД)
+	_, err = DB.Exec(`ALTER TABLE chat_messages ADD COLUMN updated_at DATETIME`)
+	if err != nil {
+		// Игнорируем ошибку, если столбец уже существует
+		if !strings.Contains(err.Error(), "duplicate column name") && !strings.Contains(err.Error(), "column already exists") {
+			log.Printf("Ошибка при добавлении updated_at в chat_messages: %v", err)
+		}
 	}
 
 	// 8. Таблица bootstrap_peers - узлы для входа в сеть

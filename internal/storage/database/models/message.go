@@ -13,4 +13,5 @@ type ChatMessage struct {
 	Metadata    string    `json:"metadata"`
 	IsRead      bool      `json:"is_read"`
 	SentAt      time.Time `json:"sent_at"`
+	UpdatedAt   time.Time `json:"updated_at"`
 }

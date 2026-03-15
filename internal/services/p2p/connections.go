@@ -196,8 +196,8 @@ func (cs *ConnectionService) checkConnections() {
 				info.LastSeen = time.Now()
 				log.Printf("Пир подключён: %s", p)
 
-				// Обновляем статус в БД
-				go cs.updateContactStatus(p, "online")
+				// Обновляем время последней активности в БД
+				go cs.updateContactLastSeen(p)
 			}
 		} else {
 			// Новый пир
@@ -216,8 +216,8 @@ func (cs *ConnectionService) checkConnections() {
 			info.LastSeen = time.Now()
 			log.Printf("Пир отключён: %s", peerID)
 
-			// Обновляем статус в БД
-			go cs.updateContactStatus(peerID, "offline")
+			// Обновляем время последней активности в БД
+			go cs.updateContactLastSeen(peerID)
 
 			// Добавляем в очередь на переподключение (если это контакт)
 			if cs.isContact(peerID) {
@@ -319,15 +319,15 @@ func (cs *ConnectionService) handlePingFailure(peerID peer.ID, err error) {
 
 	log.Printf("KeepAlive failed для %s (попытка %d/3): %v", peerID, failCount, err)
 
-	// Если 3 неудачи подряд - помечаем как offline
+	// Если 3 неудачи подряд - помечаем как disconnected
 	if failCount >= 3 {
 		if info, exists := cs.peerStatus[peerID]; exists {
 			info.Status = StatusDisconnected
 			info.LastSeen = time.Now()
 			log.Printf("Пир %s помечен как offline (3 неудачных ping)", peerID)
 
-			// Обновляем статус в БД
-			go cs.updateContactStatus(peerID, "offline")
+			// Обновляем время последней активности в БД
+			go cs.updateContactLastSeen(peerID)
 		}
 
 		// Сбрасываем счётчик
@@ -471,20 +471,15 @@ func (cs *ConnectionService) isContact(peerID peer.ID) bool {
 	return err == nil && contact != nil
 }
 
-// updateContactStatus обновляет статус контакта в БД
-func (cs *ConnectionService) updateContactStatus(peerID peer.ID, status string) {
+// updateContactLastSeen обновляет время последней активности контакта в БД
+func (cs *ConnectionService) updateContactLastSeen(peerID peer.ID) {
 	contact, err := queries.GetContactByPeerID(peerID.String())
 	if err != nil || contact == nil {
 		return
 	}
 
-	var lastSeen *time.Time
-	if status == "offline" {
-		now := time.Now()
-		lastSeen = &now
-	}
-
-	_ = queries.UpdateContactStatus(contact.ID, status, lastSeen)
+	now := time.Now()
+	_ = queries.UpdateContactLastSeen(contact.ID, &now)
 }
 
 // GetConnectionStatus возвращает статус подключения к пиру

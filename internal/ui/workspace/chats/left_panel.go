@@ -179,7 +179,7 @@ func (ui *UI) createContactsIcon() *fyne.Container {
 	return container.NewStack(avatar, btnContainer)
 }
 
-// createFaworiteIcon создает иконку для чата Избранного
+// createFaworiteIcon создает иконку для чата Избранного (локальный чат с самим собой)
 func (ui *UI) createFaworiteIcon() *fyne.Container {
 	// Создаем фон с закругленными углами
 	avatar := canvas.NewRectangle(color.RGBA{R: 158, G: 158, B: 158, A: 0})
@@ -189,8 +189,8 @@ func (ui *UI) createFaworiteIcon() *fyne.Container {
 	avatar.SetMinSize(fyne.NewSize(50, 50))
 
 	// Создаем кнопку с иконкой поверх графики
-	btn := widget.NewButtonWithIcon("", theme.MailAttachmentIcon(), func() {
-		ui.showContactsPanel()
+	btn := widget.NewButtonWithIcon("", theme.ContentRedoIcon(), func() {
+		ui.openLocalChat()
 	})
 	btn.Importance = widget.LowImportance
 
@@ -201,6 +201,42 @@ func (ui *UI) createFaworiteIcon() *fyne.Container {
 
 	// Оборачиваем в контейнер
 	return container.NewStack(avatar, btnContainer)
+}
+
+// openLocalChat открывает локальный чат с самим собой
+func (ui *UI) openLocalChat() {
+	if ui.window == nil {
+		log.Printf("Окно не инициализировано")
+		return
+	}
+
+	// Загружаем локальный профиль для создания контакта
+	localProfile, err := queries.GetLocalProfile()
+	if err != nil {
+		log.Printf("Ошибка загрузки локального профиля: %v", err)
+		return
+	}
+
+	// Создаём специальный контакт для локального чата
+	localContact := models.NewLocalContact(
+		localProfile.Username,
+		localProfile.Title,
+		localProfile.AvatarPath,
+	)
+
+	// Выбираем чат
+	ui.selectChat(localContact)
+
+	// Загружаем сообщения для локального чата
+	ui.loadMessagesForContact(0) // ID = 0 для локального чата
+
+	// Обновляем правую панель с профилем
+	ui.updateProfile(localContact)
+
+	// Обновляем UI
+	if ui.chatArea != nil {
+		ui.chatArea.Refresh()
+	}
 }
 
 // showContactsPanel показывает панель управления P2P

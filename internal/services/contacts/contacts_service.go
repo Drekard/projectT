@@ -51,12 +51,16 @@ func (s *ContactService) AddContactByAddress(addrStr string, notes string) (*mod
 		return nil, errors.New("контакт с таким PeerID уже существует")
 	}
 
-	// Создаём контакт
+	// Создаём профиль для контакта если он ещё не существует
+	username := addr.PeerID[:8] // Первые 8 символов как временное имя
+	if err := queries.EnsureProfileForContact(addr.PeerID, username, ""); err != nil {
+		log.Printf("Предупреждение: не удалось создать профиль: %v", err)
+	}
+
+	// Создаём контакт (без username - он будет в profiles)
 	contact := &models.Contact{
 		PeerID:    addr.PeerID,
-		Username:  addr.PeerID[:8], // Первые 8 символов как временное имя
 		Multiaddr: addr.Multiaddr,
-		Status:    "offline",
 		Notes:     notes,
 		IsBlocked: false,
 	}
@@ -65,7 +69,7 @@ func (s *ContactService) AddContactByAddress(addrStr string, notes string) (*mod
 		return nil, fmt.Errorf("ошибка создания контакта: %w", err)
 	}
 
-	log.Printf("Добавлен контакт: %s (%s)", contact.Username, contact.PeerID)
+	log.Printf("Добавлен контакт: %s", contact.PeerID)
 	return contact, nil
 }
 
@@ -77,11 +81,14 @@ func (s *ContactService) AddContactByPeerID(peerID, username, multiaddr string, 
 		return nil, errors.New("контакт с таким PeerID уже существует")
 	}
 
+	// Создаём профиль для контакта если он ещё не существует
+	if err := queries.EnsureProfileForContact(peerID, username, ""); err != nil {
+		log.Printf("Предупреждение: не удалось создать профиль: %v", err)
+	}
+
 	contact := &models.Contact{
 		PeerID:    peerID,
-		Username:  username,
 		Multiaddr: multiaddr,
-		Status:    "offline",
 		Notes:     notes,
 		IsBlocked: false,
 	}
@@ -90,7 +97,7 @@ func (s *ContactService) AddContactByPeerID(peerID, username, multiaddr string, 
 		return nil, fmt.Errorf("ошибка создания контакта: %w", err)
 	}
 
-	log.Printf("Добавлен контакт: %s (%s)", contact.Username, contact.PeerID)
+	log.Printf("Добавлен контакт: %s (%s)", username, contact.PeerID)
 	return contact, nil
 }
 
@@ -137,7 +144,7 @@ func (s *ContactService) enrichContactWithStatus(contact *models.Contact) *Conta
 
 	result := &ContactWithStatus{
 		Contact:  contact,
-		IsOnline: contact.Status == "online",
+		IsOnline: contact.IsOnline, // Уже есть в модели (заполняется из P2P)
 	}
 
 	// Проверяем реальное состояние подключения через P2P сеть
@@ -166,13 +173,12 @@ func (s *ContactService) parsePeerID(peerIDStr string) (peer.ID, error) {
 }
 
 // UpdateContact обновляет контакт
-func (s *ContactService) UpdateContact(id int, username, multiaddr, notes string) error {
+func (s *ContactService) UpdateContact(id int, multiaddr, notes string) error {
 	contact, err := queries.GetContact(id)
 	if err != nil {
 		return err
 	}
 
-	contact.Username = username
 	contact.Multiaddr = multiaddr
 	contact.Notes = notes
 
@@ -242,42 +248,15 @@ func (s *ContactService) SearchContacts(query string) ([]*ContactWithStatus, err
 	return result, nil
 }
 
-// RefreshContactStatus обновляет статус контакта
+// RefreshContactStatus обновляет время последней активности контакта
 func (s *ContactService) RefreshContactStatus(id int) error {
-	contact, err := queries.GetContact(id)
-	if err != nil {
-		return err
-	}
-
 	if s.p2pNetwork == nil {
 		return errors.New("P2P сеть не инициализирована")
 	}
 
-	peerID, err := s.parsePeerID(contact.PeerID)
-	if err != nil {
-		return err
-	}
-
-	// Проверяем подключение
-	status := s.p2pNetwork.GetConnectionStatus(peerID)
-	if status == p2p.StatusConnected {
-		return queries.UpdateContactStatus(id, "online", nil)
-	}
-
-	// Пытаемся подключиться
-	if contact.Multiaddr != "" {
-		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-		defer cancel()
-
-		err := s.p2pNetwork.ConnectToPeer(ctx, contact.Multiaddr)
-		if err == nil {
-			return queries.UpdateContactStatus(id, "online", nil)
-		}
-	}
-
-	// Не удалось подключиться
+	// Обновляем время последней активности контакта
 	now := time.Now()
-	return queries.UpdateContactStatus(id, "offline", &now)
+	return queries.UpdateContactLastSeen(id, &now)
 }
 
 // RefreshAllContactsStatuses обновляет статусы всех контактов
@@ -390,7 +369,9 @@ func (s *ContactService) ImportContactFromP2PAddress(addrStr string, notes strin
 		defer cancel()
 
 		if err := s.p2pNetwork.ConnectToPeer(ctx, addrStr); err == nil {
-			_ = queries.UpdateContactStatus(contact.ID, "online", nil)
+			// Обновляем время последней активности
+			now := time.Now()
+			_ = queries.UpdateContactLastSeen(contact.ID, &now)
 		}
 	}
 

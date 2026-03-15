@@ -16,11 +16,11 @@ import (
 func (n *P2PNetwork) onPeerConnected(peerID peer.ID) {
 	log.Printf("Пир подключён: %s", peerID.String())
 
-	// Обновляем статус контакта в БД
+	// Обновляем время последней активности контакта
 	contact, err := queries.GetContactByPeerID(peerID.String())
 	if err == nil && contact != nil {
 		now := time.Now()
-		_ = queries.UpdateContactStatus(contact.ID, "online", &now)
+		_ = queries.UpdateContactLastSeen(contact.ID, &now)
 	}
 
 	// Запрашиваем профиль у пира
@@ -40,11 +40,11 @@ func (n *P2PNetwork) onPeerConnected(peerID peer.ID) {
 func (n *P2PNetwork) onPeerDisconnected(peerID peer.ID) {
 	log.Printf("Пир отключён: %s", peerID.String())
 
-	// Обновляем статус контакта в БД
+	// Обновляем время последней активности контакта
 	contact, err := queries.GetContactByPeerID(peerID.String())
 	if err == nil && contact != nil {
 		now := time.Now()
-		_ = queries.UpdateContactStatus(contact.ID, "offline", &now)
+		_ = queries.UpdateContactLastSeen(contact.ID, &now)
 	}
 }
 
