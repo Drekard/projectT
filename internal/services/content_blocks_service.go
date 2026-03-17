@@ -190,18 +190,23 @@ func (s *ContentBlocksService) CreateItemWithTransaction(ctx context.Context, ti
 	fmt.Printf("ContentMeta length: %d\n", len(contentMeta))
 	fmt.Printf("ParentID: %v\n", parentID)
 
-	// Генерируем content_hash для уникальной идентификации элемента
-	contentHash := filesystem.GenerateContentHash(title, description, contentMeta)
-	fmt.Printf("ContentHash: %s\n", contentHash)
+	// Генерируем hash для уникальной идентификации содержимого (дедупликация)
+	hash := filesystem.GenerateContentHash(title, description, contentMeta)
+	fmt.Printf("Hash: %s\n", hash)
+
+	// Генерируем element_uuid - уникальный идентификатор для P2P
+	elementUUID := filesystem.GenerateElementUUID()
+	fmt.Printf("ElementUUID: %s\n", elementUUID)
 
 	// Создаем элемент
 	item := &models.Item{
+		ElementUUID: elementUUID,
+		Hash:        hash,
 		Type:        itemType,
 		Title:       title,
 		Description: description,
 		ContentMeta: contentMeta,
 		ParentID:    parentID,
-		ContentHash: contentHash,
 	}
 
 	fmt.Println("Вызываем queries.CreateItem...")
@@ -255,16 +260,16 @@ func (s *ContentBlocksService) UpdateItemWithTransaction(ctx context.Context, it
 		}
 	}
 
-	// Генерируем новый content_hash
-	newContentHash := filesystem.GenerateContentHash(title, description, contentMeta)
+	// Генерируем новый hash
+	newHash := filesystem.GenerateContentHash(title, description, contentMeta)
 
 	// Обновляем элемент в транзакции
 	updateQuery := `
 		UPDATE items
-		SET type = ?, title = ?, description = ?, content_meta = ?, parent_id = ?, content_hash = ?, updated_at = ?
+		SET type = ?, title = ?, description = ?, content_meta = ?, parent_id = ?, hash = ?, updated_at = ?
 		WHERE id = ?
 	`
-	_, err = tx.ExecContext(ctx, updateQuery, itemType, title, description, contentMeta, parentID, newContentHash, time.Now(), itemID)
+	_, err = tx.ExecContext(ctx, updateQuery, itemType, title, description, contentMeta, parentID, newHash, time.Now(), itemID)
 	if err != nil {
 		return nil, nil, fmt.Errorf("ошибка обновления элемента: %w", err)
 	}
@@ -279,7 +284,7 @@ func (s *ContentBlocksService) UpdateItemWithTransaction(ctx context.Context, it
 	item.Description = description
 	item.ContentMeta = contentMeta
 	item.ParentID = parentID
-	item.ContentHash = newContentHash
+	item.Hash = newHash
 
 	return &item, oldBlocks, nil
 }

@@ -1,33 +1,108 @@
 package database
 
 import (
+	"encoding/json"
+	"fmt"
 	"log"
 	"strings"
 )
 
 // RunMigrations выполняет миграции базы данных
-// Порядок миграций важен! Сначала создаются основные таблицы, затем новые, затем перенос данных
+// Структура:
+// 1. Создание всех таблиц
+// 2. Создание всех индексов
+// 3. Миграции для существующих БД (ALTER TABLE)
+// 4. Триггеры и ограничения
+// 5. Seed данные
 func RunMigrations() {
-	// 1. ТАБЛИЦА ЭЛЕМЕНТОВ (основная)
+	// ============================================================
+	// ЧАСТЬ 1: СОЗДАНИЕ ТАБЛИЦ
+	// ============================================================
+
+	createItemsTable()
+	createFilesTable()
+	createTagsTable()
+	createItemTagsTable()
+	createFavoritesTable()
+	createPinnedItemsTable()
+	createItemFilesTable()
+	createProfilesTable()
+	createProfileKeysTable()
+	createContactsTable()
+	createChatMessagesTable()
+	createBootstrapPeersTable()
+
+	// ============================================================
+	// ЧАСТЬ 2: СОЗДАНИЕ ИНДЕКСОВ
+	// ============================================================
+
+	createItemsIndexes()
+	createFilesIndexes()
+	createTagsIndexes()
+	createItemTagsIndexes()
+	createItemFilesIndexes()
+	createProfilesIndexes()
+	createContactsIndexes()
+	createChatMessagesIndexes()
+	createBootstrapPeersIndexes()
+
+	// ============================================================
+	// ЧАСТЬ 3: МИГРАЦИИ ДЛЯ СУЩЕСТВУЮЩИХ БД (ALTER TABLE)
+	// ============================================================
+
+	migrateItemsTable()        // Добавление element_uuid и hash
+	migrateTagsTable()         // Добавление P2P полей в tags
+	migrateItemRelations()     // Добавление item_element_uuid в связи
+	migrateChatMessagesTable() // Добавление updated_at
+	migrateDemoElements()      // Конвертация ID в ElementUUID в demo_elements
+
+	// ============================================================
+	// ЧАСТЬ 4: ТРИГГЕРЫ И ОГРАНИЧЕНИЯ
+	// ============================================================
+
+	createElementUUIDTrigger()
+
+	// ============================================================
+	// ЧАСТЬ 5: SEED ДАННЫЕ
+	// ============================================================
+
+	seedBootstrapPeers()
+
+	log.Println("Все миграции базы данных выполнены успешно")
+}
+
+// ============================================================
+// ЧАСТЬ 1: ФУНКЦИИ СОЗДАНИЯ ТАБЛИЦ
+// ============================================================
+
+func createItemsTable() {
 	_, err := DB.Exec(`
 		CREATE TABLE IF NOT EXISTS items (
-			id          INTEGER PRIMARY KEY,
-			type        TEXT NOT NULL CHECK (type IN ('folder', 'element')),
-			title       TEXT,
-			description TEXT,
-			content_meta TEXT,
-			parent_id   INTEGER,
-			created_at  DATETIME DEFAULT CURRENT_TIMESTAMP,
-			updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+			id              INTEGER PRIMARY KEY,
+			element_uuid    TEXT,
+			hash            TEXT,
+			owner_type      TEXT DEFAULT 'local' CHECK (owner_type IN ('local', 'remote')),
+			source_peer_id  TEXT,
+			type            TEXT NOT NULL CHECK (type IN ('folder', 'element')),
+			title           TEXT,
+			description     TEXT,
+			content_meta    TEXT,
+			parent_id       INTEGER,
+			signature       BLOB,
+			version         INTEGER DEFAULT 1,
+			cached_at       DATETIME,
+			created_at      DATETIME DEFAULT CURRENT_TIMESTAMP,
+			updated_at      DATETIME DEFAULT CURRENT_TIMESTAMP,
 			FOREIGN KEY (parent_id) REFERENCES items (id) ON DELETE CASCADE
 		);
 	`)
 	if err != nil {
 		log.Fatal("Ошибка при создании таблицы items:", err)
 	}
+}
 
-	// 2. ТАБЛИЦА ФАЙЛОВ (для дедупликации)
-	_, err = DB.Exec(`
+func createFilesTable() {
+	_, err := DB.Exec(`
 		CREATE TABLE IF NOT EXISTS files (
 			id          INTEGER PRIMARY KEY,
 			hash        TEXT UNIQUE NOT NULL,
@@ -39,25 +114,32 @@ func RunMigrations() {
 	if err != nil {
 		log.Fatal("Ошибка при создании таблицы files:", err)
 	}
+}
 
-	// 3. ТЕГИ
-	_, err = DB.Exec(`
+func createTagsTable() {
+	_, err := DB.Exec(`
 		CREATE TABLE IF NOT EXISTS tags (
-			id          INTEGER PRIMARY KEY,
-			name        TEXT UNIQUE NOT NULL,
-			color       TEXT DEFAULT '#FFBB00',
-			description TEXT DEFAULT ''
+			id              INTEGER PRIMARY KEY,
+			tag_uuid        TEXT,
+			owner_peer_id   TEXT DEFAULT 'local',
+			name            TEXT UNIQUE NOT NULL,
+			color           TEXT DEFAULT '#FFBB00',
+			description     TEXT DEFAULT '',
+			created_at      DATETIME DEFAULT CURRENT_TIMESTAMP
 		);
 	`)
 	if err != nil {
 		log.Fatal("Ошибка при создании таблицы tags:", err)
 	}
+}
 
-	// 4. СВЯЗЬ ЭЛЕМЕНТОВ С ТЕГАМИ
-	_, err = DB.Exec(`
+func createItemTagsTable() {
+	_, err := DB.Exec(`
 		CREATE TABLE IF NOT EXISTS item_tags (
-			item_id INTEGER,
-			tag_id  INTEGER,
+			item_id             INTEGER,
+			item_element_uuid   TEXT,
+			tag_id              INTEGER,
+			tag_uuid            TEXT,
 			PRIMARY KEY (item_id, tag_id),
 			FOREIGN KEY (item_id) REFERENCES items (id) ON DELETE CASCADE,
 			FOREIGN KEY (tag_id)  REFERENCES tags (id) ON DELETE CASCADE
@@ -66,82 +148,58 @@ func RunMigrations() {
 	if err != nil {
 		log.Fatal("Ошибка при создании таблицы item_tags:", err)
 	}
+}
 
-	// 5. ИЗБРАННОЕ
-	_, err = DB.Exec(`
+func createFavoritesTable() {
+	_, err := DB.Exec(`
 		CREATE TABLE IF NOT EXISTS favorites (
 			id          INTEGER PRIMARY KEY AUTOINCREMENT,
 			entity_type TEXT NOT NULL CHECK (entity_type IN ('tag', 'folder')),
-			entity_id   INTEGER NOT NULL
+			entity_uuid TEXT NOT NULL
 		);
 	`)
 	if err != nil {
 		log.Fatal("Ошибка при создании таблицы favorites:", err)
 	}
+}
 
-	// 6. ЗАКРЕПЛЁННЫЕ ЭЛЕМЕНТЫ В ПРОФИЛЕ
-	_, err = DB.Exec(`
+func createPinnedItemsTable() {
+	_, err := DB.Exec(`
 		CREATE TABLE IF NOT EXISTS pinned_items (
-			id INTEGER PRIMARY KEY AUTOINCREMENT,
-			item_id INTEGER NOT NULL,
-			order_num INTEGER DEFAULT 0,
-			created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-			updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+			id                INTEGER PRIMARY KEY AUTOINCREMENT,
+			item_id           INTEGER NOT NULL,
+			item_element_uuid TEXT,
+			order_num         INTEGER DEFAULT 0,
+			created_at        DATETIME DEFAULT CURRENT_TIMESTAMP,
+			updated_at        DATETIME DEFAULT CURRENT_TIMESTAMP,
 			FOREIGN KEY (item_id) REFERENCES items (id) ON DELETE CASCADE
 		);
 	`)
 	if err != nil {
 		log.Fatal("Ошибка при создании таблицы pinned_items:", err)
 	}
-
-	// ИНДЕКСЫ для производительности
-	_, err = DB.Exec(`CREATE INDEX IF NOT EXISTS idx_items_parent ON items(parent_id);`)
-	if err != nil {
-		log.Fatal("Ошибка при создании индекса idx_items_parent:", err)
-	}
-
-	_, err = DB.Exec(`CREATE INDEX IF NOT EXISTS idx_items_type ON items(type);`)
-	if err != nil {
-		log.Fatal("Ошибка при создании индекса idx_items_type:", err)
-	}
-
-	_, err = DB.Exec(`CREATE INDEX IF NOT EXISTS idx_items_updated ON items(updated_at DESC);`)
-	if err != nil {
-		log.Fatal("Ошибка при создании индекса idx_items_updated:", err)
-	}
-
-	_, err = DB.Exec(`CREATE INDEX IF NOT EXISTS idx_files_hash ON files(hash);`)
-	if err != nil {
-		log.Fatal("Ошибка при создании индекса idx_files_hash:", err)
-	}
-
-	// Если таблица tags уже существует, добавляем поле color
-	_, err = DB.Exec(`ALTER TABLE tags ADD COLUMN color TEXT DEFAULT '#FFBB00'`)
-	// Игнорируем ошибку, если столбец уже существует
-	if err != nil {
-		// Проверяем, возможно столбец уже существует
-		if err.Error() != "duplicate column name: color" {
-			_ = err //nolint:staticcheck // Логируем ошибку, но не выводим в пользовательский интерфейс
-		}
-	}
-
-	// Добавляем поле description, если оно не существует
-	_, err = DB.Exec(`ALTER TABLE tags ADD COLUMN description TEXT DEFAULT ''`)
-	// Игнорируем ошибку, если столбец уже существует
-	if err != nil {
-		_ = err //nolint:staticcheck // Логируем ошибку, но не выводим в пользовательский интерфейс
-	}
-
-	// Создаём новые таблицы для профилей и элементов
-	createNewProfileTables()
-
-	seedBootstrapPeers()
 }
 
-// createNewProfileTables создаёт новые таблицы для профилей и элементов
-// Это новая схема с поддержкой множественных профилей (локальный + чужие)
-func createNewProfileTables() {
-	// 1. TABLE profiles - универсальная таблица для всех профилей
+func createItemFilesTable() {
+	_, err := DB.Exec(`
+		CREATE TABLE IF NOT EXISTS item_files (
+			item_id             INTEGER NOT NULL,
+			item_element_uuid   TEXT,
+			hash                TEXT NOT NULL,
+			file_path           TEXT NOT NULL,
+			size                INTEGER,
+			mime_type           TEXT,
+			is_remote           BOOLEAN DEFAULT 0,
+			source_peer_id      TEXT,
+			PRIMARY KEY (item_id, hash)
+		);
+	`)
+	if err != nil {
+		log.Fatal("Ошибка при создании таблицы item_files:", err)
+	}
+}
+
+func createProfilesTable() {
 	_, err := DB.Exec(`
 		CREATE TABLE IF NOT EXISTS profiles (
 			id              INTEGER PRIMARY KEY,
@@ -156,110 +214,30 @@ func createNewProfileTables() {
 			cached_at       DATETIME,
 			created_at      DATETIME DEFAULT CURRENT_TIMESTAMP,
 			updated_at      DATETIME DEFAULT CURRENT_TIMESTAMP
-		)
+		);
 	`)
 	if err != nil {
-		log.Printf("Ошибка при создании таблицы profiles: %v", err)
+		log.Fatal("Ошибка при создании таблицы profiles:", err)
 	}
+}
 
-	// Индексы для profiles
-	_, err = DB.Exec(`CREATE INDEX IF NOT EXISTS idx_profiles_peer_id ON profiles(peer_id)`)
-	if err != nil {
-		log.Printf("Ошибка при создании индекса idx_profiles_peer_id: %v", err)
-	}
-
-	_, err = DB.Exec(`CREATE INDEX IF NOT EXISTS idx_profiles_owner_type ON profiles(owner_type)`)
-	if err != nil {
-		log.Printf("Ошибка при создании индекса idx_profiles_owner_type: %v", err)
-	}
-
-	// 2. TABLE profile_keys - криптографические ключи
-	_, err = DB.Exec(`
+func createProfileKeysTable() {
+	_, err := DB.Exec(`
 		CREATE TABLE IF NOT EXISTS profile_keys (
-			profile_id      INTEGER PRIMARY KEY REFERENCES profiles(id) ON DELETE CASCADE,
-			private_key     BLOB,
-			public_key      BLOB NOT NULL,
-			signature       BLOB,
+			profile_id       INTEGER PRIMARY KEY REFERENCES profiles(id) ON DELETE CASCADE,
+			private_key      BLOB,
+			public_key       BLOB NOT NULL,
+			signature        BLOB,
 			is_key_encrypted BOOLEAN DEFAULT 0
-		)
+		);
 	`)
 	if err != nil {
-		log.Printf("Ошибка при создании таблицы profile_keys: %v", err)
+		log.Fatal("Ошибка при создании таблицы profile_keys:", err)
 	}
+}
 
-	// 3. TABLE remote_items - кэшированные чужие элементы
-	_, err = DB.Exec(`
-		CREATE TABLE IF NOT EXISTS remote_items (
-			id              INTEGER PRIMARY KEY,
-			source_peer_id  TEXT NOT NULL REFERENCES profiles(peer_id),
-			original_id     INTEGER NOT NULL,
-			original_hash   TEXT NOT NULL,
-			title           TEXT,
-			description     TEXT,
-			content_meta    TEXT,
-			signature       BLOB,
-			version         INTEGER DEFAULT 1,
-			cached_at       DATETIME DEFAULT CURRENT_TIMESTAMP,
-			UNIQUE(source_peer_id, original_hash)
-		)
-	`)
-	if err != nil {
-		log.Printf("Ошибка при создании таблицы remote_items: %v", err)
-	}
-
-	// Индексы для remote_items
-	_, err = DB.Exec(`CREATE INDEX IF NOT EXISTS idx_remote_items_source_peer ON remote_items(source_peer_id)`)
-	if err != nil {
-		log.Printf("Ошибка при создании индекса idx_remote_items_source_peer: %v", err)
-	}
-
-	_, err = DB.Exec(`CREATE INDEX IF NOT EXISTS idx_remote_items_hash ON remote_items(original_hash)`)
-	if err != nil {
-		log.Printf("Ошибка при создании индекса idx_remote_items_hash: %v", err)
-	}
-
-	// 4. TABLE item_files - файлы элементов
-	_, err = DB.Exec(`
-		CREATE TABLE IF NOT EXISTS item_files (
-			item_id         INTEGER NOT NULL,
-			hash            TEXT NOT NULL,
-			file_path       TEXT NOT NULL,
-			size            INTEGER,
-			mime_type       TEXT,
-			is_remote       BOOLEAN DEFAULT 0,
-			source_peer_id  TEXT,
-			PRIMARY KEY (item_id, hash)
-		)
-	`)
-	if err != nil {
-		log.Printf("Ошибка при создании таблицы item_files: %v", err)
-	}
-
-	// Индекс для item_files
-	_, err = DB.Exec(`CREATE INDEX IF NOT EXISTS idx_item_files_item_id ON item_files(item_id)`)
-	if err != nil {
-		log.Printf("Ошибка при создании индекса idx_item_files_item_id: %v", err)
-	}
-
-	// 5. Добавляем content_hash в items (если ещё нет)
-	_, err = DB.Exec(`ALTER TABLE items ADD COLUMN content_hash TEXT`)
-	if err != nil {
-		// Игнорируем ошибку, если столбец уже существует
-		if !strings.Contains(err.Error(), "duplicate column name") && !strings.Contains(err.Error(), "column already exists") {
-			log.Printf("Ошибка при добавлении content_hash в items: %v", err)
-		}
-	}
-
-	// Индекс для content_hash
-	_, err = DB.Exec(`CREATE INDEX IF NOT EXISTS idx_items_content_hash ON items(content_hash)`)
-	if err != nil {
-		log.Printf("Ошибка при создании индекса idx_items_content_hash: %v", err)
-	}
-
-	// 6. Таблица contacts - адресная книга (избранные пользователи)
-	// Хранит только уникальные данные: адрес для подключения, заметки, настройки
-	// Профиль пользователя (username, avatar, title) берётся из таблицы profiles
-	_, err = DB.Exec(`
+func createContactsTable() {
+	_, err := DB.Exec(`
 		CREATE TABLE IF NOT EXISTS contacts (
 			id          INTEGER PRIMARY KEY AUTOINCREMENT,
 			peer_id     TEXT UNIQUE NOT NULL REFERENCES profiles(peer_id),
@@ -273,11 +251,12 @@ func createNewProfileTables() {
 		);
 	`)
 	if err != nil {
-		log.Printf("Ошибка при создании таблицы contacts: %v", err)
+		log.Fatal("Ошибка при создании таблицы contacts:", err)
 	}
+}
 
-	// 7. Таблица chat_messages - история сообщений
-	_, err = DB.Exec(`
+func createChatMessagesTable() {
+	_, err := DB.Exec(`
 		CREATE TABLE IF NOT EXISTS chat_messages (
 			id           INTEGER PRIMARY KEY AUTOINCREMENT,
 			contact_id   INTEGER NOT NULL,
@@ -292,56 +271,443 @@ func createNewProfileTables() {
 		);
 	`)
 	if err != nil {
-		log.Printf("Ошибка при создании таблицы chat_messages: %v", err)
+		log.Fatal("Ошибка при создании таблицы chat_messages:", err)
+	}
+}
+
+func createBootstrapPeersTable() {
+	_, err := DB.Exec(`
+		CREATE TABLE IF NOT EXISTS bootstrap_peers (
+			id             INTEGER PRIMARY KEY AUTOINCREMENT,
+			multiaddr      TEXT UNIQUE NOT NULL,
+			peer_id        TEXT,
+			is_active      BOOLEAN DEFAULT 1,
+			last_connected DATETIME,
+			added_at       DATETIME DEFAULT CURRENT_TIMESTAMP
+		);
+	`)
+	if err != nil {
+		log.Fatal("Ошибка при создании таблицы bootstrap_peers:", err)
+	}
+}
+
+// ============================================================
+// ЧАСТЬ 2: ФУНКЦИИ СОЗДАНИЯ ИНДЕКСОВ
+// ============================================================
+
+func createItemsIndexes() {
+	indexes := []string{
+		`CREATE INDEX IF NOT EXISTS idx_items_parent ON items(parent_id)`,
+		`CREATE INDEX IF NOT EXISTS idx_items_type ON items(type)`,
+		`CREATE INDEX IF NOT EXISTS idx_items_updated ON items(updated_at DESC)`,
+		`CREATE INDEX IF NOT EXISTS idx_items_owner_type ON items(owner_type)`,
+		`CREATE INDEX IF NOT EXISTS idx_items_source_peer ON items(source_peer_id)`,
+		`CREATE INDEX IF NOT EXISTS idx_items_element_uuid ON items(element_uuid)`,
+		`CREATE INDEX IF NOT EXISTS idx_items_hash ON items(hash)`,
 	}
 
-	// Добавляем колонку updated_at если она не существует (для существующих БД)
-	_, err = DB.Exec(`ALTER TABLE chat_messages ADD COLUMN updated_at DATETIME`)
+	for _, sql := range indexes {
+		if _, err := DB.Exec(sql); err != nil {
+			log.Printf("Ошибка при создании индекса: %v", err)
+		}
+	}
+}
+
+func createFilesIndexes() {
+	_, err := DB.Exec(`CREATE INDEX IF NOT EXISTS idx_files_hash ON files(hash)`)
 	if err != nil {
-		// Игнорируем ошибку, если столбец уже существует
+		log.Printf("Ошибка при создании индекса idx_files_hash: %v", err)
+	}
+}
+
+func createTagsIndexes() {
+	indexes := []string{
+		`CREATE INDEX IF NOT EXISTS idx_tags_tag_uuid ON tags(tag_uuid)`,
+		`CREATE INDEX IF NOT EXISTS idx_tags_owner_peer_id ON tags(owner_peer_id)`,
+	}
+
+	for _, sql := range indexes {
+		if _, err := DB.Exec(sql); err != nil {
+			log.Printf("Ошибка при создании индекса: %v", err)
+		}
+	}
+}
+
+func createItemTagsIndexes() {
+	_, err := DB.Exec(`CREATE INDEX IF NOT EXISTS idx_item_tags_element_uuid ON item_tags(item_element_uuid)`)
+	if err != nil {
+		log.Printf("Ошибка при создании индекса idx_item_tags_element_uuid: %v", err)
+	}
+}
+
+func createItemFilesIndexes() {
+	_, err := DB.Exec(`CREATE INDEX IF NOT EXISTS idx_item_files_item_id ON item_files(item_id)`)
+	if err != nil {
+		log.Printf("Ошибка при создании индекса idx_item_files_item_id: %v", err)
+	}
+	_, err = DB.Exec(`CREATE INDEX IF NOT EXISTS idx_item_files_element_uuid ON item_files(item_element_uuid)`)
+	if err != nil {
+		log.Printf("Ошибка при создании индекса idx_item_files_element_uuid: %v", err)
+	}
+}
+
+func createProfilesIndexes() {
+	indexes := []string{
+		`CREATE INDEX IF NOT EXISTS idx_profiles_peer_id ON profiles(peer_id)`,
+		`CREATE INDEX IF NOT EXISTS idx_profiles_owner_type ON profiles(owner_type)`,
+	}
+
+	for _, sql := range indexes {
+		if _, err := DB.Exec(sql); err != nil {
+			log.Printf("Ошибка при создании индекса: %v", err)
+		}
+	}
+}
+
+func createContactsIndexes() {
+	_, err := DB.Exec(`CREATE INDEX IF NOT EXISTS idx_contacts_peer_id ON contacts(peer_id)`)
+	if err != nil {
+		log.Printf("Ошибка при создании индекса idx_contacts_peer_id: %v", err)
+	}
+}
+
+func createChatMessagesIndexes() {
+	_, err := DB.Exec(`CREATE INDEX IF NOT EXISTS idx_chat_messages_contact_id ON chat_messages(contact_id)`)
+	if err != nil {
+		log.Printf("Ошибка при создании индекса idx_chat_messages_contact_id: %v", err)
+	}
+}
+
+func createBootstrapPeersIndexes() {
+	_, err := DB.Exec(`CREATE INDEX IF NOT EXISTS idx_bootstrap_peers_multiaddr ON bootstrap_peers(multiaddr)`)
+	if err != nil {
+		log.Printf("Ошибка при создании индекса idx_bootstrap_peers_multiaddr: %v", err)
+	}
+}
+
+// ============================================================
+// ЧАСТЬ 3: ФУНКЦИИ МИГРАЦИИ (ALTER TABLE)
+// ============================================================
+
+// migrateItemsTable добавляет новые колонки element_uuid и hash в таблицу items
+func migrateItemsTable() {
+	// Добавляем колонку element_uuid если не существует
+	_, err := DB.Exec(`ALTER TABLE items ADD COLUMN element_uuid TEXT`)
+	if err != nil {
+		if !strings.Contains(err.Error(), "duplicate column name") && !strings.Contains(err.Error(), "column already exists") {
+			log.Printf("Ошибка при добавлении element_uuid в items: %v", err)
+		}
+	}
+
+	// Добавляем колонку hash если не существует (новое имя для content_hash)
+	_, err = DB.Exec(`ALTER TABLE items ADD COLUMN hash TEXT`)
+	if err != nil {
+		if !strings.Contains(err.Error(), "duplicate column name") && !strings.Contains(err.Error(), "column already exists") {
+			log.Printf("Ошибка при добавлении hash в items: %v", err)
+		}
+	}
+
+	// Копируем данные из content_hash в hash для существующих записей
+	_, err = DB.Exec(`UPDATE items SET hash = content_hash WHERE hash IS NULL AND content_hash IS NOT NULL`)
+	if err != nil {
+		log.Printf("Ошибка при копировании content_hash в hash: %v", err)
+	}
+
+	// Генерируем element_uuid для существующих записей без UUID
+	rows, err := DB.Query(`SELECT id FROM items WHERE element_uuid IS NULL`)
+	if err == nil {
+		defer rows.Close()
+		for rows.Next() {
+			var id int
+			if err := rows.Scan(&id); err == nil {
+				uuid := generateCompatibilityUUID(id)
+				_, _ = DB.Exec(`UPDATE items SET element_uuid = ? WHERE id = ?`, uuid, id)
+			}
+		}
+	}
+
+	log.Println("Миграция items table: добавлены element_uuid и hash")
+}
+
+// migrateTagsTable добавляет поддержку P2P для тегов
+func migrateTagsTable() {
+	// Добавляем колонку tag_uuid если не существует
+	_, err := DB.Exec(`ALTER TABLE tags ADD COLUMN tag_uuid TEXT`)
+	if err != nil {
+		if !strings.Contains(err.Error(), "duplicate column name") && !strings.Contains(err.Error(), "column already exists") {
+			log.Printf("Ошибка при добавлении tag_uuid в tags: %v", err)
+		}
+	}
+
+	// Добавляем колонку owner_peer_id если не существует
+	_, err = DB.Exec(`ALTER TABLE tags ADD COLUMN owner_peer_id TEXT`)
+	if err != nil {
+		if !strings.Contains(err.Error(), "duplicate column name") && !strings.Contains(err.Error(), "column already exists") {
+			log.Printf("Ошибка при добавлении owner_peer_id в tags: %v", err)
+		}
+	}
+
+	// Генерируем tag_uuid для существующих тегов
+	rows, err := DB.Query(`SELECT id FROM tags WHERE tag_uuid IS NULL`)
+	if err == nil {
+		defer rows.Close()
+		for rows.Next() {
+			var id int
+			if err := rows.Scan(&id); err == nil {
+				uuid := generateCompatibilityUUID(id)
+				_, _ = DB.Exec(`UPDATE tags SET tag_uuid = ?, owner_peer_id = 'local' WHERE id = ?`, uuid, id)
+			}
+		}
+	}
+
+	log.Println("Миграция tags: добавлена поддержка P2P")
+}
+
+// migrateItemRelations добавляет item_element_uuid в таблицы связей
+func migrateItemRelations() {
+	// Добавляем item_element_uuid в item_tags
+	_, err := DB.Exec(`ALTER TABLE item_tags ADD COLUMN item_element_uuid TEXT`)
+	if err != nil {
+		if !strings.Contains(err.Error(), "duplicate column name") && !strings.Contains(err.Error(), "column already exists") {
+			log.Printf("Ошибка при добавлении item_element_uuid в item_tags: %v", err)
+		}
+	}
+
+	// Копируем данные из item_id в item_element_uuid
+	_, err = DB.Exec(`
+		UPDATE item_tags 
+		SET item_element_uuid = (SELECT element_uuid FROM items WHERE items.id = item_tags.item_id)
+		WHERE item_element_uuid IS NULL
+	`)
+	if err != nil {
+		log.Printf("Ошибка при копировании item_id в item_element_uuid: %v", err)
+	}
+
+	// Добавляем item_element_uuid в item_files
+	_, err = DB.Exec(`ALTER TABLE item_files ADD COLUMN item_element_uuid TEXT`)
+	if err != nil {
+		if !strings.Contains(err.Error(), "duplicate column name") && !strings.Contains(err.Error(), "column already exists") {
+			log.Printf("Ошибка при добавлении item_element_uuid в item_files: %v", err)
+		}
+	}
+
+	// Копируем данные из item_id в item_element_uuid в item_files
+	_, err = DB.Exec(`
+		UPDATE item_files 
+		SET item_element_uuid = (SELECT element_uuid FROM items WHERE items.id = item_files.item_id)
+		WHERE item_element_uuid IS NULL
+	`)
+	if err != nil {
+		log.Printf("Ошибка при копировании item_id в item_element_uuid в item_files: %v", err)
+	}
+
+	// Добавляем item_element_uuid в pinned_items
+	_, err = DB.Exec(`ALTER TABLE pinned_items ADD COLUMN item_element_uuid TEXT`)
+	if err != nil {
+		if !strings.Contains(err.Error(), "duplicate column name") && !strings.Contains(err.Error(), "column already exists") {
+			log.Printf("Ошибка при добавлении item_element_uuid в pinned_items: %v", err)
+		}
+	}
+
+	// Копируем данные из item_id в item_element_uuid в pinned_items
+	_, err = DB.Exec(`
+		UPDATE pinned_items
+		SET item_element_uuid = (SELECT element_uuid FROM items WHERE items.id = pinned_items.item_id)
+		WHERE item_element_uuid IS NULL
+	`)
+	if err != nil {
+		log.Printf("Ошибка при копировании item_id в item_element_uuid в pinned_items: %v", err)
+	}
+
+	// ============================================================
+	// Миграция favorites: замена entity_id на entity_uuid
+	// ============================================================
+
+	// Добавляем колонку entity_uuid
+	_, err = DB.Exec(`ALTER TABLE favorites ADD COLUMN entity_uuid TEXT`)
+	if err != nil {
+		if !strings.Contains(err.Error(), "duplicate column name") && !strings.Contains(err.Error(), "column already exists") {
+			log.Printf("Ошибка при добавлении entity_uuid в favorites: %v", err)
+		}
+	}
+
+	// Копируем данные из entity_id в entity_uuid
+	// Для tag: берём tag_uuid из tags
+	// Для folder: берём element_uuid из items (type='folder')
+	_, err = DB.Exec(`
+		UPDATE favorites
+		SET entity_uuid = (
+			SELECT tag_uuid FROM tags WHERE tags.id = favorites.entity_id
+		)
+		WHERE entity_type = 'tag' AND entity_uuid IS NULL
+	`)
+	if err != nil {
+		log.Printf("Ошибка при копировании entity_id в entity_uuid для tags: %v", err)
+	}
+
+	_, err = DB.Exec(`
+		UPDATE favorites
+		SET entity_uuid = (
+			SELECT element_uuid FROM items WHERE items.id = favorites.entity_id AND items.type = 'folder'
+		)
+		WHERE entity_type = 'folder' AND entity_uuid IS NULL
+	`)
+	if err != nil {
+		log.Printf("Ошибка при копировании entity_id в entity_uuid для folders: %v", err)
+	}
+
+	// Делаем entity_uuid NOT NULL после заполнения
+	// Создаём триггер для валидации
+	_, err = DB.Exec(`
+		CREATE TRIGGER IF NOT EXISTS validate_favorites_entity_uuid_insert
+		BEFORE INSERT ON favorites
+		FOR EACH ROW
+		WHEN NEW.entity_uuid IS NULL
+		BEGIN
+			SELECT RAISE(ABORT, 'entity_uuid cannot be NULL');
+		END
+	`)
+	if err != nil {
+		log.Printf("Ошибка при создании триггера validate_favorites_entity_uuid_insert: %v", err)
+	}
+
+	// Создаём индекс для entity_uuid
+	_, err = DB.Exec(`CREATE INDEX IF NOT EXISTS idx_favorites_entity_uuid ON favorites(entity_uuid)`)
+	if err != nil {
+		log.Printf("Ошибка при создании индекса idx_favorites_entity_uuid: %v", err)
+	}
+
+	log.Println("Миграция favorites: entity_id заменён на entity_uuid")
+}
+
+// migrateChatMessagesTable добавляет updated_at в chat_messages
+func migrateChatMessagesTable() {
+	_, err := DB.Exec(`ALTER TABLE chat_messages ADD COLUMN updated_at DATETIME`)
+	if err != nil {
 		if !strings.Contains(err.Error(), "duplicate column name") && !strings.Contains(err.Error(), "column already exists") {
 			log.Printf("Ошибка при добавлении updated_at в chat_messages: %v", err)
 		}
 	}
+}
 
-	// 8. Таблица bootstrap_peers - узлы для входа в сеть
-	_, err = DB.Exec(`
-		CREATE TABLE IF NOT EXISTS bootstrap_peers (
-			id            INTEGER PRIMARY KEY AUTOINCREMENT,
-			multiaddr     TEXT UNIQUE NOT NULL,
-			peer_id       TEXT,
-			is_active     BOOLEAN DEFAULT 1,
-			last_connected DATETIME,
-			added_at      DATETIME DEFAULT CURRENT_TIMESTAMP
-		);
+// migrateDemoElements конвертирует ID элементов в demo_elements в ElementUUID
+func migrateDemoElements() {
+	log.Println("Миграция demo_elements: конвертация ID в ElementUUID...")
+
+	// Получаем все профили с demo_elements
+	rows, err := DB.Query(`SELECT id, owner_type, demo_elements FROM profiles WHERE demo_elements IS NOT NULL AND demo_elements != ''`)
+	if err != nil {
+		log.Printf("Ошибка при чтении profiles для миграции demo_elements: %v", err)
+		return
+	}
+	defer rows.Close()
+
+	type ProfileData struct {
+		ID        int
+		OwnerType string
+		DemoElems string
+	}
+
+	var profiles []ProfileData
+	for rows.Next() {
+		var p ProfileData
+		if err := rows.Scan(&p.ID, &p.OwnerType, &p.DemoElems); err != nil {
+			log.Printf("Ошибка сканирования профиля: %v", err)
+			continue
+		}
+		profiles = append(profiles, p)
+	}
+
+	// Для каждого профиля конвертируем ID в UUID
+	for _, p := range profiles {
+		// Парсим JSON
+		var characteristics []struct {
+			ID    *int    `json:"id,omitempty"`
+			UUID  *string `json:"element_uuid,omitempty"`
+			Title string  `json:"title"`
+			Value string  `json:"value"`
+		}
+
+		if err := json.Unmarshal([]byte(p.DemoElems), &characteristics); err != nil {
+			log.Printf("Ошибка парсинга JSON для профиля %d: %v", p.ID, err)
+			continue
+		}
+
+		// Конвертируем ID в UUID
+		needsUpdate := false
+		for i := range characteristics {
+			if characteristics[i].UUID != nil && *characteristics[i].UUID != "" {
+				// Уже есть UUID, пропускаем
+				continue
+			}
+
+			if characteristics[i].ID != nil && *characteristics[i].ID > 0 {
+				// Находим элемент по ID и получаем его UUID
+				var elementUUID string
+				err := DB.QueryRow(`SELECT element_uuid FROM items WHERE id = ?`, *characteristics[i].ID).Scan(&elementUUID)
+				if err == nil && elementUUID != "" {
+					characteristics[i].UUID = &elementUUID
+					characteristics[i].ID = nil // Удаляем ID
+					needsUpdate = true
+				} else {
+					log.Printf("Не найден элемент с ID=%d для профиля %d", *characteristics[i].ID, p.ID)
+				}
+			}
+		}
+
+		// Обновляем профиль если были изменения
+		if needsUpdate {
+			newJSON, err := json.Marshal(characteristics)
+			if err != nil {
+				log.Printf("Ошибка сериализации JSON для профиля %d: %v", p.ID, err)
+				continue
+			}
+
+			_, err = DB.Exec(`UPDATE profiles SET demo_elements = ? WHERE id = ?`, newJSON, p.ID)
+			if err != nil {
+				log.Printf("Ошибка обновления профиля %d: %v", p.ID, err)
+				continue
+			}
+
+			log.Printf("Профиль %d: demo_elements обновлён (%d элементов)", p.ID, len(characteristics))
+		}
+	}
+
+	log.Println("Миграция demo_elements завершена")
+}
+
+// ============================================================
+// ЧАСТЬ 4: ТРИГГЕРЫ И ОГРАНИЧЕНИЯ
+// ============================================================
+
+func createElementUUIDTrigger() {
+	_, err := DB.Exec(`
+		CREATE TRIGGER IF NOT EXISTS validate_element_uuid_insert
+		BEFORE INSERT ON items
+		FOR EACH ROW
+		WHEN NEW.element_uuid IS NULL
+		BEGIN
+			SELECT RAISE(ABORT, 'element_uuid cannot be NULL');
+		END
 	`)
 	if err != nil {
-		log.Printf("Ошибка при создании таблицы bootstrap_peers: %v", err)
+		log.Printf("Ошибка при создании триггера validate_element_uuid_insert: %v", err)
 	}
+}
 
-	// Индексы для производительности
-	_, err = DB.Exec(`CREATE INDEX IF NOT EXISTS idx_contacts_peer_id ON contacts(peer_id);`)
-	if err != nil {
-		log.Printf("Ошибка при создании индекса idx_contacts_peer_id: %v", err)
-	}
+// ============================================================
+// ЧАСТЬ 5: ВСПОМОГАТЕЛЬНЫЕ ФУНКЦИИ
+// ============================================================
 
-	_, err = DB.Exec(`CREATE INDEX IF NOT EXISTS idx_chat_messages_contact_id ON chat_messages(contact_id);`)
-	if err != nil {
-		log.Printf("Ошибка при создании индекса idx_chat_messages_contact_id: %v", err)
-	}
-
-	_, err = DB.Exec(`CREATE INDEX IF NOT EXISTS idx_bootstrap_peers_multiaddr ON bootstrap_peers(multiaddr);`)
-	if err != nil {
-		log.Printf("Ошибка при создании индекса idx_bootstrap_peers_multiaddr: %v", err)
-	}
-
-	log.Println("Новые таблицы профилей и элементов созданы")
+// generateCompatibilityUUID генерирует детерминированный UUID на основе ID
+// Используется только для миграции существующих записей
+// Формат: 00000001-0000-0000-0000-000000000001 где число = id
+func generateCompatibilityUUID(id int) string {
+	return fmt.Sprintf("%08d-0000-0000-0000-%012d", id, id)
 }
 
 // seedBootstrapPeers добавляет предопределённые bootstrap-узлы
 // Отключено - пользователь добавляет bootstrap пиры самостоятельно
 func seedBootstrapPeers() {
-	// Bootstrap пиры не добавляются по умолчанию
-	// Пользователь может добавить их через настройки P2P в приложении
-	log.Println("Bootstrap-узлы не добавлены (добавьте вручную через настройки)")
+	log.Println("Bootstrap-узлы не добавлены (добавьте вручную через настройки P2P)")
 }

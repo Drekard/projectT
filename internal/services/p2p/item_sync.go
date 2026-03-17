@@ -32,16 +32,16 @@ type ItemRequest struct {
 
 // ItemResponse ответ с элементом
 type ItemResponse struct {
-	ItemID       int             `json:"item_id"`
-	OriginalID   int             `json:"original_id"` // ID у владельца
-	OriginalHash string          `json:"original_hash"`
-	Type         models.ItemType `json:"type"`
-	Title        string          `json:"title"`
-	Description  string          `json:"description,omitempty"`
-	ContentMeta  string          `json:"content_meta,omitempty"`
-	Signature    []byte          `json:"signature,omitempty"`
-	Timestamp    int64           `json:"timestamp"`
-	FileData     *ItemFileData   `json:"file_data,omitempty"`
+	ElementUUID string          `json:"element_uuid"` // Уникальный ID элемента для P2P
+	ItemID      int             `json:"item_id"`      // Локальный ID (для совместимости)
+	Hash        string          `json:"hash"`         // Хеш содержимого
+	Type        models.ItemType `json:"type"`
+	Title       string          `json:"title"`
+	Description string          `json:"description,omitempty"`
+	ContentMeta string          `json:"content_meta,omitempty"`
+	Signature   []byte          `json:"signature,omitempty"`
+	Timestamp   int64           `json:"timestamp"`
+	FileData    *ItemFileData   `json:"file_data,omitempty"`
 }
 
 // ItemFileData данные о файле элемента
@@ -196,15 +196,15 @@ func (iss *ItemSyncService) itemToResponse(item *models.Item) (*ItemResponse, er
 	}
 
 	resp := &ItemResponse{
-		ItemID:       item.ID,
-		OriginalID:   item.ID,
-		OriginalHash: item.ContentHash,
-		Type:         item.Type,
-		Title:        item.Title,
-		Description:  item.Description,
-		ContentMeta:  item.ContentMeta,
-		Signature:    signature,
-		Timestamp:    time.Now().UnixNano(),
+		ElementUUID: item.ElementUUID,
+		ItemID:      item.ID,
+		Hash:        item.Hash,
+		Type:        item.Type,
+		Title:       item.Title,
+		Description: item.Description,
+		ContentMeta: item.ContentMeta,
+		Signature:   signature,
+		Timestamp:   time.Now().UnixNano(),
 	}
 
 	// Получаем файл если есть
@@ -226,7 +226,7 @@ func (iss *ItemSyncService) itemToResponse(item *models.Item) (*ItemResponse, er
 }
 
 // RequestItems запрашивает элементы у пира
-func (iss *ItemSyncService) RequestItems(ctx context.Context, peerID peer.ID, itemIDs []int) ([]*models.RemoteItem, error) {
+func (iss *ItemSyncService) RequestItems(ctx context.Context, peerID peer.ID, itemIDs []int) ([]*models.Item, error) {
 	stream, err := iss.host.NewStream(ctx, peerID, ItemSyncProtocolID)
 	if err != nil {
 		return nil, fmt.Errorf("ошибка создания стрима: %w", err)
@@ -255,7 +255,7 @@ func (iss *ItemSyncService) RequestItems(ctx context.Context, peerID peer.ID, it
 	reader := bufio.NewReader(stream)
 	decoder := json.NewDecoder(reader)
 
-	var remoteItems []*models.RemoteItem
+	var remoteItems []*models.Item
 	for {
 		var resp ItemResponse
 		if err := decoder.Decode(&resp); err != nil {
@@ -280,7 +280,7 @@ func (iss *ItemSyncService) RequestItems(ctx context.Context, peerID peer.ID, it
 }
 
 // RequestItemByHash запрашивает элемент по хешу
-func (iss *ItemSyncService) RequestItemByHash(ctx context.Context, peerID peer.ID, hash string) (*models.RemoteItem, error) {
+func (iss *ItemSyncService) RequestItemByHash(ctx context.Context, peerID peer.ID, hash string) (*models.Item, error) {
 	stream, err := iss.host.NewStream(ctx, peerID, ItemSyncProtocolID)
 	if err != nil {
 		return nil, fmt.Errorf("ошибка создания стрима: %w", err)
@@ -318,7 +318,7 @@ func (iss *ItemSyncService) RequestItemByHash(ctx context.Context, peerID peer.I
 }
 
 // RequestAllItems запрашивает все элементы у пира
-func (iss *ItemSyncService) RequestAllItems(ctx context.Context, peerID peer.ID) ([]*models.RemoteItem, error) {
+func (iss *ItemSyncService) RequestAllItems(ctx context.Context, peerID peer.ID) ([]*models.Item, error) {
 	stream, err := iss.host.NewStream(ctx, peerID, ItemSyncProtocolID)
 	if err != nil {
 		return nil, fmt.Errorf("ошибка создания стрима: %w", err)
@@ -347,7 +347,7 @@ func (iss *ItemSyncService) RequestAllItems(ctx context.Context, peerID peer.ID)
 	reader := bufio.NewReader(stream)
 	decoder := json.NewDecoder(reader)
 
-	var remoteItems []*models.RemoteItem
+	var remoteItems []*models.Item
 	for {
 		var resp ItemResponse
 		if err := decoder.Decode(&resp); err != nil {
@@ -370,13 +370,15 @@ func (iss *ItemSyncService) RequestAllItems(ctx context.Context, peerID peer.ID)
 	return remoteItems, nil
 }
 
-// saveRemoteItem сохраняет полученный элемент в базу данных
-func (iss *ItemSyncService) saveRemoteItem(sourcePeerID string, resp *ItemResponse) (*models.RemoteItem, error) {
-	// Создаём remote item
-	remoteItem := &models.RemoteItem{
-		SourcePeerID: sourcePeerID,
-		OriginalID:   resp.OriginalID,
-		OriginalHash: resp.OriginalHash,
+// saveRemoteItem сохраняет полученный элемент от другого пира в базу данных
+func (iss *ItemSyncService) saveRemoteItem(sourcePeerID string, resp *ItemResponse) (*models.Item, error) {
+	// Создаём item с owner_type = 'remote'
+	item := &models.Item{
+		ElementUUID:  resp.ElementUUID,
+		OwnerType:    models.OwnerTypeRemote,
+		SourcePeerID: &sourcePeerID,
+		Hash:         resp.Hash,
+		Type:         resp.Type,
 		Title:        resp.Title,
 		Description:  resp.Description,
 		ContentMeta:  resp.ContentMeta,
@@ -384,37 +386,40 @@ func (iss *ItemSyncService) saveRemoteItem(sourcePeerID string, resp *ItemRespon
 		Version:      1,
 	}
 
-	// Проверяем, существует ли уже элемент с таким хешем
-	exists, err := queries.RemoteItemExists(sourcePeerID, resp.OriginalHash)
+	// Проверяем, существует ли уже элемент с таким element_uuid
+	exists, err := queries.HasRemoteItem(sourcePeerID, resp.ElementUUID)
 	if err != nil {
 		return nil, fmt.Errorf("ошибка проверки существования: %w", err)
 	}
 
 	if exists {
 		// Обновляем существующий
-		existing, err := queries.GetRemoteItemByHash(sourcePeerID, resp.OriginalHash)
+		existing, err := queries.GetRemoteItemByElementUUID(sourcePeerID, resp.ElementUUID)
 		if err == nil && existing != nil {
-			remoteItem.ID = existing.ID
-			if err := queries.UpdateRemoteItem(remoteItem); err != nil {
+			item.ID = existing.ID
+			item.CachedAt = existing.CachedAt
+			item.CreatedAt = existing.CreatedAt
+			item.UpdatedAt = existing.UpdatedAt
+			if err := queries.UpdateRemoteItem(item); err != nil {
 				return nil, fmt.Errorf("ошибка обновления элемента: %w", err)
 			}
 		}
 	} else {
 		// Создаём новый
-		if err := queries.CreateRemoteItem(remoteItem); err != nil {
+		if err := queries.CreateRemoteItem(item); err != nil {
 			return nil, fmt.Errorf("ошибка создания элемента: %w", err)
 		}
 	}
 
 	// Сохраняем файл если есть
 	if resp.FileData != nil && len(resp.FileData.Content) > 0 {
-		fileData, err := filesystem.SaveItemFile(remoteItem.ID, resp.FileData.Content, true, sourcePeerID)
+		fileData, err := filesystem.SaveItemFile(item.ID, resp.FileData.Content, true, sourcePeerID)
 		if err != nil {
 			log.Printf("Предупреждение: не удалось сохранить файл: %v", err)
 		} else {
 			// Сохраняем информацию о файле в БД
 			itemFile := &models.ItemFile{
-				ItemID:       remoteItem.ID,
+				ItemID:       item.ID,
 				Hash:         fileData.Hash,
 				FilePath:     fileData.Path,
 				Size:         fileData.Size,
@@ -428,8 +433,8 @@ func (iss *ItemSyncService) saveRemoteItem(sourcePeerID string, resp *ItemRespon
 		}
 	}
 
-	log.Printf("Сохранён элемент %d от пира %s (hash: %s)", remoteItem.ID, sourcePeerID, resp.OriginalHash[:16])
-	return remoteItem, nil
+	log.Printf("Сохранён элемент %d от пира %s (hash: %s)", item.ID, sourcePeerID, resp.Hash[:16])
+	return item, nil
 }
 
 // signItem подписывает элемент
@@ -443,7 +448,7 @@ func (iss *ItemSyncService) signItem(item *models.Item) ([]byte, error) {
 		item.Type,
 		item.Title,
 		item.Description,
-		item.ContentHash,
+		item.Hash,
 	)
 
 	signature, err := iss.localPrivKey.Sign([]byte(data))
@@ -455,7 +460,7 @@ func (iss *ItemSyncService) signItem(item *models.Item) ([]byte, error) {
 }
 
 // VerifyItemSignature проверяет подпись элемента
-func (iss *ItemSyncService) VerifyItemSignature(item *models.RemoteItem, publicKey, signature []byte) (bool, error) {
+func (iss *ItemSyncService) VerifyItemSignature(item *models.Item, publicKey, signature []byte) (bool, error) {
 	if len(signature) == 0 {
 		return false, fmt.Errorf("подпись отсутствует")
 	}
@@ -475,7 +480,7 @@ func (iss *ItemSyncService) VerifyItemSignature(item *models.RemoteItem, publicK
 		"element", // type
 		item.Title,
 		item.Description,
-		item.OriginalHash,
+		item.Hash,
 	)
 
 	valid, err := pubKey.Verify([]byte(data), signature)
@@ -487,7 +492,7 @@ func (iss *ItemSyncService) VerifyItemSignature(item *models.RemoteItem, publicK
 }
 
 // GetRemoteItemsByPeer возвращает все элементы от указанного пира
-func (iss *ItemSyncService) GetRemoteItemsByPeer(peerID string) ([]*models.RemoteItem, error) {
+func (iss *ItemSyncService) GetRemoteItemsByPeer(peerID string) ([]*models.Item, error) {
 	return queries.GetRemoteItemsByPeer(peerID)
 }
 

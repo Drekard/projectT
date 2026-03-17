@@ -519,9 +519,22 @@ func DeleteTag(ctx context.Context, id int) error {
 
 // AddTagToItem добавляет связь тега с элементом
 func AddTagToItem(ctx context.Context, itemID, tagID int) error {
-	_, err := database.DB.ExecContext(ctx,
-		`INSERT OR IGNORE INTO item_tags (item_id, tag_id) VALUES (?, ?)`,
-		itemID, tagID,
+	// Получаем element_uuid и tag_uuid по локальным ID
+	var elementUUID, tagUUID string
+
+	err := database.DB.QueryRowContext(ctx, `SELECT element_uuid FROM items WHERE id = ?`, itemID).Scan(&elementUUID)
+	if err != nil {
+		return fmt.Errorf("ошибка получения element_uuid: %w", err)
+	}
+
+	err = database.DB.QueryRowContext(ctx, `SELECT tag_uuid FROM tags WHERE id = ?`, tagID).Scan(&tagUUID)
+	if err != nil {
+		return fmt.Errorf("ошибка получения tag_uuid: %w", err)
+	}
+
+	_, err = database.DB.ExecContext(ctx,
+		`INSERT OR IGNORE INTO item_tags (item_element_uuid, tag_uuid) VALUES (?, ?)`,
+		elementUUID, tagUUID,
 	)
 	if err != nil {
 		return fmt.Errorf("ошибка добавления связи тега: %w", err)
@@ -531,9 +544,22 @@ func AddTagToItem(ctx context.Context, itemID, tagID int) error {
 
 // RemoveTagFromItem удаляет связь тега с элементом
 func RemoveTagFromItem(ctx context.Context, itemID, tagID int) error {
-	_, err := database.DB.ExecContext(ctx,
-		`DELETE FROM item_tags WHERE item_id = ? AND tag_id = ?`,
-		itemID, tagID,
+	// Получаем element_uuid и tag_uuid по локальным ID
+	var elementUUID, tagUUID string
+
+	err := database.DB.QueryRowContext(ctx, `SELECT element_uuid FROM items WHERE id = ?`, itemID).Scan(&elementUUID)
+	if err != nil {
+		return fmt.Errorf("ошибка получения element_uuid: %w", err)
+	}
+
+	err = database.DB.QueryRowContext(ctx, `SELECT tag_uuid FROM tags WHERE id = ?`, tagID).Scan(&tagUUID)
+	if err != nil {
+		return fmt.Errorf("ошибка получения tag_uuid: %w", err)
+	}
+
+	_, err = database.DB.ExecContext(ctx,
+		`DELETE FROM item_tags WHERE item_element_uuid = ? AND tag_uuid = ?`,
+		elementUUID, tagUUID,
 	)
 	if err != nil {
 		return fmt.Errorf("ошибка удаления связи тега: %w", err)
@@ -551,31 +577,35 @@ func ReplaceItemTags(ctx context.Context, itemID int, tagIDs []int) error {
 		_ = tx.Rollback() // Игнорируем ошибку отката, т.к. коммит уже мог состояться
 	}()
 
+	// Получаем element_uuid по локальному ID
+	var elementUUID string
+	err = tx.QueryRowContext(ctx, `SELECT element_uuid FROM items WHERE id = ?`, itemID).Scan(&elementUUID)
+	if err != nil {
+		return fmt.Errorf("ошибка получения element_uuid: %w", err)
+	}
+
 	// Удаляем старые теги
-	_, err = tx.ExecContext(ctx, `DELETE FROM item_tags WHERE item_id = ?`, itemID)
+	_, err = tx.ExecContext(ctx, `DELETE FROM item_tags WHERE item_element_uuid = ?`, elementUUID)
 	if err != nil {
 		return fmt.Errorf("ошибка удаления старых тегов: %w", err)
 	}
 
 	// Добавляем новые теги
 	if len(tagIDs) > 0 {
-		// Создаем плейсхолдеры для batch insert
-		placeholders := make([]string, len(tagIDs))
-		args := make([]interface{}, len(tagIDs)*2)
-		for i, tagID := range tagIDs {
-			placeholders[i] = "(?, ?)"
-			args[i*2] = itemID
-			args[i*2+1] = tagID
-		}
+		for _, tagID := range tagIDs {
+			var tagUUID string
+			err = tx.QueryRowContext(ctx, `SELECT tag_uuid FROM tags WHERE id = ?`, tagID).Scan(&tagUUID)
+			if err != nil {
+				return fmt.Errorf("ошибка получения tag_uuid: %w", err)
+			}
 
-		query := fmt.Sprintf(
-			`INSERT INTO item_tags (item_id, tag_id) VALUES %s`,
-			strings.Join(placeholders, ","),
-		)
-
-		_, err = tx.ExecContext(ctx, query, args...)
-		if err != nil {
-			return fmt.Errorf("ошибка добавления новых тегов: %w", err)
+			_, err = tx.ExecContext(ctx,
+				`INSERT OR IGNORE INTO item_tags (item_element_uuid, tag_uuid) VALUES (?, ?)`,
+				elementUUID, tagUUID,
+			)
+			if err != nil {
+				return fmt.Errorf("ошибка добавления тега: %w", err)
+			}
 		}
 	}
 
@@ -593,21 +623,22 @@ func GetTagsForItem(ctx context.Context, itemID int) ([]*models.Tag, error) {
 		return nil, err
 	}
 
+	// Используем item_element_uuid и tag_uuid для связи
 	var query string
 	if hasDesc {
 		query = `
-			SELECT t.id, t.name, t.color, t.description
+			SELECT t.id, t.tag_uuid, t.owner_peer_id, t.name, t.color, t.description
 			FROM tags t
-			INNER JOIN item_tags it ON t.id = it.tag_id
-			WHERE it.item_id = ?
+			INNER JOIN item_tags it ON t.tag_uuid = it.tag_uuid
+			WHERE it.item_element_uuid = (SELECT element_uuid FROM items WHERE id = ?)
 			ORDER BY t.name
 		`
 	} else {
 		query = `
-			SELECT t.id, t.name, t.color
+			SELECT t.id, t.tag_uuid, t.owner_peer_id, t.name, t.color
 			FROM tags t
-			INNER JOIN item_tags it ON t.id = it.tag_id
-			WHERE it.item_id = ?
+			INNER JOIN item_tags it ON t.tag_uuid = it.tag_uuid
+			WHERE it.item_element_uuid = (SELECT element_uuid FROM items WHERE id = ?)
 			ORDER BY t.name
 		`
 	}
@@ -622,11 +653,11 @@ func GetTagsForItem(ctx context.Context, itemID int) ([]*models.Tag, error) {
 	for rows.Next() {
 		var tag models.Tag
 		if hasDesc {
-			if err := rows.Scan(&tag.ID, &tag.Name, &tag.Color, &tag.Description); err != nil {
+			if err := rows.Scan(&tag.ID, &tag.TagUUID, &tag.OwnerPeerID, &tag.Name, &tag.Color, &tag.Description); err != nil {
 				return nil, fmt.Errorf("ошибка сканирования тега: %w", err)
 			}
 		} else {
-			if err := rows.Scan(&tag.ID, &tag.Name, &tag.Color); err != nil {
+			if err := rows.Scan(&tag.ID, &tag.TagUUID, &tag.OwnerPeerID, &tag.Name, &tag.Color); err != nil {
 				return nil, fmt.Errorf("ошибка сканирования тега: %w", err)
 			}
 			tag.Description = ""

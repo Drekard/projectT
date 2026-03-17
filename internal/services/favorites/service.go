@@ -19,8 +19,8 @@ func NewService() *Service {
 }
 
 // AddToFavorites добавляет элемент в избранное
-func (s *Service) AddToFavorites(entityType string, entityID int) error {
-	err := s.favoritesImpl.AddToFavorites(entityType, entityID)
+func (s *Service) AddToFavorites(entityType string, entityUUID string) error {
+	err := s.favoritesImpl.AddToFavorites(entityType, entityUUID)
 	if err != nil {
 		return err
 	}
@@ -33,8 +33,8 @@ func (s *Service) AddToFavorites(entityType string, entityID int) error {
 }
 
 // RemoveFromFavorites удаляет элемент избранного
-func (s *Service) RemoveFromFavorites(entityType string, entityID int) error {
-	err := s.favoritesImpl.RemoveFromFavorites(entityType, entityID)
+func (s *Service) RemoveFromFavorites(entityType string, entityUUID string) error {
+	err := s.favoritesImpl.RemoveFromFavorites(entityType, entityUUID)
 	if err != nil {
 		return err
 	}
@@ -47,8 +47,8 @@ func (s *Service) RemoveFromFavorites(entityType string, entityID int) error {
 }
 
 // IsFavorite проверяет, является ли элемент избранным
-func (s *Service) IsFavorite(entityType string, entityID int) (bool, error) {
-	return s.favoritesImpl.IsFavorite(entityType, entityID)
+func (s *Service) IsFavorite(entityType string, entityUUID string) (bool, error) {
+	return s.favoritesImpl.IsFavorite(entityType, entityUUID)
 }
 
 // GetFavoriteFolders возвращает все избранные папки

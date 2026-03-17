@@ -47,8 +47,8 @@ func (p *UI) SetCustomField(index int, title, value string) {
 func (p *UI) AddCharacteristic() {
 	row := &fieldRow{}
 
-	// Присваиваем уникальный ID
-	row.id = p.nextID
+	// Присваиваем уникальный UUID (будет установлен при загрузке или сохранении)
+	row.elementUUID = ""
 	p.nextID++ // увеличиваем счетчик для следующего элемента
 
 	row.titleLabel = widget.NewLabel(":")
@@ -204,7 +204,7 @@ func (p *UI) LoadCharacteristicsFromJSON(jsonStr string) {
 		// Устанавливаем значения для последнего добавленного элемента
 		if len(p.customFields) > 0 {
 			lastRow := p.customFields[len(p.customFields)-1]
-			lastRow.id = item.ID
+			lastRow.elementUUID = item.ElementUUID // ✅ Сохраняем ElementUUID
 			lastRow.titleEntry.SetText(item.Title)
 			lastRow.valueEntry.SetText(item.Value)
 			// Обновляем метку названия тоже для режима просмотра
@@ -226,9 +226,9 @@ func (p *UI) SaveCharacteristicsToJSON() (string, error) {
 		value := row.valueEntry.Text
 
 		characteristics = append(characteristics, ContentCharacteristicItem{
-			ID:    row.id,
-			Title: title,
-			Value: value,
+			ElementUUID: row.elementUUID, // ✅ Сохраняем ElementUUID
+			Title:       title,
+			Value:       value,
 		})
 	}
 

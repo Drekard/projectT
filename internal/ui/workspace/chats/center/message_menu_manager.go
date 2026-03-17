@@ -3,6 +3,7 @@ package center
 
 import (
 	"fmt"
+	"time"
 
 	"projectT/internal/storage/database/models"
 	"projectT/internal/storage/database/queries"
@@ -47,16 +48,7 @@ func (mmm *MessageMenuManager) ShowMessageMenu(message *models.ChatMessage, cont
 	headerText := fmt.Sprintf("**Сообщение** от %s", message.SentAt.Format("02.01.2006 15:04"))
 	children = append(children,
 		widget.NewRichTextFromMarkdown(headerText),
-		widget.NewLabel("Содержимое:"),
 	)
-
-	// Поле с содержимым сообщения (только для чтения)
-	contentEntry := widget.NewEntry()
-	contentEntry.SetText(message.Content)
-	contentEntry.Disable()
-	contentEntry.MultiLine = true
-	contentEntry.Wrapping = fyne.TextWrapBreak
-	children = append(children, contentEntry)
 
 	// Кнопки действий
 	buttons := []fyne.CanvasObject{}
@@ -75,12 +67,6 @@ func (mmm *MessageMenuManager) ShowMessageMenu(message *models.ChatMessage, cont
 	})
 	buttons = append(buttons, deleteButton)
 
-	// Кнопка закрытия
-	closeButton := widget.NewButton("Закрыть", func() {
-		popup.Hide()
-	})
-	buttons = append(buttons, closeButton)
-
 	buttonsContainer := container.NewHBox(buttons...)
 
 	children = append(children, buttonsContainer)
@@ -91,8 +77,8 @@ func (mmm *MessageMenuManager) ShowMessageMenu(message *models.ChatMessage, cont
 
 	// Показываем прямо под сообщением
 	menuPos := fyne.NewPos(
-		cardPos.X,
-		cardPos.Y+cardSize.Height+5,
+		cardPos.X*2,
+		cardPos.Y+cardSize.Height,
 	)
 
 	// Проверяем, не выходит ли за нижнюю границу окна
@@ -105,6 +91,14 @@ func (mmm *MessageMenuManager) ShowMessageMenu(message *models.ChatMessage, cont
 	}
 
 	popup.ShowAtPosition(menuPos)
+
+	// Вызываем колбэк при закрытии
+	go func() {
+		// Периодически проверяем, закрыт ли попап, чтобы не нагружать CPU
+		for popup.Visible() {
+			time.Sleep(100 * time.Millisecond)
+		}
+	}()
 }
 
 // showEditMessageDialog показывает диалог редактирования сообщения
@@ -183,95 +177,3 @@ func (mmm *MessageMenuManager) showDeleteConfirmation(message *models.ChatMessag
 			}
 		}, window)
 }
-
-// ClickableMessageBubble оборачивает MessageBubble с возможностью клика (аналог ClickableCard)
-type ClickableMessageBubble struct {
-	widget.BaseWidget
-	bubble         *MessageBubble
-	message        *models.ChatMessage
-	isOutgoing     bool
-	onTapped       func()
-	onDoubleTapped func()
-}
-
-// NewClickableMessageBubble создает кликабельный пузырёк сообщения
-func NewClickableMessageBubble(
-	message *models.ChatMessage,
-	isOutgoing bool,
-	onTapped func(),
-	onDoubleTapped func(),
-) *ClickableMessageBubble {
-	cmb := &ClickableMessageBubble{
-		message:        message,
-		isOutgoing:     isOutgoing,
-		onTapped:       onTapped,
-		onDoubleTapped: onDoubleTapped,
-	}
-	cmb.bubble = NewMessageBubble(message, isOutgoing)
-	cmb.ExtendBaseWidget(cmb)
-	return cmb
-}
-
-// CreateRenderer создает рендерер для ClickableMessageBubble
-func (cmb *ClickableMessageBubble) CreateRenderer() fyne.WidgetRenderer {
-	// Создаем контейнер с пузырьком
-	container := container.NewStack(cmb.bubble.Container())
-
-	return &ClickableMessageBubbleRenderer{
-		clickableBubble: cmb,
-		container:       container,
-	}
-}
-
-// MinSize возвращает минимальный размер
-func (cmb *ClickableMessageBubble) MinSize() fyne.Size {
-	return cmb.bubble.Container().MinSize()
-}
-
-// Tapped обрабатывает левый клик по сообщению
-func (cmb *ClickableMessageBubble) Tapped(ev *fyne.PointEvent) {
-	// Левый клик пока не используется
-}
-
-// TappedSecondary обрабатывает правый клик по сообщению (контекстное меню)
-func (cmb *ClickableMessageBubble) TappedSecondary(ev *fyne.PointEvent) {
-	if cmb.onTapped != nil {
-		cmb.onTapped()
-	}
-}
-
-// DoubleTapped обрабатывает двойной клик по сообщению
-func (cmb *ClickableMessageBubble) DoubleTapped(ev *fyne.PointEvent) {
-	if cmb.onDoubleTapped != nil {
-		cmb.onDoubleTapped()
-	}
-}
-
-// ClickableMessageBubbleRenderer рендерер для кликабельного пузырька
-type ClickableMessageBubbleRenderer struct {
-	clickableBubble *ClickableMessageBubble
-	container       *fyne.Container
-}
-
-// Layout распологает элементы
-func (r *ClickableMessageBubbleRenderer) Layout(size fyne.Size) {
-	r.container.Resize(size)
-}
-
-// MinSize возвращает минимальный размер
-func (r *ClickableMessageBubbleRenderer) MinSize() fyne.Size {
-	return r.clickableBubble.MinSize()
-}
-
-// Refresh обновляет отображение
-func (r *ClickableMessageBubbleRenderer) Refresh() {
-	r.container.Refresh()
-}
-
-// Objects возвращает объекты для рендеринга
-func (r *ClickableMessageBubbleRenderer) Objects() []fyne.CanvasObject {
-	return []fyne.CanvasObject{r.container}
-}
-
-// Destroy освобождает ресурсы
-func (r *ClickableMessageBubbleRenderer) Destroy() {}

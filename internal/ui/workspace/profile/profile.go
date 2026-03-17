@@ -1,7 +1,6 @@
 package profile
 
 import (
-	"encoding/json"
 	"image/color"
 	"projectT/internal/services/pinned"
 	"projectT/internal/storage/database/models"
@@ -17,14 +16,14 @@ import (
 
 // ContentCharacteristicItem represents a single characteristic item with title and value
 type ContentCharacteristicItem struct {
-	ID    int    `json:"id"`
-	Title string `json:"title"`
-	Value string `json:"value"`
+	ElementUUID string `json:"element_uuid"` // Глобальный UUID элемента для P2P
+	Title       string `json:"title"`
+	Value       string `json:"value"`
 }
 
 // fieldRow представляет собой строку с пользовательским полем
 type fieldRow struct {
-	id           int
+	elementUUID  string // ElementUUID элемента (для P2P)
 	titleLabel   *widget.Label
 	titleEntry   *widget.Entry
 	valueEntry   *widget.Entry
@@ -79,20 +78,9 @@ func New() *UI {
 	// После создания компонентов загружаем характеристики
 	ui.LoadCharacteristicsFromJSON(ui.loadCharacteristicsJSON)
 
-	// Устанавливаем nextID на основе максимального ID из загруженных характеристик
-	maxID := 0
-	var characteristics []ContentCharacteristicItem
-	if ui.loadCharacteristicsJSON != "" {
-		err := json.Unmarshal([]byte(ui.loadCharacteristicsJSON), &characteristics)
-		if err == nil {
-			for _, item := range characteristics {
-				if item.ID > maxID {
-					maxID = item.ID
-				}
-			}
-		}
-	}
-	ui.nextID = maxID + 1
+	// nextID больше не нужен, так как используем ElementUUID вместо ID
+	// Оставляем для обратной совместимости
+	ui.nextID = 1
 
 	return ui
 }

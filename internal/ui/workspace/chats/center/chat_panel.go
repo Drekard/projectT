@@ -6,6 +6,8 @@ import (
 
 	"projectT/internal/storage/database/models"
 	"projectT/internal/storage/database/queries"
+	"projectT/internal/ui/cards/concrete"
+	"projectT/internal/ui/cards/hover_preview"
 
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/canvas"
@@ -17,18 +19,25 @@ import (
 
 // MessageBubble пузырёк сообщения
 type MessageBubble struct {
-	container *fyne.Container
+	container fyne.CanvasObject
 }
 
 // NewMessageBubble создаёт новый пузырёк сообщения
-func NewMessageBubble(message *models.ChatMessage, isOutgoing bool) *MessageBubble {
+func NewMessageBubble(message *models.ChatMessage, isOutgoing bool, onRightClick func()) *MessageBubble {
 	mb := &MessageBubble{}
-	mb.container = mb.createBubble(message, isOutgoing)
+
+	// Проверяем тип сообщения
+	if message.ContentType == "element" {
+		mb.container = mb.createBubbleForElement(message, isOutgoing, onRightClick)
+	} else {
+		mb.container = mb.createBubble(message, isOutgoing, onRightClick)
+	}
+
 	return mb
 }
 
 // createBubble создаёт пузырёк сообщения
-func (mb *MessageBubble) createBubble(message *models.ChatMessage, isOutgoing bool) *fyne.Container {
+func (mb *MessageBubble) createBubble(message *models.ChatMessage, isOutgoing bool, onRightClick func()) fyne.CanvasObject {
 	// Текст сообщения
 	msgLabel := widget.NewLabel(message.Content)
 	msgLabel.Wrapping = fyne.TextWrapBreak
@@ -52,26 +61,142 @@ func (mb *MessageBubble) createBubble(message *models.ChatMessage, isOutgoing bo
 	content := container.NewVBox(msgLabel, timeLabel)
 
 	// Цвет фона в зависимости от направления
-	bgColor := color.RGBA{R: 70, G: 130, B: 180, A: 200} // Синий для исходящих
+	bgColor := color.RGBA{R: 144, G: 55, B: 255, A: 200} // Синий для исходящих
+	if !isOutgoing {
+		bgColor = color.RGBA{R: 80, G: 80, B: 80, A: 200} // Серый для входящих
+	}
+
+	// Расчёт ширины на основе количества символов (максимум 300)
+	const (
+		maxWidth     = 300
+		minWidth     = 100
+		charsPerUnit = 10 // символов на единицу ширины
+	)
+	calculatedWidth := float32(minWidth) + float32(len(message.Content))/charsPerUnit*float32(maxWidth-minWidth)/10
+	if calculatedWidth > maxWidth {
+		calculatedWidth = maxWidth
+	}
+
+	bg := canvas.NewRectangle(bgColor)
+	bg.CornerRadius = 10
+	bg.SetMinSize(fyne.NewSize(calculatedWidth, 20))
+
+	messageContainer := container.NewStack(bg, container.NewPadded(content))
+
+	// Выравнивание по правому/левому краю
+	var bubbleContent fyne.CanvasObject
+	if isOutgoing {
+		bubbleContent = container.NewHBox(layout.NewSpacer(), messageContainer)
+	} else {
+		bubbleContent = container.NewHBox(messageContainer, layout.NewSpacer())
+	}
+
+	// Оборачиваем в кликабельный виджет для обработки правого клика
+	clickableBubble := hover_preview.NewClickableCard(bubbleContent, onRightClick)
+
+	return clickableBubble
+}
+
+// createBubbleForElement создаёт пузырёк для сообщения типа element
+func (mb *MessageBubble) createBubbleForElement(message *models.ChatMessage, isOutgoing bool, onRightClick func()) fyne.CanvasObject {
+	// Извлекаем element_uuid из Content
+	elementUUID := message.Content
+	if elementUUID == "" {
+		// Если UUID пустой, показываем ошибку
+		return mb.createErrorBubble("Неверный формат элемента")
+	}
+
+	// Загружаем элемент из базы данных по element_uuid
+	item, err := queries.GetItemByElementUUID(elementUUID)
+	if err != nil {
+		// Если элемент не найден, показываем сообщение об ошибке
+		return mb.createErrorBubble("Элемент не найден")
+	}
+
+	// Создаём полноценную карточку элемента используя функционал concrete
+	var cardRenderer fyne.CanvasObject
+	switch item.Type {
+	case "folder":
+		cardRenderer = concrete.NewFolderCard(item).GetContainer()
+	case "element":
+		// Для элементов используем композитную карточку
+		cardRenderer = concrete.NewCompositeCard(item).GetContainer()
+	default:
+		// Для неизвестных типов используем композитную карточку
+		cardRenderer = concrete.NewCompositeCard(item).GetContainer()
+	}
+
+	// Время отправки
+	timeStr := message.SentAt.Format("15:04")
+	timeLabel := widget.NewLabel(timeStr)
+	timeLabel.TextStyle = fyne.TextStyle{Italic: true}
+
+	// Выравнивание времени в зависимости от направления
+	if isOutgoing {
+		timeLabel.Alignment = fyne.TextAlignTrailing
+	}
+
+	// Компонуем карточку и время
+	content := container.NewVBox(
+		cardRenderer,
+		timeLabel,
+	)
+
+	// Цвет фона в зависимости от направления
+	bgColor := color.RGBA{R: 144, G: 55, B: 255, A: 200} // Синий для исходящих
 	if !isOutgoing {
 		bgColor = color.RGBA{R: 80, G: 80, B: 80, A: 200} // Серый для входящих
 	}
 
 	bg := canvas.NewRectangle(bgColor)
 	bg.CornerRadius = 10
-	bg.SetMinSize(fyne.NewSize(300, 20))
+	bg.SetMinSize(fyne.NewSize(200, 150))
 
 	messageContainer := container.NewStack(bg, container.NewPadded(content))
 
 	// Выравнивание по правому/левому краю
+	var bubbleContent fyne.CanvasObject
 	if isOutgoing {
-		return container.NewHBox(layout.NewSpacer(), messageContainer)
+		bubbleContent = container.NewHBox(layout.NewSpacer(), messageContainer)
+	} else {
+		bubbleContent = container.NewHBox(messageContainer, layout.NewSpacer())
 	}
-	return container.NewHBox(messageContainer, layout.NewSpacer())
+
+	// Оборачиваем в кликабельный виджет для обработки правого клика
+	clickableBubble := hover_preview.NewClickableCard(bubbleContent, onRightClick)
+
+	return clickableBubble
+}
+
+// createErrorBubble создаёт пузырёк с сообщением об ошибке
+func (mb *MessageBubble) createErrorBubble(errorMsg string) fyne.CanvasObject {
+	msgLabel := widget.NewLabel(errorMsg)
+	msgLabel.Wrapping = fyne.TextWrapBreak
+
+	// Используем RichText для установки цвета
+	timeLabel := widget.NewRichTextFromMarkdown("*ошибка*")
+	if len(timeLabel.Segments) > 0 {
+		timeLabel.Segments[0].(*widget.TextSegment).Style = widget.RichTextStyleInline
+		timeLabel.Segments[0].(*widget.TextSegment).Style.ColorName = theme.ColorNameError
+	}
+
+	content := container.NewVBox(msgLabel, timeLabel)
+
+	bgColor := color.RGBA{R: 200, G: 50, B: 50, A: 200} // Красный для ошибок
+	bg := canvas.NewRectangle(bgColor)
+	bg.CornerRadius = 10
+	bg.SetMinSize(fyne.NewSize(200, 50))
+
+	messageContainer := container.NewStack(bg, container.NewPadded(content))
+	bubbleContent := container.NewHBox(messageContainer, layout.NewSpacer())
+
+	clickableBubble := hover_preview.NewClickableCard(bubbleContent, func() {})
+
+	return clickableBubble
 }
 
 // Container возвращает контейнер пузырька
-func (mb *MessageBubble) Container() *fyne.Container {
+func (mb *MessageBubble) Container() fyne.CanvasObject {
 	return mb.container
 }
 
@@ -171,20 +296,20 @@ func (ml *MessagesList) Container() fyne.CanvasObject {
 
 // AddMessage добавляет сообщение в список
 func (ml *MessagesList) AddMessage(message *models.ChatMessage, isOutgoing bool) {
-	// Создаём кликабельный пузырёк с обработкой правого клика
-	var clickableBubble *ClickableMessageBubble
-	clickableBubble = NewClickableMessageBubble(
+	// Создаём пузырёк сообщения с обработчиком правого клика
+	var bubbleContainer fyne.CanvasObject
+	bubble := NewMessageBubble(
 		message,
 		isOutgoing,
 		func() {
 			// Показываем контекстное меню при правом клике
 			if ml.menuManager != nil {
-				ml.menuManager.ShowMessageMenu(message, clickableBubble, isOutgoing)
+				ml.menuManager.ShowMessageMenu(message, bubbleContainer, isOutgoing)
 			}
 		},
-		nil, // Двойной клик не используется
 	)
-	ml.container.Add(clickableBubble)
+	bubbleContainer = bubble.Container()
+	ml.container.Add(bubbleContainer)
 	ml.scrollToBottom()
 }
 

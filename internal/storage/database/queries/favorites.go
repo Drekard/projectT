@@ -5,12 +5,12 @@ import (
 )
 
 // AddToFavorites добавляет элемент в избранное
-func AddToFavorites(entityType string, entityID int) error {
+func AddToFavorites(entityType string, entityUUID string) error {
 	// Создаем реализацию сервиса избранного
 	favoritesService := NewFavoritesServiceImpl()
 
 	// Вызываем метод добавления в избранное
-	err := favoritesService.AddToFavorites(entityType, entityID)
+	err := favoritesService.AddToFavorites(entityType, entityUUID)
 	if err != nil {
 		return err
 	}
@@ -19,12 +19,12 @@ func AddToFavorites(entityType string, entityID int) error {
 }
 
 // RemoveFromFavorites удаляет элемент из избранного
-func RemoveFromFavorites(entityType string, entityID int) error {
+func RemoveFromFavorites(entityType string, entityUUID string) error {
 	// Создаем реализацию сервиса избранного
 	favoritesService := NewFavoritesServiceImpl()
 
 	// Вызываем метод удаления из избранного
-	err := favoritesService.RemoveFromFavorites(entityType, entityID)
+	err := favoritesService.RemoveFromFavorites(entityType, entityUUID)
 	if err != nil {
 		return err
 	}
@@ -33,12 +33,12 @@ func RemoveFromFavorites(entityType string, entityID int) error {
 }
 
 // IsFavorite проверяет, является ли элемент избранным
-func IsFavorite(entityType string, entityID int) (bool, error) {
+func IsFavorite(entityType string, entityUUID string) (bool, error) {
 	// Создаем реализацию сервиса избранного
 	favoritesService := NewFavoritesServiceImpl()
 
 	// Вызываем метод проверки избранного
-	return favoritesService.IsFavorite(entityType, entityID)
+	return favoritesService.IsFavorite(entityType, entityUUID)
 }
 
 // GetFavoriteFolders возвращает все избранные папки

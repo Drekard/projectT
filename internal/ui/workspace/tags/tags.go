@@ -124,7 +124,7 @@ func (t *UI) createTable() *widget.Table {
 				deleteBtn.Importance = widget.LowImportance
 
 				// Проверяем, является ли тег избранным
-				isFavorite, err := favoritesService.IsFavorite("tag", tag.ID)
+				isFavorite, err := favoritesService.IsFavorite("tag", tag.TagUUID)
 				if err != nil {
 					isFavorite = false
 				}
@@ -132,7 +132,7 @@ func (t *UI) createTable() *widget.Table {
 				var favBtn *widget.Button
 				if isFavorite {
 					favBtn = widget.NewButton("✨", func() {
-						err := favoritesService.RemoveFromFavorites("tag", tag.ID)
+						err := favoritesService.RemoveFromFavorites("tag", tag.TagUUID)
 						if err != nil {
 							return
 						}
@@ -142,7 +142,7 @@ func (t *UI) createTable() *widget.Table {
 					})
 				} else {
 					favBtn = widget.NewButton("⭐️", func() {
-						err := favoritesService.AddToFavorites("tag", tag.ID)
+						err := favoritesService.AddToFavorites("tag", tag.TagUUID)
 						if err != nil {
 							return
 						}

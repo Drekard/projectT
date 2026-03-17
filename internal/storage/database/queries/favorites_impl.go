@@ -15,9 +15,9 @@ func NewFavoritesServiceImpl() *FavoritesServiceImpl {
 }
 
 // AddToFavorites добавляет элемент в избранное
-func (f *FavoritesServiceImpl) AddToFavorites(entityType string, entityID int) error {
-	query := `INSERT INTO favorites (entity_type, entity_id) VALUES (?, ?)`
-	result, err := database.DB.Exec(query, entityType, entityID)
+func (f *FavoritesServiceImpl) AddToFavorites(entityType string, entityUUID string) error {
+	query := `INSERT INTO favorites (entity_type, entity_uuid) VALUES (?, ?)`
+	result, err := database.DB.Exec(query, entityType, entityUUID)
 	if err != nil {
 		return err
 	}
@@ -26,9 +26,9 @@ func (f *FavoritesServiceImpl) AddToFavorites(entityType string, entityID int) e
 }
 
 // RemoveFromFavorites удаляет элемент из избранного
-func (f *FavoritesServiceImpl) RemoveFromFavorites(entityType string, entityID int) error {
-	query := `DELETE FROM favorites WHERE entity_type = ? AND entity_id = ?`
-	result, err := database.DB.Exec(query, entityType, entityID)
+func (f *FavoritesServiceImpl) RemoveFromFavorites(entityType string, entityUUID string) error {
+	query := `DELETE FROM favorites WHERE entity_type = ? AND entity_uuid = ?`
+	result, err := database.DB.Exec(query, entityType, entityUUID)
 	if err != nil {
 		return err
 	}
@@ -37,10 +37,10 @@ func (f *FavoritesServiceImpl) RemoveFromFavorites(entityType string, entityID i
 }
 
 // IsFavorite проверяет, является ли элемент избранным
-func (f *FavoritesServiceImpl) IsFavorite(entityType string, entityID int) (bool, error) {
-	query := `SELECT 1 FROM favorites WHERE entity_type = ? AND entity_id = ?`
+func (f *FavoritesServiceImpl) IsFavorite(entityType string, entityUUID string) (bool, error) {
+	query := `SELECT 1 FROM favorites WHERE entity_type = ? AND entity_uuid = ?`
 	var exists int
-	err := database.DB.QueryRow(query, entityType, entityID).Scan(&exists)
+	err := database.DB.QueryRow(query, entityType, entityUUID).Scan(&exists)
 	if err != nil {
 		if err == sql.ErrNoRows {
 			return false, nil
@@ -53,9 +53,9 @@ func (f *FavoritesServiceImpl) IsFavorite(entityType string, entityID int) (bool
 // GetFavoriteFolders возвращает все избранные папки
 func (f *FavoritesServiceImpl) GetFavoriteFolders() ([]*models.Item, error) {
 	query := `
-		SELECT i.id, i.type, i.title, i.description, i.content_meta, i.parent_id, i.created_at, i.updated_at
+		SELECT i.id, i.element_uuid, i.hash, i.type, i.title, i.description, i.content_meta, i.parent_id, i.created_at, i.updated_at
 		FROM items i
-		INNER JOIN favorites f ON i.id = f.entity_id
+		INNER JOIN favorites f ON i.element_uuid = f.entity_uuid
 		WHERE f.entity_type = 'folder'
 	`
 	rows, err := database.DB.Query(query)
@@ -69,7 +69,7 @@ func (f *FavoritesServiceImpl) GetFavoriteFolders() ([]*models.Item, error) {
 		var item models.Item
 		var parentID *int
 		err := rows.Scan(
-			&item.ID, &item.Type, &item.Title, &item.Description, &item.ContentMeta, &parentID, &item.CreatedAt, &item.UpdatedAt,
+			&item.ID, &item.ElementUUID, &item.Hash, &item.Type, &item.Title, &item.Description, &item.ContentMeta, &parentID, &item.CreatedAt, &item.UpdatedAt,
 		)
 		if err != nil {
 			return nil, err
@@ -84,9 +84,9 @@ func (f *FavoritesServiceImpl) GetFavoriteFolders() ([]*models.Item, error) {
 // GetFavoriteTags возвращает все избранные теги
 func (f *FavoritesServiceImpl) GetFavoriteTags() ([]*models.Tag, error) {
 	query := `
-		SELECT t.id, t.name, t.color, t.description
+		SELECT t.id, t.tag_uuid, t.owner_peer_id, t.name, t.color, t.description
 		FROM tags t
-		INNER JOIN favorites f ON t.id = f.entity_id
+		INNER JOIN favorites f ON t.tag_uuid = f.entity_uuid
 		WHERE f.entity_type = 'tag'
 	`
 	rows, err := database.DB.Query(query)
@@ -99,7 +99,7 @@ func (f *FavoritesServiceImpl) GetFavoriteTags() ([]*models.Tag, error) {
 	for rows.Next() {
 		var tag models.Tag
 		err := rows.Scan(
-			&tag.ID, &tag.Name, &tag.Color, &tag.Description,
+			&tag.ID, &tag.TagUUID, &tag.OwnerPeerID, &tag.Name, &tag.Color, &tag.Description,
 		)
 		if err != nil {
 			return nil, err
@@ -112,7 +112,7 @@ func (f *FavoritesServiceImpl) GetFavoriteTags() ([]*models.Tag, error) {
 
 // GetAllFavorites возвращает все избранные элементы (и теги, и папки)
 func (f *FavoritesServiceImpl) GetAllFavorites() ([]*models.Favorite, error) {
-	query := `SELECT id, entity_type, entity_id FROM favorites ORDER BY id`
+	query := `SELECT id, entity_type, entity_uuid FROM favorites ORDER BY id`
 	rows, err := database.DB.Query(query)
 	if err != nil {
 		return nil, err
@@ -123,7 +123,7 @@ func (f *FavoritesServiceImpl) GetAllFavorites() ([]*models.Favorite, error) {
 	for rows.Next() {
 		var favorite models.Favorite
 		err := rows.Scan(
-			&favorite.ID, &favorite.EntityType, &favorite.EntityID,
+			&favorite.ID, &favorite.EntityType, &favorite.EntityUUID,
 		)
 		if err != nil {
 			return nil, err

@@ -101,8 +101,6 @@ func GetMessagesForContact(contactID int, limit, offset int) ([]*models.ChatMess
 		messages[i], messages[j] = messages[j], messages[i]
 	}
 
-	fmt.Printf("[DEBUG] Загружено %d сообщений для контакта (contact_id=%d)\n", len(messages), contactID)
-
 	return messages, rows.Err()
 }
 

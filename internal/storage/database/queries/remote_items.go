@@ -1,22 +1,27 @@
-// Package queries содержит SQL-запросы для работы с базой данных.
+// Package queries содержит SQL-запросы для работы с объединённой таблицей items.
+// Remote элементы теперь хранятся в той же таблице items с owner_type = 'remote'
 package queries
 
 import (
 	"database/sql"
 	"errors"
-	"time"
 
 	"projectT/internal/storage/database"
 	"projectT/internal/storage/database/models"
 )
 
-// CreateRemoteItem создаёт кэшированный элемент от другого пира
-func CreateRemoteItem(item *models.RemoteItem) error {
+// CreateRemoteItem создаёт кэшированный элемент от другого пира в таблице items
+func CreateRemoteItem(item *models.Item) error {
 	query := `
-		INSERT INTO remote_items (source_peer_id, original_id, original_hash, title, description, 
-		                          content_meta, signature, version, cached_at)
-		VALUES (?, ?, ?, ?, ?, ?, ?, 1, CURRENT_TIMESTAMP)
-		ON CONFLICT(source_peer_id, original_hash) DO UPDATE SET
+		INSERT INTO items (
+			element_uuid, hash,
+			owner_type, source_peer_id,
+			type, title, description, content_meta,
+			signature, version, cached_at,
+			created_at, updated_at
+		)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+		ON CONFLICT(source_peer_id, element_uuid) DO UPDATE SET
 			title = excluded.title,
 			description = excluded.description,
 			content_meta = excluded.content_meta,
@@ -25,8 +30,10 @@ func CreateRemoteItem(item *models.RemoteItem) error {
 			cached_at = CURRENT_TIMESTAMP
 	`
 	result, err := database.DB.Exec(query,
-		item.SourcePeerID, item.OriginalID, item.OriginalHash,
-		item.Title, item.Description, item.ContentMeta, item.Signature,
+		item.ElementUUID, item.Hash,
+		models.OwnerTypeRemote, item.SourcePeerID,
+		item.Type, item.Title, item.Description, item.ContentMeta,
+		item.Signature, item.Version, item.CachedAt,
 	)
 	if err != nil {
 		return err
@@ -40,22 +47,29 @@ func CreateRemoteItem(item *models.RemoteItem) error {
 	return nil
 }
 
-// GetRemoteItemByHash возвращает элемент по хешу и PeerID владельца
-func GetRemoteItemByHash(sourcePeerID, originalHash string) (*models.RemoteItem, error) {
+// GetRemoteItemByElementUUID возвращает элемент по element_uuid и PeerID владельца
+func GetRemoteItemByElementUUID(sourcePeerID, elementUUID string) (*models.Item, error) {
 	query := `
-		SELECT id, source_peer_id, original_id, original_hash, title, description, 
-		       content_meta, signature, version, cached_at
-		FROM remote_items
-		WHERE source_peer_id = ? AND original_hash = ?
+		SELECT id, element_uuid, hash,
+		       owner_type, source_peer_id,
+		       type, title, description, content_meta,
+		       signature, version, cached_at,
+		       created_at, updated_at
+		FROM items
+		WHERE source_peer_id = ? AND element_uuid = ? AND owner_type = 'remote'
 		LIMIT 1
 	`
-	var item models.RemoteItem
-	var cachedAt string
+	var item models.Item
+	var cachedAt, createdAt, updatedAt sql.NullTime
+	var parentID sql.NullInt64
+	var sourcePeerIDNull sql.NullString
 
-	err := database.DB.QueryRow(query, sourcePeerID, originalHash).Scan(
-		&item.ID, &item.SourcePeerID, &item.OriginalID, &item.OriginalHash,
-		&item.Title, &item.Description, &item.ContentMeta, &item.Signature,
-		&item.Version, &cachedAt,
+	err := database.DB.QueryRow(query, sourcePeerID, elementUUID).Scan(
+		&item.ID, &item.ElementUUID, &item.Hash,
+		&item.OwnerType, &sourcePeerIDNull,
+		&item.Type, &item.Title, &item.Description, &item.ContentMeta,
+		&item.Signature, &item.Version, &cachedAt,
+		&createdAt, &updatedAt,
 	)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
@@ -64,17 +78,83 @@ func GetRemoteItemByHash(sourcePeerID, originalHash string) (*models.RemoteItem,
 		return nil, err
 	}
 
-	item.CachedAt, _ = time.Parse("2006-01-02 15:04:05", cachedAt)
+	if cachedAt.Valid {
+		item.CachedAt = &cachedAt.Time
+	}
+	item.CreatedAt = createdAt.Time
+	item.UpdatedAt = updatedAt.Time
+
+	if parentID.Valid {
+		parentIDValue := int(parentID.Int64)
+		item.ParentID = &parentIDValue
+	}
+
+	if sourcePeerIDNull.Valid {
+		item.SourcePeerID = &sourcePeerIDNull.String
+	}
+
+	return &item, nil
+}
+
+// GetRemoteItemByHash возвращает элемент по hash и PeerID владельца (устаревшее, используйте GetRemoteItemByElementUUID)
+func GetRemoteItemByHash(sourcePeerID, hash string) (*models.Item, error) {
+	query := `
+		SELECT id, element_uuid, hash,
+		       owner_type, source_peer_id,
+		       type, title, description, content_meta,
+		       signature, version, cached_at,
+		       created_at, updated_at
+		FROM items
+		WHERE source_peer_id = ? AND hash = ? AND owner_type = 'remote'
+		LIMIT 1
+	`
+	var item models.Item
+	var cachedAt, createdAt, updatedAt sql.NullTime
+	var parentID sql.NullInt64
+	var sourcePeerIDNull sql.NullString
+
+	err := database.DB.QueryRow(query, sourcePeerID, hash).Scan(
+		&item.ID, &item.ElementUUID, &item.Hash,
+		&item.OwnerType, &sourcePeerIDNull,
+		&item.Type, &item.Title, &item.Description, &item.ContentMeta,
+		&item.Signature, &item.Version, &cachedAt,
+		&createdAt, &updatedAt,
+	)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil, errors.New("элемент не найден")
+		}
+		return nil, err
+	}
+
+	if cachedAt.Valid {
+		item.CachedAt = &cachedAt.Time
+	}
+	item.CreatedAt = createdAt.Time
+	item.UpdatedAt = updatedAt.Time
+
+	if parentID.Valid {
+		parentIDValue := int(parentID.Int64)
+		item.ParentID = &parentIDValue
+	}
+
+	if sourcePeerIDNull.Valid {
+		item.SourcePeerID = &sourcePeerIDNull.String
+	}
+
 	return &item, nil
 }
 
 // GetRemoteItemsByPeer возвращает все кэшированные элементы от пира
-func GetRemoteItemsByPeer(sourcePeerID string) ([]*models.RemoteItem, error) {
+func GetRemoteItemsByPeer(sourcePeerID string) ([]*models.Item, error) {
 	query := `
-		SELECT id, source_peer_id, original_id, original_hash, title, description, 
-		       content_meta, signature, version, cached_at
-		FROM remote_items
-		WHERE source_peer_id = ?
+		SELECT id, element_uuid, hash,
+		       owner_type, source_peer_id,
+		       type, title, description, content_meta,
+		       signature, version, cached_at,
+		       created_at, updated_at
+		FROM items
+		WHERE source_peer_id = ? AND owner_type = 'remote'
 		ORDER BY title
 	`
 	rows, err := database.DB.Query(query, sourcePeerID)
@@ -83,21 +163,39 @@ func GetRemoteItemsByPeer(sourcePeerID string) ([]*models.RemoteItem, error) {
 	}
 	defer rows.Close()
 
-	var items []*models.RemoteItem
+	var items []*models.Item
 	for rows.Next() {
-		var item models.RemoteItem
-		var cachedAt string
+		var item models.Item
+		var cachedAt, createdAt, updatedAt sql.NullTime
+		var parentID sql.NullInt64
+		var sourcePeerIDNull sql.NullString
 
 		err := rows.Scan(
-			&item.ID, &item.SourcePeerID, &item.OriginalID, &item.OriginalHash,
-			&item.Title, &item.Description, &item.ContentMeta, &item.Signature,
-			&item.Version, &cachedAt,
+			&item.ID, &item.ElementUUID, &item.Hash,
+			&item.OwnerType, &sourcePeerIDNull,
+			&item.Type, &item.Title, &item.Description, &item.ContentMeta,
+			&item.Signature, &item.Version, &cachedAt,
+			&createdAt, &updatedAt,
 		)
 		if err != nil {
 			return nil, err
 		}
 
-		item.CachedAt, _ = time.Parse("2006-01-02 15:04:05", cachedAt)
+		if cachedAt.Valid {
+			item.CachedAt = &cachedAt.Time
+		}
+		item.CreatedAt = createdAt.Time
+		item.UpdatedAt = updatedAt.Time
+
+		if parentID.Valid {
+			parentIDValue := int(parentID.Int64)
+			item.ParentID = &parentIDValue
+		}
+
+		if sourcePeerIDNull.Valid {
+			item.SourcePeerID = &sourcePeerIDNull.String
+		}
+
 		items = append(items, &item)
 	}
 
@@ -105,21 +203,27 @@ func GetRemoteItemsByPeer(sourcePeerID string) ([]*models.RemoteItem, error) {
 }
 
 // GetRemoteItemByID возвращает элемент по локальному ID
-func GetRemoteItemByID(id int) (*models.RemoteItem, error) {
+func GetRemoteItemByID(id int) (*models.Item, error) {
 	query := `
-		SELECT id, source_peer_id, original_id, original_hash, title, description, 
-		       content_meta, signature, version, cached_at
-		FROM remote_items
+		SELECT id, element_uuid, hash,
+		       owner_type, source_peer_id,
+		       type, title, description, content_meta,
+		       signature, version, cached_at,
+		       created_at, updated_at
+		FROM items
 		WHERE id = ?
-		LIMIT 1
 	`
-	var item models.RemoteItem
-	var cachedAt string
+	var item models.Item
+	var cachedAt, createdAt, updatedAt sql.NullTime
+	var parentID sql.NullInt64
+	var sourcePeerIDNull sql.NullString
 
 	err := database.DB.QueryRow(query, id).Scan(
-		&item.ID, &item.SourcePeerID, &item.OriginalID, &item.OriginalHash,
-		&item.Title, &item.Description, &item.ContentMeta, &item.Signature,
-		&item.Version, &cachedAt,
+		&item.ID, &item.ElementUUID, &item.Hash,
+		&item.OwnerType, &sourcePeerIDNull,
+		&item.Type, &item.Title, &item.Description, &item.ContentMeta,
+		&item.Signature, &item.Version, &cachedAt,
+		&createdAt, &updatedAt,
 	)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
@@ -128,19 +232,35 @@ func GetRemoteItemByID(id int) (*models.RemoteItem, error) {
 		return nil, err
 	}
 
-	item.CachedAt, _ = time.Parse("2006-01-02 15:04:05", cachedAt)
+	if cachedAt.Valid {
+		item.CachedAt = &cachedAt.Time
+	}
+	item.CreatedAt = createdAt.Time
+	item.UpdatedAt = updatedAt.Time
+
+	if parentID.Valid {
+		parentIDValue := int(parentID.Int64)
+		item.ParentID = &parentIDValue
+	}
+
+	if sourcePeerIDNull.Valid {
+		item.SourcePeerID = &sourcePeerIDNull.String
+	}
+
 	return &item, nil
 }
 
 // UpdateRemoteItem обновляет кэшированный элемент
-func UpdateRemoteItem(item *models.RemoteItem) error {
+func UpdateRemoteItem(item *models.Item) error {
 	query := `
-		UPDATE remote_items 
-		SET title = ?, description = ?, content_meta = ?, signature = ?, 
+		UPDATE items
+		SET element_uuid = ?, hash = ?,
+		    title = ?, description = ?, content_meta = ?, signature = ?,
 		    version = ?, cached_at = CURRENT_TIMESTAMP
-		WHERE id = ?
+		WHERE id = ? AND owner_type = 'remote'
 	`
 	_, err := database.DB.Exec(query,
+		item.ElementUUID, item.Hash,
 		item.Title, item.Description, item.ContentMeta,
 		item.Signature, item.Version, item.ID,
 	)
@@ -149,26 +269,48 @@ func UpdateRemoteItem(item *models.RemoteItem) error {
 
 // DeleteRemoteItem удаляет кэшированный элемент
 func DeleteRemoteItem(id int) error {
-	_, err := database.DB.Exec(`DELETE FROM remote_items WHERE id = ?`, id)
+	_, err := database.DB.Exec(`DELETE FROM items WHERE id = ? AND owner_type = 'remote'`, id)
 	return err
 }
 
 // DeleteRemoteItemsByPeer удаляет все кэшированные элементы от пира
 func DeleteRemoteItemsByPeer(sourcePeerID string) error {
-	_, err := database.DB.Exec(`DELETE FROM remote_items WHERE source_peer_id = ?`, sourcePeerID)
+	_, err := database.DB.Exec(`DELETE FROM items WHERE source_peer_id = ? AND owner_type = 'remote'`, sourcePeerID)
 	return err
 }
 
-// RemoteItemExists проверяет, существует ли элемент с указанным хешем
-func RemoteItemExists(sourcePeerID, originalHash string) (bool, error) {
+// HasRemoteItem проверяет, существует ли элемент от пира с таким element_uuid
+func HasRemoteItem(sourcePeerID, elementUUID string) (bool, error) {
 	var exists bool
-	err := database.DB.QueryRow(`SELECT COUNT(*) > 0 FROM remote_items WHERE source_peer_id = ? AND original_hash = ?`, sourcePeerID, originalHash).Scan(&exists)
+	err := database.DB.QueryRow(
+		`SELECT COUNT(*) > 0 FROM items WHERE source_peer_id = ? AND element_uuid = ? AND owner_type = 'remote'`,
+		sourcePeerID, elementUUID,
+	).Scan(&exists)
 	return exists, err
+}
+
+// HasRemoteItemByHash проверяет, существует ли элемент от пира с таким hash (устаревшее, используйте HasRemoteItem)
+func HasRemoteItemByHash(sourcePeerID, hash string) (bool, error) {
+	return HasRemoteItem(sourcePeerID, hash)
 }
 
 // GetAllRemoteItemsCount возвращает общее количество кэшированных элементов
 func GetAllRemoteItemsCount() (int, error) {
 	var count int
-	err := database.DB.QueryRow(`SELECT COUNT(*) FROM remote_items`).Scan(&count)
+	err := database.DB.QueryRow(`SELECT COUNT(*) FROM items WHERE owner_type = 'remote'`).Scan(&count)
+	return count, err
+}
+
+// GetLocalItemsCount возвращает количество локальных элементов
+func GetLocalItemsCount() (int, error) {
+	var count int
+	err := database.DB.QueryRow(`SELECT COUNT(*) FROM items WHERE owner_type = 'local'`).Scan(&count)
+	return count, err
+}
+
+// GetAllItemsCount возвращает общее количество всех элементов
+func GetAllItemsCount() (int, error) {
+	var count int
+	err := database.DB.QueryRow(`SELECT COUNT(*) FROM items`).Scan(&count)
 	return count, err
 }
