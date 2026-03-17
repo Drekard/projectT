@@ -3,13 +3,22 @@ package database
 import (
 	"database/sql"
 	"log"
+	"math/rand"
 	"os"
 	"path/filepath"
+	"time"
 
 	_ "github.com/mattn/go-sqlite3"
 )
 
-var DB *sql.DB
+var (
+	DB   *sql.DB
+	Rand *rand.Rand
+)
+
+func init() {
+	Rand = rand.New(rand.NewSource(time.Now().UnixNano()))
+}
 
 // DatabaseConfig конфигурация базы данных
 type DatabaseConfig interface {

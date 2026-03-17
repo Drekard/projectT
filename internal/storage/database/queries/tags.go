@@ -103,16 +103,19 @@ func CreateTag(ctx context.Context, tag *models.Tag) error {
 		_ = tx.Rollback() // Игнорируем ошибку отката, т.к. коммит уже мог состояться
 	}()
 
+	// Генерируем tag_uuid для нового тега
+	tagUUID := generateTagUUID()
+
 	var result sql.Result
 	if hasDesc {
 		result, err = tx.ExecContext(ctx,
-			`INSERT INTO tags (name, description, color) VALUES (?, ?, ?)`,
-			tag.Name, tag.Description, tag.Color,
+			`INSERT INTO tags (name, description, color, tag_uuid, owner_peer_id) VALUES (?, ?, ?, ?, ?)`,
+			tag.Name, tag.Description, tag.Color, tagUUID, "local",
 		)
 	} else {
 		result, err = tx.ExecContext(ctx,
-			`INSERT INTO tags (name, color) VALUES (?, ?)`,
-			tag.Name, tag.Color,
+			`INSERT INTO tags (name, color, tag_uuid, owner_peer_id) VALUES (?, ?, ?, ?)`,
+			tag.Name, tag.Color, tagUUID, "local",
 		)
 	}
 	if err != nil {
@@ -124,6 +127,8 @@ func CreateTag(ctx context.Context, tag *models.Tag) error {
 		return fmt.Errorf("ошибка получения ID: %w", err)
 	}
 	tag.ID = int(id)
+	tag.TagUUID = tagUUID
+	tag.OwnerPeerID = "local"
 
 	if err := tx.Commit(); err != nil {
 		return fmt.Errorf("ошибка коммита транзакции: %w", err)
@@ -142,14 +147,14 @@ func GetTagByID(ctx context.Context, id int) (*models.Tag, error) {
 	var tag models.Tag
 	if hasDesc {
 		err = database.DB.QueryRowContext(ctx,
-			`SELECT id, name, description, color FROM tags WHERE id = ?`,
+			`SELECT id, name, description, color, tag_uuid, owner_peer_id FROM tags WHERE id = ?`,
 			id,
-		).Scan(&tag.ID, &tag.Name, &tag.Description, &tag.Color)
+		).Scan(&tag.ID, &tag.Name, &tag.Description, &tag.Color, &tag.TagUUID, &tag.OwnerPeerID)
 	} else {
 		err = database.DB.QueryRowContext(ctx,
-			`SELECT id, name, color FROM tags WHERE id = ?`,
+			`SELECT id, name, color, tag_uuid, owner_peer_id FROM tags WHERE id = ?`,
 			id,
-		).Scan(&tag.ID, &tag.Name, &tag.Color)
+		).Scan(&tag.ID, &tag.Name, &tag.Color, &tag.TagUUID, &tag.OwnerPeerID)
 		tag.Description = ""
 	}
 
@@ -173,14 +178,14 @@ func GetTagByName(ctx context.Context, name string) (*models.Tag, error) {
 	var tag models.Tag
 	if hasDesc {
 		err = database.DB.QueryRowContext(ctx,
-			`SELECT id, name, description, color FROM tags WHERE name = ?`,
+			`SELECT id, name, description, color, tag_uuid, owner_peer_id FROM tags WHERE name = ?`,
 			name,
-		).Scan(&tag.ID, &tag.Name, &tag.Description, &tag.Color)
+		).Scan(&tag.ID, &tag.Name, &tag.Description, &tag.Color, &tag.TagUUID, &tag.OwnerPeerID)
 	} else {
 		err = database.DB.QueryRowContext(ctx,
-			`SELECT id, name, color FROM tags WHERE name = ?`,
+			`SELECT id, name, color, tag_uuid, owner_peer_id FROM tags WHERE name = ?`,
 			name,
-		).Scan(&tag.ID, &tag.Name, &tag.Color)
+		).Scan(&tag.ID, &tag.Name, &tag.Color, &tag.TagUUID, &tag.OwnerPeerID)
 		tag.Description = ""
 	}
 
@@ -294,16 +299,18 @@ func GetOrCreateTags(ctx context.Context, tagNames []string) ([]int, error) {
 
 	for _, name := range cleanNames {
 		if _, exists := existingTags[name]; !exists {
+			// Генерируем tag_uuid для нового тега
+			tagUUID := generateTagUUID()
 			var result sql.Result
 			if hasDesc {
 				result, err = tx.ExecContext(ctx,
-					`INSERT INTO tags (name, color) VALUES (?, ?)`,
-					name, "#808080",
+					`INSERT INTO tags (name, color, tag_uuid, owner_peer_id) VALUES (?, ?, ?, ?)`,
+					name, "#808080", tagUUID, "local",
 				)
 			} else {
 				result, err = tx.ExecContext(ctx,
-					`INSERT INTO tags (name) VALUES (?)`,
-					name,
+					`INSERT INTO tags (name, color, tag_uuid, owner_peer_id) VALUES (?, ?, ?, ?)`,
+					name, "#808080", tagUUID, "local",
 				)
 			}
 			if err != nil {
@@ -335,20 +342,20 @@ func GetAllTags(ctx context.Context) ([]*models.Tag, error) {
 	var query string
 	if hasDesc {
 		query = `
-			SELECT t.id, t.name, t.color, t.description, 
+			SELECT t.id, t.name, t.color, t.description, t.tag_uuid, t.owner_peer_id,
 			       COUNT(DISTINCT it.item_id) as item_count
 			FROM tags t
 			LEFT JOIN item_tags it ON t.id = it.tag_id
-			GROUP BY t.id, t.name, t.color, t.description
+			GROUP BY t.id, t.name, t.color, t.description, t.tag_uuid, t.owner_peer_id
 			ORDER BY t.name
 		`
 	} else {
 		query = `
-			SELECT t.id, t.name, t.color, 
+			SELECT t.id, t.name, t.color, t.tag_uuid, t.owner_peer_id,
 			       COUNT(DISTINCT it.item_id) as item_count
 			FROM tags t
 			LEFT JOIN item_tags it ON t.id = it.tag_id
-			GROUP BY t.id, t.name, t.color
+			GROUP BY t.id, t.name, t.color, t.tag_uuid, t.owner_peer_id
 			ORDER BY t.name
 		`
 	}
@@ -365,11 +372,11 @@ func GetAllTags(ctx context.Context) ([]*models.Tag, error) {
 		var itemCount int
 
 		if hasDesc {
-			if err := rows.Scan(&tag.ID, &tag.Name, &tag.Color, &tag.Description, &itemCount); err != nil {
+			if err := rows.Scan(&tag.ID, &tag.Name, &tag.Color, &tag.Description, &tag.TagUUID, &tag.OwnerPeerID, &itemCount); err != nil {
 				return nil, fmt.Errorf("ошибка сканирования тега: %w", err)
 			}
 		} else {
-			if err := rows.Scan(&tag.ID, &tag.Name, &tag.Color, &itemCount); err != nil {
+			if err := rows.Scan(&tag.ID, &tag.Name, &tag.Color, &tag.TagUUID, &tag.OwnerPeerID, &itemCount); err != nil {
 				return nil, fmt.Errorf("ошибка сканирования тега: %w", err)
 			}
 			tag.Description = ""
@@ -397,23 +404,23 @@ func SearchTagsByName(ctx context.Context, name string) ([]*models.Tag, error) {
 
 	if hasDesc {
 		query = `
-			SELECT t.id, t.name, t.color, t.description,
+			SELECT t.id, t.name, t.color, t.description, t.tag_uuid, t.owner_peer_id,
 			       COUNT(DISTINCT it.item_id) as item_count
 			FROM tags t
 			LEFT JOIN item_tags it ON t.id = it.tag_id
 			WHERE LOWER(t.name) LIKE ?
-			GROUP BY t.id, t.name, t.color, t.description
+			GROUP BY t.id, t.name, t.color, t.description, t.tag_uuid, t.owner_peer_id
 			ORDER BY t.name
 			LIMIT 50
 		`
 	} else {
 		query = `
-			SELECT t.id, t.name, t.color,
+			SELECT t.id, t.name, t.color, t.tag_uuid, t.owner_peer_id,
 			       COUNT(DISTINCT it.item_id) as item_count
 			FROM tags t
 			LEFT JOIN item_tags it ON t.id = it.tag_id
 			WHERE LOWER(t.name) LIKE ?
-			GROUP BY t.id, t.name, t.color
+			GROUP BY t.id, t.name, t.color, t.tag_uuid, t.owner_peer_id
 			ORDER BY t.name
 			LIMIT 50
 		`
@@ -431,11 +438,11 @@ func SearchTagsByName(ctx context.Context, name string) ([]*models.Tag, error) {
 		var itemCount int
 
 		if hasDesc {
-			if err := rows.Scan(&tag.ID, &tag.Name, &tag.Color, &tag.Description, &itemCount); err != nil {
+			if err := rows.Scan(&tag.ID, &tag.Name, &tag.Color, &tag.Description, &tag.TagUUID, &tag.OwnerPeerID, &itemCount); err != nil {
 				return nil, fmt.Errorf("ошибка сканирования тега: %w", err)
 			}
 		} else {
-			if err := rows.Scan(&tag.ID, &tag.Name, &tag.Color, &itemCount); err != nil {
+			if err := rows.Scan(&tag.ID, &tag.Name, &tag.Color, &tag.TagUUID, &tag.OwnerPeerID, &itemCount); err != nil {
 				return nil, fmt.Errorf("ошибка сканирования тега: %w", err)
 			}
 			tag.Description = ""
@@ -533,8 +540,8 @@ func AddTagToItem(ctx context.Context, itemID, tagID int) error {
 	}
 
 	_, err = database.DB.ExecContext(ctx,
-		`INSERT OR IGNORE INTO item_tags (item_element_uuid, tag_uuid) VALUES (?, ?)`,
-		elementUUID, tagUUID,
+		`INSERT OR IGNORE INTO item_tags (item_id, item_element_uuid, tag_id, tag_uuid) VALUES (?, ?, ?, ?)`,
+		itemID, elementUUID, tagID, tagUUID,
 	)
 	if err != nil {
 		return fmt.Errorf("ошибка добавления связи тега: %w", err)
@@ -558,8 +565,8 @@ func RemoveTagFromItem(ctx context.Context, itemID, tagID int) error {
 	}
 
 	_, err = database.DB.ExecContext(ctx,
-		`DELETE FROM item_tags WHERE item_element_uuid = ? AND tag_uuid = ?`,
-		elementUUID, tagUUID,
+		`DELETE FROM item_tags WHERE item_element_uuid = ? AND tag_id = ?`,
+		elementUUID, tagID,
 	)
 	if err != nil {
 		return fmt.Errorf("ошибка удаления связи тега: %w", err)
@@ -600,8 +607,8 @@ func ReplaceItemTags(ctx context.Context, itemID int, tagIDs []int) error {
 			}
 
 			_, err = tx.ExecContext(ctx,
-				`INSERT OR IGNORE INTO item_tags (item_element_uuid, tag_uuid) VALUES (?, ?)`,
-				elementUUID, tagUUID,
+				`INSERT OR IGNORE INTO item_tags (item_element_uuid, tag_id, tag_uuid) VALUES (?, ?, ?)`,
+				elementUUID, tagID, tagUUID,
 			)
 			if err != nil {
 				return fmt.Errorf("ошибка добавления тега: %w", err)
@@ -781,4 +788,25 @@ func BulkUpdateTags(ctx context.Context, tags []*models.Tag) error {
 	}
 
 	return nil
+}
+
+// generateTagUUID генерирует уникальный UUID для тега
+// Формат: T-xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx где x - случайные hex-символы
+func generateTagUUID() string {
+	uuid := make([]byte, 16)
+	// Генерируем случайные байты
+	for i := 0; i < 16; i++ {
+		uuid[i] = byte(database.Rand.Intn(256))
+	}
+	// Устанавливаем версию (4) и вариант (10xx)
+	uuid[6] = (uuid[6] & 0x0f) | 0x40
+	uuid[8] = (uuid[8] & 0x3f) | 0x80
+
+	return fmt.Sprintf("%02x%02x%02x%02x-%02x%02x-%02x%02x-%02x%02x-%02x%02x%02x%02x%02x%02x",
+		uuid[0], uuid[1], uuid[2], uuid[3],
+		uuid[4], uuid[5],
+		uuid[6], uuid[7],
+		uuid[8], uuid[9],
+		uuid[10], uuid[11], uuid[12], uuid[13], uuid[14], uuid[15],
+	)
 }
