@@ -1,7 +1,6 @@
 package database
 
 import (
-	"encoding/json"
 	"fmt"
 	"log"
 	"strings"
@@ -54,7 +53,7 @@ func RunMigrations() {
 	migrateTagsTable()         // Добавление P2P полей в tags
 	migrateItemRelations()     // Добавление item_element_uuid в связи
 	migrateChatMessagesTable() // Добавление updated_at
-	migrateDemoElements()      // Конвертация ID в ElementUUID в demo_elements
+	// migratePinnedUUIDs() больше не нужна — поля уже созданы в createProfilesTable()
 
 	// ============================================================
 	// ЧАСТЬ 4: ТРИГГЕРЫ И ОГРАНИЧЕНИЯ
@@ -210,7 +209,7 @@ func createProfilesTable() {
 			avatar_path     TEXT,
 			background_path TEXT DEFAULT '',
 			content_char    TEXT,
-			demo_elements   TEXT,
+			pinned_uuids    TEXT DEFAULT '[]',
 			cached_at       DATETIME,
 			created_at      DATETIME DEFAULT CURRENT_TIMESTAMP,
 			updated_at      DATETIME DEFAULT CURRENT_TIMESTAMP
@@ -590,91 +589,129 @@ func migrateChatMessagesTable() {
 	}
 }
 
-// migrateDemoElements конвертирует ID элементов в demo_elements в ElementUUID
-func migrateDemoElements() {
-	log.Println("Миграция demo_elements: конвертация ID в ElementUUID...")
+// migratePinnedUUIDs и removeDemoElements больше не вызываются автоматически
+// Поля создаются в createProfilesTable() при инициализации БД
+// Заполнение pinned_uuids выполняется отдельным скриптом при необходимости
+/*
+func migratePinnedUUIDs() {
+	log.Println("Миграция pinned_uuids: начало...")
 
-	// Получаем все профили с demo_elements
-	rows, err := DB.Query(`SELECT id, owner_type, demo_elements FROM profiles WHERE demo_elements IS NOT NULL AND demo_elements != ''`)
+	// Проверяем, существует ли поле pinned_uuids
+	var hasPinnedUUIDsField bool
+	err := DB.QueryRow(`
+		SELECT COUNT(*) > 0
+		FROM pragma_table_info('profiles')
+		WHERE name = 'pinned_uuids'
+	`).Scan(&hasPinnedUUIDsField)
+
 	if err != nil {
-		log.Printf("Ошибка при чтении profiles для миграции demo_elements: %v", err)
+		log.Printf("Ошибка проверки поля pinned_uuids: %v", err)
 		return
 	}
-	defer rows.Close()
 
-	type ProfileData struct {
-		ID        int
-		OwnerType string
-		DemoElems string
+	if !hasPinnedUUIDsField {
+		// Добавляем поле pinned_uuids
+		_, err = DB.Exec(`ALTER TABLE profiles ADD COLUMN pinned_uuids TEXT DEFAULT '[]'`)
+		if err != nil {
+			log.Printf("Ошибка добавления поля pinned_uuids: %v", err)
+			return
+		}
+		log.Println("Поле pinned_uuids добавлено")
+	} else {
+		log.Println("Поле pinned_uuids уже существует")
 	}
 
-	var profiles []ProfileData
-	for rows.Next() {
-		var p ProfileData
-		if err := rows.Scan(&p.ID, &p.OwnerType, &p.DemoElems); err != nil {
-			log.Printf("Ошибка сканирования профиля: %v", err)
-			continue
-		}
-		profiles = append(profiles, p)
-	}
+	// Удаляем поле demo_elements если существует
+	removeDemoElements()
 
-	// Для каждого профиля конвертируем ID в UUID
-	for _, p := range profiles {
-		// Парсим JSON
-		var characteristics []struct {
-			ID    *int    `json:"id,omitempty"`
-			UUID  *string `json:"element_uuid,omitempty"`
-			Title string  `json:"title"`
-			Value string  `json:"value"`
-		}
-
-		if err := json.Unmarshal([]byte(p.DemoElems), &characteristics); err != nil {
-			log.Printf("Ошибка парсинга JSON для профиля %d: %v", p.ID, err)
-			continue
-		}
-
-		// Конвертируем ID в UUID
-		needsUpdate := false
-		for i := range characteristics {
-			if characteristics[i].UUID != nil && *characteristics[i].UUID != "" {
-				// Уже есть UUID, пропускаем
-				continue
-			}
-
-			if characteristics[i].ID != nil && *characteristics[i].ID > 0 {
-				// Находим элемент по ID и получаем его UUID
-				var elementUUID string
-				err := DB.QueryRow(`SELECT element_uuid FROM items WHERE id = ?`, *characteristics[i].ID).Scan(&elementUUID)
-				if err == nil && elementUUID != "" {
-					characteristics[i].UUID = &elementUUID
-					characteristics[i].ID = nil // Удаляем ID
-					needsUpdate = true
-				} else {
-					log.Printf("Не найден элемент с ID=%d для профиля %d", *characteristics[i].ID, p.ID)
-				}
-			}
-		}
-
-		// Обновляем профиль если были изменения
-		if needsUpdate {
-			newJSON, err := json.Marshal(characteristics)
-			if err != nil {
-				log.Printf("Ошибка сериализации JSON для профиля %d: %v", p.ID, err)
-				continue
-			}
-
-			_, err = DB.Exec(`UPDATE profiles SET demo_elements = ? WHERE id = ?`, newJSON, p.ID)
-			if err != nil {
-				log.Printf("Ошибка обновления профиля %d: %v", p.ID, err)
-				continue
-			}
-
-			log.Printf("Профиль %d: demo_elements обновлён (%d элементов)", p.ID, len(characteristics))
-		}
-	}
-
-	log.Println("Миграция demo_elements завершена")
+	log.Println("Миграция pinned_uuids завершена")
 }
+
+// removeDemoElements удаляет поле demo_elements из таблицы profiles
+func removeDemoElements() {
+	// Проверяем, существует ли поле demo_elements
+	var hasDemoElementsField bool
+	err := DB.QueryRow(`
+		SELECT COUNT(*) > 0
+		FROM pragma_table_info('profiles')
+		WHERE name = 'demo_elements'
+	`).Scan(&hasDemoElementsField)
+
+	if err != nil {
+		log.Printf("Ошибка проверки поля demo_elements: %v", err)
+		return
+	}
+
+	if !hasDemoElementsField {
+		log.Println("Поле demo_elements уже удалено")
+		return
+	}
+
+	log.Println("Миграция pinned_uuids: удаление поля demo_elements...")
+
+	// SQLite не поддерживает DROP COLUMN напрямую до версии 3.35.0
+	// Используем пересоздание таблицы без этого поля
+
+	// 1. Переименовываем таблицу
+	_, err = DB.Exec(`ALTER TABLE profiles RENAME TO profiles_old`)
+	if err != nil {
+		log.Printf("Ошибка переименования таблицы: %v", err)
+		return
+	}
+	log.Println("Таблица profiles переименована в profiles_old")
+
+	// 2. Создаём новую таблицу без demo_elements
+	_, err = DB.Exec(`
+		CREATE TABLE profiles (
+			id              INTEGER PRIMARY KEY,
+			owner_type      TEXT NOT NULL CHECK (owner_type IN ('local', 'remote')),
+			peer_id         TEXT UNIQUE NOT NULL,
+			username        TEXT NOT NULL,
+			title           TEXT,
+			avatar_path     TEXT,
+			background_path TEXT DEFAULT '',
+			content_char    TEXT,
+			pinned_uuids    TEXT DEFAULT '[]',
+			cached_at       DATETIME,
+			created_at      DATETIME DEFAULT CURRENT_TIMESTAMP,
+			updated_at      DATETIME DEFAULT CURRENT_TIMESTAMP
+		);
+	`)
+	if err != nil {
+		log.Printf("Ошибка создания новой таблицы profiles: %v", err)
+		return
+	}
+	log.Println("Создана новая таблица profiles без demo_elements")
+
+	// 3. Копируем данные из старой таблицы в новую
+	_, err = DB.Exec(`
+		INSERT INTO profiles (
+			id, owner_type, peer_id, username, title, avatar_path,
+			background_path, content_char, pinned_uuids, cached_at,
+			created_at, updated_at
+		)
+		SELECT
+			id, owner_type, peer_id, username, title, avatar_path,
+			background_path, content_char,
+			COALESCE(pinned_uuids, '[]'), cached_at,
+			created_at, updated_at
+		FROM profiles_old
+	`)
+	if err != nil {
+		log.Printf("Ошибка копирования данных: %v", err)
+		return
+	}
+	log.Println("Данные скопированы из profiles_old в profiles")
+
+	// 4. Удаляем старую таблицу
+	_, err = DB.Exec(`DROP TABLE profiles_old`)
+	if err != nil {
+		log.Printf("Ошибка удаления старой таблицы: %v", err)
+		return
+	}
+	log.Println("Старая таблица profiles_old удалена")
+}
+*/
 
 // ============================================================
 // ЧАСТЬ 4: ТРИГГЕРЫ И ОГРАНИЧЕНИЯ

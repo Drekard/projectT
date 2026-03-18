@@ -23,7 +23,7 @@ type Profile struct {
 	AvatarPath     string     `json:"avatar_path"`
 	BackgroundPath string     `json:"background_path"`
 	ContentChar    string     `json:"content_characteristic"`
-	DemoElements   string     `json:"demo_elements"`
+	PinnedUUIDs    string     `json:"pinned_uuids"`        // JSON-массив UUID избранных элементов
 	CachedAt       *time.Time `json:"cached_at,omitempty"` // Только для remote
 	CreatedAt      time.Time  `json:"created_at"`
 	UpdatedAt      time.Time  `json:"updated_at"`

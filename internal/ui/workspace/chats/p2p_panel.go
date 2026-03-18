@@ -504,7 +504,7 @@ func (ui *UI) createConnectedPeerItem(peer *network.PeerInfo) *fyne.Container {
 
 	// Кнопка отключения
 	disconnectBtn := widget.NewButtonWithIcon("", theme.CancelIcon(), func() {
-		// TODO: реализовать отключение от пира
+		ui.disconnectFromPeer(peer.PeerID)
 	})
 
 	content := container.NewBorder(
@@ -722,7 +722,7 @@ func (ui *UI) createDiscoveredPeerItem(peerID string, lastSeen time.Time) *fyne.
 
 	// Кнопка подключения
 	connectBtn := widget.NewButton("Подключиться", func() {
-		ui.addressEntry.SetText(fmt.Sprintf("projectt:%s@...", peerID))
+		ui.connectToDiscoveredPeer(peerID)
 	})
 
 	content := container.NewBorder(
@@ -741,4 +741,55 @@ func (ui *UI) showInfoDialog(title, message string) {
 		return
 	}
 	dialog.ShowInformation(title, message, ui.window)
+}
+
+// disconnectFromPeer отключается от пира
+func (ui *UI) disconnectFromPeer(peerID string) {
+	if ui.p2pUI == nil {
+		ui.showErrorDialog("Ошибка", "P2P сервис не инициализирован")
+		return
+	}
+
+	// Показываем диалог подтверждения
+	dialog.ShowConfirm(
+		"Отключение от пира",
+		fmt.Sprintf("Вы действительно хотите отключиться от пира %s?", peerID[:8]+"..."),
+		func(ok bool) {
+			if !ok {
+				return
+			}
+
+			err := ui.p2pUI.DisconnectPeer(peerID)
+			if err != nil {
+				ui.showErrorDialog("Ошибка", fmt.Sprintf("Не удалось отключиться от пира: %v", err))
+				return
+			}
+
+			ui.showInfoDialog("Успешно", "Отключено от пира")
+			// Обновляем список подключённых пиров
+			ui.loadConnectedPeers()
+		},
+		ui.window,
+	)
+}
+
+// connectToDiscoveredPeer подключается к обнаруженному пиру
+func (ui *UI) connectToDiscoveredPeer(peerID string) {
+	if ui.p2pUI == nil {
+		ui.showErrorDialog("Ошибка", "P2P сервис не инициализирован")
+		return
+	}
+
+	err := ui.p2pUI.ConnectToDiscoveredPeer(peerID)
+	if err != nil {
+		ui.showErrorDialog("Ошибка", fmt.Sprintf("Не удалось подключиться к пиру: %v", err))
+		return
+	}
+
+	ui.showInfoDialog("Подключение", fmt.Sprintf("Попытка подключения к пиру %s...", peerID[:8]+"..."))
+
+	// Обновляем список подключённых пиров через пару секунд
+	time.AfterFunc(3*time.Second, func() {
+		ui.loadConnectedPeers()
+	})
 }

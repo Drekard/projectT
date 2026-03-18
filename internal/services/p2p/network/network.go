@@ -20,6 +20,10 @@ import (
 	"github.com/libp2p/go-libp2p/p2p/discovery/routing"
 
 	p2p "projectT/internal/services/p2p"
+	"projectT/internal/services/p2p/chat"
+	"projectT/internal/services/p2p/itemsync"
+	"projectT/internal/services/p2p/profile"
+	"projectT/internal/services/p2p/transfer"
 	"projectT/internal/storage/database/queries"
 )
 
@@ -36,8 +40,10 @@ type P2PNetwork struct {
 	pubsub          *pubsub.PubSub
 	discovery       *p2p.DiscoveryService
 	connections     *p2p.ConnectionService
-	chat            *p2p.ChatService
-	profileExchange *p2p.ProfileExchangeService
+	chat            *chat.Service
+	profileExchange *profile.ExchangeService
+	itemSync        *itemsync.Service
+	transfer        *transfer.Service
 	helper          *HelperService
 	config          *p2p.P2PConfig
 	ctx             context.Context
@@ -116,7 +122,7 @@ func (n *P2PNetwork) Start() error {
 	}
 
 	// Настраиваем обработчики соединений
-	n.host.SetStreamHandler(p2p.ChatProtocolID, n.handleChatStream)
+	n.host.SetStreamHandler(chat.ProtocolID, n.handleChatStream)
 	n.host.Network().Notify(&network.NotifyBundle{
 		ConnectedF: func(net network.Network, conn network.Conn) {
 			n.onPeerConnected(conn.RemotePeer())
@@ -137,6 +143,31 @@ func (n *P2PNetwork) Start() error {
 	// Инициализируем сервис обмена профилями
 	if err := n.initProfileExchange(); err != nil {
 		log.Printf("Предупреждение: сервис обмена профилями не инициализирован: %v", err)
+	}
+
+	// Инициализируем сервис передачи файлов
+	if err := n.initTransfer(); err != nil {
+		log.Printf("Предупреждение: сервис передачи не инициализирован: %v", err)
+	}
+
+	// Инициализируем сервис синхронизации элементов
+	if err := n.initItemSync(); err != nil {
+		log.Printf("Предупреждение: сервис синхронизации не инициализирован: %v", err)
+	}
+
+	// Инициализируем сервис чата (после transfer для интеграции)
+	if err := n.initChat(); err != nil {
+		log.Printf("Предупреждение: сервис чата не инициализирован: %v", err)
+	}
+
+	// Связываем сервис чата с сервисом передачи файлов
+	if n.chat != nil && n.transfer != nil {
+		n.chat.SetTransferService(n.transfer)
+	}
+
+	// Связываем сервис обмена профилями с сервисом передачи файлов
+	if n.profileExchange != nil && n.transfer != nil {
+		n.profileExchange.SetTransferService(n.transfer)
 	}
 
 	// Инициализируем и запускаем сервис обнаружения
@@ -169,6 +200,20 @@ func (n *P2PNetwork) Stop() error {
 	n.cancel()
 
 	var errs []string
+
+	// Останавливаем сервис передачи файлов
+	if n.transfer != nil {
+		if err := n.transfer.Stop(); err != nil {
+			errs = append(errs, fmt.Sprintf("Transfer: %v", err))
+		}
+	}
+
+	// Останавливаем сервис синхронизации элементов
+	if n.itemSync != nil {
+		if err := n.itemSync.Stop(); err != nil {
+			errs = append(errs, fmt.Sprintf("ItemSync: %v", err))
+		}
+	}
 
 	// Останавливаем сервис чата
 	if n.chat != nil {

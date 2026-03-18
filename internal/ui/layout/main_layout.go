@@ -9,6 +9,7 @@ import (
 
 	"image/color"
 	p2p_network "projectT/internal/services/p2p/network"
+	"projectT/internal/services/p2p/transfer"
 
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/canvas"
@@ -48,7 +49,13 @@ func CreateMainLayout(window fyne.Window, p2pNetwork *p2p_network.P2PNetwork) *f
 		searchEntry: searchEntry,
 	}
 
-	appSidebar := sidebar.CreateSidebar(widthHeaderSidebar, handler)
+	// Получаем сервис передачи файлов из P2P сети
+	var transferSvc *transfer.Service = nil
+	if p2pNetwork != nil {
+		transferSvc = p2pNetwork.Transfer()
+	}
+
+	appSidebar := sidebar.CreateSidebar(widthHeaderSidebar, handler, transferSvc)
 
 	borderColor := color.NRGBA{R: 144, G: 55, B: 255, A: 255}
 

@@ -8,6 +8,10 @@ import (
 	"github.com/libp2p/go-libp2p/core/crypto"
 
 	p2p "projectT/internal/services/p2p"
+	"projectT/internal/services/p2p/chat"
+	"projectT/internal/services/p2p/itemsync"
+	"projectT/internal/services/p2p/profile"
+	"projectT/internal/services/p2p/transfer"
 	"projectT/internal/storage/database/queries"
 )
 
@@ -72,7 +76,7 @@ func (n *P2PNetwork) initProfileExchange() error {
 		return fmt.Errorf("ошибка восстановления публичного ключа: %w", err)
 	}
 
-	n.profileExchange = p2p.NewProfileExchangeService(n.host, privKey, pubKey)
+	n.profileExchange = profile.NewExchangeService(n.host, privKey, pubKey)
 
 	return n.profileExchange.Start()
 }
@@ -83,6 +87,26 @@ func (n *P2PNetwork) initChat() error {
 		return errors.New("хост не инициализирован")
 	}
 
-	n.chat = p2p.NewChatService(n.host, n.config, n.localPrivKey, n.localPubKey)
+	n.chat = chat.NewService(n.host, n.localPrivKey, n.localPubKey)
 	return n.chat.Start()
+}
+
+// initItemSync инициализирует сервис синхронизации элементов
+func (n *P2PNetwork) initItemSync() error {
+	if n.host == nil {
+		return errors.New("хост не инициализирован")
+	}
+
+	n.itemSync = itemsync.NewService(n.host, n.localPrivKey, n.localPubKey)
+	return n.itemSync.Start()
+}
+
+// initTransfer инициализирует сервис передачи файлов
+func (n *P2PNetwork) initTransfer() error {
+	if n.host == nil {
+		return errors.New("хост не инициализирован")
+	}
+
+	n.transfer = transfer.NewService(n.host)
+	return n.transfer.Start()
 }

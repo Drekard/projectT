@@ -13,6 +13,8 @@ import (
 	"github.com/libp2p/go-libp2p/core/crypto"
 	"github.com/libp2p/go-libp2p/core/host"
 	"github.com/libp2p/go-libp2p/core/peer"
+
+	"projectT/internal/services/p2p/chat"
 )
 
 // createTestHost создаёт тестовый хост для использования в тестах
@@ -52,24 +54,11 @@ func TestChatServiceCreation(t *testing.T) {
 
 	host := createTestHost(t, 0)
 
-	config := DefaultConfig()
 	pubKey := privKey.GetPublic()
-	chatService := NewChatService(host, config, privKey, pubKey)
+	chatService := chat.NewService(host, privKey, pubKey)
 
 	if chatService == nil {
 		t.Fatal("ChatService не создан")
-	}
-
-	if chatService.messageQueue == nil {
-		t.Error("messageQueue не инициализирована")
-	}
-
-	if chatService.localPrivKey == nil {
-		t.Error("localPrivKey не установлен")
-	}
-
-	if chatService.localPubKey == nil {
-		t.Error("localPubKey не установлен")
 	}
 }
 
@@ -82,9 +71,8 @@ func TestChatServiceStartStop(t *testing.T) {
 
 	host := createTestHost(t, 0)
 
-	config := DefaultConfig()
 	pubKey := privKey.GetPublic()
-	chatService := NewChatService(host, config, privKey, pubKey)
+	chatService := chat.NewService(host, privKey, pubKey)
 
 	if err := chatService.Start(); err != nil {
 		t.Fatalf("Ошибка запуска ChatService: %v", err)
@@ -107,14 +95,13 @@ func TestQueueMessage(t *testing.T) {
 
 	host := createTestHost(t, 0)
 
-	config := DefaultConfig()
 	pubKey := privKey.GetPublic()
-	chatService := NewChatService(host, config, privKey, pubKey)
+	chatService := chat.NewService(host, privKey, pubKey)
 
 	peerID := host.ID()
 
 	// Добавляем сообщение в очередь
-	chatService.queueMessage(peerID, "Test message", "text", "")
+	chatService.QueueMessage(peerID, "Test message", "text", "")
 
 	// Проверяем количество сообщений в очереди
 	count := chatService.GetQueuedMessagesCount(peerID)
@@ -123,7 +110,7 @@ func TestQueueMessage(t *testing.T) {
 	}
 
 	// Добавляем ещё одно сообщение
-	chatService.queueMessage(peerID, "Another message", "text", "")
+	chatService.QueueMessage(peerID, "Another message", "text", "")
 
 	count = chatService.GetQueuedMessagesCount(peerID)
 	if count != 2 {
@@ -140,15 +127,14 @@ func TestClearQueuedMessages(t *testing.T) {
 
 	host := createTestHost(t, 0)
 
-	config := DefaultConfig()
 	pubKey := privKey.GetPublic()
-	chatService := NewChatService(host, config, privKey, pubKey)
+	chatService := chat.NewService(host, privKey, pubKey)
 
 	peerID := host.ID()
 
 	// Добавляем сообщения в очередь
-	chatService.queueMessage(peerID, "Message 1", "text", "")
-	chatService.queueMessage(peerID, "Message 2", "text", "")
+	chatService.QueueMessage(peerID, "Message 1", "text", "")
+	chatService.QueueMessage(peerID, "Message 2", "text", "")
 
 	// Очищаем очередь
 	chatService.ClearQueuedMessages(peerID)
@@ -169,26 +155,25 @@ func TestParseMessageType(t *testing.T) {
 
 	host := createTestHost(t, 0)
 
-	config := DefaultConfig()
 	pubKey := privKey.GetPublic()
-	chatService := NewChatService(host, config, privKey, pubKey)
+	chatService := chat.NewService(host, privKey, pubKey)
 
 	tests := []struct {
 		contentType string
-		expected    MessageType
+		expected    chat.MessageType
 	}{
-		{"", MessageTypeText},
-		{"text", MessageTypeText},
-		{"file", MessageTypeFile},
-		{"application/octet-stream", MessageTypeFile},
-		{"image", MessageTypeImage},
-		{"image/png", MessageTypeImage},
-		{"image/jpeg", MessageTypeImage},
-		{"unknown", MessageTypeText},
+		{"", chat.MessageTypeText},
+		{"text", chat.MessageTypeText},
+		{"file", chat.MessageTypeFile},
+		{"application/octet-stream", chat.MessageTypeFile},
+		{"image", chat.MessageTypeImage},
+		{"image/png", chat.MessageTypeImage},
+		{"image/jpeg", chat.MessageTypeImage},
+		{"unknown", chat.MessageTypeText},
 	}
 
 	for _, tt := range tests {
-		result := chatService.parseMessageType(tt.contentType)
+		result := chatService.ParseMessageType(tt.contentType)
 		if result != tt.expected {
 			t.Errorf("parseMessageType(%q) = %v, ожидается %v", tt.contentType, result, tt.expected)
 		}
@@ -209,14 +194,13 @@ func TestSignAndVerifyMessage(t *testing.T) {
 	}
 	defer host.Close()
 
-	config := DefaultConfig()
-	chatService := NewChatService(host, config, privKey, pubKey)
+	chatService := chat.NewService(host, privKey, pubKey)
 
-	msg := &ChatMessage{
+	msg := &chat.Message{
 		FromPeerID:  host.ID().String(),
 		Content:     "Test message",
 		Timestamp:   time.Now().UnixNano(),
-		MessageType: MessageTypeText,
+		MessageType: chat.MessageTypeText,
 	}
 
 	// Создаём данные для подписи
@@ -240,12 +224,12 @@ func TestSignAndVerifyMessage(t *testing.T) {
 	}
 
 	// Теперь проверяем через сервис
-	if !chatService.verifyMessageSignature(msg) {
+	if !chatService.VerifyMessageSignature(msg) {
 		t.Error("Подпись не прошла проверку через сервис")
 	}
 
 	// Создаём новое сообщение с повреждённым контентом и старой подписью
-	tamperedMsg := &ChatMessage{
+	tamperedMsg := &chat.Message{
 		FromPeerID:  msg.FromPeerID,
 		Content:     "Tampered message", // Изменённый контент
 		Timestamp:   msg.Timestamp,      // То же время
@@ -254,7 +238,7 @@ func TestSignAndVerifyMessage(t *testing.T) {
 	}
 
 	// Проверяем, что подпись не пройдёт для повреждённого сообщения
-	if chatService.verifyMessageSignature(tamperedMsg) {
+	if chatService.VerifyMessageSignature(tamperedMsg) {
 		t.Error("Подпись прошла проверку для повреждённого сообщения")
 	}
 }
@@ -268,9 +252,8 @@ func TestSendMessageToOfflinePeer(t *testing.T) {
 
 	host := createTestHost(t, 0)
 
-	config := DefaultConfig()
 	pubKey := privKey.GetPublic()
-	chatService := NewChatService(host, config, privKey, pubKey)
+	chatService := chat.NewService(host, privKey, pubKey)
 
 	if err := chatService.Start(); err != nil {
 		t.Fatalf("Ошибка запуска ChatService: %v", err)
@@ -298,12 +281,12 @@ func TestSendMessageToOfflinePeer(t *testing.T) {
 
 // TestChatMessageSerialization тестирует сериализацию сообщений
 func TestChatMessageSerialization(t *testing.T) {
-	msg := &ChatMessage{
+	msg := &chat.Message{
 		FromPeerID:  "test-peer-id",
 		Content:     "Test content",
 		ContentType: "text",
 		Timestamp:   time.Now().UnixNano(),
-		MessageType: MessageTypeText,
+		MessageType: chat.MessageTypeText,
 		Metadata:    `{"key": "value"}`,
 		Signature:   []byte("test-signature"),
 		Encrypted:   false,
@@ -321,7 +304,7 @@ func TestChatMessageSerialization(t *testing.T) {
 	}
 
 	// Десериализуем
-	deserialized := &ChatMessage{}
+	deserialized := &chat.Message{}
 	if err := json.Unmarshal(data, deserialized); err != nil {
 		t.Fatalf("Ошибка десериализации: %v", err)
 	}

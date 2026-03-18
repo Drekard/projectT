@@ -505,3 +505,64 @@ func (api *UIP2P) SendMessage(peerID peer.ID, content string) error {
 func (api *UIP2P) GetMessagesForContact(contactID, limit, offset int) ([]*models.ChatMessage, error) {
 	return api.network.GetMessagesForContact(contactID, limit, offset)
 }
+
+// DisconnectPeer отключается от пира
+func (api *UIP2P) DisconnectPeer(peerIDStr string) error {
+	api.network.mu.RLock()
+	defer api.network.mu.RUnlock()
+
+	if api.network.host == nil {
+		return fmt.Errorf("P2P не запущен")
+	}
+
+	peerID, err := peer.Decode(peerIDStr)
+	if err != nil {
+		return fmt.Errorf("ошибка декодирования PeerID: %w", err)
+	}
+
+	// Закрываем все соединения с пиром
+	if err := api.network.host.Network().ClosePeer(peerID); err != nil {
+		log.Printf("Предупреждение: ошибка при отключении от пира %s: %v", peerID, err)
+	}
+	log.Printf("Отключено от пира: %s", peerID)
+
+	return nil
+}
+
+// ConnectToDiscoveredPeer подключается к обнаруженному пиру по PeerID
+func (api *UIP2P) ConnectToDiscoveredPeer(peerIDStr string) error {
+	api.network.mu.RLock()
+	defer api.network.mu.RUnlock()
+
+	if api.network.host == nil {
+		return fmt.Errorf("P2P не запущен")
+	}
+
+	peerID, err := peer.Decode(peerIDStr)
+	if err != nil {
+		return fmt.Errorf("ошибка декодирования PeerID: %w", err)
+	}
+
+	// Получаем адреса из peerstore
+	addrs := api.network.host.Peerstore().Addrs(peerID)
+	if len(addrs) == 0 {
+		return fmt.Errorf("адреса пира не найдены в peerstore")
+	}
+
+	// Создаём peer info
+	peerInfo := peer.AddrInfo{
+		ID:    peerID,
+		Addrs: addrs,
+	}
+
+	// Подключаемся
+	ctx, cancel := context.WithTimeout(api.network.ctx, 30*time.Second)
+	defer cancel()
+
+	if err := api.network.host.Connect(ctx, peerInfo); err != nil {
+		return fmt.Errorf("ошибка подключения к пиру: %w", err)
+	}
+
+	log.Printf("Подключено к пиру: %s", peerID)
+	return nil
+}

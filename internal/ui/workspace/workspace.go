@@ -12,11 +12,12 @@ import (
 	"projectT/internal/ui/workspace/saved/sorting"
 	"projectT/internal/ui/workspace/tags"
 
+	p2p_network "projectT/internal/services/p2p/network"
+	p2p_ui "projectT/internal/services/p2p/network"
+
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/canvas"
 	"fyne.io/fyne/v2/container"
-	p2p_network "projectT/internal/services/p2p/network"
-	p2p_ui "projectT/internal/services/p2p/network"
 )
 
 // itemsService - глобальный экземпляр сервиса элементов
@@ -341,6 +342,9 @@ func (ws *Workspace) initializeChatsUI() {
 			p2pUI := p2p_ui.NewUIP2P(ws.p2pNetwork)
 			ws.chatsUI.SetP2PService(p2pUI)
 		}
+
+		// Подписываемся на события сообщений
+		ws.chatsUI.SubscribeToMessages()
 	}
 }
 

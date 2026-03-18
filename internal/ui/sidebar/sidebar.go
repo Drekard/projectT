@@ -3,6 +3,7 @@ package sidebar
 import (
 	"fmt"
 	"projectT/internal/services/favorites"
+	"projectT/internal/services/p2p/transfer"
 	"projectT/internal/storage/database/queries"
 
 	"fyne.io/fyne/v2"
@@ -11,14 +12,38 @@ import (
 )
 
 // CreateSidebar создает боковую панель с навигацией
-func CreateSidebar(width float32, handler NavigationHandler) *fyne.Container {
+func CreateSidebar(width float32, handler NavigationHandler, transferSvc *transfer.Service) *fyne.Container {
 	// Навигационные кнопки с передачей обработчика
 	navigation := CreateNavigation(handler)
 
 	// Создаем область "Часто используемые" с кликабельным текстом
 	frequentContainer := createFrequentlyUsedSection(handler)
 
-	// Общий контейнер для левой панели
+	// Создаем виджет прогресса передачи файлов
+	var transferProgress *TransferProgressWidget
+	if transferSvc != nil {
+		transferProgress = NewTransferProgressWidget(transferSvc)
+	}
+
+	// Основной контент sidebar
+	mainContent := container.NewVBox(
+		navigation,
+		frequentContainer,
+	)
+
+	// Используем Border для добавления прогресса передачи вниз
+	if transferProgress != nil {
+		sidebarContainer := container.NewBorder(
+			nil,                          // Top
+			transferProgress.Container(), // Bottom - прогресс передачи
+			nil,                          // Left
+			nil,                          // Right
+			mainContent,
+		)
+		sidebarContainer.Resize(fyne.NewSize(width, 0))
+		return sidebarContainer
+	}
+
 	sidebarContainer := container.NewVBox(
 		navigation,
 		frequentContainer,

@@ -1,6 +1,7 @@
 package chats
 
 import (
+	"projectT/internal/services"
 	"projectT/internal/services/p2p/network"
 	"projectT/internal/storage/database/models"
 	"projectT/internal/ui/workspace/chats/center"
@@ -27,6 +28,7 @@ type UI struct {
 	profileName              *widget.Label
 	profileStatus            *widget.Label
 	characteristicsContainer *fyne.Container
+	demoElementsContainer    *fyne.Container
 	myAddressLabel           *widget.Label
 	connectionStatusLabel    *widget.Label
 	peersCountLabel          *widget.Label
@@ -49,6 +51,7 @@ type UI struct {
 	helperModeCheck          *widget.Check
 	onContactClick           func(contactID int)
 	onSendMessage            func(text string)
+	messageChannel           <-chan *services.ChatMessageEvent
 }
 
 // New создает и возвращает новый UI чатов
@@ -135,4 +138,28 @@ func (ui *UI) selectChat(contact *models.Contact) {
 
 	// Обновляем профиль (для локального чата показываем свой профиль)
 	ui.updateProfile(contact)
+}
+
+// SubscribeToMessages подписывается на события сообщений и запускает обработчик
+func (ui *UI) SubscribeToMessages() {
+	// Получаем глобальный экземпляр сервиса чатов
+	chatSvc := services.GetChatService()
+	if chatSvc != nil {
+		ui.messageChannel = chatSvc.Subscribe()
+		go ui.handleMessageEvents()
+	}
+}
+
+// handleMessageEvents обрабатывает события новых сообщений
+func (ui *UI) handleMessageEvents() {
+	for event := range ui.messageChannel {
+		// Проверяем, открыт ли сейчас чат с этим контактом
+		if ui.currentContact != nil && ui.currentContact.ID == event.ContactID {
+			// Добавляем сообщение в UI
+			if ui.chatPanel != nil {
+				ui.chatPanel.AddMessage(event.Message, event.IsOutgoing)
+			}
+		}
+		// Обновляем список чатов (можно добавить подсветку нового сообщения)
+	}
 }

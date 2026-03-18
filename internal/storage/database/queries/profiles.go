@@ -17,7 +17,7 @@ func GetLocalProfile() (*models.Profile, error) {
 		       COALESCE(avatar_path, ''),
 		       COALESCE(background_path, ''),
 		       COALESCE(content_char, ''),
-		       COALESCE(demo_elements, ''),
+		       COALESCE(pinned_uuids, '[]'),
 		       cached_at, created_at, updated_at
 		FROM profiles
 		WHERE owner_type = 'local'
@@ -30,7 +30,7 @@ func GetLocalProfile() (*models.Profile, error) {
 	err := database.DB.QueryRow(query).Scan(
 		&profile.ID, &profile.OwnerType, &profile.PeerID, &profile.Username,
 		&profile.Title, &profile.AvatarPath, &profile.BackgroundPath,
-		&profile.ContentChar, &profile.DemoElements, &cachedAt,
+		&profile.ContentChar, &profile.PinnedUUIDs, &cachedAt,
 		&createdAt, &updatedAt,
 	)
 	if err != nil {
@@ -53,7 +53,7 @@ func GetRemoteProfile(peerID string) (*models.Profile, error) {
 		       COALESCE(avatar_path, ''),
 		       COALESCE(background_path, ''),
 		       COALESCE(content_char, ''),
-		       COALESCE(demo_elements, ''),
+		       COALESCE(pinned_uuids, '[]'),
 		       cached_at, created_at, updated_at
 		FROM profiles
 		WHERE peer_id = ? AND owner_type = 'remote'
@@ -66,7 +66,7 @@ func GetRemoteProfile(peerID string) (*models.Profile, error) {
 	err := database.DB.QueryRow(query).Scan(
 		&profile.ID, &profile.OwnerType, &profile.PeerID, &profile.Username,
 		&profile.Title, &profile.AvatarPath, &profile.BackgroundPath,
-		&profile.ContentChar, &profile.DemoElements, &cachedAt,
+		&profile.ContentChar, &profile.PinnedUUIDs, &cachedAt,
 		&createdAt, &updatedAt,
 	)
 	if err != nil {
@@ -118,7 +118,7 @@ func EnsureProfileForContact(peerID, username, avatarPath string) error {
 func GetAllRemoteProfiles() ([]*models.Profile, error) {
 	query := `
 		SELECT id, owner_type, peer_id, username, title, avatar_path, background_path,
-		       content_char, demo_elements, cached_at, created_at, updated_at
+		       content_char, pinned_uuids, cached_at, created_at, updated_at
 		FROM profiles
 		WHERE owner_type = 'remote'
 		ORDER BY username
@@ -138,7 +138,7 @@ func GetAllRemoteProfiles() ([]*models.Profile, error) {
 		err := rows.Scan(
 			&profile.ID, &profile.OwnerType, &profile.PeerID, &profile.Username,
 			&profile.Title, &profile.AvatarPath, &profile.BackgroundPath,
-			&profile.ContentChar, &profile.DemoElements, &cachedAt,
+			&profile.ContentChar, &profile.PinnedUUIDs, &cachedAt,
 			&createdAt, &updatedAt,
 		)
 		if err != nil {
@@ -162,12 +162,12 @@ func GetAllRemoteProfiles() ([]*models.Profile, error) {
 func CreateRemoteProfile(profile *models.Profile) error {
 	query := `
 		INSERT INTO profiles (owner_type, peer_id, username, title, avatar_path, background_path,
-		                      content_char, demo_elements, cached_at, created_at, updated_at)
+		                      content_char, pinned_uuids, cached_at, created_at, updated_at)
 		VALUES ('remote', ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
 	`
 	result, err := database.DB.Exec(query,
 		profile.PeerID, profile.Username, profile.Title, profile.AvatarPath,
-		profile.BackgroundPath, profile.ContentChar, profile.DemoElements,
+		profile.BackgroundPath, profile.ContentChar, profile.PinnedUUIDs,
 	)
 	if err != nil {
 		return err
@@ -186,13 +186,13 @@ func UpdateRemoteProfile(profile *models.Profile) error {
 	query := `
 		UPDATE profiles
 		SET username = ?, title = ?, avatar_path = ?, background_path = ?,
-		    content_char = ?, demo_elements = ?, cached_at = CURRENT_TIMESTAMP,
+		    content_char = ?, pinned_uuids = ?, cached_at = CURRENT_TIMESTAMP,
 		    updated_at = CURRENT_TIMESTAMP
 		WHERE peer_id = ? AND owner_type = 'remote'
 	`
 	_, err := database.DB.Exec(query,
 		profile.Username, profile.Title, profile.AvatarPath, profile.BackgroundPath,
-		profile.ContentChar, profile.DemoElements, profile.PeerID,
+		profile.ContentChar, profile.PinnedUUIDs, profile.PeerID,
 	)
 	return err
 }
@@ -202,12 +202,12 @@ func UpdateLocalProfile(profile *models.Profile) error {
 	query := `
 		UPDATE profiles
 		SET username = ?, title = ?, avatar_path = ?, background_path = ?,
-		    content_char = ?, demo_elements = ?, updated_at = CURRENT_TIMESTAMP
+		    content_char = ?, pinned_uuids = ?, updated_at = CURRENT_TIMESTAMP
 		WHERE owner_type = 'local'
 	`
 	_, err := database.DB.Exec(query,
 		profile.Username, profile.Title, profile.AvatarPath, profile.BackgroundPath,
-		profile.ContentChar, profile.DemoElements,
+		profile.ContentChar, profile.PinnedUUIDs,
 	)
 	return err
 }
@@ -226,8 +226,8 @@ func UpdateLocalProfileField(field string, value interface{}) error {
 		query = `UPDATE profiles SET background_path = ?, updated_at = CURRENT_TIMESTAMP WHERE owner_type = 'local'`
 	case "content_char":
 		query = `UPDATE profiles SET content_char = ?, updated_at = CURRENT_TIMESTAMP WHERE owner_type = 'local'`
-	case "demo_elements":
-		query = `UPDATE profiles SET demo_elements = ?, updated_at = CURRENT_TIMESTAMP WHERE owner_type = 'local'`
+	case "pinned_uuids":
+		query = `UPDATE profiles SET pinned_uuids = ?, updated_at = CURRENT_TIMESTAMP WHERE owner_type = 'local'`
 	default:
 		return errors.New("неподдерживаемое поле: " + field)
 	}
@@ -255,7 +255,7 @@ func GetProfileByPeerID(peerID string) (*models.Profile, error) {
 		       COALESCE(avatar_path, ''),
 		       COALESCE(background_path, ''),
 		       COALESCE(content_char, ''),
-		       COALESCE(demo_elements, ''),
+		       COALESCE(pinned_uuids, '[]'),
 		       cached_at, created_at, updated_at
 		FROM profiles
 		WHERE peer_id = ?
@@ -268,7 +268,7 @@ func GetProfileByPeerID(peerID string) (*models.Profile, error) {
 	err := database.DB.QueryRow(query).Scan(
 		&profile.ID, &profile.OwnerType, &profile.PeerID, &profile.Username,
 		&profile.Title, &profile.AvatarPath, &profile.BackgroundPath,
-		&profile.ContentChar, &profile.DemoElements, &cachedAt,
+		&profile.ContentChar, &profile.PinnedUUIDs, &cachedAt,
 		&createdAt, &updatedAt,
 	)
 	if err != nil {

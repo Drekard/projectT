@@ -2,6 +2,7 @@ package queries
 
 import (
 	"database/sql"
+	"encoding/json"
 	"errors"
 	"projectT/internal/storage/database"
 	"projectT/internal/storage/database/models"
@@ -325,15 +326,61 @@ func GetAllItems() ([]*models.Item, error) {
 
 // PinItem закрепляет элемент
 func PinItem(itemID int) error {
+	// Добавляем в pinned_items
 	query := `INSERT INTO pinned_items (item_id) VALUES (?)`
 	_, err := database.DB.Exec(query, itemID)
-	return err
+	if err != nil {
+		return err
+	}
+
+	// Синхронизируем pinned_uuids в profiles
+	return updatePinnedUUIDs()
 }
 
 // UnpinItem открепляет элемент
 func UnpinItem(itemID int) error {
+	// Удаляем из pinned_items
 	query := `DELETE FROM pinned_items WHERE item_id = ?`
 	_, err := database.DB.Exec(query, itemID)
+	if err != nil {
+		return err
+	}
+
+	// Синхронизируем pinned_uuids в profiles
+	return updatePinnedUUIDs()
+}
+
+// updatePinnedUUIDs обновляет pinned_uuids в profiles на основе pinned_items
+func updatePinnedUUIDs() error {
+	// Получаем все pinned items для локального профиля
+	rows, err := database.DB.Query(`
+		SELECT i.element_uuid 
+		FROM pinned_items pi
+		JOIN items i ON pi.item_id = i.id
+		WHERE i.owner_type = 'local'
+	`)
+	if err != nil {
+		return err
+	}
+	defer rows.Close()
+
+	var uuids []string
+	for rows.Next() {
+		var uuid string
+		if err := rows.Scan(&uuid); err != nil {
+			return err
+		}
+		uuids = append(uuids, uuid)
+	}
+
+	// Сериализуем UUID в JSON
+	uuidsJSON, err := json.Marshal(uuids)
+	if err != nil {
+		return err
+	}
+
+	// Обновляем локальный профиль
+	_, err = database.DB.Exec(`UPDATE profiles SET pinned_uuids = ? WHERE owner_type = 'local'`, string(uuidsJSON))
 	return err
 }
 

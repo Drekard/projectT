@@ -13,6 +13,10 @@ import (
 	pubsub "github.com/libp2p/go-libp2p-pubsub"
 
 	p2p "projectT/internal/services/p2p"
+	"projectT/internal/services/p2p/chat"
+	"projectT/internal/services/p2p/itemsync"
+	"projectT/internal/services/p2p/profile"
+	"projectT/internal/services/p2p/transfer"
 	"projectT/internal/storage/database/models"
 )
 
@@ -174,7 +178,7 @@ func (n *P2PNetwork) GetPeerInfo(peerID peer.ID) *p2p.PeerConnectionInfo {
 }
 
 // Chat возвращает сервис чата
-func (n *P2PNetwork) Chat() *p2p.ChatService {
+func (n *P2PNetwork) Chat() *chat.Service {
 	n.mu.RLock()
 	defer n.mu.RUnlock()
 	return n.chat
@@ -183,13 +187,13 @@ func (n *P2PNetwork) Chat() *p2p.ChatService {
 // SendMessage отправляет сообщение пиру
 func (n *P2PNetwork) SendMessage(ctx context.Context, peerID peer.ID, content, contentType, metadata string) error {
 	n.mu.RLock()
-	chat := n.chat
+	chatSvc := n.chat
 	n.mu.RUnlock()
 
-	if chat == nil {
+	if chatSvc == nil {
 		return errors.New("ChatService не инициализирован")
 	}
-	return chat.SendMessage(ctx, peerID, content, contentType, metadata)
+	return chatSvc.SendMessage(ctx, peerID, content, contentType, metadata)
 }
 
 // SendTextMessage отправляет текстовое сообщение
@@ -200,85 +204,85 @@ func (n *P2PNetwork) SendTextMessage(ctx context.Context, peerID peer.ID, conten
 // SendFileMessage отправляет сообщение с файлом
 func (n *P2PNetwork) SendFileMessage(ctx context.Context, peerID peer.ID, filePath, fileName, mimeType string) error {
 	n.mu.RLock()
-	chat := n.chat
+	chatSvc := n.chat
 	n.mu.RUnlock()
 
-	if chat == nil {
+	if chatSvc == nil {
 		return errors.New("ChatService не инициализирован")
 	}
-	return chat.SendFileMessage(ctx, peerID, filePath, fileName, mimeType)
+	return chatSvc.SendFileMessage(ctx, peerID, filePath, fileName, mimeType)
 }
 
 // SendImageMessage отправляет сообщение с изображением
 func (n *P2PNetwork) SendImageMessage(ctx context.Context, peerID peer.ID, imagePath, imageName string) error {
 	n.mu.RLock()
-	chat := n.chat
+	chatSvc := n.chat
 	n.mu.RUnlock()
 
-	if chat == nil {
+	if chatSvc == nil {
 		return errors.New("ChatService не инициализирован")
 	}
-	return chat.SendImageMessage(ctx, peerID, imagePath, imageName)
+	return chatSvc.SendImageMessage(ctx, peerID, imagePath, imageName)
 }
 
 // GetMessagesForContact получает сообщения для контакта
 func (n *P2PNetwork) GetMessagesForContact(contactID int, limit, offset int) ([]*models.ChatMessage, error) {
 	n.mu.RLock()
-	chat := n.chat
+	chatSvc := n.chat
 	n.mu.RUnlock()
 
-	if chat == nil {
+	if chatSvc == nil {
 		return nil, errors.New("ChatService не инициализирован")
 	}
-	return chat.GetMessagesForContact(contactID, limit, offset)
+	return chatSvc.GetMessagesForContact(contactID, limit, offset)
 }
 
 // GetUnreadMessagesCount получает количество непрочитанных сообщений
 func (n *P2PNetwork) GetUnreadMessagesCount(contactID int) (int, error) {
 	n.mu.RLock()
-	chat := n.chat
+	chatSvc := n.chat
 	n.mu.RUnlock()
 
-	if chat == nil {
+	if chatSvc == nil {
 		return 0, errors.New("ChatService не инициализирован")
 	}
-	return chat.GetUnreadMessagesCount(contactID)
+	return chatSvc.GetUnreadMessagesCount(contactID)
 }
 
 // MarkMessageAsRead помечает сообщение как прочитанное
 func (n *P2PNetwork) MarkMessageAsRead(id int) error {
 	n.mu.RLock()
-	chat := n.chat
+	chatSvc := n.chat
 	n.mu.RUnlock()
 
-	if chat == nil {
+	if chatSvc == nil {
 		return errors.New("ChatService не инициализирован")
 	}
-	return chat.MarkMessageAsRead(id)
+	return chatSvc.MarkMessageAsRead(id)
 }
 
 // MarkAllMessagesAsRead помечает все сообщения для контакта как прочитанные
 func (n *P2PNetwork) MarkAllMessagesAsRead(contactID int) error {
 	n.mu.RLock()
-	chat := n.chat
+	chatSvc := n.chat
 	n.mu.RUnlock()
 
-	if chat == nil {
+	if chatSvc == nil {
 		return errors.New("ChatService не инициализирован")
 	}
-	return chat.MarkAllMessagesAsRead(contactID)
+	return chatSvc.MarkAllMessagesAsRead(contactID)
 }
 
 // GetQueuedMessagesCount возвращает количество сообщений в очереди для пира
 func (n *P2PNetwork) GetQueuedMessagesCount(peerID peer.ID) int {
 	n.mu.RLock()
-	chat := n.chat
+	chatSvc := n.chat
 	n.mu.RUnlock()
 
-	if chat == nil {
+	if chatSvc == nil {
 		return 0
 	}
-	return chat.GetQueuedMessagesCount(peerID)
+	return chatSvc.GetQueuedMessagesCount(peerID)
 }
 
 // Helper возвращает сервис режима помощника
@@ -330,4 +334,25 @@ func (n *P2PNetwork) HelperGetPeerCount() int {
 		return 0
 	}
 	return n.helper.helper.GetPeerCount()
+}
+
+// ProfileExchange возвращает сервис обмена профилями
+func (n *P2PNetwork) ProfileExchange() *profile.ExchangeService {
+	n.mu.RLock()
+	defer n.mu.RUnlock()
+	return n.profileExchange
+}
+
+// ItemSync возвращает сервис синхронизации элементов
+func (n *P2PNetwork) ItemSync() *itemsync.Service {
+	n.mu.RLock()
+	defer n.mu.RUnlock()
+	return n.itemSync
+}
+
+// Transfer возвращает сервис передачи файлов
+func (n *P2PNetwork) Transfer() *transfer.Service {
+	n.mu.RLock()
+	defer n.mu.RUnlock()
+	return n.transfer
 }

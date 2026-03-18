@@ -2,9 +2,9 @@ package hover_preview
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"image/color"
+	"projectT/internal/services"
 	"projectT/internal/services/favorites"
 	"projectT/internal/services/pinned"
 	"projectT/internal/storage/database/models"
@@ -874,36 +874,10 @@ func sendItemToLocalChat(item *models.Item, window fyne.Window) {
 		return
 	}
 
-	// Создаём метаданные элемента
-	metadata := map[string]interface{}{
-		"item_id":      item.ID,
-		"item_type":    string(item.Type),
-		"item_title":   item.Title,
-		"item_desc":    item.Description,
-		"content_meta": item.ContentMeta,
-		"sent_at":      item.CreatedAt.Format(time.RFC3339),
-	}
-
-	metadataJSON, err := json.Marshal(metadata)
+	// Используем ChatService для отправки сообщения
+	_, err = services.GetChatService().SendElementMessage(0, localProfile.PeerID, item)
 	if err != nil {
-		dialog.ShowError(fmt.Errorf("ошибка сериализации метаданных: %v", err), window)
-		return
-	}
-
-	// Создаём сообщение с contact_id = 0 (локальный чат)
-	// В Content записываем element_uuid элемента для отображения через cards
-	message := &models.ChatMessage{
-		ContactID:   0, // Специальный ID для локального чата
-		FromPeerID:  localProfile.PeerID,
-		Content:     item.ElementUUID, // element_uuid элемента
-		ContentType: "element",
-		Metadata:    string(metadataJSON),
-		IsRead:      true, // Исходящее считаем прочитанным
-	}
-
-	// Сохраняем сообщение в БД
-	if err := queries.CreateChatMessage(message); err != nil {
-		dialog.ShowError(fmt.Errorf("ошибка сохранения сообщения: %v", err), window)
+		dialog.ShowError(err, window)
 		return
 	}
 
@@ -919,36 +893,10 @@ func sendItemToContact(contact *models.Contact, item *models.Item, window fyne.W
 		return
 	}
 
-	// Создаём метаданные элемента
-	metadata := map[string]interface{}{
-		"item_id":      item.ID,
-		"item_type":    string(item.Type),
-		"item_title":   item.Title,
-		"item_desc":    item.Description,
-		"content_meta": item.ContentMeta,
-		"sent_at":      item.CreatedAt.Format(time.RFC3339),
-	}
-
-	metadataJSON, err := json.Marshal(metadata)
+	// Используем ChatService для отправки сообщения
+	_, err = services.GetChatService().SendElementMessage(contact.ID, localProfile.PeerID, item)
 	if err != nil {
-		dialog.ShowError(fmt.Errorf("ошибка сериализации метаданных: %v", err), window)
-		return
-	}
-
-	// Создаём сообщение
-	// В Content записываем element_uuid элемента для отображения через cards
-	message := &models.ChatMessage{
-		ContactID:   contact.ID,
-		FromPeerID:  localProfile.PeerID,
-		Content:     item.ElementUUID, // element_uuid элемента
-		ContentType: "element",
-		Metadata:    string(metadataJSON),
-		IsRead:      true, // Исходящее считаем прочитанным
-	}
-
-	// Сохраняем сообщение в БД
-	if err := queries.CreateChatMessage(message); err != nil {
-		dialog.ShowError(fmt.Errorf("ошибка сохранения сообщения: %v", err), window)
+		dialog.ShowError(err, window)
 		return
 	}
 
