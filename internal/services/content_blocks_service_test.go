@@ -5,9 +5,10 @@ import (
 	"path/filepath"
 	"testing"
 
+	"projectT/internal/storage/database/models"
+
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"projectT/internal/storage/database/models"
 )
 
 func TestNewContentBlocksService(t *testing.T) {
@@ -89,6 +90,60 @@ func TestProcessFileData_ImageDetection(t *testing.T) {
 	// Проверяем что типы определены правильно
 	for i, block := range blocks {
 		assert.Equal(t, testFiles[i].expected, block.Type)
+		assert.NotEmpty(t, block.FileHash)
+		assert.NotEmpty(t, block.OriginalName)
+		assert.NotEmpty(t, block.Extension)
+	}
+}
+
+// TestProcessFileData_AudioVideoDetection проверяет определение типов audio и video
+func TestProcessFileData_AudioVideoDetection(t *testing.T) {
+	service := NewContentBlocksService()
+
+	// Создаём временные файлы с разными расширениями
+	tmpDir := t.TempDir()
+
+	testFiles := []struct {
+		ext      string
+		expected string
+	}{
+		// Аудио форматы
+		{".mp3", "audio"},
+		{".wav", "audio"},
+		{".ogg", "audio"},
+		{".flac", "audio"},
+		{".aac", "audio"},
+		{".m4a", "audio"},
+		// Видео форматы
+		{".mp4", "video"},
+		{".avi", "video"},
+		{".mkv", "video"},
+		{".mov", "video"},
+		{".webm", "video"},
+		{".wmv", "video"},
+		// Другие файлы (должны определяться как file)
+		{".txt", "file"},
+		{".pdf", "file"},
+		{".docx", "file"},
+	}
+
+	var filePaths []string
+	for _, tf := range testFiles {
+		path := filepath.Join(tmpDir, "test"+tf.ext)
+		err := os.WriteFile(path, []byte("test content"), 0644)
+		require.NoError(t, err)
+		filePaths = append(filePaths, path)
+	}
+
+	blocks, errors := service.ProcessFileData(&filePaths, []string{})
+
+	// Все файлы должны быть обработаны без ошибок
+	assert.Empty(t, errors)
+	assert.Len(t, blocks, len(testFiles))
+
+	// Проверяем что типы определены правильно
+	for i, block := range blocks {
+		assert.Equal(t, testFiles[i].expected, block.Type, "Неверный тип для файла с расширением %s", testFiles[i].ext)
 		assert.NotEmpty(t, block.FileHash)
 		assert.NotEmpty(t, block.OriginalName)
 		assert.NotEmpty(t, block.Extension)

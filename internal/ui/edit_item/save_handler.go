@@ -111,7 +111,7 @@ func SaveItem(viewModel *CreateItemViewModel, formWidgets *FormWidgets, parentWi
 						break
 					}
 				}
-			case "file":
+			case "file", "audio", "video":
 				// Проверяем, есть ли этот файл в текущем списке
 				for _, file := range viewModel.Files {
 					if oldBlock.OriginalName == file {
@@ -168,12 +168,12 @@ func SaveItem(viewModel *CreateItemViewModel, formWidgets *FormWidgets, parentWi
 			fmt.Printf("Обработано %d новых изображений\n", len(imgBlocks))
 		}
 
-		// Обрабатываем новые файлы
+		// Обрабатываем новые файлы (включая audio и video)
 		var newFiles []string
 		for _, file := range viewModel.Files {
 			existsInOld := false
 			for _, oldBlock := range oldBlocks {
-				if oldBlock.Type == "file" && oldBlock.OriginalName == file {
+				if (oldBlock.Type == "file" || oldBlock.Type == "audio" || oldBlock.Type == "video") && oldBlock.OriginalName == file {
 					existsInOld = true
 					break
 				}

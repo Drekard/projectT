@@ -71,16 +71,22 @@ func (mm *MenuManager) ShowSimpleMenu(item *models.Item, cont fyne.CanvasObject,
 
 	var children []fyne.CanvasObject
 
-	children = append(children,
-		widget.NewRichTextFromMarkdown(getTitleForItem(item)),
-	)
+	if item.Title != "" {
+		children = append(children,
+			widget.NewRichTextFromMarkdown(getTitleForItem(item)),
+		)
+	}
 
 	if item.Type == models.ItemTypeElement && item.ContentMeta != "" && item.Description != "" {
 		children = append(children, widget.NewLabel(getDescriptionForItem(item)))
 	}
 
+	tagsContainer := getTagsContainer(item, mm, cardPos, cardSize)
+	if tagsContainer != nil {
+		children = append(children, tagsContainer)
+	}
+
 	children = append(children,
-		getTagsContainer(item, mm, cardPos, cardSize),
 		widget.NewLabel("Создан: "+item.CreatedAt.Format("02.01.2006 15:04")),
 		widget.NewLabel("Изменен: "+item.UpdatedAt.Format("02.01.2006 15:04")),
 		container.NewBorder(
@@ -531,7 +537,7 @@ func (r *TagButtonRenderer) Destroy() {}
 func getTagsContainer(item *models.Item, handler SearchHandler, cardPos fyne.Position, cardSize fyne.Size) fyne.CanvasObject {
 	tags, err := queries.GetTagsForItem(context.Background(), item.ID)
 	if err != nil || len(tags) == 0 {
-		return container.NewHBox(widget.NewLabel("--теги отсутствуют--"))
+		return nil
 	}
 
 	var tagButtons []fyne.CanvasObject

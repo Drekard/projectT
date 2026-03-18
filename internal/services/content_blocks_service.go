@@ -78,9 +78,20 @@ func (s *ContentBlocksService) ProcessFileData(selectedFiles *[]string, linkEntr
 		fmt.Printf("Обрабатываем файл %d/%d: %s\n", i+1, len(*selectedFiles), filepath)
 		ext := strings.ToLower(strings.TrimPrefix(path.Ext(filepath), "."))
 		blockType := "file"
-		if ext == "jpg" || ext == "jpeg" || ext == "png" || ext == "gif" || ext == "bmp" {
+
+		// Изображения
+		if ext == "jpg" || ext == "jpeg" || ext == "png" || ext == "gif" || ext == "bmp" || ext == "webp" {
 			blockType = "image"
 		}
+		// Аудио
+		if ext == "mp3" || ext == "wav" || ext == "ogg" || ext == "flac" || ext == "aac" || ext == "m4a" {
+			blockType = "audio"
+		}
+		// Видео
+		if ext == "mp4" || ext == "avi" || ext == "mkv" || ext == "mov" || ext == "webm" || ext == "wmv" {
+			blockType = "video"
+		}
+
 		fmt.Printf("Расширение файла: %s, определенный тип: %s\n", ext, blockType)
 
 		block, err := processSingleFile(filepath, blockType)

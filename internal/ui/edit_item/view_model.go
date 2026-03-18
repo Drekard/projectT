@@ -76,7 +76,7 @@ func NewCreateItemViewModelForEdit(itemID int) (*CreateItemViewModel, error) {
 		switch block.Type {
 		case "image":
 			images = append(images, block.OriginalName) // Используем OriginalName для отображения в интерфейсе
-		case "file":
+		case "file", "audio", "video":
 			files = append(files, block.OriginalName) // Используем OriginalName для отображения в интерфейсе
 		case "link":
 			links = append(links, block.Content)
