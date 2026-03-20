@@ -77,6 +77,8 @@ func (n *P2PNetwork) initProfileExchange() error {
 	}
 
 	n.profileExchange = profile.NewExchangeService(n.host, privKey, pubKey)
+	// Передаём connectionService для отслеживания статуса обмена профиля
+	n.profileExchange.SetConnectionService(n.connections)
 
 	return n.profileExchange.Start()
 }

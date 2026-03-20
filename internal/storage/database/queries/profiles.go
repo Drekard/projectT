@@ -106,9 +106,9 @@ func EnsureProfileForContact(peerID, username, avatarPath string) error {
 	// Создаём новый remote профиль
 	_, err = database.DB.Exec(`
 		INSERT INTO profiles (owner_type, peer_id, username, title, avatar_path,
-		                      background_path, content_char, demo_elements,
+		                      background_path, content_char, pinned_uuids,
 		                      created_at, updated_at)
-		VALUES ('remote', ?, ?, ?, ?, '', '', '', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+		VALUES ('remote', ?, ?, '', ?, '', '', '[]', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
 	`, peerID, username, avatarPath)
 
 	return err

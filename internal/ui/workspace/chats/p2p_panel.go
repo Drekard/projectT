@@ -85,8 +85,13 @@ func (ui *UI) createAddressSection() *fyne.Container {
 		ui.checkPortAccessibility()
 	})
 
+	// Кнопка показа локальных адресов
+	showLocalButton := widget.NewButton("Локальные адреса", func() {
+		ui.showLocalAddresses()
+	})
+
 	addressRow := container.NewHBox(ui.myAddressLabel, copyButton)
-	buttonsRow := container.NewHBox(checkPortButton)
+	buttonsRow := container.NewHBox(checkPortButton, showLocalButton)
 
 	return container.NewVBox(sectionTitle, addressRow, buttonsRow)
 }
@@ -219,7 +224,12 @@ func (ui *UI) createP2PSettingsSection() *fyne.Container {
 		ui.saveP2PSettings()
 	})
 
-	buttonsRow := container.NewHBox(loadSettingsBtn, saveSettingsBtn)
+	restartBtn := widget.NewButtonWithIcon("Применить и перезапустить P2P", theme.ViewRefreshIcon(), func() {
+		ui.restartP2PWithNewSettings()
+	})
+	restartBtn.Importance = widget.HighImportance
+
+	buttonsRow := container.NewHBox(loadSettingsBtn, saveSettingsBtn, restartBtn)
 
 	return container.NewVBox(
 		sectionTitle,
@@ -383,6 +393,80 @@ func (ui *UI) checkPortAccessibility() {
 
 	// Создаём и показываем диалог явно
 	d := dialog.NewInformation("Брандмауэр", message, ui.window)
+	d.Show()
+}
+
+// showLocalAddresses показывает локальные адреса для подключения в одной сети
+func (ui *UI) showLocalAddresses() {
+	if ui.p2pUI == nil {
+		ui.showErrorDialog("Ошибка", "P2P сервис не инициализирован")
+		return
+	}
+
+	if ui.window == nil {
+		ui.showErrorDialog("Ошибка", "Окно не инициализировано")
+		return
+	}
+
+	status := ui.p2pUI.GetStatus()
+
+	if !status.IsRunning {
+		ui.showErrorDialog("Ошибка", "P2P не запущен")
+		return
+	}
+
+	// Получаем локальные адреса через публичный API
+	localIPs := ui.p2pUI.GetLocalAddresses()
+
+	var localAddresses string
+
+	if len(localIPs) == 0 {
+		localAddresses = "Не удалось определить локальные IP адреса\n\n"
+	} else {
+		localAddresses = "=== Локальные адреса для подключения ===\n\n"
+		for i, addr := range localIPs {
+			localAddresses += fmt.Sprintf("%d. %s\n", i+1, addr)
+		}
+		localAddresses += "\n"
+	}
+
+	localAddresses += "=== Как использовать ===\n"
+	localAddresses += "1. Нажмите 'Копировать' у нужного адреса\n"
+	localAddresses += "2. На другом ПК вставьте в поле 'Добавить контакт'\n"
+	localAddresses += "3. Нажмите 'Добавить контакт' или 'Подключиться'\n\n"
+	localAddresses += "Примечание: Оба ПК должны быть в одной сети (Wi-Fi/кабель)"
+
+	// Создаём кастомный диалог с кнопками копирования
+	content := container.NewVBox()
+
+	if len(localIPs) > 0 {
+		content.Add(widget.NewLabel("=== Локальные адреса ==="))
+		content.Add(widget.NewSeparator())
+
+		for i, addr := range localIPs {
+			addrLabel := widget.NewLabel(fmt.Sprintf("%d. %s", i+1, addr))
+			addrLabel.Wrapping = fyne.TextWrapBreak
+
+			copyBtn := widget.NewButtonWithIcon("Копировать", theme.ContentCopyIcon(), func() {
+				ui.window.Clipboard().SetContent(addr)
+				ui.showInfoDialog("Скопировано", fmt.Sprintf("Адрес %d скопирован в буфер обмена", i+1))
+			})
+
+			row := container.NewBorder(nil, copyBtn, nil, nil, addrLabel)
+			content.Add(row)
+		}
+
+		content.Add(widget.NewSeparator())
+	}
+
+	instructions := widget.NewLabel(localAddresses)
+	instructions.Wrapping = fyne.TextWrapWord
+	content.Add(instructions)
+
+	scroll := container.NewScroll(content)
+	scroll.SetMinSize(fyne.NewSize(500, 400))
+
+	d := dialog.NewCustom("Локальные адреса", "Закрыть", scroll, ui.window)
 	d.Show()
 }
 
@@ -568,7 +652,74 @@ func (ui *UI) saveP2PSettings() {
 		return
 	}
 
-	ui.showInfoDialog("Успешно", "Настройки P2P сохранены")
+	ui.showInfoDialog("Успешно", "Настройки P2P сохранены\n\nДля применения настроек нажмите 'Применить и перезапустить P2P'")
+}
+
+// restartP2PWithNewSettings перезапускает P2P с новыми настройками
+func (ui *UI) restartP2PWithNewSettings() {
+	if ui.p2pUI == nil {
+		ui.showErrorDialog("Ошибка", "P2P сервис не инициализирован")
+		return
+	}
+
+	// Показываем диалог подтверждения
+	dialog.ShowConfirm(
+		"Перезапуск P2P",
+		"Для применения настроек требуется перезапуск P2P.\n\nТекущие подключения будут разорваны.\n\nПродолжить?",
+		func(ok bool) {
+			if !ok {
+				return
+			}
+
+			// Сохраняем настройки
+			ui.saveP2PSettingsSilent()
+
+			// Останавливаем P2P
+			if err := ui.p2pUI.Stop(); err != nil {
+				ui.showErrorDialog("Ошибка", fmt.Sprintf("Ошибка остановки P2P: %v", err))
+				return
+			}
+
+			// Запускаем P2P заново
+			if err := ui.p2pUI.Start(); err != nil {
+				ui.showErrorDialog("Ошибка", fmt.Sprintf("Ошибка запуска P2P: %v", err))
+				return
+			}
+
+			ui.showInfoDialog("P2P перезапущен", "Настройки применены успешно")
+
+			// Обновляем отображение
+			ui.refreshConnectionStatus()
+			ui.loadConnectedPeers()
+		},
+		ui.window,
+	)
+}
+
+// saveP2PSettingsSilent сохраняет настройки без показа диалога
+func (ui *UI) saveP2PSettingsSilent() {
+	if ui.p2pUI == nil {
+		return
+	}
+
+	var port int
+	if _, err := fmt.Sscanf(ui.portEntry.Text, "%d", &port); err != nil {
+		return
+	}
+
+	settings := &network.P2PSettings{
+		ListenPort:       port,
+		EnableNATPortMap: ui.natPortMapCheck.Checked,
+		EnableRelay:      ui.relayCheck.Checked,
+		EnableAutoRelay:  ui.autoRelayCheck.Checked,
+		EnableDHT:        ui.dhtCheck.Checked,
+		EnableMDNS:       ui.mdnsCheck.Checked,
+		EnableSTUN:       ui.stunCheck.Checked,
+		STUNServer:       ui.stunServerEntry.Text,
+		EnableHelperMode: ui.helperModeCheck.Checked,
+	}
+
+	_ = ui.p2pUI.UpdateSettings(settings)
 }
 
 // loadBootstrapPeers загружает список bootstrap пиров

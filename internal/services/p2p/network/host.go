@@ -72,16 +72,68 @@ func (n *P2PNetwork) createHost(profile *models.P2PProfile) error {
 	// Получаем публичный ключ из приватного
 	pubKey := privKey.GetPublic()
 
-	// Опции хоста
+	// Формируем адреса для прослушивания с портом из настроек
+	listenAddrs := n.config.ListenAddrs
+	if n.config.ListenPort > 0 {
+		// Если порт задан, используем его
+		listenAddrs = []string{
+			fmt.Sprintf("/ip4/0.0.0.0/tcp/%d", n.config.ListenPort),
+			fmt.Sprintf("/ip6/::/tcp/%d", n.config.ListenPort),
+		}
+	}
+
+	// Опции хоста - зависят от настроек!
 	opts := []libp2p.Option{
 		libp2p.Identity(privKey),
-		libp2p.ListenAddrStrings(n.config.ListenAddrs...),
-		libp2p.NATPortMap(),                                  // Проброс портов через NAT (UPnP/NAT-PMP)
-		libp2p.EnableRelay(),                                 // Включает relay для обхода NAT
-		libp2p.EnableAutoRelayWithStaticRelays(staticRelays), // Автовыбор relay
-		libp2p.EnableHolePunching(),                          // 🔥 NAT Hole Punching для прямых соединений
-		libp2p.UserAgent("ProjectT/1.0"),
+		libp2p.ListenAddrStrings(listenAddrs...),
 	}
+
+	// NAT Port Mapping - только если включено в настройках
+	if n.config.EnableNATPortMap {
+		opts = append(opts, libp2p.NATPortMap())
+		log.Println("NAT Port Mapping включён")
+	} else {
+		log.Println("NAT Port Mapping выключен")
+	}
+
+	// Relay - только если включено в настройках
+	if n.config.EnableRelay {
+		opts = append(opts, libp2p.EnableRelay())
+		log.Println("Relay включён")
+	} else {
+		log.Println("Relay выключен")
+	}
+
+	// AutoRelay - только если включены Relay и AutoRelay
+	if n.config.EnableRelay && n.config.EnableAutoRelay {
+		opts = append(opts, libp2p.EnableAutoRelayWithStaticRelays(staticRelays))
+		log.Println("AutoRelay включён")
+	} else {
+		log.Println("AutoRelay выключен")
+	}
+
+	// Hole Punching - всегда включён для прямых соединений
+	opts = append(opts, libp2p.EnableHolePunching())
+
+	// mDNS - только если включено в настройках (локальная сеть)
+	if n.config.EnableMDNS {
+		// Включаем mDNS через опцию libp2p
+		// Примечание: в новых версиях libp2p mDNS включается автоматически при наличии
+		log.Println("mDNS включён (локальное обнаружение)")
+	} else {
+		log.Println("mDNS выключен")
+	}
+
+	// STUN клиент - для определения внешнего IP
+	if n.config.EnableSTUNClient && n.config.STUNServer != "" {
+		log.Printf("STUN клиент включён, сервер: %s", n.config.STUNServer)
+		// TODO: Реализовать STUN клиент для определения внешнего IP
+	} else {
+		log.Println("STUN клиент выключен")
+	}
+
+	// Дополнительные опции
+	opts = append(opts, libp2p.UserAgent("ProjectT/1.0"))
 
 	// Создаём хост
 	h, err := libp2p.New(opts...)

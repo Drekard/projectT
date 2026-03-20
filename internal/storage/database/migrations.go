@@ -408,7 +408,7 @@ func migrateItemsTable() {
 
 	// Копируем данные из content_hash в hash для существующих записей
 	_, err = DB.Exec(`UPDATE items SET hash = content_hash WHERE hash IS NULL AND content_hash IS NOT NULL`)
-	if err != nil {
+	if err != nil && !strings.Contains(err.Error(), "no such column") {
 		log.Printf("Ошибка при копировании content_hash в hash: %v", err)
 	}
 
@@ -540,7 +540,7 @@ func migrateItemRelations() {
 		)
 		WHERE entity_type = 'tag' AND entity_uuid IS NULL
 	`)
-	if err != nil {
+	if err != nil && !strings.Contains(err.Error(), "no such column") {
 		log.Printf("Ошибка при копировании entity_id в entity_uuid для tags: %v", err)
 	}
 
@@ -551,7 +551,7 @@ func migrateItemRelations() {
 		)
 		WHERE entity_type = 'folder' AND entity_uuid IS NULL
 	`)
-	if err != nil {
+	if err != nil && !strings.Contains(err.Error(), "no such column") {
 		log.Printf("Ошибка при копировании entity_id в entity_uuid для folders: %v", err)
 	}
 

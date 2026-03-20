@@ -2,6 +2,8 @@ package app
 
 import (
 	"log"
+	"os"
+	"path/filepath"
 
 	"projectT/internal/config"
 	"projectT/internal/services/p2p/network"
@@ -43,7 +45,10 @@ func NewApp() *App {
 	window := fyneApp.NewWindow("ㅤ")
 	window.Resize(fyne.NewSize(1110, 600))
 
-	iconRes, _ := fyne.LoadResourceFromPath("./assets/icons/ProjctT.png")
+	// Загружаем иконку из папки с исполняемым файлом
+	exePath, _ := filepath.Abs(filepath.Dir(os.Args[0]))
+	iconPath := filepath.Join(exePath, "ProjctT.png")
+	iconRes, _ := fyne.LoadResourceFromPath(iconPath)
 	window.SetIcon(iconRes)
 
 	// Инициализируем P2P сеть

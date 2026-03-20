@@ -386,15 +386,13 @@ func GetPeerAddress(h host.Host) (*PeerAddress, error) {
 	// Добавляем префикс к публичному ключу
 	prefixedPubKey := addPrefixToData(pubKeyBytes)
 
-	// Формируем полный адрес с префиксом
+	// Формируем полный адрес — ТОЛЬКО multiaddr без префикса
 	addr := h.Addrs()[0].String()
 	fullAddr := fmt.Sprintf("%s/p2p/%s", addr, h.ID().String())
-	// Добавляем префикс к адресу
-	prefixedAddr := ProtocolPrefix + "://" + fullAddr
 
 	return &PeerAddress{
-		PeerID:    ProtocolPrefix + ":" + h.ID().String(),
-		Multiaddr: prefixedAddr,
+		PeerID:    h.ID().String(), // PeerID без префикса
+		Multiaddr: fullAddr,        // Multiaddr без префикса
 		PublicKey: base64.StdEncoding.EncodeToString(prefixedPubKey),
 	}, nil
 }
@@ -405,13 +403,69 @@ func ImportPeerAddress(h host.Host, addrStr string) (*PeerAddress, error) {
 		return nil, errors.New("хост не инициализирован")
 	}
 
-	// Удаляем префикс если есть
-	addrStr = strings.TrimPrefix(addrStr, ProtocolPrefix+"://")
+	// === ОТЛАДКА: выводим исходную строку ===
+	fmt.Println("=== ImportPeerAddress ===")
+	fmt.Printf("[DEBUG] Исходная строка адреса: %q\n", addrStr)
+	fmt.Printf("[DEBUG] Длина строки: %d символов\n", len(addrStr))
+
+	// Выводим посимвольно первые 50 символов для выявления скрытых символов
+	if len(addrStr) > 0 {
+		fmt.Print("[DEBUG] Первые символы (hex): ")
+		for i := 0; i < len(addrStr) && i < 50; i++ {
+			fmt.Printf("%02x ", addrStr[i])
+		}
+		fmt.Println()
+	}
+
+	// Сохраняем оригинальную строку для отладки
+	originalAddrStr := addrStr
+
+	// === ВАЖНО: Удаляем ВСЕ повторяющиеся префиксы ===
+	// Может быть: "projectt:projectt:..." или "projectt://projectt://..."
+	for strings.HasPrefix(addrStr, ProtocolPrefix+"://") || strings.HasPrefix(addrStr, ProtocolPrefix+":") {
+		addrStr = strings.TrimPrefix(addrStr, ProtocolPrefix+"://")
+		addrStr = strings.TrimPrefix(addrStr, ProtocolPrefix+":")
+	}
+
+	fmt.Printf("[DEBUG] После удаления префиксов: %q\n", addrStr)
 
 	// Парсим адрес
 	addr, err := multiaddr.NewMultiaddr(addrStr)
 	if err != nil {
-		return nil, fmt.Errorf("ошибка парсинга адреса: %w", err)
+		fmt.Printf("[DEBUG] Ошибка парсинга multiaddr: %v\n", err)
+
+		// Если не удалось распарсить, пробуем извлечь multiaddr из формата peerid@multiaddr
+		if strings.Contains(originalAddrStr, "@") {
+			fmt.Println("[DEBUG] Обнаружен символ @, пробуем извлечь multiaddr...")
+			parts := strings.SplitN(originalAddrStr, "@", 2)
+			if len(parts) == 2 {
+				// Берём только multiaddr часть (без peerid@)
+				addrStr = parts[1]
+				fmt.Printf("[DEBUG] Извлечён multiaddr: %q\n", addrStr)
+
+				// Также удаляем префиксы из multiaddr части
+				for strings.HasPrefix(addrStr, ProtocolPrefix+"://") || strings.HasPrefix(addrStr, ProtocolPrefix+":") {
+					addrStr = strings.TrimPrefix(addrStr, ProtocolPrefix+"://")
+					addrStr = strings.TrimPrefix(addrStr, ProtocolPrefix+":")
+				}
+				fmt.Printf("[DEBUG] Multiaddr после очистки: %q\n", addrStr)
+
+				addr, err = multiaddr.NewMultiaddr(addrStr)
+				if err != nil {
+					fmt.Printf("[DEBUG] Ошибка парсинга извлечённого multiaddr: %v\n", err)
+					return nil, fmt.Errorf("ошибка парсинга адреса: %w", err)
+				}
+				fmt.Println("[DEBUG] Multiaddr успешно распарсен!")
+			} else {
+				fmt.Printf("[DEBUG] Не удалось разделить строку на части, получено частей: %d\n", len(parts))
+				return nil, fmt.Errorf("ошибка парсинга адреса: неверный формат")
+			}
+		} else {
+			fmt.Println("[DEBUG] Символ @ не найден")
+			return nil, fmt.Errorf("ошибка парсинга адреса: %w", err)
+		}
+	} else {
+		fmt.Println("[DEBUG] Multiaddr успешно распарсен с первой попытки!")
 	}
 
 	// Извлекаем PeerID
@@ -468,12 +522,68 @@ func ConnectToPeer(ctx context.Context, h host.Host, addrStr string) error {
 		return errors.New("хост не инициализирован")
 	}
 
-	// Удаляем префикс если есть
-	addrStr = strings.TrimPrefix(addrStr, ProtocolPrefix+"://")
+	// === ОТЛАДКА: выводим исходную строку ===
+	fmt.Println("=== ConnectToPeer ===")
+	fmt.Printf("[DEBUG] Исходная строка адреса: %q\n", addrStr)
+	fmt.Printf("[DEBUG] Длина строки: %d символов\n", len(addrStr))
+
+	// Выводим посимвольно первые 50 символов для выявления скрытых символов
+	if len(addrStr) > 0 {
+		fmt.Print("[DEBUG] Первые символы (hex): ")
+		for i := 0; i < len(addrStr) && i < 50; i++ {
+			fmt.Printf("%02x ", addrStr[i])
+		}
+		fmt.Println()
+	}
+
+	// Сохраняем оригинальную строку для отладки
+	originalAddrStr := addrStr
+
+	// === ВАЖНО: Удаляем ВСЕ повторяющиеся префиксы ===
+	// Может быть: "projectt:projectt:..." или "projectt://projectt://..."
+	for strings.HasPrefix(addrStr, ProtocolPrefix+"://") || strings.HasPrefix(addrStr, ProtocolPrefix+":") {
+		addrStr = strings.TrimPrefix(addrStr, ProtocolPrefix+"://")
+		addrStr = strings.TrimPrefix(addrStr, ProtocolPrefix+":")
+	}
+
+	fmt.Printf("[DEBUG] После удаления префиксов: %q\n", addrStr)
 
 	addr, err := multiaddr.NewMultiaddr(addrStr)
 	if err != nil {
-		return fmt.Errorf("ошибка парсинга адреса: %w", err)
+		fmt.Printf("[DEBUG] Ошибка парсинга multiaddr: %v\n", err)
+
+		// Если не удалось распарсить, пробуем извлечь multiaddr из формата peerid@multiaddr
+		if strings.Contains(originalAddrStr, "@") {
+			fmt.Println("[DEBUG] Обнаружен символ @, пробуем извлечь multiaddr...")
+			parts := strings.SplitN(originalAddrStr, "@", 2)
+			if len(parts) == 2 {
+				// Берём только multiaddr часть (без peerid@)
+				addrStr = parts[1]
+				fmt.Printf("[DEBUG] Извлечён multiaddr: %q\n", addrStr)
+
+				// Также удаляем префиксы из multiaddr части
+				for strings.HasPrefix(addrStr, ProtocolPrefix+"://") || strings.HasPrefix(addrStr, ProtocolPrefix+":") {
+					addrStr = strings.TrimPrefix(addrStr, ProtocolPrefix+"://")
+					addrStr = strings.TrimPrefix(addrStr, ProtocolPrefix+":")
+				}
+				fmt.Printf("[DEBUG] Multiaddr после очистки: %q\n", addrStr)
+
+				addr, err = multiaddr.NewMultiaddr(addrStr)
+				if err != nil {
+					fmt.Printf("[DEBUG] Ошибка парсинга извлечённого multiaddr: %v\n", err)
+					return fmt.Errorf("ошибка парсинга адреса: %w", err)
+				}
+				fmt.Println("[DEBUG] Multiaddr успешно распарсен!")
+			} else {
+				fmt.Printf("[DEBUG] Не удалось разделить строку на части, получено частей: %d\n", len(parts))
+				return fmt.Errorf("ошибка парсинга адреса: неверный формат")
+			}
+		} else {
+			fmt.Println("[DEBUG] Символ @ не найден")
+			return fmt.Errorf("ошибка парсинга адреса: %w", err)
+		}
+	} else {
+		fmt.Println("[DEBUG] Multiaddr успешно распарсен с первой попытки!")
 	}
 
 	info, err := peer.AddrInfoFromP2pAddr(addr)
@@ -491,13 +601,19 @@ func ConnectToPeer(ctx context.Context, h host.Host, addrStr string) error {
 
 // ParsePeerAddressString парсит строку адреса в формате peerid@multiaddr
 func ParsePeerAddressString(addrStr string) (*PeerAddress, error) {
-	// Удаляем префикс если есть
+	// Сохраняем оригинальную строку для отладки
+	originalAddrStr := addrStr
+
+	// Удаляем префикс проекта если есть (поддерживаем оба формата)
+	// Формат 1: projectt://peerid@multiaddr
+	// Формат 2: projectt:peerid@multiaddr
 	addrStr = strings.TrimPrefix(addrStr, ProtocolPrefix+"://")
+	addrStr = strings.TrimPrefix(addrStr, ProtocolPrefix+":")
 
 	parts := strings.SplitN(addrStr, "@", 2)
 	if len(parts) != 2 {
-		// Пробуем распарсить как полный multiaddr
-		addr, err := multiaddr.NewMultiaddr(addrStr)
+		// Пробуем распарсить как полный multiaddr из оригинальной строки
+		addr, err := multiaddr.NewMultiaddr(originalAddrStr)
 		if err != nil {
 			return nil, errors.New("неверный формат адреса")
 		}
@@ -509,7 +625,7 @@ func ParsePeerAddressString(addrStr string) (*PeerAddress, error) {
 
 		return &PeerAddress{
 			PeerID:    info.ID.String(),
-			Multiaddr: addrStr,
+			Multiaddr: originalAddrStr,
 		}, nil
 	}
 

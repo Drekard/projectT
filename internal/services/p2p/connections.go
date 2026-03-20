@@ -2,7 +2,6 @@
 package p2p
 
 import (
-	"bufio"
 	"context"
 	"fmt"
 	"log"
@@ -46,6 +45,7 @@ type ConnectionService struct {
 	peerStatus     map[peer.ID]*PeerConnectionInfo // статус пиров
 	reconnectQueue []peer.ID                       // очередь на переподключение
 	keepAliveFail  map[peer.ID]int                 // счётчик неудачных ping
+	pendingProfile map[peer.ID]time.Time           // пиры с незавершённым обменом профиля
 }
 
 // PeerConnectionInfo информация о подключении к пиру
@@ -69,6 +69,7 @@ func NewConnectionService(host host.Host, config *P2PConfig) *ConnectionService 
 		peerStatus:     make(map[peer.ID]*PeerConnectionInfo),
 		reconnectQueue: make([]peer.ID, 0),
 		keepAliveFail:  make(map[peer.ID]int),
+		pendingProfile: make(map[peer.ID]time.Time),
 	}
 }
 
@@ -104,6 +105,22 @@ func (cs *ConnectionService) Stop() error {
 	cs.cancel()
 	log.Println("ConnectionService остановлен")
 	return nil
+}
+
+// MarkProfilePending отмечает пира как ожидающего обмена профиля
+func (cs *ConnectionService) MarkProfilePending(peerID peer.ID) {
+	cs.mu.Lock()
+	defer cs.mu.Unlock()
+	cs.pendingProfile[peerID] = time.Now()
+	log.Printf("[Profile] Пир %s отмечен как ожидающий обмена профиля", peerID.String()[:8])
+}
+
+// MarkProfileComplete отмечает завершение обмена профиля
+func (cs *ConnectionService) MarkProfileComplete(peerID peer.ID) {
+	cs.mu.Lock()
+	defer cs.mu.Unlock()
+	delete(cs.pendingProfile, peerID)
+	log.Printf("[Profile] Обмен профиля с %s завершён", peerID.String()[:8])
 }
 
 // initializeConnections инициализирует подключения к известным пирам
@@ -246,36 +263,62 @@ func (cs *ConnectionService) startKeepAlive() {
 func (cs *ConnectionService) sendKeepAlive() {
 	cs.mu.RLock()
 	peers := cs.host.Network().Peers()
+	// Проверяем, есть ли пиры с незавершённым обменом профиля
+	pending := cs.pendingProfile
 	cs.mu.RUnlock()
 
 	for _, peerID := range peers {
+		// Пропускаем пиров, у которых профиль ещё не получен
+		if _, ok := pending[peerID]; ok {
+			// Проверяем, не истёк ли таймаут (60 секунд)
+			if time.Since(pending[peerID]) > 60*time.Second {
+				// Таймаут истёк, убираем из pending
+				cs.mu.Lock()
+				delete(cs.pendingProfile, peerID)
+				cs.mu.Unlock()
+				log.Printf("[KeepAlive] Таймаут ожидания профиля для %s, начинаем ping", peerID.String()[:8])
+			} else {
+				continue
+			}
+		}
 		go cs.pingPeer(peerID)
 	}
 }
 
 // pingPeer отправляет ping конкретному пиру
 func (cs *ConnectionService) pingPeer(peerID peer.ID) {
-	ctx, cancel := context.WithTimeout(cs.ctx, 10*time.Second)
+	// Увеличиваем таймаут до 30 секунд для нестабильных соединений
+	ctx, cancel := context.WithTimeout(cs.ctx, 30*time.Second)
 	defer cancel()
 
+	log.Printf("[KeepAlive] Ping пира %s (начало)...", peerID.String()[:8])
+
 	// Создаём стрим для ping
+	startTime := time.Now()
 	stream, err := cs.host.NewStream(ctx, peerID, PingProtocolID)
 	if err != nil {
+		log.Printf("[KeepAlive] Ошибка создания стрима для %s: %v", peerID.String()[:8], err)
 		cs.handlePingFailure(peerID, fmt.Errorf("не удалось создать стрим: %w", err))
 		return
 	}
 	defer stream.Close()
 
+	log.Printf("[KeepAlive] Стрим создан для %s за %v", peerID.String()[:8], time.Since(startTime))
+
 	// Отправляем "ping"
-	startTime := time.Now()
+	startTime = time.Now()
 	_, err = stream.Write([]byte("ping"))
 	if err != nil {
+		log.Printf("[KeepAlive] Ошибка записи ping для %s: %v", peerID.String()[:8], err)
 		cs.handlePingFailure(peerID, fmt.Errorf("ошибка записи: %w", err))
 		return
 	}
 
-	// Читаем "pong"
-	if err := stream.SetReadDeadline(time.Now().Add(5 * time.Second)); err != nil {
+	log.Printf("[KeepAlive] Ping отправлен %s, ждём pong...", peerID.String()[:8])
+
+	// Читаем "pong" - увеличиваем таймаут до 20 секунд
+	if err := stream.SetReadDeadline(time.Now().Add(20 * time.Second)); err != nil {
+		log.Printf("[KeepAlive] Ошибка установки таймаута для %s: %v", peerID.String()[:8], err)
 		cs.handlePingFailure(peerID, fmt.Errorf("ошибка установки таймаута: %w", err))
 		return
 	}
@@ -283,12 +326,20 @@ func (cs *ConnectionService) pingPeer(peerID peer.ID) {
 	n, err := stream.Read(response)
 	latency := time.Since(startTime)
 
-	if err != nil || n != 4 || string(response) != "pong" {
+	if err != nil {
+		log.Printf("[KeepAlive] Ошибка чтения pong от %s: %v", peerID.String()[:8], err)
+		cs.handlePingFailure(peerID, fmt.Errorf("ошибка чтения или неверный ответ: %w", err))
+		return
+	}
+
+	if n != 4 || string(response) != "pong" {
+		log.Printf("[KeepAlive] Неверный ответ от %s: n=%d, response=%q", peerID.String()[:8], n, string(response))
 		cs.handlePingFailure(peerID, fmt.Errorf("ошибка чтения или неверный ответ: %w", err))
 		return
 	}
 
 	// Успешный ping
+	log.Printf("[KeepAlive] ✅ Pong получен от %s, latency: %v", peerID.String()[:8], latency)
 	cs.handlePingSuccess(peerID, latency)
 }
 
@@ -344,16 +395,16 @@ func (cs *ConnectionService) handlePingFailure(peerID peer.ID, err error) {
 func (cs *ConnectionService) handlePing(stream network.Stream) {
 	defer stream.Close()
 
-	// Читаем "ping"
-	reader := bufio.NewReader(stream)
-	request, err := reader.ReadString('\n')
+	// Читаем "ping" - 4 байта
+	buffer := make([]byte, 4)
+	n, err := stream.Read(buffer)
 	if err != nil {
-		// Пробуем прочитать без \n
-		request = "ping"
+		log.Printf("[Ping] Ошибка чтения ping: %v", err)
+		return
 	}
 
 	// Если получили "ping" - отвечаем "pong"
-	if len(request) >= 4 && request[:4] == "ping" {
+	if n == 4 && string(buffer) == "ping" {
 		if _, err := stream.Write([]byte("pong")); err != nil {
 			log.Printf("Ошибка записи pong: %v", err)
 		}

@@ -6,7 +6,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"io"
 	"log"
 	"time"
 
@@ -27,6 +26,7 @@ const ProtocolID = "/projectt/profile/2.0.0"
 // ProfileRequest запрос профиля
 type ProfileRequest struct {
 	RequestFull bool `json:"request_full"` // Запрос полного профиля с подписью
+	IsInitiator bool `json:"is_initiator"` // true = инициатор подключения (Роль 1), false = сервер (Роль 2)
 }
 
 // ProfileResponse ответ с профилем (полная версия)
@@ -41,6 +41,7 @@ type ProfileResponse struct {
 	PublicKey      []byte   `json:"public_key"`
 	Signature      []byte   `json:"signature,omitempty"` // Подпись профиля
 	Timestamp      int64    `json:"timestamp"`
+	IsInitiator    bool     `json:"is_initiator"` // Роль отправителя профиля
 }
 
 // ProfileWithSignature профиль вместе с подписью для проверки
@@ -56,6 +57,10 @@ type ExchangeService struct {
 	localPrivKey crypto.PrivKey
 	localPubKey  crypto.PubKey
 	transferSvc  *transfer.Service // сервис передачи файлов для аватарок
+	connSvc      interface {
+		MarkProfilePending(peer.ID)
+		MarkProfileComplete(peer.ID)
+	} // сервис подключений для отслеживания статуса профиля
 }
 
 // NewExchangeService создаёт сервис обмена профилями
@@ -70,6 +75,14 @@ func NewExchangeService(host host.Host, privKey crypto.PrivKey, pubKey crypto.Pu
 // SetTransferService устанавливает сервис передачи файлов
 func (pes *ExchangeService) SetTransferService(transferSvc *transfer.Service) {
 	pes.transferSvc = transferSvc
+}
+
+// SetConnectionService устанавливает сервис подключений
+func (pes *ExchangeService) SetConnectionService(connSvc interface {
+	MarkProfilePending(peer.ID)
+	MarkProfileComplete(peer.ID)
+}) {
+	pes.connSvc = connSvc
 }
 
 // getTransferService возвращает сервис передачи файлов
@@ -93,136 +106,155 @@ func (pes *ExchangeService) Stop() error {
 	return nil
 }
 
-// handleProfileRequest обрабатывает входящий запрос профиля
+// handleProfileRequest обрабатывает входящий запрос профиля (Роль 2 - СЕРВЕР)
+// Протокол:
+// 1. Читаем запрос (с флагом IsInitiator)
+// 2. Отправляем свой профиль
+// 3. Читаем ответ (профиль инициатора)
 func (pes *ExchangeService) handleProfileRequest(stream network.Stream) {
 	defer stream.Close()
 
 	remotePeer := stream.Conn().RemotePeer()
-	log.Printf("Получен запрос профиля от: %s", remotePeer.String())
+	log.Printf("[Profile] === Получен запрос профиля от: %s (Роль 2 - СЕРВЕР) ===", remotePeer.String())
 
-	// Читаем запрос
+	// Читаем запрос с помощью json.Decoder (не читаем весь стрим)
 	reader := bufio.NewReader(stream)
-	reqData, err := io.ReadAll(reader)
-	if err != nil {
-		log.Printf("Ошибка чтения запроса профиля: %v", err)
+	decoder := json.NewDecoder(reader)
+
+	log.Printf("[Profile] Чтение запроса от %s...", remotePeer.String()[:8])
+	req := ProfileRequest{}
+	if err := decoder.Decode(&req); err != nil {
+		log.Printf("[Profile] Ошибка чтения запроса профиля от %s: %v", remotePeer.String()[:8], err)
 		return
 	}
+	log.Printf("[Profile] Запрос получен от %s: RequestFull=%v, IsInitiator=%v", remotePeer.String()[:8], req.RequestFull, req.IsInitiator)
 
-	var req ProfileRequest
-	if len(reqData) > 0 {
-		if err := json.Unmarshal(reqData, &req); err != nil {
-			log.Printf("Ошибка десериализации запроса: %v", err)
-			// Продолжаем с запросом по умолчанию
+	// Отправляем свой профиль (Роль 2 - СЕРВЕР, isInitiator=false)
+	log.Printf("[Profile] Отправка своего профиля (СЕРВЕР) пиру %s...", remotePeer.String()[:8])
+	if err := pes.sendLocalProfile(stream, false); err != nil {
+		log.Printf("[Profile] Ошибка отправки профиля: %v", err)
+		return
+	}
+	log.Printf("[Profile] ✅ Свой профиль (СЕРВЕР) отправлен %s", remotePeer.String()[:8])
+
+	// Читаем профиль инициатора в ответ
+	log.Printf("[Profile] Чтение профиля инициатора от %s...", remotePeer.String()[:8])
+	startTime := time.Now()
+	if err := stream.SetReadDeadline(time.Now().Add(30 * time.Second)); err != nil {
+		log.Printf("[Profile] Предупреждение: не удалось установить таймаут: %v", err)
+	}
+
+	response := &ProfileResponse{}
+	if err := json.NewDecoder(reader).Decode(response); err != nil {
+		log.Printf("[Profile] Ошибка чтения профиля инициатора от %s за %v: %v", remotePeer.String()[:8], time.Since(startTime), err)
+		return
+	}
+	log.Printf("[Profile] ✅ Профиль инициатора получен от %s за %v (username: %s)", remotePeer.String()[:8], time.Since(startTime), response.Username)
+
+	// Сохраняем профиль инициатора
+	profile := &models.Profile{
+		OwnerType:      models.OwnerTypeRemote,
+		PeerID:         response.PeerID,
+		Username:       response.Username,
+		Title:          response.Title,
+		AvatarPath:     response.AvatarPath,
+		BackgroundPath: response.BackgroundPath,
+		ContentChar:    response.ContentChar,
+		PinnedUUIDs:    "[]",
+	}
+
+	if len(response.PinnedUUIDs) > 0 {
+		uuidsJSON, err := json.Marshal(response.PinnedUUIDs)
+		if err == nil {
+			profile.PinnedUUIDs = string(uuidsJSON)
 		}
 	}
 
-	// Получаем локальный профиль
-	localProfile, err := queries.GetLocalProfile()
-	if err != nil {
-		log.Printf("Ошибка получения локального профиля: %v", err)
-		return
+	now := time.Now()
+	profile.CachedAt = &now
+
+	if err := pes.savePeerProfile(profile, response.PublicKey, response.Signature); err != nil {
+		log.Printf("[Profile] Предупреждение: не удалось сохранить профиль: %v", err)
 	}
 
-	// Получаем ключи
-	localKeys, err := queries.GetProfileKeys(localProfile.ID)
-	if err != nil {
-		log.Printf("Ошибка получения ключей: %v", err)
-		return
-	}
-
-	// Загружаем избранные элементы для получения их UUID
-	pinnedItems, err := queries.GetPinnedItems()
-	if err != nil {
-		log.Printf("Ошибка загрузки pinned items: %v", err)
-		pinnedItems = []*models.Item{}
-	}
-
-	// Извлекаем UUID избранных элементов
-	var pinnedUUIDs []string
-	for _, item := range pinnedItems {
-		if item.ElementUUID != "" {
-			pinnedUUIDs = append(pinnedUUIDs, item.ElementUUID)
-		}
-	}
-
-	// Формируем ответ
-	response := &ProfileResponse{
-		PeerID:         localProfile.PeerID,
-		Username:       localProfile.Username,
-		Title:          localProfile.Title,
-		AvatarPath:     localProfile.AvatarPath,
-		BackgroundPath: localProfile.BackgroundPath,
-		ContentChar:    localProfile.ContentChar,
-		PinnedUUIDs:    pinnedUUIDs,
-		PublicKey:      localKeys.PublicKey,
-		Timestamp:      time.Now().UnixNano(),
-	}
-
-	// Подписываем профиль если запрошено
-	if req.RequestFull {
-		signature, err := pes.signProfile(localProfile)
-		if err != nil {
-			log.Printf("Ошибка подписи профиля: %v", err)
-		} else {
-			response.Signature = signature
-		}
-	}
-
-	// Сериализуем ответ
-	data, err := json.Marshal(response)
-	if err != nil {
-		log.Printf("Ошибка сериализации профиля: %v", err)
-		return
-	}
-
-	// Отправляем ответ
-	writer := bufio.NewWriter(stream)
-	if _, err := writer.Write(data); err != nil {
-		log.Printf("Ошибка отправки профиля: %v", err)
-		return
-	}
-
-	if err := writer.Flush(); err != nil {
-		log.Printf("Ошибка flush профиля: %v", err)
-		return
-	}
-
-	log.Printf("Отправлен профиль пиру %s", remotePeer)
+	log.Printf("[Profile] ✅ Профиль инициатора %s сохранён (username: %s)", response.PeerID[:8], response.Username)
 }
 
-// RequestPeerProfile запрашивает профиль у удалённого пира
+// RequestPeerProfile запрашивает профиль у удалённого пира (Роль 1 - ИНИЦИАТОР)
+// Протокол:
+// 1. Отправляем запрос с IsInitiator=true
+// 2. Читаем ответ (профиль сервера)
+// 3. Отправляем свой профиль в ответ
 func (pes *ExchangeService) RequestPeerProfile(ctx context.Context, peerID peer.ID) (*ProfileWithSignature, error) {
+	return pes.requestPeerProfileWithRole(ctx, peerID, true)
+}
+
+// requestPeerProfileWithRole запрашивает профиль с указанной ролью
+func (pes *ExchangeService) requestPeerProfileWithRole(ctx context.Context, peerID peer.ID, isInitiator bool) (*ProfileWithSignature, error) {
+	log.Printf("[Profile] Запрос профиля у пира %s (роль: %s)...", peerID.String()[:8], map[bool]string{true: "ИНИЦИАТОР", false: "СЕРВЕР"}[isInitiator])
+
+	// Отмечаем начало обмена профиля
+	if pes.connSvc != nil {
+		pes.connSvc.MarkProfilePending(peerID)
+	}
+	defer func() {
+		if pes.connSvc != nil {
+			pes.connSvc.MarkProfileComplete(peerID)
+		}
+	}()
+
 	// Создаём стрим
+	startTime := time.Now()
 	stream, err := pes.host.NewStream(ctx, peerID, ProtocolID)
 	if err != nil {
+		log.Printf("[Profile] Ошибка создания стрима для %s: %v", peerID.String()[:8], err)
 		return nil, fmt.Errorf("ошибка создания стрима: %w", err)
 	}
 	defer stream.Close()
+	log.Printf("[Profile] Стрим создан для %s за %v", peerID.String()[:8], time.Since(startTime))
 
 	// Отправляем запрос
-	req := &ProfileRequest{RequestFull: true}
+	req := &ProfileRequest{RequestFull: true, IsInitiator: isInitiator}
 	reqData, _ := json.Marshal(req)
 
+	log.Printf("[Profile] Отправка запроса профилю %s (IsInitiator=%v)...", peerID.String()[:8], isInitiator)
 	writer := bufio.NewWriter(stream)
 	if _, err := writer.Write(reqData); err != nil {
+		log.Printf("[Profile] Ошибка отправки запроса для %s: %v", peerID.String()[:8], err)
 		return nil, fmt.Errorf("ошибка отправки запроса: %w", err)
 	}
 
 	if err := writer.Flush(); err != nil {
+		log.Printf("[Profile] Ошибка flush для %s: %v", peerID.String()[:8], err)
 		return nil, fmt.Errorf("ошибка flush: %w", err)
 	}
+	log.Printf("[Profile] Запрос отправлен %s, ждём ответ...", peerID.String()[:8])
 
-	// Устанавливаем таймаут
-	if err := stream.SetReadDeadline(time.Now().Add(10 * time.Second)); err != nil {
-		log.Printf("Предупреждение: не удалось установить таймаут: %v", err)
+	// Увеличиваем таймаут до 30 секунд для нестабильных соединений
+	if err := stream.SetReadDeadline(time.Now().Add(30 * time.Second)); err != nil {
+		log.Printf("[Profile] Предупреждение: не удалось установить таймаут: %v", err)
 	}
 
-	// Читаем ответ
+	// Читаем ответ (профиль сервера)
+	log.Printf("[Profile] Чтение ответа (профиль сервера) от %s...", peerID.String()[:8])
+	startTime = time.Now()
 	reader := bufio.NewReader(stream)
 	response := &ProfileResponse{}
 
 	if err := json.NewDecoder(reader).Decode(response); err != nil {
+		log.Printf("[Profile] Ошибка чтения ответа от %s за %v: %v", peerID.String()[:8], time.Since(startTime), err)
 		return nil, fmt.Errorf("ошибка чтения ответа: %w", err)
+	}
+	log.Printf("[Profile] ✅ Профиль сервера получен от %s за %v (username: %s)", peerID.String()[:8], time.Since(startTime), response.Username)
+
+	// Если мы инициатор - отправляем свой профиль в ответ (с isInitiator=true)
+	if isInitiator {
+		log.Printf("[Profile] Отправка своего профиля пиру %s...", peerID.String()[:8])
+		if err := pes.sendLocalProfile(stream, true); err != nil {
+			log.Printf("[Profile] Ошибка отправки своего профиля: %v", err)
+			return nil, fmt.Errorf("ошибка отправки профиля: %w", err)
+		}
+		log.Printf("[Profile] ✅ Свой профиль отправлен %s", peerID.String()[:8])
 	}
 
 	// Преобразуем в модель
@@ -234,10 +266,9 @@ func (pes *ExchangeService) RequestPeerProfile(ctx context.Context, peerID peer.
 		AvatarPath:     response.AvatarPath,
 		BackgroundPath: response.BackgroundPath,
 		ContentChar:    response.ContentChar,
-		PinnedUUIDs:    "[]", // Будет обновлено в savePeerProfile
+		PinnedUUIDs:    "[]",
 	}
 
-	// Сериализуем pinned_uuids в JSON
 	if len(response.PinnedUUIDs) > 0 {
 		uuidsJSON, err := json.Marshal(response.PinnedUUIDs)
 		if err == nil {
@@ -248,23 +279,69 @@ func (pes *ExchangeService) RequestPeerProfile(ctx context.Context, peerID peer.
 	now := time.Now()
 	profile.CachedAt = &now
 
-	// Проверяем подпись если есть
-	if len(response.Signature) > 0 {
-		// TODO: Проверка подписи
-		log.Printf("Получена подпись профиля, проверка...")
-	}
-
-	// Сохраняем профиль в БД
-	if err := pes.savePeerProfile(profile, response.PublicKey, response.Signature); err != nil {
-		log.Printf("Предупреждение: не удалось сохранить профиль: %v", err)
-	}
-
-	log.Printf("Получен профиль от %s: username=%s", peerID, response.Username)
-	return &ProfileWithSignature{
+	result := &ProfileWithSignature{
 		Profile:   profile,
 		PublicKey: response.PublicKey,
 		Signature: response.Signature,
-	}, nil
+	}
+
+	return result, nil
+}
+
+// sendLocalProfile отправляет локальный профиль в стрим
+func (pes *ExchangeService) sendLocalProfile(stream network.Stream, isInitiator bool) error {
+	localProfile, err := queries.GetLocalProfile()
+	if err != nil {
+		return fmt.Errorf("ошибка получения локального профиля: %w", err)
+	}
+
+	localKeys, err := queries.GetProfileKeys(localProfile.ID)
+	if err != nil {
+		return fmt.Errorf("ошибка получения ключей: %w", err)
+	}
+
+	pinnedItems, err := queries.GetPinnedItems()
+	if err != nil {
+		pinnedItems = []*models.Item{}
+	}
+
+	var pinnedUUIDs []string
+	for _, item := range pinnedItems {
+		if item.ElementUUID != "" {
+			pinnedUUIDs = append(pinnedUUIDs, item.ElementUUID)
+		}
+	}
+
+	response := &ProfileResponse{
+		PeerID:         localProfile.PeerID,
+		Username:       localProfile.Username,
+		Title:          localProfile.Title,
+		AvatarPath:     localProfile.AvatarPath,
+		BackgroundPath: localProfile.BackgroundPath,
+		ContentChar:    localProfile.ContentChar,
+		PinnedUUIDs:    pinnedUUIDs,
+		PublicKey:      localKeys.PublicKey,
+		Timestamp:      time.Now().UnixNano(),
+		IsInitiator:    isInitiator,
+	}
+
+	if isInitiator {
+		signature, err := pes.signProfile(localProfile)
+		if err == nil {
+			response.Signature = signature
+		}
+	}
+
+	data, err := json.Marshal(response)
+	if err != nil {
+		return fmt.Errorf("ошибка сериализации: %w", err)
+	}
+
+	writer := bufio.NewWriter(stream)
+	if _, err := writer.Write(data); err != nil {
+		return fmt.Errorf("ошибка записи: %w", err)
+	}
+	return writer.Flush()
 }
 
 // savePeerProfile сохраняет профиль пира в базу данных

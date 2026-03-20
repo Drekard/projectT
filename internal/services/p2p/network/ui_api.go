@@ -5,6 +5,7 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"strings"
 	"time"
 
 	"projectT/internal/services/p2p"
@@ -12,6 +13,7 @@ import (
 	"projectT/internal/storage/database/queries"
 
 	"github.com/libp2p/go-libp2p/core/peer"
+	"github.com/multiformats/go-multiaddr"
 )
 
 // P2PStatus статус P2P подключения
@@ -135,6 +137,18 @@ func (api *UIP2P) UpdateSettings(settings *P2PSettings) error {
 	api.network.mu.Lock()
 	defer api.network.mu.Unlock()
 
+	// Проверяем, изменились ли настройки
+	settingsChanged := api.network.config.ListenPort != settings.ListenPort ||
+		api.network.config.EnableNATPortMap != settings.EnableNATPortMap ||
+		api.network.config.EnableRelay != settings.EnableRelay ||
+		api.network.config.EnableAutoRelay != settings.EnableAutoRelay ||
+		api.network.config.EnableDHT != settings.EnableDHT ||
+		api.network.config.EnableMDNS != settings.EnableMDNS ||
+		api.network.config.EnableSTUNClient != settings.EnableSTUN ||
+		api.network.config.STUNServer != settings.STUNServer ||
+		api.network.config.EnableHelperMode != settings.EnableHelperMode
+
+	// Сохраняем настройки
 	api.network.config.ListenPort = settings.ListenPort
 	api.network.config.EnableNATPortMap = settings.EnableNATPortMap
 	api.network.config.EnableRelay = settings.EnableRelay
@@ -144,6 +158,14 @@ func (api *UIP2P) UpdateSettings(settings *P2PSettings) error {
 	api.network.config.EnableSTUNClient = settings.EnableSTUN
 	api.network.config.STUNServer = settings.STUNServer
 	api.network.config.EnableHelperMode = settings.EnableHelperMode
+
+	log.Println("Настройки P2P сохранены")
+
+	// Если настройки изменились и хост запущен - требуется перезапуск
+	if settingsChanged && api.network.host != nil {
+		log.Println("Настройки изменились - требуется перезапуск P2P для применения")
+		// TODO: реализовать автоматический рестарт или показать уведомление пользователю
+	}
 
 	// TODO: сохранить настройки в БД когда будет реализовано
 	return nil
@@ -236,26 +258,40 @@ func (api *UIP2P) AddContactByAddress(addrStr, username string) error {
 		return fmt.Errorf("ошибка декодирования PeerID: %w", err)
 	}
 
+	log.Printf("=== AddContactByAddress ===")
+	log.Printf("PeerID: %s", peerID.String())
+	log.Printf("Адрес: %s", addrStr)
+
 	// Пробуем подключиться к пиру для получения профиля
-	ctx, cancel := context.WithTimeout(api.network.ctx, 10*time.Second)
+	// Увеличиваем таймаут до 60 секунд для подключения через NAT
+	ctx, cancel := context.WithTimeout(api.network.ctx, 60*time.Second)
 	defer cancel()
 
 	// Подключаемся к пиру
+	log.Printf("Попытка подключения к пиру...")
 	if err := p2p.ConnectToPeer(ctx, api.network.host, addrStr); err != nil {
 		// Подключение не удалось, но контакт всё равно создан
 		// Профиль будет запрошен позже при следующей попытке
-		log.Printf("Не удалось подключиться к пиру %s: %v", peerID.String(), err)
+		log.Printf("❌ Не удалось подключиться к пиру %s: %v", peerID.String(), err)
 	} else {
 		// Подключение успешно — запрашиваем профиль
-		if api.network.profileExchange != nil {
+		log.Printf("✅ Подключение успешно, запрашиваем профиль...")
+		log.Printf("profileExchange = %v", api.network.profileExchange != nil)
+
+		if api.network.profileExchange == nil {
+			log.Printf("❌ profileExchange не инициализирован!")
+		} else {
 			go func() {
-				profileCtx, profileCancel := context.WithTimeout(context.Background(), 10*time.Second)
+				log.Printf("[ГОРУТИНКА] Запуск запроса профиля...")
+				// Увеличиваем таймаут для запроса профиля до 30 секунд
+				profileCtx, profileCancel := context.WithTimeout(context.Background(), 30*time.Second)
 				defer profileCancel()
 
 				// Запрашиваем профиль у пира
+				log.Printf("Запрос профиля у пира %s...", peerID.String())
 				profileWithSig, err := api.network.profileExchange.RequestPeerProfile(profileCtx, peerID)
 				if err != nil {
-					log.Printf("Не удалось получить профиль у пира %s: %v", peerID.String(), err)
+					log.Printf("❌ Не удалось получить профиль у пира %s: %v", peerID.String(), err)
 					return
 				}
 
@@ -264,7 +300,7 @@ func (api *UIP2P) AddContactByAddress(addrStr, username string) error {
 					if err := queries.UpdateRemoteProfile(profileWithSig.Profile); err != nil {
 						log.Printf("Не удалось обновить профиль пира %s: %v", peerID.String(), err)
 					} else {
-						log.Printf("Профиль пира %s получен и сохранён: %s", peerID.String(), profileWithSig.Profile.Username)
+						log.Printf("✅ Профиль пира %s получен и сохранён: %s", peerID.String(), profileWithSig.Profile.Username)
 					}
 				}
 			}()
@@ -294,7 +330,49 @@ func (api *UIP2P) ConnectToContact(addrStr string) error {
 	ctx, cancel := context.WithTimeout(api.network.ctx, 30*time.Second)
 	defer cancel()
 
-	return p2p.ConnectToPeer(ctx, api.network.host, addrStr)
+	// Подключаемся к пиру
+	if err := p2p.ConnectToPeer(ctx, api.network.host, addrStr); err != nil {
+		return fmt.Errorf("ошибка подключения: %w", err)
+	}
+
+	// Получаем PeerID из адреса
+	peerAddr, err := p2p.ImportPeerAddress(api.network.host, addrStr)
+	if err != nil {
+		return fmt.Errorf("ошибка импорта адреса: %w", err)
+	}
+	peerID, err := peer.Decode(peerAddr.PeerID)
+	if err != nil {
+		return fmt.Errorf("ошибка декодирования PeerID: %w", err)
+	}
+
+	// Запрашиваем профиль после подключения
+	go func() {
+		log.Printf("[ConnectToContact] Подключение к %s успешно, запрашиваем профиль...", peerID.String()[:8])
+		profileCtx, profileCancel := context.WithTimeout(context.Background(), 30*time.Second)
+		defer profileCancel()
+
+		if api.network.profileExchange == nil {
+			log.Printf("[ConnectToContact] ❌ profileExchange не инициализирован!")
+			return
+		}
+
+		profileWithSig, err := api.network.profileExchange.RequestPeerProfile(profileCtx, peerID)
+		if err != nil {
+			log.Printf("[ConnectToContact] ❌ Не удалось получить профиль у пира %s: %v", peerID.String(), err)
+			return
+		}
+
+		// Обновляем remote профиль в БД
+		if profileWithSig != nil && profileWithSig.Profile != nil {
+			if err := queries.UpdateRemoteProfile(profileWithSig.Profile); err != nil {
+				log.Printf("[ConnectToContact] Не удалось обновить профиль пира %s: %v", peerID.String(), err)
+			} else {
+				log.Printf("[ConnectToContact] ✅ Профиль пира %s получен: %s", peerID.String(), profileWithSig.Profile.Username)
+			}
+		}
+	}()
+
+	return nil
 }
 
 // GetConnectedPeers возвращает список подключённых пиров
@@ -565,4 +643,63 @@ func (api *UIP2P) ConnectToDiscoveredPeer(peerIDStr string) error {
 
 	log.Printf("Подключено к пиру: %s", peerID)
 	return nil
+}
+
+// GetLocalAddresses возвращает список локальных адресов для подключения в одной сети
+func (api *UIP2P) GetLocalAddresses() []string {
+	api.network.mu.RLock()
+	defer api.network.mu.RUnlock()
+
+	var addresses []string
+
+	if api.network.host == nil {
+		return addresses
+	}
+
+	peerID := api.network.host.ID().String()
+
+	log.Printf("[GetLocalAddresses] PeerID: %s", peerID)
+
+	for _, addr := range api.network.host.Addrs() {
+		addrStr := addr.String()
+		// Пропускаем localhost и IPv6
+		if strings.Contains(addrStr, "127.0.0.1") || strings.Contains(addrStr, "::1") {
+			continue
+		}
+		// Извлекаем IP и порт из multiaddr
+		ip, err := addr.ValueForProtocol(multiaddr.P_IP4)
+		if err == nil {
+			portStr, err := addr.ValueForProtocol(multiaddr.P_TCP)
+			if err != nil {
+				continue
+			}
+
+			var port int
+			if _, err := fmt.Sscanf(portStr, "%d", &port); err != nil {
+				log.Printf("[GetLocalAddresses] Ошибка парсинга порта %s: %v", portStr, err)
+				continue
+			}
+
+			// Пропускаем порт 0
+			if port <= 0 {
+				continue
+			}
+
+			address := fmt.Sprintf("%s:%s@/ip4/%s/tcp/%d/p2p/%s", p2p.ProtocolPrefix, peerID, ip, port, peerID)
+			addresses = append(addresses, address)
+			log.Printf("[GetLocalAddresses] Адрес: %s", address)
+		}
+	}
+
+	return addresses
+}
+
+// Stop останавливает P2P сеть
+func (api *UIP2P) Stop() error {
+	return api.network.Stop()
+}
+
+// Start запускает P2P сеть
+func (api *UIP2P) Start() error {
+	return api.network.Start()
 }

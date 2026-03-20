@@ -2,7 +2,6 @@
 package network
 
 import (
-	"context"
 	"log"
 	"time"
 
@@ -23,17 +22,8 @@ func (n *P2PNetwork) onPeerConnected(peerID peer.ID) {
 		_ = queries.UpdateContactLastSeen(contact.ID, &now)
 	}
 
-	// Запрашиваем профиль у пира
-	if n.profileExchange != nil {
-		go func() {
-			ctx, cancel := context.WithTimeout(n.ctx, 10*time.Second)
-			defer cancel()
-
-			if _, err := n.profileExchange.RequestPeerProfile(ctx, peerID); err != nil {
-				log.Printf("Не удалось получить профиль от %s: %v", peerID, err)
-			}
-		}()
-	}
+	// Не запрашиваем профиль автоматически — это делается через UI при подключении
+	// Профиль запрашивается только инициатором подключения, чтобы избежать гонки
 }
 
 // onPeerDisconnected вызывается при отключении пира
