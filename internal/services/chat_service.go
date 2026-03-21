@@ -4,6 +4,7 @@ package services
 import (
 	"encoding/json"
 	"fmt"
+	"log"
 	"projectT/internal/storage/database/models"
 	"projectT/internal/storage/database/queries"
 	"time"
@@ -73,8 +74,31 @@ func (cs *ChatService) Subscribe() <-chan *ChatMessageEvent {
 
 // SendTextMessage отправляет текстовое сообщение
 func (cs *ChatService) SendTextMessage(contactID int, fromPeerID string, content string) (*models.ChatMessage, error) {
+	// Получаем peer_id из контакта
+	var peerID string
+	if contactID == 0 {
+		// Локальный чат
+		profile, err := queries.GetLocalProfile()
+		if err != nil {
+			return nil, fmt.Errorf("ошибка получения локального профиля: %w", err)
+		}
+		peerID = profile.PeerID
+	} else {
+		contact, err := queries.GetContact(contactID)
+		if err != nil {
+			return nil, fmt.Errorf("ошибка получения контакта: %w", err)
+		}
+		peerID = contact.PeerID
+	}
+
+	// Получаем или создаём чат
+	chat, err := queries.GetOrCreateChat(peerID, &contactID)
+	if err != nil {
+		return nil, fmt.Errorf("ошибка получения чата: %w", err)
+	}
+
 	message := &models.ChatMessage{
-		ContactID:   contactID,
+		ChatID:      chat.ID,
 		FromPeerID:  fromPeerID,
 		Content:     content,
 		ContentType: "text",
@@ -84,6 +108,11 @@ func (cs *ChatService) SendTextMessage(contactID int, fromPeerID string, content
 
 	if err := queries.CreateChatMessage(message); err != nil {
 		return nil, fmt.Errorf("ошибка сохранения сообщения: %w", err)
+	}
+
+	// Обновляем время последнего сообщения в чате
+	if err := queries.UpdateChatLastMessage(chat.ID, message.SentAt); err != nil {
+		log.Printf("Предупреждение: не удалось обновить время чата: %v", err)
 	}
 
 	// Получаем имя контакта для события
@@ -108,6 +137,29 @@ func (cs *ChatService) SendTextMessage(contactID int, fromPeerID string, content
 
 // SendElementMessage отправляет элемент в чат
 func (cs *ChatService) SendElementMessage(contactID int, fromPeerID string, item *models.Item) (*models.ChatMessage, error) {
+	// Получаем peer_id из контакта
+	var peerID string
+	if contactID == 0 {
+		// Локальный чат
+		profile, err := queries.GetLocalProfile()
+		if err != nil {
+			return nil, fmt.Errorf("ошибка получения локального профиля: %w", err)
+		}
+		peerID = profile.PeerID
+	} else {
+		contact, err := queries.GetContact(contactID)
+		if err != nil {
+			return nil, fmt.Errorf("ошибка получения контакта: %w", err)
+		}
+		peerID = contact.PeerID
+	}
+
+	// Получаем или создаём чат
+	chat, err := queries.GetOrCreateChat(peerID, &contactID)
+	if err != nil {
+		return nil, fmt.Errorf("ошибка получения чата: %w", err)
+	}
+
 	// Создаём метаданные элемента
 	metadata := map[string]interface{}{
 		"item_id":      item.ID,
@@ -125,7 +177,7 @@ func (cs *ChatService) SendElementMessage(contactID int, fromPeerID string, item
 
 	// Создаём сообщение
 	message := &models.ChatMessage{
-		ContactID:   contactID,
+		ChatID:      chat.ID,
 		FromPeerID:  fromPeerID,
 		Content:     item.ElementUUID,
 		ContentType: "element",
@@ -136,6 +188,11 @@ func (cs *ChatService) SendElementMessage(contactID int, fromPeerID string, item
 
 	if err := queries.CreateChatMessage(message); err != nil {
 		return nil, fmt.Errorf("ошибка сохранения сообщения: %w", err)
+	}
+
+	// Обновляем время последнего сообщения в чате
+	if err := queries.UpdateChatLastMessage(chat.ID, message.SentAt); err != nil {
+		log.Printf("Предупреждение: не удалось обновить время чата: %v", err)
 	}
 
 	// Получаем имя контакта для события

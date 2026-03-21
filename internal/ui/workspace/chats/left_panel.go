@@ -22,8 +22,8 @@ func (ui *UI) createLeftPanel() *fyne.Container {
 	// Список чатов
 	ui.chatsList = container.NewVBox()
 
-	// Загружаем контакты из БД
-	ui.loadContactsToChatsList()
+	// Загружаем чаты из БД
+	ui.loadChatsList()
 
 	// Вертикальная компоновка
 	content := container.NewVBox(header, ui.chatsList)
@@ -34,76 +34,92 @@ func (ui *UI) createLeftPanel() *fyne.Container {
 	return container.NewStack(scroll)
 }
 
-// loadContactsToChatsList загружает контакты из БД в список чатов
-func (ui *UI) loadContactsToChatsList() {
+// loadChatsList загружает чаты с последними сообщениями в список чатов
+func (ui *UI) loadChatsList() {
 	if ui.chatsList == nil {
 		return
 	}
 
 	ui.chatsList.Objects = nil
 
-	contacts, err := queries.GetAllContacts()
+	chats, err := queries.GetChatsWithLastMessages()
 	if err != nil {
-		log.Printf("Ошибка загрузки контактов: %v", err)
+		log.Printf("Ошибка загрузки чатов: %v", err)
 		// Показываем сообщение об ошибке
-		emptyLabel := widget.NewLabel("Ошибка загрузки контактов")
+		emptyLabel := widget.NewLabel("Ошибка загрузки чатов")
 		emptyLabel.TextStyle = fyne.TextStyle{Italic: true}
 		ui.chatsList.Add(emptyLabel)
+		ui.chatsList.Refresh()
 		return
 	}
 
-	if len(contacts) == 0 {
-		emptyLabel := widget.NewLabel("Нет контактов")
+	if len(chats) == 0 {
+		emptyLabel := widget.NewLabel("Нет чатов")
 		emptyLabel.TextStyle = fyne.TextStyle{Italic: true}
 		ui.chatsList.Add(emptyLabel)
 	} else {
-		for _, contact := range contacts {
-			peerItem := ui.createPeerItem(contact)
-			ui.chatsList.Add(peerItem)
+		for _, chat := range chats {
+			chatItem := ui.createChatItem(chat)
+			ui.chatsList.Add(chatItem)
 		}
 	}
 
 	ui.chatsList.Refresh()
 }
 
-// createPeerItem создает элемент пира в списке
-func (ui *UI) createPeerItem(contact *models.Contact) *fyne.Container {
-	// Создаём иконку пира с аватаром
-	peerIcon := ui.createPeerAvatarIcon(contact)
+// RefreshContactsList обновляет список чатов (публичный метод для вызова извне)
+func (ui *UI) RefreshContactsList() {
+	ui.loadChatsList()
+}
 
-	// Основная компоновка: иконка + разделитель
-	content := container.NewBorder(
-		nil, nil,
-		nil, nil,
-		peerIcon,
+// createChatItem создает элемент чата с аватаром 50x50
+func (ui *UI) createChatItem(chat *models.ChatWithLastMessage) *fyne.Container {
+	// Аватар 50x50
+	avatarContainer := ui.createChatAvatarIcon(chat)
+
+	// Основная компоновка: только аватар
+	content := container.NewHBox(
+		avatarContainer,
 		widget.NewSeparator(),
 	)
 
 	return content
 }
 
-// createPeerAvatarIcon создает иконку пира с аватаром 50x50
-func (ui *UI) createPeerAvatarIcon(contact *models.Contact) *fyne.Container {
-	// Создаём фон с закругленными углами
-	avatarBg := canvas.NewRectangle(color.RGBA{R: 50, G: 50, B: 50, A: 255})
-	avatarBg.CornerRadius = 10
-	avatarBg.StrokeColor = color.RGBA{R: 255, G: 255, B: 255, A: 100}
-	avatarBg.StrokeWidth = 1
-	avatarBg.SetMinSize(fyne.NewSize(50, 50))
+// createChatAvatarIcon создает иконку чата с аватаром 50x50
+func (ui *UI) createChatAvatarIcon(chat *models.ChatWithLastMessage) *fyne.Container {
+	if chat.AvatarPath != "" {
+		// Пробуем загрузить аватар из файла
+		avatarRes, err := fyne.LoadResourceFromPath(chat.AvatarPath)
+		if err == nil && avatarRes != nil {
+			// Создаём кнопку с аватаром
+			btn := widget.NewButtonWithIcon("", avatarRes, func() {
+				ui.openChatByID(chat.ID)
+			})
+			btn.Importance = widget.LowImportance
+			return container.NewStack(btn)
+		}
+	}
 
-	// Создаём кнопку с иконкой поверх фона
-	peerBtn := widget.NewButtonWithIcon("", theme.AccountIcon(), func() {
-		ui.openPeerChat(contact)
+	// Аватара нет - используем иконку по умолчанию
+	btn := widget.NewButtonWithIcon("", theme.AccountIcon(), func() {
+		ui.openChatByID(chat.ID)
 	})
-	peerBtn.Importance = widget.LowImportance
+	btn.Importance = widget.LowImportance
+	return container.NewStack(btn)
+}
 
-	// Оборачиваем кнопку в контейнер с фиксированным размером
-	btnWrapper := canvas.NewRectangle(color.Transparent)
-	btnWrapper.SetMinSize(fyne.NewSize(50, 50))
-	btnContainer := container.NewStack(btnWrapper, peerBtn)
+// openChatByID открывает чат по ID контакта
+func (ui *UI) openChatByID(contactID int) {
+	// Получаем контакт по ID
+	contact, err := queries.GetContact(contactID)
+	if err != nil {
+		log.Printf("Ошибка получения контакта %d: %v", contactID, err)
+		return
+	}
 
-	// Оборачиваем в контейнер с фоном
-	return container.NewStack(avatarBg, btnContainer)
+	// Открываем чат
+	ui.openPeerChat(contact)
 }
 
 // openPeerChat открывает чат с пиром
@@ -146,13 +162,20 @@ func (ui *UI) createLeftPanelHeader() *fyne.Container {
 	// Иконка чата с собой
 	faworiteIcon := ui.createFaworiteIcon()
 
+	// Кнопка обновления
+	refreshBtn := widget.NewButtonWithIcon("", theme.ViewRefreshIcon(), func() {
+		ui.RefreshContactsList()
+	})
+
 	// Вертикальная компоновка иконок
 	icons := container.NewVBox(
 		contactsIcon,
 		faworiteIcon,
 	)
 
-	return container.NewPadded(icons)
+	return container.NewBorder(nil, refreshBtn, nil, nil,
+		container.NewPadded(icons),
+	)
 }
 
 // createContactsIcon создает иконку для панели контактов
@@ -162,7 +185,7 @@ func (ui *UI) createContactsIcon() *fyne.Container {
 	avatar.CornerRadius = 15
 	avatar.StrokeColor = color.RGBA{R: 255, G: 255, B: 255, A: 100}
 	avatar.StrokeWidth = 1
-	avatar.SetMinSize(fyne.NewSize(50, 50))
+	avatar.SetMinSize(fyne.NewSize(100, 100))
 
 	// Создаем кнопку с иконкой поверх графики
 	btn := widget.NewButtonWithIcon("", theme.AccountIcon(), func() {

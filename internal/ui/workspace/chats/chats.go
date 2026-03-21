@@ -1,6 +1,7 @@
 package chats
 
 import (
+	"log"
 	"projectT/internal/services"
 	"projectT/internal/services/p2p/network"
 	"projectT/internal/storage/database/models"
@@ -52,6 +53,8 @@ type UI struct {
 	onContactClick           func(contactID int)
 	onSendMessage            func(text string)
 	messageChannel           <-chan *services.ChatMessageEvent
+	chatsUI                  *UI // Ссылка на родительский UI для обновления списка контактов (экспортируемое для доступа из p2p_panel)
+	ChatsUI                  *UI
 }
 
 // New создает и возвращает новый UI чатов
@@ -138,6 +141,40 @@ func (ui *UI) selectChat(contact *models.Contact) {
 
 	// Обновляем профиль (для локального чата показываем свой профиль)
 	ui.updateProfile(contact)
+}
+
+// OpenPeerChat открывает чат с пиром (публичный метод для вызова из p2p_panel)
+func (ui *UI) OpenPeerChat(peerID, username string) {
+	// Создаём временный контакт для чата
+	tempContact := &models.Contact{
+		PeerID:   peerID,
+		Username: username,
+		ID:       0, // ID = 0 означает, что контакт не в БД
+	}
+
+	// Выбираем чат
+	ui.selectChat(tempContact)
+
+	// Загружаем сообщения (будет пусто для нового пира)
+	ui.loadMessagesForContact(0)
+
+	// Запрашиваем профиль у пира если P2P инициализирован
+	if ui.p2pUI != nil {
+		go func() {
+			err := ui.p2pUI.RequestProfile(peerID)
+			if err != nil {
+				log.Printf("Не удалось запросить профиль у пира %s: %v", peerID, err)
+			}
+		}()
+	}
+
+	// Обновляем правую панель с профилем
+	ui.updateProfile(tempContact)
+
+	// Обновляем UI
+	if ui.chatArea != nil {
+		ui.chatArea.Refresh()
+	}
 }
 
 // SubscribeToMessages подписывается на события сообщений и запускает обработчик

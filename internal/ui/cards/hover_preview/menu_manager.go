@@ -78,7 +78,9 @@ func (mm *MenuManager) ShowSimpleMenu(item *models.Item, cont fyne.CanvasObject,
 	}
 
 	if item.Type == models.ItemTypeElement && item.ContentMeta != "" && item.Description != "" {
-		children = append(children, widget.NewLabel(getDescriptionForItem(item)))
+		descLabel := widget.NewLabel(getDescriptionForItem(item))
+		descLabel.Wrapping = fyne.TextWrapWord
+		children = append(children, descLabel)
 	}
 
 	tagsContainer := getTagsContainer(item, mm, cardPos, cardSize)
@@ -787,10 +789,6 @@ func createContactRow(
 	nameLabel := widget.NewLabel(contact.Username)
 	nameLabel.TextStyle = fyne.TextStyle{Bold: true}
 
-	// Название элемента
-	itemLabel := widget.NewLabel("📤 " + item.Title)
-	itemLabel.TextStyle = fyne.TextStyle{Italic: true}
-
 	// Кнопка отправки
 	sendButton := widget.NewButton("Отправить", func() {
 		// Закрываем родительский попап
@@ -806,7 +804,7 @@ func createContactRow(
 	// Собираем строку
 	row := container.NewHBox(
 		avatar,
-		container.NewVBox(nameLabel, itemLabel),
+		container.NewVBox(nameLabel),
 		layout.NewSpacer(),
 		sendButton,
 	)
@@ -844,10 +842,6 @@ func createLocalChatRow(
 	}
 	nameLabel.TextStyle = fyne.TextStyle{Bold: true}
 
-	// Название элемента
-	itemLabel := widget.NewLabel("📤 " + item.Title)
-	itemLabel.TextStyle = fyne.TextStyle{Italic: true}
-
 	// Кнопка отправки
 	sendButton := widget.NewButton("Отправить", func() {
 		// Закрываем родительский попап
@@ -863,7 +857,7 @@ func createLocalChatRow(
 	// Собираем строку
 	row := container.NewHBox(
 		avatar,
-		container.NewVBox(nameLabel, itemLabel),
+		container.NewVBox(nameLabel),
 		layout.NewSpacer(),
 		sendButton,
 	)

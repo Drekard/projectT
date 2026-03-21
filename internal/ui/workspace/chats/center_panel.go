@@ -104,9 +104,17 @@ func (ui *UI) sendMessage() {
 			return
 		}
 
+		// Получаем или создаём чат для локального профиля
+		chat, err := queries.GetOrCreateChat(localProfile.PeerID, nil)
+		if err != nil {
+			ui.showErrorDialog("Ошибка", fmt.Sprintf("Не удалось получить чат: %v", err))
+			ui.chatPanel.MessageInput().SetText(text)
+			return
+		}
+
 		// Сохраняем сообщение в БД
 		message := &models.ChatMessage{
-			ContactID:   0, // 0 для локального чата
+			ChatID:      chat.ID,
 			FromPeerID:  localProfile.PeerID,
 			Content:     text,
 			ContentType: "text",
@@ -117,6 +125,11 @@ func (ui *UI) sendMessage() {
 			ui.showErrorDialog("Ошибка", fmt.Sprintf("Не удалось сохранить сообщение: %v", err))
 			ui.chatPanel.MessageInput().SetText(text)
 			return
+		}
+
+		// Обновляем время чата
+		if err := queries.UpdateChatLastMessage(chat.ID, message.SentAt); err != nil {
+			log.Printf("Предупреждение: не удалось обновить время чата: %v", err)
 		}
 
 		// Добавляем сообщение в UI
@@ -151,9 +164,17 @@ func (ui *UI) sendMessage() {
 			localPeerID = status.PeerID
 		}
 
+		// Получаем или создаём чат
+		chat, err := queries.GetOrCreateChat(ui.currentContact.PeerID, &ui.currentContact.ID)
+		if err != nil {
+			ui.showErrorDialog("Ошибка", fmt.Sprintf("Не удалось получить чат: %v", err))
+			ui.chatPanel.MessageInput().SetText(text)
+			return
+		}
+
 		// Добавляем сообщение в UI (исходящее)
 		ui.chatPanel.AddMessage(&models.ChatMessage{
-			ContactID:   ui.currentContact.ID,
+			ChatID:      chat.ID,
 			FromPeerID:  localPeerID,
 			Content:     text,
 			ContentType: "text",

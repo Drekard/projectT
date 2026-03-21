@@ -516,6 +516,50 @@ func ImportPeerAddress(h host.Host, addrStr string) (*PeerAddress, error) {
 	}, nil
 }
 
+// ExtractPeerIDFromAddress извлекает PeerID из адреса без добавления в peerstore и создания контакта
+// Используется для подключения без автоматического добавления в контакты
+func ExtractPeerIDFromAddress(addrStr string) (string, error) {
+	// Сохраняем оригинальную строку для отладки
+	originalAddrStr := addrStr
+
+	// === ВАЖНО: Удаляем ВСЕ повторяющиеся префиксы ===
+	for strings.HasPrefix(addrStr, ProtocolPrefix+"://") || strings.HasPrefix(addrStr, ProtocolPrefix+":") {
+		addrStr = strings.TrimPrefix(addrStr, ProtocolPrefix+"://")
+		addrStr = strings.TrimPrefix(addrStr, ProtocolPrefix+":")
+	}
+
+	addr, err := multiaddr.NewMultiaddr(addrStr)
+	if err != nil {
+		// Если не удалось распарсить, пробуем извлечь multiaddr из формата peerid@multiaddr
+		if strings.Contains(originalAddrStr, "@") {
+			parts := strings.SplitN(originalAddrStr, "@", 2)
+			if len(parts) == 2 {
+				addrStr = parts[1]
+				for strings.HasPrefix(addrStr, ProtocolPrefix+"://") || strings.HasPrefix(addrStr, ProtocolPrefix+":") {
+					addrStr = strings.TrimPrefix(addrStr, ProtocolPrefix+"://")
+					addrStr = strings.TrimPrefix(addrStr, ProtocolPrefix+":")
+				}
+				addr, err = multiaddr.NewMultiaddr(addrStr)
+				if err != nil {
+					return "", fmt.Errorf("ошибка парсинга адреса: %w", err)
+				}
+			} else {
+				return "", fmt.Errorf("ошибка парсинга адреса: неверный формат")
+			}
+		} else {
+			return "", fmt.Errorf("ошибка парсинга адреса: %w", err)
+		}
+	}
+
+	// Извлекаем PeerID
+	info, err := peer.AddrInfoFromP2pAddr(addr)
+	if err != nil {
+		return "", fmt.Errorf("ошибка извлечения PeerID: %w", err)
+	}
+
+	return info.ID.String(), nil
+}
+
 // ConnectToPeer подключается к пиру по адресу
 func ConnectToPeer(ctx context.Context, h host.Host, addrStr string) error {
 	if h == nil {

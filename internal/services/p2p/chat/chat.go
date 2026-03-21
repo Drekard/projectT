@@ -321,9 +321,19 @@ func (cs *Service) saveMessage(fromPeerID, content, contentType, metadata string
 		}
 	}
 
+	// Получаем или создаём чат
+	var contactID *int
+	if contact.ID != 0 {
+		contactID = &contact.ID
+	}
+	chat, err := queries.GetOrCreateChat(fromPeerID, contactID)
+	if err != nil {
+		return fmt.Errorf("ошибка получения чата: %w", err)
+	}
+
 	// Создаём сообщение
 	message := &models.ChatMessage{
-		ContactID:   contact.ID,
+		ChatID:      chat.ID,
 		FromPeerID:  fromPeerID,
 		Content:     content,
 		ContentType: contentType,
@@ -333,6 +343,11 @@ func (cs *Service) saveMessage(fromPeerID, content, contentType, metadata string
 
 	if err := queries.CreateChatMessage(message); err != nil {
 		return fmt.Errorf("ошибка сохранения сообщения: %w", err)
+	}
+
+	// Обновляем время последнего сообщения в чате
+	if err := queries.UpdateChatLastMessage(chat.ID, message.SentAt); err != nil {
+		log.Printf("Предупреждение: не удалось обновить время чата: %v", err)
 	}
 
 	// ОТПРАВЛЯЕМ УВЕДОМЛЕНИЕ UI для обновления в реальном времени

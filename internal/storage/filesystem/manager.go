@@ -3,6 +3,7 @@ package filesystem
 import (
 	"fmt"
 	"io"
+	"log"
 	"mime"
 	"net/http"
 	"os"
@@ -219,6 +220,12 @@ func ReadFileByHash(hash string) ([]byte, *FileData, error) {
 // peerID - идентификатор пира (для remote профилей) или "local" (для локального)
 // fileBytes - содержимое файла аватарки
 func SaveAvatar(peerID string, fileBytes []byte) (string, error) {
+	// Ограничение на размер аватара: 2MB
+	const MaxAvatarSize = 2 * 1024 * 1024 // 2MB
+	if len(fileBytes) > MaxAvatarSize {
+		return "", fmt.Errorf("размер аватара превышает лимит 2MB (%d байт)", len(fileBytes))
+	}
+
 	// Извлекаем расширение (определяем по MIME-типу)
 	mimeType := detectMimeType(fileBytes)
 	exts, _ := mime.ExtensionsByType(mimeType)
@@ -227,9 +234,12 @@ func SaveAvatar(peerID string, fileBytes []byte) (string, error) {
 		ext = exts[0]
 	}
 
-	// Формируем имя файла: {peerID}.{ext}
-	fileName := peerID + ext
-	filePath := filepath.Join("storage", "avatars", fileName)
+	// Вычисляем хеш содержимого для уникального имени файла
+	fileHash := CalculateHash(fileBytes)
+
+	// Формируем имя файла: {peerID}_{hash}.{ext}
+	fileName := fmt.Sprintf("%s_%s%s", peerID, fileHash[:16], ext)
+	filePath := filepath.Join("storage", "files", "avatars", "remote", fileName)
 
 	// Проверяем, существует ли уже файл
 	if _, err := os.Stat(filePath); err == nil {
@@ -247,21 +257,22 @@ func SaveAvatar(peerID string, fileBytes []byte) (string, error) {
 		return "", fmt.Errorf("ошибка сохранения аватарки: %w", err)
 	}
 
+	log.Printf("[Filesystem] Аватар сохранён: %s (%d байт, hash: %s)", filePath, len(fileBytes), fileHash[:8])
 	return filePath, nil
 }
 
 // GetAvatar возвращает путь к аватарке по peerID
 func GetAvatar(peerID string) (string, error) {
 	// Ищем файл аватарки по peerID
-	avatarDir := filepath.Join("storage", "avatars")
+	avatarDir := filepath.Join("storage", "files", "avatars", "remote")
 
 	// Проверяем существование директории
 	if _, err := os.Stat(avatarDir); os.IsNotExist(err) {
 		return "", fmt.Errorf("директория аватарок не найдена")
 	}
 
-	// Ищем файл с именем, начинающимся с peerID
-	pattern := filepath.Join(avatarDir, peerID+"*")
+	// Ищем файл с именем, начинающимся с peerID_ (формат: {peerID}_{hash}.{ext})
+	pattern := filepath.Join(avatarDir, peerID+"_*")
 	matches, err := filepath.Glob(pattern)
 	if err != nil {
 		return "", fmt.Errorf("ошибка поиска аватарки: %w", err)

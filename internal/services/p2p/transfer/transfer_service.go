@@ -406,9 +406,9 @@ func (ts *Service) getDestinationPath(request *FileTransferRequest) (string, err
 	// Определяем тип файла и возвращаем соответствующий путь
 	switch request.Type {
 	case TransferTypeAvatar:
-		// Для аватарок: storage/avatars/{peerID}{ext}
+		// Для аватарок: storage/files/avatars/remote/{peerID}{ext}
 		ext := filepath.Ext(request.FileName)
-		return filepath.Join("storage", "avatars", request.SourcePeerID+ext), nil
+		return filepath.Join("storage", "files", "avatars", "remote", request.SourcePeerID+ext), nil
 	case TransferTypeImage:
 		// Для изображений: storage/transfers/images/{file_name}
 		return filepath.Join("storage", "transfers", "images", request.FileName), nil

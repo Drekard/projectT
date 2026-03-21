@@ -244,7 +244,7 @@ func (p *UI) SaveCharacteristicsToJSON() (string, error) {
 
 // showBackgroundDialog показывает диалоговое окно для управления фоновым изображением
 func (p *UI) showBackgroundDialog() {
-	p.showImageDialog("Фон", "assets/background", "Нет сохраненных фонов", "Загрузить фон", "Удалить фон", func(imagePath string) error {
+	p.showImageDialog("Фон", "storage/files/background", "Нет сохраненных фонов", "Загрузить фон", "Удалить фон", func(imagePath string) error {
 		backgroundService := background.NewService()
 		err := backgroundService.SetBackground(imagePath)
 		if err != nil {
@@ -261,7 +261,7 @@ func (p *UI) showBackgroundDialog() {
 
 // showAvatarDialog показывает диалоговое окно для управления аватаром
 func (p *UI) showAvatarDialog() {
-	p.showImageDialog("Аватар", "assets/avatars", "Нет сохраненных аватаров", "Загрузить аватар", "", func(imagePath string) error {
+	p.showImageDialog("Аватар", "storage/files/avatars/local", "Нет сохраненных аватаров", "Загрузить аватар", "", func(imagePath string) error {
 		p.avatarPath = imagePath
 		return nil
 	}, func() {

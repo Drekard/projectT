@@ -43,12 +43,19 @@ func NewApp() *App {
 	fyneApp := fyneApp.New()
 
 	window := fyneApp.NewWindow("ㅤ")
-	window.Resize(fyne.NewSize(1110, 600))
+	window.Resize(fyne.NewSize(1200, 600))
 
-	// Загружаем иконку из папки с исполняемым файлом
+	// Загружаем иконку: сначала рядом с .exe, затем из assets/icons/
 	exePath, _ := filepath.Abs(filepath.Dir(os.Args[0]))
 	iconPath := filepath.Join(exePath, "ProjctT.png")
 	iconRes, _ := fyne.LoadResourceFromPath(iconPath)
+
+	// Если не найдено рядом с exe, пробуем assets/icons/ (для go run)
+	if iconRes == nil {
+		iconPath = filepath.Join("assets", "icons", "ProjctT.png")
+		iconRes, _ = fyne.LoadResourceFromPath(iconPath)
+	}
+
 	window.SetIcon(iconRes)
 
 	// Инициализируем P2P сеть

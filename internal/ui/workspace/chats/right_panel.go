@@ -178,7 +178,7 @@ func (ui *UI) createProfileArea() *fyne.Container {
 
 	// Фон
 	bg := canvas.NewRectangle(color.RGBA{R: 0, G: 0, B: 0, A: 255})
-	bg.SetMinSize(fyne.NewSize(270, 1))
+	bg.SetMinSize(fyne.NewSize(330, 1))
 
 	ui.profileArea = container.NewStack(bg, scrollContainer)
 

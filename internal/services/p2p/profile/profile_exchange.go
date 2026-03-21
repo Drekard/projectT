@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
+	"os"
 	"time"
 
 	"github.com/libp2p/go-libp2p/core/crypto"
@@ -35,6 +36,7 @@ type ProfileResponse struct {
 	Username       string   `json:"username"`
 	Title          string   `json:"title"`
 	AvatarPath     string   `json:"avatar_path"`
+	AvatarData     []byte   `json:"avatar_data,omitempty"` // Данные аватара в base64
 	BackgroundPath string   `json:"background_path"`
 	ContentChar    string   `json:"content_characteristic"`
 	PinnedUUIDs    []string `json:"pinned_uuids"` // UUID избранных элементов
@@ -285,6 +287,40 @@ func (pes *ExchangeService) requestPeerProfileWithRole(ctx context.Context, peer
 		Signature: response.Signature,
 	}
 
+	// Загружаем аватар если он есть и данные получены
+	if len(response.AvatarData) > 0 {
+		go func() {
+			// Проверяем, существует ли уже файл аватара
+			existingAvatar, err := filesystem.GetAvatar(peerID.String())
+			if err == nil && existingAvatar != "" {
+				log.Printf("[Profile] Аватар уже загружен для %s: %s", peerID.String()[:8], existingAvatar)
+				return
+			}
+
+			// Сохраняем аватар
+			filePath, err := filesystem.SaveAvatar(peerID.String(), response.AvatarData)
+			if err != nil {
+				log.Printf("[Profile] Не удалось сохранить аватар от %s: %v", peerID.String()[:8], err)
+			} else {
+				log.Printf("[Profile] ✅ Аватар сохранён: %s", filePath)
+
+				// Обновляем путь к аватару в профиле (асинхронно)
+				// Профиль уже сохранён, обновляем только avatar_path
+				remoteProfile, err := queries.GetRemoteProfile(peerID.String())
+				if err == nil && remoteProfile != nil {
+					remoteProfile.AvatarPath = filePath
+					if err := queries.UpdateRemoteProfile(remoteProfile); err != nil {
+						log.Printf("[Profile] Не удалось обновить путь к аватару в БД: %v", err)
+					} else {
+						log.Printf("[Profile] ✅ Путь к аватару обновлён в БД")
+					}
+				}
+			}
+		}()
+	} else if response.AvatarPath != "" {
+		log.Printf("[Profile] ⚠️ Аватар не загружен (путь: %s, данные: пустые)", response.AvatarPath)
+	}
+
 	return result, nil
 }
 
@@ -312,11 +348,24 @@ func (pes *ExchangeService) sendLocalProfile(stream network.Stream, isInitiator 
 		}
 	}
 
+	// Читаем данные аватара если он есть
+	var avatarData []byte
+	if localProfile.AvatarPath != "" {
+		avatarBytes, err := os.ReadFile(localProfile.AvatarPath)
+		if err == nil {
+			avatarData = avatarBytes
+			log.Printf("[Profile] Аватар загружен (%d байт) для отправки", len(avatarData))
+		} else {
+			log.Printf("[Profile] Предупреждение: не удалось прочитать аватар: %v", err)
+		}
+	}
+
 	response := &ProfileResponse{
 		PeerID:         localProfile.PeerID,
 		Username:       localProfile.Username,
 		Title:          localProfile.Title,
 		AvatarPath:     localProfile.AvatarPath,
+		AvatarData:     avatarData,
 		BackgroundPath: localProfile.BackgroundPath,
 		ContentChar:    localProfile.ContentChar,
 		PinnedUUIDs:    pinnedUUIDs,

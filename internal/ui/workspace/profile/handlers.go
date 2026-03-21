@@ -39,8 +39,8 @@ func (p *UI) selectBackgroundImage() {
 	filename := strings.TrimSuffix(originalFilename, ext)
 	safeFilename := fmt.Sprintf("%s%s", filename, ext)
 
-	// Путь для сохранения в assets/background
-	backgroundDir := "assets/background"
+	// Путь для сохранения в storage/files/background
+	backgroundDir := "storage/files/background"
 	finalPath := filepath.Join(backgroundDir, safeFilename)
 
 	// Создаем директорию, если её нет
@@ -49,7 +49,7 @@ func (p *UI) selectBackgroundImage() {
 		return
 	}
 
-	// Копируем файл в assets/background
+	// Копируем файл в storage/files/background
 	err = copyFile(originalFilePath, finalPath)
 	if err != nil {
 		dialog.ShowError(fmt.Errorf("ошибка копирования файла: %v", err), p.window)
@@ -272,8 +272,8 @@ func (p *UI) selectAvatarImage() {
 	filename := strings.TrimSuffix(originalFilename, ext)
 	safeFilename := fmt.Sprintf("%s%s", filename, ext)
 
-	// Путь для сохранения в assets/avatars
-	avatarDir := "assets/avatars"
+	// Путь для сохранения в storage/files/avatars/local
+	avatarDir := "storage/files/avatars/local"
 	finalPath := filepath.Join(avatarDir, safeFilename)
 
 	// Создаем директорию, если её нет
@@ -282,7 +282,7 @@ func (p *UI) selectAvatarImage() {
 		return
 	}
 
-	// Копируем файл в assets/avatars
+	// Копируем файл в storage/files/avatars/local
 	err = copyFile(originalFilePath, finalPath)
 	if err != nil {
 		dialog.ShowError(fmt.Errorf("ошибка копирования файла: %v", err), p.window)

@@ -12,6 +12,7 @@ import (
 	"projectT/internal/storage/database/models"
 	"projectT/internal/storage/database/queries"
 
+	"github.com/libp2p/go-libp2p/core/network"
 	"github.com/libp2p/go-libp2p/core/peer"
 	"github.com/multiformats/go-multiaddr"
 )
@@ -315,10 +316,18 @@ func (api *UIP2P) AddContactByAddress(addrStr, username string) error {
 		}
 	}
 
+	// Создаём чат для контакта
+	contactID := contact.ID
+	_, err = queries.GetOrCreateChat(peerID.String(), &contactID)
+	if err != nil {
+		log.Printf("Предупреждение: не удалось создать чат для контакта: %v", err)
+	}
+
 	return nil
 }
 
-// ConnectToContact подключается к контакту по адресу
+// ConnectToContact подключается к контакту по адресу (НЕ создаёт контакт в БД)
+// Для добавления в контакты используйте AddContactByAddress
 func (api *UIP2P) ConnectToContact(addrStr string) error {
 	api.network.mu.RLock()
 	defer api.network.mu.RUnlock()
@@ -335,19 +344,20 @@ func (api *UIP2P) ConnectToContact(addrStr string) error {
 		return fmt.Errorf("ошибка подключения: %w", err)
 	}
 
-	// Получаем PeerID из адреса
-	peerAddr, err := p2p.ImportPeerAddress(api.network.host, addrStr)
+	// Получаем PeerID из адреса (без добавления в peerstore и создания контакта)
+	peerID, err := p2p.ExtractPeerIDFromAddress(addrStr)
 	if err != nil {
-		return fmt.Errorf("ошибка импорта адреса: %w", err)
+		return fmt.Errorf("ошибка извлечения PeerID: %w", err)
 	}
-	peerID, err := peer.Decode(peerAddr.PeerID)
+
+	decodedPeerID, err := peer.Decode(peerID)
 	if err != nil {
 		return fmt.Errorf("ошибка декодирования PeerID: %w", err)
 	}
 
 	// Запрашиваем профиль после подключения
 	go func() {
-		log.Printf("[ConnectToContact] Подключение к %s успешно, запрашиваем профиль...", peerID.String()[:8])
+		log.Printf("[ConnectToContact] Подключение к %s успешно, запрашиваем профиль...", peerID[:8])
 		profileCtx, profileCancel := context.WithTimeout(context.Background(), 30*time.Second)
 		defer profileCancel()
 
@@ -356,18 +366,24 @@ func (api *UIP2P) ConnectToContact(addrStr string) error {
 			return
 		}
 
-		profileWithSig, err := api.network.profileExchange.RequestPeerProfile(profileCtx, peerID)
+		profileWithSig, err := api.network.profileExchange.RequestPeerProfile(profileCtx, decodedPeerID)
 		if err != nil {
-			log.Printf("[ConnectToContact] ❌ Не удалось получить профиль у пира %s: %v", peerID.String(), err)
+			log.Printf("[ConnectToContact] ❌ Не удалось получить профиль у пира %s: %v", peerID, err)
 			return
 		}
 
-		// Обновляем remote профиль в БД
+		// Обновляем remote профиль в БД (если существует)
 		if profileWithSig != nil && profileWithSig.Profile != nil {
 			if err := queries.UpdateRemoteProfile(profileWithSig.Profile); err != nil {
-				log.Printf("[ConnectToContact] Не удалось обновить профиль пира %s: %v", peerID.String(), err)
+				log.Printf("[ConnectToContact] Не удалось обновить профиль пира %s: %v", peerID, err)
 			} else {
-				log.Printf("[ConnectToContact] ✅ Профиль пира %s получен: %s", peerID.String(), profileWithSig.Profile.Username)
+				log.Printf("[ConnectToContact] ✅ Профиль пира %s получен: %s", peerID, profileWithSig.Profile.Username)
+			}
+
+			// Создаём временный чат для подключённого пира
+			_, err := queries.GetOrCreateChat(peerID, nil)
+			if err != nil {
+				log.Printf("[ConnectToContact] Предупреждение: не удалось создать временный чат: %v", err)
 			}
 		}
 	}()
@@ -569,6 +585,79 @@ func (api *UIP2P) RequestAllProfiles() {
 // GetPeerID декодирует PeerID из строки
 func (api *UIP2P) GetPeerID(peerIDStr string) (peer.ID, error) {
 	return peer.Decode(peerIDStr)
+}
+
+// GetPeerInfo возвращает информацию о пире
+func (api *UIP2P) GetPeerInfo(peerIDStr string) *PeerInfo {
+	api.network.mu.RLock()
+	defer api.network.mu.RUnlock()
+
+	if api.network.host == nil || api.network.connections == nil {
+		return nil
+	}
+
+	peerID, err := peer.Decode(peerIDStr)
+	if err != nil {
+		return nil
+	}
+
+	info := api.network.connections.GetPeerInfo(peerID)
+	contact, _ := queries.GetContactByPeerID(peerIDStr)
+
+	username := peerIDStr[:8]
+	if contact != nil {
+		username = contact.Username
+	}
+
+	latencyMs := int64(0)
+	status := ""
+	lastSeen := time.Time{}
+	address := ""
+
+	if info != nil {
+		latencyMs = info.LastPingLatency.Milliseconds()
+		status = string(info.Status)
+		lastSeen = info.LastSeen
+	}
+
+	// Получаем адрес пира
+	addrs := api.network.host.Peerstore().Addrs(peerID)
+	if len(addrs) > 0 {
+		address = addrs[0].String()
+	}
+
+	return &PeerInfo{
+		PeerID:      peerIDStr,
+		Username:    username,
+		Status:      status,
+		IsConnected: api.network.host.Network().Connectedness(peerID) == network.Connected,
+		LastSeen:    lastSeen,
+		LatencyMs:   latencyMs,
+		Address:     address,
+	}
+}
+
+// GetPeerAddresses возвращает адреса пира
+func (api *UIP2P) GetPeerAddresses(peerIDStr string) []string {
+	api.network.mu.RLock()
+	defer api.network.mu.RUnlock()
+
+	if api.network.host == nil {
+		return []string{}
+	}
+
+	peerID, err := peer.Decode(peerIDStr)
+	if err != nil {
+		return []string{}
+	}
+
+	addrs := api.network.host.Peerstore().Addrs(peerID)
+	result := make([]string, len(addrs))
+	for i, addr := range addrs {
+		result[i] = addr.String()
+	}
+
+	return result
 }
 
 // SendMessage отправляет текстовое сообщение пиру

@@ -135,18 +135,6 @@ func (n *P2PNetwork) Start() error {
 	log.Printf("P2P хост запущен: %s", n.host.ID().String())
 	log.Printf("Адреса для подключения: %v", n.host.Addrs())
 
-	// Лог применённых настроек
-	log.Println("=== Применённые настройки P2P ===")
-	log.Printf("Порт: %d", n.config.ListenPort)
-	log.Printf("NAT Port Mapping: %v", n.config.EnableNATPortMap)
-	log.Printf("Relay: %v", n.config.EnableRelay)
-	log.Printf("AutoRelay: %v", n.config.EnableRelay && n.config.EnableAutoRelay)
-	log.Printf("DHT: %v", n.config.EnableDHT)
-	log.Printf("mDNS: %v", n.config.EnableMDNS)
-	log.Printf("STUN: %v (сервер: %s)", n.config.EnableSTUNClient, n.config.STUNServer)
-	log.Printf("Режим помощника: %v", n.config.EnableHelperMode)
-	log.Println("=================================")
-
 	// Обновляем профиль в БД
 	if err := UpdateProfileAddrs(n.host.ID(), n.host.Addrs()); err != nil {
 		// Игнорируем ошибку, если поле listen_addrs временно недоступно

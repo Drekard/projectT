@@ -6,7 +6,7 @@ import "time"
 // ChatMessage представляет сообщение чата
 type ChatMessage struct {
 	ID          int       `json:"id"`
-	ContactID   int       `json:"contact_id"`
+	ChatID      int       `json:"chat_id"`
 	FromPeerID  string    `json:"from_peer_id"`
 	Content     string    `json:"content"`
 	ContentType string    `json:"content_type"`

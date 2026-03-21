@@ -37,6 +37,12 @@ func EnsureStorageStructure() error {
 		return err
 	}
 
+	// Создаем директорию для аватарок удалённых пиров
+	avatarDir := filepath.Join(storageRoot, "files", "avatars", "remote")
+	if err := os.MkdirAll(avatarDir, 0755); err != nil {
+		return err
+	}
+
 	return nil
 }
 
