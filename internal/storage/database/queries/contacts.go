@@ -13,7 +13,7 @@ import (
 // GetContact получает контакт по ID с данными профиля из profiles
 func GetContact(id int) (*models.Contact, error) {
 	row := database.DB.QueryRow(`
-		SELECT 
+		SELECT
 			c.id, c.peer_id, c.multiaddr, c.notes, c.is_blocked, c.last_seen, c.added_at, c.updated_at,
 			p.username, p.title, p.avatar_path
 		FROM contacts c
@@ -23,26 +23,60 @@ func GetContact(id int) (*models.Contact, error) {
 
 	contact := &models.Contact{}
 	var lastSeen sql.NullString
+	var multiaddr sql.NullString
+	var isBlocked sql.NullInt64
+	var username, title, avatarPath sql.NullString
 	var createdAt, updatedAt string
 
 	err := row.Scan(
 		&contact.ID,
 		&contact.PeerID,
-		&contact.Multiaddr,
+		&multiaddr,
 		&contact.Notes,
-		&contact.IsBlocked,
+		&isBlocked,
 		&lastSeen,
 		&createdAt,
 		&updatedAt,
-		&contact.Username,
-		&contact.Title,
-		&contact.AvatarPath,
+		&username,
+		&title,
+		&avatarPath,
 	)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return nil, errors.New("контакт не найден")
 		}
 		return nil, err
+	}
+
+	// Обрабатываем NULL multiaddr
+	if multiaddr.Valid {
+		contact.Multiaddr = multiaddr.String
+	} else {
+		contact.Multiaddr = ""
+	}
+
+	// Обрабатываем NULL is_blocked
+	if isBlocked.Valid {
+		contact.IsBlocked = isBlocked.Int64 == 1
+	} else {
+		contact.IsBlocked = false
+	}
+
+	// Обрабатываем NULL username, title, avatarPath
+	if username.Valid {
+		contact.Username = username.String
+	} else {
+		contact.Username = ""
+	}
+	if title.Valid {
+		contact.Title = title.String
+	} else {
+		contact.Title = ""
+	}
+	if avatarPath.Valid {
+		contact.AvatarPath = avatarPath.String
+	} else {
+		contact.AvatarPath = ""
 	}
 
 	if lastSeen.Valid {
@@ -58,7 +92,7 @@ func GetContact(id int) (*models.Contact, error) {
 // GetContactByPeerID получает контакт по PeerID с данными профиля
 func GetContactByPeerID(peerID string) (*models.Contact, error) {
 	row := database.DB.QueryRow(`
-		SELECT 
+		SELECT
 			c.id, c.peer_id, c.multiaddr, c.notes, c.is_blocked, c.last_seen, c.added_at, c.updated_at,
 			p.username, p.title, p.avatar_path
 		FROM contacts c
@@ -68,26 +102,60 @@ func GetContactByPeerID(peerID string) (*models.Contact, error) {
 
 	contact := &models.Contact{}
 	var lastSeen sql.NullString
+	var multiaddr sql.NullString
+	var isBlocked sql.NullInt64
+	var username, title, avatarPath sql.NullString
 	var createdAt, updatedAt string
 
 	err := row.Scan(
 		&contact.ID,
 		&contact.PeerID,
-		&contact.Multiaddr,
+		&multiaddr,
 		&contact.Notes,
-		&contact.IsBlocked,
+		&isBlocked,
 		&lastSeen,
 		&createdAt,
 		&updatedAt,
-		&contact.Username,
-		&contact.Title,
-		&contact.AvatarPath,
+		&username,
+		&title,
+		&avatarPath,
 	)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return nil, errors.New("контакт не найден")
 		}
 		return nil, err
+	}
+
+	// Обрабатываем NULL multiaddr
+	if multiaddr.Valid {
+		contact.Multiaddr = multiaddr.String
+	} else {
+		contact.Multiaddr = ""
+	}
+
+	// Обрабатываем NULL is_blocked
+	if isBlocked.Valid {
+		contact.IsBlocked = isBlocked.Int64 == 1
+	} else {
+		contact.IsBlocked = false
+	}
+
+	// Обрабатываем NULL username, title, avatarPath
+	if username.Valid {
+		contact.Username = username.String
+	} else {
+		contact.Username = ""
+	}
+	if title.Valid {
+		contact.Title = title.String
+	} else {
+		contact.Title = ""
+	}
+	if avatarPath.Valid {
+		contact.AvatarPath = avatarPath.String
+	} else {
+		contact.AvatarPath = ""
 	}
 
 	if lastSeen.Valid {
@@ -103,7 +171,7 @@ func GetContactByPeerID(peerID string) (*models.Contact, error) {
 // GetAllContacts получает все контакты с данными профилей
 func GetAllContacts() ([]*models.Contact, error) {
 	rows, err := database.DB.Query(`
-		SELECT 
+		SELECT
 			c.id, c.peer_id, c.multiaddr, c.notes, c.is_blocked, c.last_seen, c.added_at, c.updated_at,
 			p.username, p.title, p.avatar_path
 		FROM contacts c
@@ -119,23 +187,57 @@ func GetAllContacts() ([]*models.Contact, error) {
 	for rows.Next() {
 		contact := &models.Contact{}
 		var lastSeen sql.NullString
+		var multiaddr sql.NullString
+		var isBlocked sql.NullInt64
+		var username, title, avatarPath sql.NullString
 		var createdAt, updatedAt string
 
 		err := rows.Scan(
 			&contact.ID,
 			&contact.PeerID,
-			&contact.Multiaddr,
+			&multiaddr,
 			&contact.Notes,
-			&contact.IsBlocked,
+			&isBlocked,
 			&lastSeen,
 			&createdAt,
 			&updatedAt,
-			&contact.Username,
-			&contact.Title,
-			&contact.AvatarPath,
+			&username,
+			&title,
+			&avatarPath,
 		)
 		if err != nil {
 			return nil, err
+		}
+
+		// Обрабатываем NULL multiaddr
+		if multiaddr.Valid {
+			contact.Multiaddr = multiaddr.String
+		} else {
+			contact.Multiaddr = ""
+		}
+
+		// Обрабатываем NULL is_blocked
+		if isBlocked.Valid {
+			contact.IsBlocked = isBlocked.Int64 == 1
+		} else {
+			contact.IsBlocked = false
+		}
+
+		// Обрабатываем NULL username, title, avatarPath
+		if username.Valid {
+			contact.Username = username.String
+		} else {
+			contact.Username = ""
+		}
+		if title.Valid {
+			contact.Title = title.String
+		} else {
+			contact.Title = ""
+		}
+		if avatarPath.Valid {
+			contact.AvatarPath = avatarPath.String
+		} else {
+			contact.AvatarPath = ""
 		}
 
 		if lastSeen.Valid {
@@ -254,7 +356,7 @@ func IsContactBlocked(peerID string) (bool, error) {
 // SearchContacts ищет контакты по имени профиля
 func SearchContacts(query string) ([]*models.Contact, error) {
 	rows, err := database.DB.Query(`
-		SELECT 
+		SELECT
 			c.id, c.peer_id, c.multiaddr, c.notes, c.is_blocked, c.last_seen, c.added_at, c.updated_at,
 			p.username, p.title, p.avatar_path
 		FROM contacts c
@@ -271,23 +373,57 @@ func SearchContacts(query string) ([]*models.Contact, error) {
 	for rows.Next() {
 		contact := &models.Contact{}
 		var lastSeen sql.NullString
+		var multiaddr sql.NullString
+		var isBlocked sql.NullInt64
+		var username, title, avatarPath sql.NullString
 		var createdAt, updatedAt string
 
 		err := rows.Scan(
 			&contact.ID,
 			&contact.PeerID,
-			&contact.Multiaddr,
+			&multiaddr,
 			&contact.Notes,
-			&contact.IsBlocked,
+			&isBlocked,
 			&lastSeen,
 			&createdAt,
 			&updatedAt,
-			&contact.Username,
-			&contact.Title,
-			&contact.AvatarPath,
+			&username,
+			&title,
+			&avatarPath,
 		)
 		if err != nil {
 			return nil, err
+		}
+
+		// Обрабатываем NULL multiaddr
+		if multiaddr.Valid {
+			contact.Multiaddr = multiaddr.String
+		} else {
+			contact.Multiaddr = ""
+		}
+
+		// Обрабатываем NULL is_blocked
+		if isBlocked.Valid {
+			contact.IsBlocked = isBlocked.Int64 == 1
+		} else {
+			contact.IsBlocked = false
+		}
+
+		// Обрабатываем NULL username, title, avatarPath
+		if username.Valid {
+			contact.Username = username.String
+		} else {
+			contact.Username = ""
+		}
+		if title.Valid {
+			contact.Title = title.String
+		} else {
+			contact.Title = ""
+		}
+		if avatarPath.Valid {
+			contact.AvatarPath = avatarPath.String
+		} else {
+			contact.AvatarPath = ""
 		}
 
 		if lastSeen.Valid {

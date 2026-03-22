@@ -192,35 +192,6 @@ func (ui *UI) loadMessagesForContact(contactID int) {
 	// Очищаем текущие сообщения
 	ui.chatPanel.Clear()
 
-	// Для локального чата используем специальный запрос
-	if contactID == 0 {
-		// Загружаем сообщения локального чата (все сообщения с contact_id = 0)
-		messages, err := queries.GetMessagesForContact(0, 100, 0)
-		if err != nil {
-			log.Printf("Ошибка загрузки сообщений локального чата: %v", err)
-			return
-		}
-
-		// Получаем наш локальный PeerID для определения направления
-		localPeerID := ""
-		if ui.p2pUI != nil {
-			status := ui.p2pUI.GetStatus()
-			if status != nil {
-				localPeerID = status.PeerID
-			}
-		} else {
-			// Если P2P не инициализирован, используем PeerID из локального профиля
-			localProfile, err := queries.GetLocalProfile()
-			if err == nil {
-				localPeerID = localProfile.PeerID
-			}
-		}
-
-		// Загружаем сообщения (все сообщения в локальном чате - исходящие)
-		ui.chatPanel.LoadMessages(messages, localPeerID)
-		return
-	}
-
 	// Обычный чат с контактом
 	messages, err := queries.GetMessagesForContact(contactID, 100, 0)
 	if err != nil {
@@ -238,6 +209,41 @@ func (ui *UI) loadMessagesForContact(contactID int) {
 	}
 
 	// Загружаем сообщения
+	ui.chatPanel.LoadMessages(messages, localPeerID)
+}
+
+// loadMessagesForChat загружает сообщения для чата по ID
+func (ui *UI) loadMessagesForChat(chatID int) {
+	if ui.chatPanel == nil {
+		return
+	}
+
+	// Очищаем текущие сообщения
+	ui.chatPanel.Clear()
+
+	// Загружаем сообщения чата
+	messages, err := queries.GetMessagesForChat(chatID, 100, 0)
+	if err != nil {
+		log.Printf("Ошибка загрузки сообщений чата: %v", err)
+		return
+	}
+
+	// Получаем наш локальный PeerID для определения направления
+	localPeerID := ""
+	if ui.p2pUI != nil {
+		status := ui.p2pUI.GetStatus()
+		if status != nil {
+			localPeerID = status.PeerID
+		}
+	} else {
+		// Если P2P не инициализирован, используем PeerID из локального профиля
+		localProfile, err := queries.GetLocalProfile()
+		if err == nil {
+			localPeerID = localProfile.PeerID
+		}
+	}
+
+	// Загружаем сообщения (все сообщения в локальном чате - исходящие)
 	ui.chatPanel.LoadMessages(messages, localPeerID)
 }
 

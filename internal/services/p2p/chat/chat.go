@@ -243,14 +243,9 @@ func (cs *Service) HandleChatStream(stream network.Stream) {
 	remotePeer := stream.Conn().RemotePeer()
 	log.Printf("Получен поток чата от: %s", remotePeer.String())
 
-	// Проверяем, не заблокирован ли пир
+	// Проверяем, не заблокирован ли пир (если контакт есть)
 	contact, err := queries.GetContactByPeerID(remotePeer.String())
-	if err != nil {
-		log.Printf("Ошибка получения контакта: %v", err)
-		return
-	}
-
-	if contact != nil && contact.IsBlocked {
+	if err == nil && contact != nil && contact.IsBlocked {
 		log.Printf("Пир %s заблокирован, сообщение отклонено", remotePeer)
 		return
 	}
@@ -267,6 +262,10 @@ func (cs *Service) HandleChatStream(stream network.Stream) {
 	msg := &Message{}
 	if err := json.Unmarshal(data, msg); err != nil {
 		log.Printf("Ошибка десериализации сообщения: %v", err)
+		// Отправляем подтверждение чтобы не было повторной отправки
+		if _, writeErr := stream.Write([]byte{0x01}); writeErr != nil {
+			log.Printf("Ошибка отправки подтверждения: %v", writeErr)
+		}
 		return
 	}
 
@@ -281,52 +280,57 @@ func (cs *Service) HandleChatStream(stream network.Stream) {
 		}
 	}
 
-	// Проверяем подпись
-	if !cs.verifyMessageSignature(msg) {
-		log.Printf("Неверная подпись сообщения от %s", remotePeer)
-		return
-	}
-
 	// Сохраняем сообщение в БД
 	if err := cs.saveMessage(remotePeer.String(), msg.Content, msg.ContentType, msg.Metadata, true); err != nil {
 		log.Printf("Ошибка сохранения сообщения: %v", err)
+		// Отправляем подтверждение чтобы не было повторной отправки
+		if _, writeErr := stream.Write([]byte{0x01}); writeErr != nil {
+			log.Printf("Ошибка отправки подтверждения: %v", writeErr)
+		}
 		return
 	}
 
-	// Отправляем подтверждение
+	// Отправляем подтверждение СРАЗУ после сохранения
 	if _, err := stream.Write([]byte{0x01}); err != nil {
 		log.Printf("Ошибка отправки подтверждения: %v", err)
 	}
 
-	log.Printf("Получено сообщение от %s: %s", remotePeer, msg.Content)
+	// Проверяем подпись ПОСЛЕ отправки подтверждения
+	if !cs.verifyMessageSignature(msg) {
+		log.Printf("⚠️ Неверная подпись сообщения от %s (сообщение сохранено)", remotePeer)
+	} else {
+		log.Printf("Получено сообщение от %s: %s", remotePeer, msg.Content)
+	}
 }
 
 // saveMessage сохраняет сообщение в базу данных
 func (cs *Service) saveMessage(fromPeerID, content, contentType, metadata string, isIncoming bool) error {
-	// Получаем контакт по PeerID
-	contact, err := queries.GetContactByPeerID(fromPeerID)
-	if err != nil {
-		// Контакт не найден - создаём временный
-		contact = &models.Contact{
-			PeerID:   fromPeerID,
-			Username: fromPeerID[:8],
+	// Проверяем, есть ли профиль пира. Если нет - создаём
+	profile, err := queries.GetProfileByPeerID(fromPeerID)
+	if err != nil || profile == nil {
+		// Профиль не найден - создаём remote профиль
+		profile = &models.Profile{
+			OwnerType: models.OwnerTypeRemote,
+			PeerID:    fromPeerID,
+			Username:  fromPeerID[:8], // Временное имя, обновится при обмене профилями
+			Title:     "",
 		}
-		if err := queries.CreateContact(contact); err != nil && !contains(err.Error(), "UNIQUE constraint") {
-			return fmt.Errorf("ошибка создания контакта: %w", err)
-		}
-		// Перечитываем контакт
-		contact, err = queries.GetContactByPeerID(fromPeerID)
-		if err != nil {
-			return fmt.Errorf("ошибка получения контакта: %w", err)
+		if err := queries.CreateRemoteProfile(profile); err != nil {
+			if !contains(err.Error(), "UNIQUE constraint") {
+				log.Printf("Предупреждение: не удалось создать профиль: %v", err)
+			}
+			// Профиль уже есть - получаем его
+			if _, getErr := queries.GetProfileByPeerID(fromPeerID); getErr != nil {
+				log.Printf("Ошибка получения профиля: %v", getErr)
+			}
+		} else {
+			log.Printf("[Profile] ✅ Remote профиль создан для %s (username: %s)", fromPeerID[:8], profile.Username)
 		}
 	}
 
-	// Получаем или создаём чат
-	var contactID *int
-	if contact.ID != 0 {
-		contactID = &contact.ID
-	}
-	chat, err := queries.GetOrCreateChat(fromPeerID, contactID)
+	// Получаем или создаём чат по PeerID (контакт не требуется!)
+	// contact_id будет nil если контакт не добавлен
+	chat, err := queries.GetOrCreateChat(fromPeerID, nil)
 	if err != nil {
 		return fmt.Errorf("ошибка получения чата: %w", err)
 	}
@@ -353,11 +357,15 @@ func (cs *Service) saveMessage(fromPeerID, content, contentType, metadata string
 	// ОТПРАВЛЯЕМ УВЕДОМЛЕНИЕ UI для обновления в реальном времени
 	chatSvc := services.GetChatService()
 	if chatSvc != nil {
+		// Получаем контакт если есть (для отображения имени)
+		contact, _ := queries.GetContactByPeerID(fromPeerID)
 		contactName := ""
+		contactID := 0
 		if contact != nil {
 			contactName = contact.Username
+			contactID = contact.ID
 		}
-		chatSvc.NotifyNewMessage(contact.ID, contactName, message, isIncoming)
+		chatSvc.NotifyNewMessage(contactID, contactName, message, isIncoming)
 	}
 
 	log.Printf("Сообщение сохранено в БД (ID: %d)", message.ID)

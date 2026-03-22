@@ -316,13 +316,6 @@ func (api *UIP2P) AddContactByAddress(addrStr, username string) error {
 		}
 	}
 
-	// Создаём чат для контакта
-	contactID := contact.ID
-	_, err = queries.GetOrCreateChat(peerID.String(), &contactID)
-	if err != nil {
-		log.Printf("Предупреждение: не удалось создать чат для контакта: %v", err)
-	}
-
 	return nil
 }
 
@@ -378,12 +371,6 @@ func (api *UIP2P) ConnectToContact(addrStr string) error {
 				log.Printf("[ConnectToContact] Не удалось обновить профиль пира %s: %v", peerID, err)
 			} else {
 				log.Printf("[ConnectToContact] ✅ Профиль пира %s получен: %s", peerID, profileWithSig.Profile.Username)
-			}
-
-			// Создаём временный чат для подключённого пира
-			_, err := queries.GetOrCreateChat(peerID, nil)
-			if err != nil {
-				log.Printf("[ConnectToContact] Предупреждение: не удалось создать временный чат: %v", err)
 			}
 		}
 	}()
@@ -791,4 +778,19 @@ func (api *UIP2P) Stop() error {
 // Start запускает P2P сеть
 func (api *UIP2P) Start() error {
 	return api.network.Start()
+}
+
+// GetContacts возвращает все контакты из базы данных
+func (api *UIP2P) GetContacts() ([]*models.Contact, error) {
+	return queries.GetAllContacts()
+}
+
+// GetProfiles возвращает все remote профили из базы данных
+func (api *UIP2P) GetProfiles() ([]*models.Profile, error) {
+	return queries.GetAllRemoteProfiles()
+}
+
+// DeleteContact удаляет контакт по ID
+func (api *UIP2P) DeleteContact(id int) error {
+	return queries.DeleteContact(id)
 }

@@ -287,8 +287,8 @@ func (cs *ConnectionService) sendKeepAlive() {
 
 // pingPeer отправляет ping конкретному пиру
 func (cs *ConnectionService) pingPeer(peerID peer.ID) {
-	// Увеличиваем таймаут до 30 секунд для нестабильных соединений
-	ctx, cancel := context.WithTimeout(cs.ctx, 30*time.Second)
+	// Увеличиваем таймаут до 60 секунд для нестабильных соединений
+	ctx, cancel := context.WithTimeout(cs.ctx, 60*time.Second)
 	defer cancel()
 
 	log.Printf("[KeepAlive] Ping пира %s (начало)...", peerID.String()[:8])
@@ -316,8 +316,8 @@ func (cs *ConnectionService) pingPeer(peerID peer.ID) {
 
 	log.Printf("[KeepAlive] Ping отправлен %s, ждём pong...", peerID.String()[:8])
 
-	// Читаем "pong" - увеличиваем таймаут до 20 секунд
-	if err := stream.SetReadDeadline(time.Now().Add(20 * time.Second)); err != nil {
+	// Читаем "pong" - увеличиваем таймаут до 40 секунд
+	if err := stream.SetReadDeadline(time.Now().Add(40 * time.Second)); err != nil {
 		log.Printf("[KeepAlive] Ошибка установки таймаута для %s: %v", peerID.String()[:8], err)
 		cs.handlePingFailure(peerID, fmt.Errorf("ошибка установки таймаута: %w", err))
 		return

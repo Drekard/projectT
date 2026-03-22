@@ -39,6 +39,7 @@ type UI struct {
 	connectedPeersList       *fyne.Container
 	bootstrapList            *fyne.Container
 	discoveredPeersList      *fyne.Container
+	profilesListInPanel      *fyne.Container
 	addressEntry             *widget.Entry
 	usernameEntry            *widget.Entry
 	bootstrapEntry           *widget.Entry
@@ -53,8 +54,8 @@ type UI struct {
 	onContactClick           func(contactID int)
 	onSendMessage            func(text string)
 	messageChannel           <-chan *services.ChatMessageEvent
-	chatsUI                  *UI // Ссылка на родительский UI для обновления списка контактов (экспортируемое для доступа из p2p_panel)
 	ChatsUI                  *UI
+	chatMenuManager          *ChatMenuManager // Менеджер меню для чатов
 }
 
 // New создает и возвращает новый UI чатов
@@ -156,6 +157,7 @@ func (ui *UI) OpenPeerChat(peerID, username string) {
 	ui.selectChat(tempContact)
 
 	// Загружаем сообщения (будет пусто для нового пира)
+	// Для пира с ID = 0 используем заглушку, сообщения загрузятся после получения chat_id
 	ui.loadMessagesForContact(0)
 
 	// Запрашиваем профиль у пира если P2P инициализирован

@@ -91,7 +91,7 @@ func DefaultConfig() *P2PConfig {
 		EnableMDNS:        true,
 		ConnectionTimeout: 30 * time.Second,
 		DialTimeout:       10 * time.Second,
-		KeepAlive:         30 * time.Second,
+		KeepAlive:         60 * time.Second, // Увеличено с 30 до 60 секунд для стабильности
 		MaxConnections:    100,
 		MinConnections:    5,
 		BootstrapPeers:    []string{},

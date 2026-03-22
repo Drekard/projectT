@@ -106,6 +106,7 @@ func GetChatByPeerID(peerID string) (*models.Chat, error) {
 
 // GetChatsWithLastMessages возвращает все чаты с последними сообщениями
 // Сортировка по времени последнего сообщения (новые сверху)
+// Исключает локальный чат (contact_id IS NOT NULL)
 func GetChatsWithLastMessages() ([]*models.ChatWithLastMessage, error) {
 	query := `
 		SELECT
@@ -124,7 +125,7 @@ func GetChatsWithLastMessages() ([]*models.ChatWithLastMessage, error) {
 		FROM chats c
 		LEFT JOIN profiles p ON c.peer_id = p.peer_id
 		LEFT JOIN (
-			SELECT 
+			SELECT
 				cm1.chat_id,
 				cm1.id,
 				cm1.content,
@@ -144,6 +145,7 @@ func GetChatsWithLastMessages() ([]*models.ChatWithLastMessage, error) {
 			WHERE is_read = 0
 			GROUP BY chat_id
 		) uc ON c.id = uc.chat_id
+		WHERE c.contact_id IS NOT NULL
 		ORDER BY last_message_at DESC NULLS LAST
 	`
 
@@ -316,4 +318,37 @@ func GetChatByContactID(contactID int) (*models.Chat, error) {
 	}
 
 	return chat, nil
+}
+
+// GetOrCreateLocalChat получает или создаёт чат для локального профиля
+// Локальный чат имеет contact_id = NULL и peer_id = локальный PeerID
+// Такой чат не отображается в общем списке чатов, но может хранить сообщения
+func GetOrCreateLocalChat(localPeerID string) (*models.Chat, error) {
+	// Пробуем получить существующий локальный чат
+	chat, err := GetChatByPeerID(localPeerID)
+	if err != nil {
+		return nil, err
+	}
+
+	if chat != nil {
+		return chat, nil
+	}
+
+	// Создаём новый локальный чат с contact_id = NULL
+	chat = &models.Chat{
+		ContactID:   nil, // NULL означает "нет контакта" (локальный чат)
+		PeerID:      localPeerID,
+		IsTemporary: false, // Это не временный чат, а постоянный локальный
+	}
+
+	if err := CreateChat(chat); err != nil {
+		return nil, err
+	}
+
+	return chat, nil
+}
+
+// GetLocalChat получает локальный чат по PeerID
+func GetLocalChat(localPeerID string) (*models.Chat, error) {
+	return GetChatByPeerID(localPeerID)
 }

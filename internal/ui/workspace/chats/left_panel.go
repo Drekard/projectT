@@ -14,6 +14,50 @@ import (
 	"fyne.io/fyne/v2/widget"
 )
 
+// chatItemWrapper обёртка для элемента чата с поддержкой двойного клика
+type chatItemWrapper struct {
+	widget.BaseWidget
+	content     fyne.CanvasObject
+	chatID      int
+	peerID      string
+	username    string
+	onSelect    func()
+	onDoubleTap func()
+}
+
+// newChatItemWrapper создаёт новую обёртку для элемента чата
+func newChatItemWrapper(content fyne.CanvasObject, chatID int, peerID string, username string, onSelect, onDoubleTap func()) *chatItemWrapper {
+	w := &chatItemWrapper{
+		content:     content,
+		chatID:      chatID,
+		peerID:      peerID,
+		username:    username,
+		onSelect:    onSelect,
+		onDoubleTap: onDoubleTap,
+	}
+	w.ExtendBaseWidget(w)
+	return w
+}
+
+// DoubleTapped обрабатывает двойной клик
+func (c *chatItemWrapper) DoubleTapped(_ *fyne.PointEvent) {
+	if c.onDoubleTap != nil {
+		c.onDoubleTap()
+	}
+}
+
+// Tapped обрабатывает одинарный клик
+func (c *chatItemWrapper) Tapped(_ *fyne.PointEvent) {
+	if c.onSelect != nil {
+		c.onSelect()
+	}
+}
+
+// CreateRenderer реализует интерфейс fyne.Widget
+func (c *chatItemWrapper) CreateRenderer() fyne.WidgetRenderer {
+	return widget.NewSimpleRenderer(c.content)
+}
+
 // createLeftPanel создает левую панель со списком чатов
 func (ui *UI) createLeftPanel() *fyne.Container {
 	// Заголовок с иконками
@@ -72,8 +116,35 @@ func (ui *UI) RefreshContactsList() {
 	ui.loadChatsList()
 }
 
+// showChatMenu показывает меню действий для чата
+func (ui *UI) showChatMenu(chatID int, peerID string, username string, cont fyne.CanvasObject) {
+	// Создаём менеджер меню если не существует
+	if ui.chatMenuManager == nil {
+		ui.chatMenuManager = NewChatMenuManager(ui, ui.onChatDeleted)
+	}
+	ui.chatMenuManager.ShowChatMenu(chatID, peerID, username, cont)
+}
+
+// onChatDeleted обработчик удаления чата
+func (ui *UI) onChatDeleted(chatID int, peerID string) {
+	// Обновляем список чатов после удаления
+	ui.loadChatsList()
+
+	// Если текущий чат был удалён, закрываем его
+	if ui.currentChatID == chatID {
+		ui.currentChatID = 0
+		ui.currentContact = nil
+		ui.chatArea.Objects = []fyne.CanvasObject{}
+		ui.chatArea.Refresh()
+		ui.profileArea.Objects = []fyne.CanvasObject{}
+		ui.profileArea.Refresh()
+	}
+
+	log.Printf("Чат %s (%d) удалён", peerID, chatID)
+}
+
 // createChatItem создает элемент чата с аватаром 50x50
-func (ui *UI) createChatItem(chat *models.ChatWithLastMessage) *fyne.Container {
+func (ui *UI) createChatItem(chat *models.ChatWithLastMessage) *chatItemWrapper {
 	// Аватар 50x50
 	avatarContainer := ui.createChatAvatarIcon(chat)
 
@@ -83,7 +154,15 @@ func (ui *UI) createChatItem(chat *models.ChatWithLastMessage) *fyne.Container {
 		widget.NewSeparator(),
 	)
 
-	return content
+	// Создаём обёртку с обработчиками
+	return newChatItemWrapper(content, chat.ID, chat.PeerID, chat.Username,
+		func() {
+			ui.openChatByID(chat.ID)
+		},
+		func() {
+			ui.showChatMenu(chat.ID, chat.PeerID, chat.Username, ui.chatsList)
+		},
+	)
 }
 
 // createChatAvatarIcon создает иконку чата с аватаром 50x50
@@ -92,21 +171,42 @@ func (ui *UI) createChatAvatarIcon(chat *models.ChatWithLastMessage) *fyne.Conta
 		// Пробуем загрузить аватар из файла
 		avatarRes, err := fyne.LoadResourceFromPath(chat.AvatarPath)
 		if err == nil && avatarRes != nil {
-			// Создаём кнопку с аватаром
-			btn := widget.NewButtonWithIcon("", avatarRes, func() {
+			// Создаём изображение аватара
+			img := canvas.NewImageFromResource(avatarRes)
+			img.FillMode = canvas.ImageFillContain
+			img.SetMinSize(fyne.NewSize(50, 50))
+
+			// Создаём кнопку с изображением
+			btn := widget.NewButton("", func() {
 				ui.openChatByID(chat.ID)
 			})
 			btn.Importance = widget.LowImportance
-			return container.NewStack(btn)
+
+			// Оборачиваем в контейнер с фиксированным размером
+			btnWrapper := canvas.NewRectangle(color.Transparent)
+			btnWrapper.SetMinSize(fyne.NewSize(50, 50))
+
+			// Ставим изображение поверх кнопки
+			return container.NewStack(btnWrapper, btn, img)
 		}
 	}
 
 	// Аватара нет - используем иконку по умолчанию
-	btn := widget.NewButtonWithIcon("", theme.AccountIcon(), func() {
+	icon := canvas.NewImageFromResource(theme.AccountIcon())
+	icon.FillMode = canvas.ImageFillContain
+	icon.SetMinSize(fyne.NewSize(50, 50))
+
+	// Создаём кнопку с иконкой
+	btn := widget.NewButton("", func() {
 		ui.openChatByID(chat.ID)
 	})
 	btn.Importance = widget.LowImportance
-	return container.NewStack(btn)
+
+	// Оборачиваем в контейнер с фиксированным размером
+	btnWrapper := canvas.NewRectangle(color.Transparent)
+	btnWrapper.SetMinSize(fyne.NewSize(50, 50))
+
+	return container.NewStack(btnWrapper, btn, icon)
 }
 
 // openChatByID открывает чат по ID контакта
@@ -185,7 +285,7 @@ func (ui *UI) createContactsIcon() *fyne.Container {
 	avatar.CornerRadius = 15
 	avatar.StrokeColor = color.RGBA{R: 255, G: 255, B: 255, A: 100}
 	avatar.StrokeWidth = 1
-	avatar.SetMinSize(fyne.NewSize(100, 100))
+	avatar.SetMinSize(fyne.NewSize(50, 50))
 
 	// Создаем кнопку с иконкой поверх графики
 	btn := widget.NewButtonWithIcon("", theme.AccountIcon(), func() {
@@ -233,14 +333,21 @@ func (ui *UI) openLocalChat() {
 		return
 	}
 
-	// Загружаем локальный профиль для создания контакта
+	// Загружаем локальный профиль
 	localProfile, err := queries.GetLocalProfile()
 	if err != nil {
 		log.Printf("Ошибка загрузки локального профиля: %v", err)
 		return
 	}
 
-	// Создаём специальный контакт для локального чата
+	// Получаем или создаём локальный чат (с contact_id = NULL)
+	localChat, err := queries.GetOrCreateLocalChat(localProfile.PeerID)
+	if err != nil {
+		log.Printf("Ошибка получения локального чата: %v", err)
+		return
+	}
+
+	// Создаём специальный контакт для локального чата (виртуальный, не из БД)
 	localContact := models.NewLocalContact(
 		localProfile.Username,
 		localProfile.Title,
@@ -250,8 +357,8 @@ func (ui *UI) openLocalChat() {
 	// Выбираем чат
 	ui.selectChat(localContact)
 
-	// Загружаем сообщения для локального чата
-	ui.loadMessagesForContact(0) // ID = 0 для локального чата
+	// Загружаем сообщения для локального чата через chat_id
+	ui.loadMessagesForChat(localChat.ID)
 
 	// Обновляем правую панель с профилем
 	ui.updateProfile(localContact)
