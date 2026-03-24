@@ -1,5 +1,5 @@
-// Package chats содержит UI для чатов
-package chats
+// Package dialogs содержит диалоги для чатов
+package dialogs
 
 import (
 	"projectT/internal/storage/database/models"

@@ -1,5 +1,5 @@
-// Package chats содержит компоненты UI для чатов
-package chats
+// Package dialogs содержит диалоги для чатов
+package dialogs
 
 import (
 	"fmt"
@@ -15,11 +15,16 @@ import (
 // ChatMenuManager менеджер меню для чатов
 type ChatMenuManager struct {
 	onChatDeleted func(chatID int, peerID string)
-	chatsUI       *UI
+	chatsUI       ChatUIProvider
+}
+
+// ChatUIProvider интерфейс для доступа к функциям UI чатов
+type ChatUIProvider interface {
+	OnChatDeleted(chatID int, peerID string)
 }
 
 // NewChatMenuManager создает новый менеджер меню для чатов
-func NewChatMenuManager(chatsUI *UI, onChatDeleted func(chatID int, peerID string)) *ChatMenuManager {
+func NewChatMenuManager(chatsUI ChatUIProvider, onChatDeleted func(chatID int, peerID string)) *ChatMenuManager {
 	return &ChatMenuManager{
 		onChatDeleted: onChatDeleted,
 		chatsUI:       chatsUI,

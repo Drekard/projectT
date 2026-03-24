@@ -337,9 +337,6 @@ func (ws *Workspace) initializeChatsUI() {
 		// Устанавливаем окно для chats UI
 		ws.chatsUI.SetWindow(ws.window)
 
-		// Устанавливаем ссылку на родительский UI для обновления списка контактов
-		ws.chatsUI.ChatsUI = ws.chatsUI
-
 		// Устанавливаем P2P сервис если доступен
 		if ws.p2pNetwork != nil {
 			p2pUI := p2p_ui.NewUIP2P(ws.p2pNetwork)

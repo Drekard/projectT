@@ -8,6 +8,7 @@ import (
 	"projectT/internal/storage/database/queries"
 	"projectT/internal/ui/cards/concrete"
 	"projectT/internal/ui/cards/hover_preview"
+	"projectT/internal/ui/workspace/chats/dialogs"
 
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/canvas"
@@ -272,13 +273,13 @@ func (mi *MessageInput) SetEnabled(enabled bool) {
 type MessagesList struct {
 	container   *fyne.Container
 	scroll      *container.Scroll
-	menuManager *MessageMenuManager
+	menuManager *dialogs.MessageMenuManager
 	localPeerID string
 	onRefresh   func()
 }
 
 // NewMessagesList создаёт новый список сообщений
-func NewMessagesList(menuManager *MessageMenuManager, localPeerID string, onRefresh func()) *MessagesList {
+func NewMessagesList(menuManager *dialogs.MessageMenuManager, localPeerID string, onRefresh func()) *MessagesList {
 	ml := &MessagesList{
 		menuManager: menuManager,
 		localPeerID: localPeerID,
@@ -352,7 +353,7 @@ type ChatPanel struct {
 	contactID    int
 	messagesList *MessagesList
 	messageInput *MessageInput
-	menuManager  *MessageMenuManager
+	menuManager  *dialogs.MessageMenuManager
 	localPeerID  string
 }
 
@@ -364,7 +365,7 @@ func NewChatPanel(contact *models.Contact, onSend func(), onClose func(), localP
 	}
 
 	// Создаём менеджер меню для сообщений
-	cp.menuManager = NewMessageMenuManager(
+	cp.menuManager = dialogs.NewMessageMenuManager(
 		func(message *models.ChatMessage) {
 			// Обновляем сообщение в UI
 			cp.LoadMessagesForCurrentContact()

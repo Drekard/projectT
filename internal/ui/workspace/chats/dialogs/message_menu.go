@@ -1,5 +1,5 @@
-// Package center содержит компоненты центральной панели чата
-package center
+// Package dialogs содержит диалоги для чатов
+package dialogs
 
 import (
 	"fmt"
