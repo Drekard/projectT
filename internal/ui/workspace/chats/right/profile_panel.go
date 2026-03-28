@@ -5,7 +5,7 @@ import (
 	"image/color"
 	"os"
 
-	"projectT/internal/services/p2p/network"
+	network "projectT/internal/services/p2p/ui"
 	"projectT/internal/storage/database/models"
 	"projectT/internal/storage/database/queries"
 

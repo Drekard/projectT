@@ -6,7 +6,7 @@ import (
 	"path/filepath"
 
 	"projectT/internal/config"
-	"projectT/internal/services/p2p/network"
+	"projectT/internal/services/p2p/core"
 	"projectT/internal/storage/database"
 	"projectT/internal/storage/filesystem"
 	"projectT/internal/ui"
@@ -21,7 +21,7 @@ type App struct {
 	mainWindow fyne.Window
 	UI         *ui.UI
 	config     *config.Config
-	p2pNetwork *network.P2PNetwork
+	p2pNetwork *core.P2PNetwork
 }
 
 func NewApp() *App {
@@ -59,7 +59,13 @@ func NewApp() *App {
 	window.SetIcon(iconRes)
 
 	// Инициализируем P2P сеть
-	p2pNetwork := network.NewP2PNetwork()
+	p2pNetwork := core.NewP2PNetwork()
+
+	// Устанавливаем порт из конфигурации
+	if cfg.P2P.Port > 0 {
+		p2pNetwork.SetPort(cfg.P2P.Port)
+		log.Printf("[App] P2P порт из config: %d", cfg.P2P.Port)
+	}
 
 	return &App{
 		fyneApp:    fyneApp,
@@ -99,6 +105,6 @@ func (a *App) GetConfig() *config.Config {
 }
 
 // GetP2PNetwork возвращает P2P сеть
-func (a *App) GetP2PNetwork() *network.P2PNetwork {
+func (a *App) GetP2PNetwork() *core.P2PNetwork {
 	return a.p2pNetwork
 }

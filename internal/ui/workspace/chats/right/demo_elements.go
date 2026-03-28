@@ -4,7 +4,6 @@ package right
 import (
 	"encoding/json"
 	"fmt"
-	"log"
 
 	"projectT/internal/storage/database/queries"
 	"projectT/internal/ui/cards/concrete"
@@ -107,19 +106,9 @@ func (p *Panel) loadDemoElements(jsonStr string) {
 
 	p.demoElementsContainer.Objects = nil
 
-	// Логируем сырой JSON для отладки
-	fmt.Printf("[DEBUG] loadDemoElements: получен JSON длиной %d символов\n", len(jsonStr))
-	if len(jsonStr) > 0 && len(jsonStr) < 2000 {
-		fmt.Printf("[DEBUG] loadDemoElements: JSON=%s\n", jsonStr)
-	} else if len(jsonStr) >= 2000 {
-		fmt.Printf("[DEBUG] loadDemoElements: JSON (первые 2000 символов)=%s...\n", jsonStr[:2000])
-	}
-
 	// Используем новую функцию парсинга с поддержкой старых форматов
 	demoElements, err := parseDemoElements(jsonStr)
 	if err != nil {
-		log.Printf("[ERROR] Ошибка парсинга demo элементов: %v", err)
-		log.Printf("[ERROR] Исходный JSON: %s", jsonStr)
 		return
 	}
 
@@ -127,18 +116,12 @@ func (p *Panel) loadDemoElements(jsonStr string) {
 		emptyLabel := widget.NewLabel("Нет элементов витрины")
 		emptyLabel.TextStyle = fyne.TextStyle{Italic: true}
 		p.demoElementsContainer.Add(emptyLabel)
-		fmt.Println("[DEBUG] Demo elements: элементов не найдено")
 	} else {
-		fmt.Printf("[DEBUG] Demo elements: загружено %d элементов\n", len(demoElements))
-		for i, elem := range demoElements {
+		for _, elem := range demoElements {
 			elementUUID := elem.GetElementUUID()
-			fmt.Printf("[DEBUG] Элемент #%d: ElementUUID=%s, Title=%s, Value=%s\n", i+1, elementUUID, elem.Title, elem.Value)
 			if elementUUID != "" {
 				elementCard := p.createDemoElementCard(elementUUID)
 				p.demoElementsContainer.Add(elementCard)
-				fmt.Printf("[DEBUG] Элемент #%d успешно отображён\n", i+1)
-			} else {
-				fmt.Printf("[DEBUG] Элемент #%d пропущен (пустой ElementUUID) или не найден в БД\n", i+1)
 			}
 		}
 	}

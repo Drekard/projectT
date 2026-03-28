@@ -4,6 +4,8 @@ package queries
 import (
 	"database/sql"
 	"errors"
+	"log"
+	"sort"
 	"time"
 
 	"projectT/internal/storage/database"
@@ -106,8 +108,23 @@ func GetChatByPeerID(peerID string) (*models.Chat, error) {
 
 // GetChatsWithLastMessages возвращает все чаты с последними сообщениями
 // Сортировка по времени последнего сообщения (новые сверху)
-// Исключает локальный чат (contact_id IS NOT NULL)
 func GetChatsWithLastMessages() ([]*models.ChatWithLastMessage, error) {
+	// Простой запрос для отладки - просто все чаты
+	debugQuery := `SELECT id, contact_id, peer_id, is_temporary FROM chats`
+	debugRows, err := database.DB.Query(debugQuery)
+	if err == nil {
+		defer debugRows.Close()
+		for debugRows.Next() {
+			var id int
+			var contactID sql.NullInt64
+			var peerID string
+			var isTemporary bool
+			_ = debugRows.Scan(&id, &contactID, &peerID, &isTemporary)
+			log.Printf("[Chat] 🔍 DEBUG: чат id=%d, peer_id=%s..., contact_id=%v, is_temporary=%v",
+				id, peerID[:min(10, len(peerID))], contactID, isTemporary)
+		}
+	}
+
 	query := `
 		SELECT
 			c.id,
@@ -145,18 +162,20 @@ func GetChatsWithLastMessages() ([]*models.ChatWithLastMessage, error) {
 			WHERE is_read = 0
 			GROUP BY chat_id
 		) uc ON c.id = uc.chat_id
-		WHERE c.contact_id IS NOT NULL
-		ORDER BY last_message_at DESC NULLS LAST
+		WHERE c.peer_id IS NOT NULL AND c.peer_id != ''
 	`
 
 	rows, err := database.DB.Query(query)
 	if err != nil {
+		log.Printf("[Chat] ❌ SQL ошибка GetChatsWithLastMessages: %v", err)
 		return nil, err
 	}
 	defer rows.Close()
 
 	var chats []*models.ChatWithLastMessage
+	rowCount := 0
 	for rows.Next() {
+		rowCount++
 		chat := &models.ChatWithLastMessage{}
 		var lastMessageAt sql.NullString
 		var contactID sql.NullInt64
@@ -176,6 +195,7 @@ func GetChatsWithLastMessages() ([]*models.ChatWithLastMessage, error) {
 			&chat.UnreadCount,
 		)
 		if err != nil {
+			log.Printf("[Chat] ❌ Ошибка Scan: %v", err)
 			return nil, err
 		}
 
@@ -189,8 +209,24 @@ func GetChatsWithLastMessages() ([]*models.ChatWithLastMessage, error) {
 			chat.LastMessageAt = &t
 		}
 
+		log.Printf("[Chat] 📋 Чат из БД: ID=%d, peer=%s, username=%q, lastMsg=%q",
+			chat.ID, chat.PeerID[:8], chat.Username, chat.LastMessage)
+
 		chats = append(chats, chat)
 	}
+
+	log.Printf("[Chat] 📚 rows.Next() вернул %d чатов", rowCount)
+
+	// Сортируем чаты по времени последнего сообщения (в памяти)
+	sort.Slice(chats, func(i, j int) bool {
+		if chats[i].LastMessageAt == nil {
+			return false
+		}
+		if chats[j].LastMessageAt == nil {
+			return true
+		}
+		return chats[i].LastMessageAt.After(*chats[j].LastMessageAt)
+	})
 
 	return chats, rows.Err()
 }
@@ -351,4 +387,11 @@ func GetOrCreateLocalChat(localPeerID string) (*models.Chat, error) {
 // GetLocalChat получает локальный чат по PeerID
 func GetLocalChat(localPeerID string) (*models.Chat, error) {
 	return GetChatByPeerID(localPeerID)
+}
+
+func min(a, b int) int {
+	if a < b {
+		return a
+	}
+	return b
 }

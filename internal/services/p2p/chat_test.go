@@ -14,7 +14,7 @@ import (
 	"github.com/libp2p/go-libp2p/core/host"
 	"github.com/libp2p/go-libp2p/core/peer"
 
-	"projectT/internal/services/p2p/chat"
+	"projectT/internal/services/p2p/protocols/chat"
 )
 
 // createTestHost создаёт тестовый хост для использования в тестах
@@ -55,7 +55,7 @@ func TestChatServiceCreation(t *testing.T) {
 	host := createTestHost(t, 0)
 
 	pubKey := privKey.GetPublic()
-	chatService := chat.NewService(host, privKey, pubKey)
+	chatService := chat.NewService(host, privKey, pubKey, nil)
 
 	if chatService == nil {
 		t.Fatal("ChatService не создан")
@@ -72,7 +72,7 @@ func TestChatServiceStartStop(t *testing.T) {
 	host := createTestHost(t, 0)
 
 	pubKey := privKey.GetPublic()
-	chatService := chat.NewService(host, privKey, pubKey)
+	chatService := chat.NewService(host, privKey, pubKey, nil)
 
 	if err := chatService.Start(); err != nil {
 		t.Fatalf("Ошибка запуска ChatService: %v", err)
@@ -96,7 +96,7 @@ func TestQueueMessage(t *testing.T) {
 	host := createTestHost(t, 0)
 
 	pubKey := privKey.GetPublic()
-	chatService := chat.NewService(host, privKey, pubKey)
+	chatService := chat.NewService(host, privKey, pubKey, nil)
 
 	peerID := host.ID()
 
@@ -128,7 +128,7 @@ func TestClearQueuedMessages(t *testing.T) {
 	host := createTestHost(t, 0)
 
 	pubKey := privKey.GetPublic()
-	chatService := chat.NewService(host, privKey, pubKey)
+	chatService := chat.NewService(host, privKey, pubKey, nil)
 
 	peerID := host.ID()
 
@@ -156,7 +156,7 @@ func TestParseMessageType(t *testing.T) {
 	host := createTestHost(t, 0)
 
 	pubKey := privKey.GetPublic()
-	chatService := chat.NewService(host, privKey, pubKey)
+	chatService := chat.NewService(host, privKey, pubKey, nil)
 
 	tests := []struct {
 		contentType string
@@ -194,7 +194,7 @@ func TestSignAndVerifyMessage(t *testing.T) {
 	}
 	defer host.Close()
 
-	chatService := chat.NewService(host, privKey, pubKey)
+	chatService := chat.NewService(host, privKey, pubKey, nil)
 
 	msg := &chat.Message{
 		FromPeerID:  host.ID().String(),
@@ -253,7 +253,7 @@ func TestSendMessageToOfflinePeer(t *testing.T) {
 	host := createTestHost(t, 0)
 
 	pubKey := privKey.GetPublic()
-	chatService := chat.NewService(host, privKey, pubKey)
+	chatService := chat.NewService(host, privKey, pubKey, nil)
 
 	if err := chatService.Start(); err != nil {
 		t.Fatalf("Ошибка запуска ChatService: %v", err)

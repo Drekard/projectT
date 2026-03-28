@@ -245,6 +245,19 @@ func (l *Loader) loadFromYAML(path string) error {
 	return nil
 }
 
+// LoadFromYAMLOnly загружает конфигурацию ТОЛЬКО из YAML (игнорирует ENV)
+// Используется для сохранения настроек без перезаписи из переменных окружения
+func (l *Loader) LoadFromYAMLOnly(path string) (*Config, error) {
+	l.config = DefaultConfig()
+
+	if err := l.loadFromYAML(path); err != nil {
+		return nil, err
+	}
+
+	l.normalizePaths()
+	return l.Get(), nil
+}
+
 // loadFromEnv загружает конфигурацию из переменных окружения
 func (l *Loader) loadFromEnv() {
 	// Database

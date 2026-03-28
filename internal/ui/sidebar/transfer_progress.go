@@ -6,7 +6,7 @@ import (
 	"image/color"
 	"time"
 
-	"projectT/internal/services/p2p/transfer"
+	"projectT/internal/services/p2p/protocols/transfer"
 
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/canvas"

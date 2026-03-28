@@ -11,8 +11,9 @@ import (
 
 	"github.com/libp2p/go-libp2p/core/peer"
 
-	p2p "projectT/internal/services/p2p"
-	p2pnet "projectT/internal/services/p2p/network"
+	"projectT/internal/services/p2p/address"
+	"projectT/internal/services/p2p/connection"
+	p2pnet "projectT/internal/services/p2p/core"
 	"projectT/internal/storage/database/models"
 	"projectT/internal/storage/database/queries"
 )
@@ -40,7 +41,7 @@ func NewContactService(p2pNetwork *p2pnet.P2PNetwork) *ContactService {
 // AddContactByAddress добавляет контакт по P2P адресу
 func (s *ContactService) AddContactByAddress(addrStr string, notes string) (*models.Contact, error) {
 	// Парсим адрес
-	addr, err := p2p.ParsePeerAddressString(addrStr)
+	addr, err := address.ParsePeerAddressString(addrStr)
 	if err != nil {
 		return nil, fmt.Errorf("ошибка парсинга адреса: %w", err)
 	}
@@ -152,7 +153,7 @@ func (s *ContactService) enrichContactWithStatus(contact *models.Contact) *Conta
 		peerID, err := s.parsePeerID(contact.PeerID)
 		if err == nil {
 			status := s.p2pNetwork.GetConnectionStatus(peerID)
-			result.IsOnline = status == p2p.StatusConnected
+			result.IsOnline = status == connection.StatusConnected
 
 			// Получаем дополнительную информацию
 			info := s.p2pNetwork.GetPeerInfo(peerID)

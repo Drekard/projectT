@@ -12,8 +12,8 @@ import (
 	"projectT/internal/ui/workspace/saved/sorting"
 	"projectT/internal/ui/workspace/tags"
 
-	p2p_network "projectT/internal/services/p2p/network"
-	p2p_ui "projectT/internal/services/p2p/network"
+	p2p_network "projectT/internal/services/p2p/core"
+	p2p_ui "projectT/internal/services/p2p/ui"
 
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/canvas"

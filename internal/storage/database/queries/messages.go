@@ -293,3 +293,26 @@ func GetLastMessageForContact(contactID int) (*models.ChatMessage, error) {
 	}
 	return GetLastMessageForChat(chat.ID)
 }
+
+// IsDuplicateMessage проверяет, есть ли сообщение с тем же содержимым в чате за последние N секунд
+func IsDuplicateMessage(chatID int, fromPeerID, content string, window time.Duration) (bool, error) {
+	query := `
+		SELECT COUNT(*) 
+		FROM chat_messages 
+		WHERE chat_id = ? 
+		  AND from_peer_id = ? 
+		  AND content = ? 
+		  AND sent_at > datetime('now', ?)
+	`
+
+	var count int
+	windowArg := fmt.Sprintf("-%.0f seconds", window.Seconds())
+
+	row := database.DB.QueryRow(query, chatID, fromPeerID, content, windowArg)
+	err := row.Scan(&count)
+	if err != nil {
+		return false, err
+	}
+
+	return count > 0, nil
+}

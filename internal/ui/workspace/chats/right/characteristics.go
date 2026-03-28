@@ -4,7 +4,6 @@ package right
 import (
 	"encoding/json"
 	"fmt"
-	"log"
 
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/container"
@@ -30,7 +29,6 @@ func (p *Panel) loadCharacteristics(jsonStr string) {
 	if jsonStr != "" {
 		err := json.Unmarshal([]byte(jsonStr), &characteristics)
 		if err != nil {
-			log.Printf("Ошибка парсинга характеристик: %v", err)
 			return
 		}
 	}

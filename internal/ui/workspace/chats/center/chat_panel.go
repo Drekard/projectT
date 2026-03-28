@@ -3,6 +3,7 @@ package center
 
 import (
 	"image/color"
+	"log"
 
 	"projectT/internal/storage/database/models"
 	"projectT/internal/storage/database/queries"
@@ -224,6 +225,7 @@ func NewMessageInput(onSend func()) *MessageInput {
 	mi.entry = entryWidget
 
 	mi.button = widget.NewButtonWithIcon("", theme.MailSendIcon(), func() {
+		log.Printf("[Chat] 🎯 Нажата кнопка отправки сообщения")
 		if onSend != nil {
 			onSend()
 		}
@@ -232,6 +234,7 @@ func NewMessageInput(onSend func()) *MessageInput {
 
 	// Отправка по Enter
 	mi.entry.OnSubmitted = func(s string) {
+		log.Printf("[Chat] ⏎ Нажат Enter для отправки сообщения")
 		if onSend != nil {
 			onSend()
 		}
@@ -297,6 +300,13 @@ func (ml *MessagesList) Container() fyne.CanvasObject {
 
 // AddMessage добавляет сообщение в список
 func (ml *MessagesList) AddMessage(message *models.ChatMessage, isOutgoing bool) {
+	direction := "входящее"
+	if isOutgoing {
+		direction = "исходящее"
+	}
+	log.Printf("[Chat] 💬 Добавление сообщения в UI: %s, от=%s, len=%d",
+		direction, message.FromPeerID[:8], len(message.Content))
+
 	// Создаём пузырёк сообщения с обработчиком правого клика
 	var bubbleContainer fyne.CanvasObject
 	bubble := NewMessageBubble(
@@ -311,15 +321,21 @@ func (ml *MessagesList) AddMessage(message *models.ChatMessage, isOutgoing bool)
 	)
 	bubbleContainer = bubble.Container()
 	ml.container.Add(bubbleContainer)
+	log.Printf("[Chat] 📭 Сообщение добавлено в контейнер, выполняется прокрутка вниз")
 	ml.scrollToBottom()
 }
 
 // AddMessages добавляет несколько сообщений
 func (ml *MessagesList) AddMessages(messages []*models.ChatMessage, localPeerID string) {
-	for _, msg := range messages {
+	log.Printf("[Chat] 📚 Загрузка %d сообщений в чат", len(messages))
+	log.Printf("[Chat] 🔍 localPeerID = %q (len=%d)", localPeerID, len(localPeerID))
+	for i, msg := range messages {
 		isOutgoing := msg.FromPeerID == localPeerID
+		log.Printf("[Chat] 📨 Сообщение #%d: from=%q (len=%d), isOutgoing=%v",
+			i, msg.FromPeerID, len(msg.FromPeerID), isOutgoing)
 		ml.AddMessage(msg, isOutgoing)
 	}
+	log.Printf("[Chat] ✅ Загрузка сообщений завершена")
 }
 
 // Clear очищает список сообщений
@@ -428,25 +444,32 @@ func (cp *ChatPanel) MessageInput() *MessageInput {
 
 // AddMessage добавляет сообщение
 func (cp *ChatPanel) AddMessage(message *models.ChatMessage, isOutgoing bool) {
+	log.Printf("[Chat] 📩 ChatPanel.AddMessage: %s", map[bool]string{true: "исходящее", false: "входящее"}[isOutgoing])
 	cp.messagesList.AddMessage(message, isOutgoing)
 }
 
 // LoadMessages загружает сообщения
 func (cp *ChatPanel) LoadMessages(messages []*models.ChatMessage, localPeerID string) {
+	log.Printf("[Chat] 📥 ChatPanel.LoadMessages: %d сообщений", len(messages))
 	cp.messagesList.AddMessages(messages, localPeerID)
 }
 
 // LoadMessagesForCurrentContact загружает сообщения для текущего контакта
 func (cp *ChatPanel) LoadMessagesForCurrentContact() {
+	log.Printf("[Chat] 📖 Загрузка сообщений для контакта ID=%d", cp.contactID)
+
 	// Очищаем текущие сообщения
 	cp.Clear()
+	log.Printf("[Chat] 🧹 Список сообщений очищен")
 
 	// Получаем сообщения из БД
 	messages, err := queries.GetMessagesForContact(cp.contactID, 100, 0)
 	if err != nil {
+		log.Printf("[Chat] ❌ Ошибка загрузки сообщений: %v", err)
 		// Если ошибка, просто не загружаем ничего
 		return
 	}
+	log.Printf("[Chat] 📚 Получено %d сообщений из БД", len(messages))
 
 	// Загружаем сообщения в список
 	cp.messagesList.AddMessages(messages, cp.localPeerID)

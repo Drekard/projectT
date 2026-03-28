@@ -1,19 +1,19 @@
 // Package p2p предоставляет агрегированный доступ к P2P сервисам проекта.
 //
 // Подпакеты:
-//   - profile: обмен профилями между пирами
-//   - chat: обмен сообщениями
-//   - itemsync: синхронизация элементов
-//   - transfer: передача файлов
-//   - network: инфраструктура P2P сети
+//   - protocols/profile: обмен профилями между пирами
+//   - protocols/chat: обмен сообщениями
+//   - protocols/itemsync: синхронизация элементов
+//   - protocols/transfer: передача файлов
+//   - core: инфраструктура P2P сети
 package p2p
 
 // Экспорт констант протоколов из подпакетов
 import (
-	"projectT/internal/services/p2p/chat"
-	"projectT/internal/services/p2p/itemsync"
-	"projectT/internal/services/p2p/profile"
-	"projectT/internal/services/p2p/transfer"
+	"projectT/internal/services/p2p/protocols/chat"
+	"projectT/internal/services/p2p/protocols/itemsync"
+	"projectT/internal/services/p2p/protocols/profile"
+	"projectT/internal/services/p2p/protocols/transfer"
 
 	"github.com/libp2p/go-libp2p/core/crypto"
 	"github.com/libp2p/go-libp2p/core/host"
@@ -90,8 +90,8 @@ func NewProfileExchangeService(host host.Host, privKey crypto.PrivKey, pubKey cr
 }
 
 // NewChatService создаёт сервис чата
-func NewChatService(host host.Host, privKey crypto.PrivKey, pubKey crypto.PubKey) *ChatService {
-	return chat.NewService(host, privKey, pubKey)
+func NewChatService(host host.Host, privKey crypto.PrivKey, pubKey crypto.PubKey, profileSvc *profile.ExchangeService) *ChatService {
+	return chat.NewService(host, privKey, pubKey, profileSvc)
 }
 
 // NewItemSyncService создаёт сервис синхронизации элементов

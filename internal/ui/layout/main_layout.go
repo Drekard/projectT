@@ -8,8 +8,8 @@ import (
 	"projectT/internal/ui/workspace"
 
 	"image/color"
-	p2p_network "projectT/internal/services/p2p/network"
-	"projectT/internal/services/p2p/transfer"
+	p2p_network "projectT/internal/services/p2p/core"
+	"projectT/internal/services/p2p/protocols/transfer"
 
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/canvas"

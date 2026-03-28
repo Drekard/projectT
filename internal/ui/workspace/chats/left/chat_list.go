@@ -2,6 +2,7 @@
 package left
 
 import (
+	"fmt"
 	"image/color"
 	"log"
 
@@ -125,13 +126,19 @@ func (p *Panel) loadChatsList() {
 
 	chatsData, err := queries.GetChatsWithLastMessages()
 	if err != nil {
-		log.Printf("Ошибка загрузки чатов: %v", err)
+		log.Printf("[Chat] ❌ Ошибка загрузки чатов: %v", err)
 		// Показываем сообщение об ошибке
 		emptyLabel := widget.NewLabel("Ошибка загрузки чатов")
 		emptyLabel.TextStyle = fyne.TextStyle{Italic: true}
 		p.chatsList.Add(emptyLabel)
 		p.chatsList.Refresh()
 		return
+	}
+
+	log.Printf("[Chat] 📚 Загружено чатов из БД: %d", len(chatsData))
+	for i, chat := range chatsData {
+		log.Printf("[Chat] 📋 Чат #%d: ID=%d, peer=%s, username=%q, lastMsg=%q, contactID=%v",
+			i, chat.ID, chat.PeerID[:8], chat.Username, chat.LastMessage, chat.ContactID)
 	}
 
 	if len(chatsData) == 0 {
@@ -150,13 +157,48 @@ func (p *Panel) loadChatsList() {
 
 // createChatItem создает элемент чата с аватаром 50x50
 func (p *Panel) createChatItem(chat *models.ChatWithLastMessage) *ChatItemWrapper {
+	log.Printf("[Chat] 🎨 Создание элемента чата: ID=%d, peer=%s, lastMsg=%q",
+		chat.ID, chat.PeerID[:8], chat.LastMessage)
+
 	// Аватар 50x50
 	avatarContainer := p.createChatAvatarIcon(chat)
 
-	// Основная компоновка: только аватар
-	content := container.NewHBox(
+	// Информация о чате (имя, последнее сообщение, время)
+	nameLabel := widget.NewLabel(chat.Username)
+	nameLabel.TextStyle = fyne.TextStyle{Bold: true}
+	nameLabel.Truncation = fyne.TextTruncateEllipsis
+
+	// Последнее сообщение
+	lastMsgLabel := widget.NewLabel(chat.LastMessage)
+	lastMsgLabel.TextStyle = fyne.TextStyle{Italic: true}
+	lastMsgLabel.Truncation = fyne.TextTruncateEllipsis
+	if chat.LastMessage == "" {
+		lastMsgLabel.SetText("Нет сообщений")
+	}
+
+	// Время последнего сообщения
+	timeLabel := widget.NewLabel("")
+	if chat.LastMessageAt != nil {
+		timeLabel.SetText(chat.LastMessageAt.Format("15:04"))
+	}
+	timeLabel.TextStyle = fyne.TextStyle{Italic: true}
+
+	// Счётчик непрочитанных
+	unreadBadge := widget.NewLabel("")
+	if chat.UnreadCount > 0 {
+		unreadBadge.SetText(fmt.Sprintf("%d", chat.UnreadCount))
+		unreadBadge.TextStyle = fyne.TextStyle{Bold: true}
+	}
+
+	// Компонуем: аватар | имя + сообщение | время + непрочитанные
+	infoContainer := container.NewVBox(nameLabel, lastMsgLabel)
+	timeContainer := container.NewVBox(timeLabel, unreadBadge)
+
+	content := container.NewBorder(
+		nil, nil,
 		avatarContainer,
-		widget.NewSeparator(),
+		timeContainer,
+		infoContainer,
 	)
 
 	// Создаём обёртку с обработчиками
@@ -214,17 +256,29 @@ func (p *Panel) createChatAvatarIcon(chat *models.ChatWithLastMessage) *fyne.Con
 	return container.NewStack(btnWrapper, btn, icon)
 }
 
-// openChatByID открывает чат по ID контакта
-func (p *Panel) openChatByID(contactID int) {
-	// Получаем контакт по ID
-	contact, err := queries.GetContact(contactID)
+// openChatByID открывает чат по ID
+func (p *Panel) openChatByID(chatID int) {
+	log.Printf("[Chat] 🚪 Открытие чата по ID=%d", chatID)
+
+	// Сначала пробуем получить чат по ID
+	chat, err := queries.GetChat(chatID)
 	if err != nil {
-		log.Printf("Ошибка получения контакта %d: %v", contactID, err)
+		log.Printf("Ошибка получения чата %d: %v", chatID, err)
 		return
 	}
 
+	// Получаем профиль пира для отображения имени
+	profile, err := queries.GetProfileByPeerID(chat.PeerID)
+	username := chat.PeerID[:8] // По умолчанию используем сокращённый PeerID
+	if err == nil && profile != nil {
+		username = profile.Username
+		log.Printf("[Chat] ℹ️ Профиль найден: %s", username)
+	}
+
+	log.Printf("[Chat] 🗨️ Открытие чата с пиром: %s (%s)", username, chat.PeerID[:8])
+
 	// Открываем чат через публичный метод
-	if contact.PeerID != "" {
-		p.chatsUI.OpenPeerChat(contact.PeerID, contact.Username)
+	if chat.PeerID != "" {
+		p.chatsUI.OpenPeerChat(chat.PeerID, username)
 	}
 }

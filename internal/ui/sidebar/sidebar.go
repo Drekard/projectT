@@ -3,7 +3,7 @@ package sidebar
 import (
 	"fmt"
 	"projectT/internal/services/favorites"
-	"projectT/internal/services/p2p/transfer"
+	"projectT/internal/services/p2p/protocols/transfer"
 	"projectT/internal/storage/database/queries"
 
 	"fyne.io/fyne/v2"

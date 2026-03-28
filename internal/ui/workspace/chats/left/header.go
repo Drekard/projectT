@@ -5,9 +5,6 @@ import (
 	"image/color"
 	"log"
 
-	"projectT/internal/storage/database/models"
-	"projectT/internal/storage/database/queries"
-
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/canvas"
 	"fyne.io/fyne/v2/container"
@@ -74,29 +71,10 @@ func (p *Panel) createFavoriteIcon() *fyne.Container {
 
 	// Создаем кнопку с иконкой поверх графики
 	btn := widget.NewButtonWithIcon("", theme.ContentRedoIcon(), func() {
-		// Загружаем локальный профиль
-		localProfile, err := queries.GetLocalProfile()
-		if err != nil {
-			log.Printf("Ошибка загрузки локального профиля: %v", err)
-			return
-		}
+		log.Printf("[Chat] 🗨️ Нажата кнопка 'Избранное' - открытие локального чата")
 
-		// Получаем или создаём локальный чат (с contact_id = NULL)
-		_, err = queries.GetOrCreateLocalChat(localProfile.PeerID)
-		if err != nil {
-			log.Printf("Ошибка получения локального чата: %v", err)
-			return
-		}
-
-		// Создаём специальный контакт для локального чата (виртуальный, не из БД)
-		localContact := models.NewLocalContact(
-			localProfile.Username,
-			localProfile.Title,
-			localProfile.AvatarPath,
-		)
-
-		// Открываем чат через публичный метод UI
-		p.chatsUI.OpenPeerChat(localContact.PeerID, localContact.Username)
+		// Открываем локальный чат через специальный метод
+		p.chatsUI.OpenLocalChat()
 	})
 	btn.Importance = widget.LowImportance
 

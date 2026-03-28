@@ -4,9 +4,10 @@ package p2p
 import (
 	"fmt"
 	"image/color"
+	"log"
 	"time"
 
-	"projectT/internal/services/p2p/network"
+	network "projectT/internal/services/p2p/ui"
 	"projectT/internal/storage/database/models"
 
 	"fyne.io/fyne/v2"
@@ -290,16 +291,21 @@ func (p *Panel) createConnectedPeerItem(peer *network.PeerInfo) *fyne.Container 
 
 	// Кнопка начала чата
 	chatBtn := widget.NewButtonWithIcon("", theme.MailComposeIcon(), func() {
+		log.Printf("[Chat] 📝 Нажата кнопка создания чата с пиром: %s (%s)", peer.Username, peer.PeerID[:8])
+		log.Printf("[Chat] 🔍 ОТЛАДКА: peer.PeerID полный = %s", peer.PeerID)
+		log.Printf("[Chat] 🔍 ОТЛАДКА: peer.Username = %s", peer.Username)
 		p.openChatWithConnectedPeer(peer.PeerID, peer.Username)
 	})
 
 	// Кнопка добавления в контакты
 	addContactBtn := widget.NewButtonWithIcon("", theme.ContentAddIcon(), func() {
+		log.Printf("[Contact] ➕ Нажата кнопка добавления пира в контакты: %s (%s)", peer.Username, peer.PeerID[:8])
 		p.addConnectedPeerToContacts(peer.PeerID)
 	})
 
 	// Кнопка отключения
 	disconnectBtn := widget.NewButtonWithIcon("", theme.CancelIcon(), func() {
+		log.Printf("[Connection] ❌ Нажата кнопка отключения от пира: %s (%s)", peer.Username, peer.PeerID[:8])
 		p.disconnectFromPeer(peer.PeerID)
 	})
 
@@ -601,14 +607,18 @@ func (p *Panel) disconnectFromPeer(peerID string) {
 
 // addConnectedPeerToContacts добавляет подключённого пира в контакты
 func (p *Panel) addConnectedPeerToContacts(peerID string) {
+	log.Printf("[Contact] 📇 Начало добавления пира в контакты: %s", peerID[:8])
+
 	if p.p2pUI == nil {
 		p.showErrorDialog("Ошибка", "P2P сервис не инициализирован")
+		log.Printf("[Contact] ❌ Ошибка: P2P сервис не инициализирован")
 		return
 	}
 
 	window := p.chatsUI.GetWindow()
 	if window == nil {
 		p.showErrorDialog("Ошибка", "Окно не инициализировано")
+		log.Printf("[Contact] ❌ Ошибка: окно не инициализировано")
 		return
 	}
 
@@ -616,8 +626,10 @@ func (p *Panel) addConnectedPeerToContacts(peerID string) {
 	peerInfo := p.p2pUI.GetPeerInfo(peerID)
 	if peerInfo == nil {
 		p.showErrorDialog("Ошибка", "Не удалось получить информацию о пире")
+		log.Printf("[Contact] ❌ Ошибка: не удалось получить информацию о пире %s", peerID[:8])
 		return
 	}
+	log.Printf("[Contact] ℹ️ Получена информация о пире: %s (%s)", peerInfo.Username, peerID[:8])
 
 	// Получаем multiaddr пира
 	multiaddr := peerInfo.Address
@@ -626,16 +638,19 @@ func (p *Panel) addConnectedPeerToContacts(peerID string) {
 		addrs := p.p2pUI.GetPeerAddresses(peerID)
 		if len(addrs) > 0 {
 			multiaddr = addrs[0]
+			log.Printf("[Contact] ℹ️ Multiaddr получен из Peerstore: %s", multiaddr[:50]+"...")
 		}
 	}
 
 	if multiaddr == "" {
 		p.showErrorDialog("Ошибка", "Не удалось получить адрес пира")
+		log.Printf("[Contact] ❌ Ошибка: не удалось получить адрес пира %s", peerID[:8])
 		return
 	}
 
 	// Формируем строку адреса в формате peerid@multiaddr
 	addrStr := fmt.Sprintf("%s@%s", peerID, multiaddr)
+	log.Printf("[Contact] 📍 Сформирован адрес: %s@...", peerID[:8])
 
 	// Показываем диалог подтверждения с полем для имени
 	usernameEntry := widget.NewEntry()
@@ -650,23 +665,29 @@ func (p *Panel) addConnectedPeerToContacts(peerID string) {
 
 	d := dialog.NewCustomConfirm("Добавление контакта", "Добавить", "Отмена", content, func(confirmed bool) {
 		if !confirmed {
+			log.Printf("[Contact] ⛔ Отменено пользователем добавление контакта: %s", peerID[:8])
 			return
 		}
+		log.Printf("[Contact] ✅ Подтверждено добавление контакта: %s (имя: %s)", peerID[:8], usernameEntry.Text)
 
 		// Добавляем контакт через P2P сервис
 		err := p.p2pUI.AddContactByAddress(addrStr, usernameEntry.Text)
 		if err != nil {
+			log.Printf("[Contact] ❌ Ошибка добавления контакта: %v", err)
 			p.showErrorDialog("Ошибка", fmt.Sprintf("Не удалось добавить контакт: %v", err))
 			return
 		}
+		log.Printf("[Contact] ✅ Контакт добавлен в БД: %s (%s)", usernameEntry.Text, peerID[:8])
 
 		p.showInfoDialog("Успешно", "Контакт добавлен")
+		log.Printf("[Contact] 🔄 Обновление списка контактов в левой панели...")
 
 		// Обновляем список контактов в левой панели
 		p.chatsUI.RefreshContactsList()
 
 		// Обновляем список контактов во вкладке "Контакты"
 		p.loadContactsList()
+		log.Printf("[Contact] ✅ Список контактов обновлён")
 	}, window)
 
 	d.Show()
@@ -674,8 +695,10 @@ func (p *Panel) addConnectedPeerToContacts(peerID string) {
 
 // openChatWithConnectedPeer открывает чат с подключённым пиром (без добавления в контакты)
 func (p *Panel) openChatWithConnectedPeer(peerID, username string) {
+	log.Printf("[Chat] 🗨️ Открытие чата с пиром: %s (%s)", username, peerID[:8])
 	// Открываем чат через публичный метод
 	p.chatsUI.OpenPeerChat(peerID, username)
+	log.Printf("[Chat] ✅ Чат открыт в UI для пира: %s (%s)", username, peerID[:8])
 }
 
 // connectToDiscoveredPeer подключается к обнаруженному пиру

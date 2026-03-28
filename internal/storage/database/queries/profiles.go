@@ -265,7 +265,7 @@ func GetProfileByPeerID(peerID string) (*models.Profile, error) {
 	var cachedAt sql.NullString
 	var createdAt, updatedAt string
 
-	err := database.DB.QueryRow(query).Scan(
+	err := database.DB.QueryRow(query, peerID).Scan(
 		&profile.ID, &profile.OwnerType, &profile.PeerID, &profile.Username,
 		&profile.Title, &profile.AvatarPath, &profile.BackgroundPath,
 		&profile.ContentChar, &profile.PinnedUUIDs, &cachedAt,

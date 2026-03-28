@@ -4,8 +4,12 @@ package p2p
 import (
 	"fmt"
 	"image/color"
+	"log"
+	"os"
+	"strings"
 
-	"projectT/internal/services/p2p/network"
+	"projectT/internal/config"
+	network "projectT/internal/services/p2p/ui"
 
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/canvas"
@@ -69,7 +73,6 @@ func (p *Panel) createP2PSettingsSection() *fyne.Container {
 	portBg := canvas.NewRectangle(color.RGBA{R: 50, G: 50, B: 50, A: 255})
 	portBg.SetMinSize(fyne.NewSize(100, 30))
 	p.portEntry = widget.NewEntry()
-	p.portEntry.SetText("8080")
 	portWrapper := container.NewStack(portBg, p.portEntry)
 	portRow := container.NewHBox(portLabel, portWrapper)
 
@@ -92,8 +95,12 @@ func (p *Panel) createP2PSettingsSection() *fyne.Container {
 	stunRow := container.NewHBox(stunLabel, stunWrapper)
 
 	// Кнопки
-	saveSettingsBtn := widget.NewButtonWithIcon("Сохранить", theme.DocumentSaveIcon(), func() {
+	saveSettingsBtn := widget.NewButtonWithIcon("Сохранить (в памяти)", theme.DocumentSaveIcon(), func() {
 		p.saveP2PSettings()
+	})
+
+	saveConfigBtn := widget.NewButtonWithIcon("💾 Сохранить в config.yaml", theme.FolderOpenIcon(), func() {
+		p.saveP2PSettingsToConfig()
 	})
 
 	restartBtn := widget.NewButtonWithIcon("Применить и перезапустить", theme.ViewRefreshIcon(), func() {
@@ -101,10 +108,7 @@ func (p *Panel) createP2PSettingsSection() *fyne.Container {
 	})
 	restartBtn.Importance = widget.HighImportance
 
-	buttonsRow := container.NewHBox(saveSettingsBtn, restartBtn)
-
-	// Загружаем настройки P2P при создании панели
-	p.loadP2PSettings()
+	buttonsRow := container.NewHBox(saveSettingsBtn, saveConfigBtn, restartBtn)
 
 	return container.NewVBox(
 		sectionTitle,
@@ -125,12 +129,22 @@ func (p *Panel) createP2PSettingsSection() *fyne.Container {
 // loadP2PSettings загружает настройки P2P
 func (p *Panel) loadP2PSettings() {
 	if p.p2pUI == nil {
+		log.Printf("[loadP2PSettings] p2pUI == nil")
 		return
 	}
 
+	log.Printf("[loadP2PSettings] Загрузка настроек...")
 	settings := p.p2pUI.GetSettings()
+	log.Printf("[loadP2PSettings] Получены настройки: Port=%d, NAT=%v, Relay=%v",
+		settings.ListenPort, settings.EnableNATPortMap, settings.EnableRelay)
 
-	p.portEntry.SetText(fmt.Sprintf("%d", settings.ListenPort))
+	// Устанавливаем порт (если 0 или не задан - используем 8080)
+	port := settings.ListenPort
+	if port <= 0 {
+		port = 8080
+	}
+	p.portEntry.SetText(fmt.Sprintf("%d", port))
+
 	p.natPortMapCheck.SetChecked(settings.EnableNATPortMap)
 	p.relayCheck.SetChecked(settings.EnableRelay)
 	p.autoRelayCheck.SetChecked(settings.EnableAutoRelay)
@@ -139,6 +153,7 @@ func (p *Panel) loadP2PSettings() {
 	p.stunCheck.SetChecked(settings.EnableSTUN)
 	p.stunServerEntry.SetText(settings.STUNServer)
 	p.helperModeCheck.SetChecked(settings.EnableHelperMode)
+	log.Printf("[loadP2PSettings] Настройки загружены, порт=%d", port)
 }
 
 // saveP2PSettings сохраняет настройки P2P
@@ -173,6 +188,74 @@ func (p *Panel) saveP2PSettings() {
 	}
 
 	p.showInfoDialog("Успешно", "Настройки P2P сохранены\n\nДля применения настроек нажмите 'Применить и перезапустить P2P'")
+}
+
+// saveP2PSettingsToConfig сохраняет настройки в config.yaml
+func (p *Panel) saveP2PSettingsToConfig() {
+	window := p.chatsUI.GetWindow()
+	if window == nil {
+		return
+	}
+
+	var port int
+	if _, err := fmt.Sscanf(p.portEntry.Text, "%d", &port); err != nil {
+		p.showErrorDialog("Ошибка", "Неверный формат порта")
+		return
+	}
+
+	// Показываем диалог подтверждения
+	dialog.ShowConfirm(
+		"Сохранение в config.yaml",
+		fmt.Sprintf("Сохранить порт %d в config.yaml?\n\nЭто изменит файл конфигурации.\nНовый порт будет использоваться при следующем запуске.", port),
+		func(confirmed bool) {
+			if !confirmed {
+				return
+			}
+
+			// Получаем путь к config.yaml
+			configPath := "config.yaml"
+
+			// Проверяем существование файла
+			if _, err := os.Stat(configPath); os.IsNotExist(err) {
+				p.showErrorDialog("Ошибка", "Файл config.yaml не найден\n\nЗапустите приложение из директории с config.yaml")
+				return
+			}
+
+			// Загружаем текущую конфигурацию (только YAML, без ENV!)
+			loader := config.NewLoader()
+			cfg, err := loader.LoadFromYAMLOnly(configPath)
+			if err != nil {
+				p.showErrorDialog("Ошибка", fmt.Sprintf("Не удалось загрузить config.yaml: %v", err))
+				return
+			}
+
+			// Обновляем порт
+			oldPort := cfg.P2P.Port
+			cfg.P2P.Port = port
+
+			log.Printf("[SaveConfig] Старый порт: %d, Новый порт: %d", oldPort, port)
+
+			// Сохраняем конфигурацию
+			err = config.Save(cfg, configPath)
+			if err != nil {
+				p.showErrorDialog("Ошибка", fmt.Sprintf("Не удалось сохранить config.yaml: %v", err))
+				return
+			}
+
+			log.Printf("[SaveConfig] Конфигурация сохранена в %s", configPath)
+
+			// Проверяем что записалось
+			checkLoader := config.NewLoader()
+			checkCfg, err := checkLoader.Load()
+			if err == nil {
+				log.Printf("[SaveConfig] Проверка: порт в config.yaml = %d", checkCfg.P2P.Port)
+			}
+
+			p.showInfoDialog("Успешно",
+				fmt.Sprintf("Порт %d сохранён в config.yaml\n\n⚠️ Для применения настроек перезапустите приложение\n\n❌ НЕ используйте PROJECTT_P2P_PORT - это перезаписывает config!", port))
+		},
+		window,
+	)
 }
 
 // restartP2PWithNewSettings перезапускает P2P с новыми настройками
@@ -259,15 +342,40 @@ func (p *Panel) copyMyAddress() {
 		return
 	}
 
-	addr, err := p.p2pUI.CopyPeerAddress()
-	if err != nil {
-		p.showErrorDialog("Ошибка", fmt.Sprintf("Не удалось получить адрес: %v", err))
+	// Получаем ВСЕ локальные адреса
+	addresses := p.p2pUI.GetLocalAddresses()
+	if len(addresses) == 0 {
+		p.showErrorDialog("Ошибка", "Не удалось получить адрес")
 		return
 	}
 
+	// Выбираем ПЕРВЫЙ адрес с 192.168.x.x (для локальной сети)
+	selectedAddr := ""
+	for _, addr := range addresses {
+		if strings.Contains(addr, "/ip4/192.168.") {
+			selectedAddr = addr
+			break
+		}
+	}
+
+	// Если нет 192.168, берём первый не-localhost
+	if selectedAddr == "" {
+		for _, addr := range addresses {
+			if !strings.Contains(addr, "127.0.0.1") && !strings.Contains(addr, "::1") {
+				selectedAddr = addr
+				break
+			}
+		}
+	}
+
+	// Если всё ещё пусто, берём первый
+	if selectedAddr == "" && len(addresses) > 0 {
+		selectedAddr = addresses[0]
+	}
+
 	// Копируем в буфер обмена
-	window.Clipboard().SetContent(addr)
-	p.showInfoDialog("Адрес скопирован", "Ваш адрес скопирован в буфер обмена")
+	window.Clipboard().SetContent(selectedAddr)
+	p.showInfoDialog("Адрес скопирован", fmt.Sprintf("Адрес скопирован в буфер обмена:\n%s", selectedAddr))
 }
 
 // checkPortAccessibility проверяет доступность порта

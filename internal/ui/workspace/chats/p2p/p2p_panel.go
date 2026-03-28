@@ -4,7 +4,7 @@ package p2p
 import (
 	"image/color"
 
-	"projectT/internal/services/p2p/network"
+	network "projectT/internal/services/p2p/ui"
 
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/canvas"
@@ -69,6 +69,11 @@ func (p *Panel) Container() *fyne.Container {
 // SetP2PService устанавливает P2P сервис
 func (p *Panel) SetP2PService(p2pUI *network.UIP2P) {
 	p.p2pUI = p2pUI
+
+	// Загружаем настройки после установки p2pUI
+	if p.portEntry != nil {
+		p.loadP2PSettings()
+	}
 }
 
 // createControlPanel создает панель управления P2P с тремя вкладками
