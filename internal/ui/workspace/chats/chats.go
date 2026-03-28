@@ -527,6 +527,36 @@ func (ui *UI) RefreshContactsList() {
 	}
 }
 
+// RefreshRightPanel обновляет правую панель с профилем пира (вызывается из callback после загрузки профиля)
+func (ui *UI) RefreshRightPanel(peerID string) {
+	// Получаем профиль из БД
+	profile, err := queries.GetProfileByPeerID(peerID)
+	if err != nil || profile == nil {
+		log.Printf("[Profile] ⚠️ Не удалось получить профиль для обновления UI: %v", err)
+		return
+	}
+
+	// Создаём контакт с обновлёнными данными
+	contact := &models.Contact{
+		PeerID:     peerID,
+		Username:   profile.Username,
+		Title:      profile.Title,
+		AvatarPath: profile.AvatarPath,
+	}
+
+	// Обновляем правую панель
+	if ui.rightPanel != nil {
+		ui.rightPanel.UpdateProfile(contact)
+		log.Printf("[Profile] 🔄 Правая панель обновлена для %s", peerID[:8])
+	}
+
+	// Также обновляем левую панель (список чатов)
+	if ui.leftPanel != nil {
+		ui.leftPanel.Refresh()
+		log.Printf("[Profile] 🔄 Левая панель обновлена")
+	}
+}
+
 // GetP2PService возвращает P2P сервис
 func (ui *UI) GetP2PService() *network.UIP2P {
 	return ui.p2pUI

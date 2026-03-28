@@ -70,6 +70,9 @@ type ExchangeService struct {
 		MarkProfileComplete(peer.ID)
 		CanRequestProfile(peer.ID) bool
 	} // сервис подключений для отслеживания статуса профиля
+	uiP2P interface {
+		OnProfileUpdated(peerID string)
+	} // UI callback для уведомления об обновлении профиля
 }
 
 // NewExchangeService создаёт сервис обмена профилями
@@ -98,6 +101,13 @@ func (pes *ExchangeService) SetConnectionService(connSvc interface {
 	CanRequestProfile(peer.ID) bool
 }) {
 	pes.connSvc = connSvc
+}
+
+// SetUIP2P устанавливает UI API для уведомления об обновлении профиля
+func (pes *ExchangeService) SetUIP2P(uiP2P interface {
+	OnProfileUpdated(peerID string)
+}) {
+	pes.uiP2P = uiP2P
 }
 
 // getTransferService возвращает сервис передачи файлов
@@ -207,30 +217,45 @@ func (pes *ExchangeService) handleProfileRequest(stream network.Stream) {
 	// Загружаем аватар если он есть и данные получены
 	if len(response.AvatarData) > 0 {
 		go func() {
+			var filePath string
+			var err error
+
 			// Проверяем, существует ли уже файл аватара
 			existingAvatar, err := filesystem.GetAvatar(remotePeer.String())
 			if err == nil && existingAvatar != "" {
 				log.Printf("[Profile] Аватар уже загружен для %s: %s", remotePeer.String()[:8], existingAvatar)
-				return
+				filePath = existingAvatar
+			} else {
+				// Сохраняем аватар
+				filePath, err = filesystem.SaveAvatar(remotePeer.String(), response.AvatarData)
+				if err != nil {
+					log.Printf("[Profile] Не удалось сохранить аватар от %s: %v", remotePeer.String()[:8], err)
+					return
+				}
+				log.Printf("[Profile] ✅ Аватар сохранён: %s", filePath)
 			}
 
-			// Сохраняем аватар
-			filePath, err := filesystem.SaveAvatar(remotePeer.String(), response.AvatarData)
-			if err != nil {
-				log.Printf("[Profile] Не удалось сохранить аватар от %s: %v", remotePeer.String()[:8], err)
-			} else {
-				log.Printf("[Profile] ✅ Аватар сохранён: %s", filePath)
-
-				// Обновляем путь к аватару в профиле (асинхронно)
-				remoteProfile, err := queries.GetRemoteProfile(remotePeer.String())
-				if err == nil && remoteProfile != nil {
+			// Обновляем путь к аватару в профиле (всегда, даже если аватар уже загружен)
+			remoteProfile, err := queries.GetRemoteProfile(remotePeer.String())
+			if err == nil && remoteProfile != nil {
+				// Проверяем, нужно ли обновлять путь
+				if remoteProfile.AvatarPath != filePath {
 					remoteProfile.AvatarPath = filePath
 					if err := queries.UpdateRemoteProfile(remoteProfile); err != nil {
 						log.Printf("[Profile] Не удалось обновить путь к аватару в БД: %v", err)
 					} else {
-						log.Printf("[Profile] ✅ Путь к аватару обновлён в БД")
+						log.Printf("[Profile] ✅ Путь к аватару обновлён в БД: %s", filePath)
 					}
+				} else {
+					log.Printf("[Profile] ℹ️ Путь к аватару в БД актуален: %s", filePath)
 				}
+			} else {
+				log.Printf("[Profile] ⚠️ Не удалось получить профиль для обновления аватара: %v", err)
+			}
+
+			// Уведомляем UI об обновлении профиля
+			if pes.uiP2P != nil {
+				pes.uiP2P.OnProfileUpdated(remotePeer.String())
 			}
 		}()
 	} else if response.AvatarPath != "" {

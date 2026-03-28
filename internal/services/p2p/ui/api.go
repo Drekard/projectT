@@ -74,15 +74,31 @@ type P2PSettings struct {
 	EnableHelperMode bool   `json:"enable_helper_mode"`
 }
 
+// OnProfileUpdated callback функция, вызываемая после обновления профиля пира
+type OnProfileUpdated func(peerID string)
+
 // UIP2P API для доступа к P2P из UI
 type UIP2P struct {
-	network *core.P2PNetwork
+	network          *core.P2PNetwork
+	onProfileUpdated OnProfileUpdated
 }
 
 // NewUIP2P создаёт UI API для P2P
 func NewUIP2P(network *core.P2PNetwork) *UIP2P {
 	return &UIP2P{
 		network: network,
+	}
+}
+
+// SetOnProfileUpdated устанавливает callback для уведомления об обновлении профиля
+func (api *UIP2P) SetOnProfileUpdated(fn OnProfileUpdated) {
+	api.onProfileUpdated = fn
+}
+
+// OnProfileUpdated вызывается из profile exchange после загрузки профиля
+func (api *UIP2P) OnProfileUpdated(peerID string) {
+	if api.onProfileUpdated != nil {
+		api.onProfileUpdated(peerID)
 	}
 }
 

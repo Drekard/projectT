@@ -116,16 +116,17 @@ func (mb *MessageBubble) createBubbleForElement(message *models.ChatMessage, isO
 	}
 
 	// Создаём полноценную карточку элемента используя функционал concrete
+	// Для чатов используем режим без кнопок
 	var cardRenderer fyne.CanvasObject
 	switch item.Type {
 	case "folder":
-		cardRenderer = concrete.NewFolderCard(item).GetContainer()
+		cardRenderer = concrete.NewFolderCard(item, true).GetContainer()
 	case "element":
-		// Для элементов используем композитную карточку
-		cardRenderer = concrete.NewCompositeCard(item).GetContainer()
+		// Для элементов используем композитную карточку в режиме без кнопок
+		cardRenderer = concrete.NewCompositeCard(item, true).GetContainer()
 	default:
-		// Для неизвестных типов используем композитную карточку
-		cardRenderer = concrete.NewCompositeCard(item).GetContainer()
+		// Для неизвестных типов используем композитную карточку в режиме без кнопок
+		cardRenderer = concrete.NewCompositeCard(item, true).GetContainer()
 	}
 
 	// Время отправки

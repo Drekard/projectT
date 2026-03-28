@@ -142,10 +142,120 @@ func main() {
 	}
 
 	fmt.Println()
-	fmt.Println("✅ Очистка завершена успешно!")
+	fmt.Println("✅ Очистка чатов завершена успешно!")
 	fmt.Println()
-	fmt.Println("📝 Примечание:")
-	fmt.Println("   - Локальный чат (ID=1) также был удалён")
-	fmt.Println("   - Профили пиров не были затронуты")
-	fmt.Println("   - Контакты не были затронуты")
+
+	// ============================================
+	// Очистка профилей (кроме локального)
+	// ============================================
+	fmt.Println("=== Очистка профилей (кроме локального) ===")
+	fmt.Println()
+
+	// Получаем статистику до очистки
+	var localProfileCount, remoteProfileCount int
+
+	err = db.QueryRow("SELECT COUNT(*) FROM profiles WHERE owner_type = 'local'").Scan(&localProfileCount)
+	if err != nil {
+		log.Printf("⚠️  Ошибка подсчёта локальных профилей: %v", err)
+	}
+
+	err = db.QueryRow("SELECT COUNT(*) FROM profiles WHERE owner_type = 'remote'").Scan(&remoteProfileCount)
+	if err != nil {
+		log.Printf("⚠️  Ошибка подсчёта remote профилей: %v", err)
+	}
+
+	fmt.Println("📊 Статистика до очистки:")
+	fmt.Printf("   Локальных профилей: %d\n", localProfileCount)
+	fmt.Printf("   Remote профилей: %d\n", remoteProfileCount)
+	fmt.Println()
+
+	// Подтверждение
+	if !autoConfirm {
+		fmt.Print("⚠️  Вы уверены, что хотите удалить ВСЕ remote профили? (y/n): ")
+		var confirm string
+		fmt.Scanln(&confirm)
+
+		if confirm != "y" && confirm != "Y" && confirm != "yes" && confirm != "YES" {
+			fmt.Println("❌ Очистка профилей отменена")
+		} else {
+			// Удаляем remote профили
+			result, err = db.Exec("DELETE FROM profiles WHERE owner_type = 'remote'")
+			if err != nil {
+				log.Fatalf("❌ Ошибка очистки remote профилей: %v", err)
+			}
+			deletedProfiles, _ := result.RowsAffected()
+			fmt.Printf("✅ Удалено remote профилей: %d\n", deletedProfiles)
+
+			// Сбрасываем автоинкремент
+			_, err = db.Exec("DELETE FROM sqlite_sequence WHERE name='profiles'")
+			if err != nil {
+				log.Printf("⚠️  Ошибка сброса автоинкремента profiles: %v", err)
+			}
+
+			fmt.Println()
+			fmt.Println("📊 Статистика после очистки:")
+
+			err = db.QueryRow("SELECT COUNT(*) FROM profiles WHERE owner_type = 'local'").Scan(&localProfileCount)
+			if err != nil {
+				log.Printf("⚠️  Ошибка подсчёта локальных профилей: %v", err)
+			}
+
+			err = db.QueryRow("SELECT COUNT(*) FROM profiles WHERE owner_type = 'remote'").Scan(&remoteProfileCount)
+			if err != nil {
+				log.Printf("⚠️  Ошибка подсчёта remote профилей: %v", err)
+			}
+
+			fmt.Printf("   Локальных профилей: %d\n", localProfileCount)
+			fmt.Printf("   Remote профилей: %d\n", remoteProfileCount)
+			fmt.Println()
+
+			fmt.Println("✅ Очистка профилей завершена успешно!")
+			fmt.Println()
+			fmt.Println("📝 Примечание:")
+			fmt.Println("   - Локальный профиль сохранён")
+			fmt.Println("   - Все remote профили удалены")
+			fmt.Println("   - Аватары remote профилей не удалялись (можно удалить вручную в storage/files/avatars/remote/)")
+		}
+	} else {
+		// При автоматическом подтверждении тоже удаляем профили
+		result, err = db.Exec("DELETE FROM profiles WHERE owner_type = 'remote'")
+		if err != nil {
+			log.Fatalf("❌ Ошибка очистки remote профилей: %v", err)
+		}
+		deletedProfiles, _ := result.RowsAffected()
+		fmt.Printf("✅ Удалено remote профилей: %d\n", deletedProfiles)
+
+		// Сбрасываем автоинкремент
+		_, err = db.Exec("DELETE FROM sqlite_sequence WHERE name='profiles'")
+		if err != nil {
+			log.Printf("⚠️  Ошибка сброса автоинкремента profiles: %v", err)
+		}
+
+		fmt.Println()
+		fmt.Println("📊 Статистика после очистки:")
+
+		err = db.QueryRow("SELECT COUNT(*) FROM profiles WHERE owner_type = 'local'").Scan(&localProfileCount)
+		if err != nil {
+			log.Printf("⚠️  Ошибка подсчёта локальных профилей: %v", err)
+		}
+
+		err = db.QueryRow("SELECT COUNT(*) FROM profiles WHERE owner_type = 'remote'").Scan(&remoteProfileCount)
+		if err != nil {
+			log.Printf("⚠️  Ошибка подсчёта remote профилей: %v", err)
+		}
+
+		fmt.Printf("   Локальных профилей: %d\n", localProfileCount)
+		fmt.Printf("   Remote профилей: %d\n", remoteProfileCount)
+		fmt.Println()
+
+		fmt.Println("✅ Очистка профилей завершена успешно!")
+		fmt.Println()
+		fmt.Println("📝 Примечание:")
+		fmt.Println("   - Локальный профиль сохранён")
+		fmt.Println("   - Все remote профили удалены")
+		fmt.Println("   - Аватары remote профилей не удалялись (можно удалить вручную в storage/files/avatars/remote/)")
+	}
+
+	fmt.Println()
+	fmt.Println("🎉 Вся очистка завершена успешно!")
 }

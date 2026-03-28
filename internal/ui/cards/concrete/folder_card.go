@@ -19,6 +19,7 @@ type FolderCard struct {
 	countSegment         *widget.TextSegment // Сегмент для счетчика элементов
 	richText             *widget.RichText    // RichText для основного содержимого
 	isContentInitialized bool                // Флаг: контент уже инициализирован
+	noButtonsMode        bool                // Режим отображения без кнопок в меню
 }
 
 // FolderCardNavigationHandler интерфейс для обработки навигации по папкам
@@ -36,14 +37,20 @@ func GetItemCount(folderID int) (int, error) {
 }
 
 // NewFolderCard создает новую карточку для папки
-func NewFolderCard(item *models.Item) interfaces.CardRenderer {
-	return NewFolderCardWithNavigation(item, nil)
+// Опциональный параметр noButtons управляет режимом отображения меню без кнопок
+func NewFolderCard(item *models.Item, noButtons ...bool) interfaces.CardRenderer {
+	noButtonsMode := len(noButtons) > 0 && noButtons[0]
+	return NewFolderCardWithNavigation(item, nil, noButtonsMode)
 }
 
 // NewFolderCardWithNavigation создает новую карточку для папки с обработчиком навигации
-func NewFolderCardWithNavigation(item *models.Item, navigationHandler FolderCardNavigationHandler) interfaces.CardRenderer {
+// Опциональный параметр noButtons управляет режимом отображения меню без кнопок
+func NewFolderCardWithNavigation(item *models.Item, navigationHandler FolderCardNavigationHandler, noButtons ...bool) interfaces.CardRenderer {
+	noButtonsMode := len(noButtons) > 0 && noButtons[0]
+
 	folderCard := &FolderCard{
-		BaseCard: cards.NewBaseCard(item),
+		BaseCard:      cards.NewBaseCard(item),
+		noButtonsMode: noButtonsMode,
 	}
 
 	// Создаем сегменты для RichText
@@ -84,8 +91,8 @@ func NewFolderCardWithNavigation(item *models.Item, navigationHandler FolderCard
 		// Создаем менеджер меню
 		menuManager := hover_preview.NewMenuManager()
 
-		// Показываем меню действий
-		menuManager.ShowSimpleMenu(folderCard.Item, folderCard.Container, nil)
+		// Показываем меню действий с учетом режима noButtons
+		menuManager.ShowSimpleMenu(folderCard.Item, folderCard.Container, nil, folderCard.noButtonsMode)
 	}, func() {
 		// Обработчик двойного клика - переход в папку
 		if navigationHandler != nil {
@@ -149,7 +156,7 @@ func (fc *FolderCard) UpdateContent() {
 	}
 
 	// Первый вызов - пересоздаем карточку с обновленным элементом
-	newCard := NewFolderCardWithNavigation(fc.Item, nil)
+	newCard := NewFolderCardWithNavigation(fc.Item, nil, fc.noButtonsMode)
 
 	// Копируем контейнер новой карточки в текущую
 	fc.Container = newCard.GetContainer()

@@ -144,23 +144,24 @@ func (p *Panel) createDemoElementCard(elementUUID string) fyne.CanvasObject {
 	}
 
 	// Создаём полноценную карточку элемента используя функционал concrete
+	// Для профиля используем режим без кнопок
 	var cardRenderer fyne.CanvasObject
 	switch item.Type {
 	case "folder":
-		cardRenderer = concrete.NewFolderCard(item).GetContainer()
+		cardRenderer = concrete.NewFolderCard(item, true).GetContainer()
 	case "element":
-		// Для элементов используем композитную карточку
-		cardRenderer = concrete.NewCompositeCard(item).GetContainer()
+		// Для элементов используем композитную карточку в режиме без кнопок
+		cardRenderer = concrete.NewCompositeCard(item, true).GetContainer()
 	default:
-		// Для неизвестных типов используем композитную карточку
-		cardRenderer = concrete.NewCompositeCard(item).GetContainer()
+		// Для неизвестных типов используем композитную карточку в режиме без кнопок
+		cardRenderer = concrete.NewCompositeCard(item, true).GetContainer()
 	}
 
 	// Оборачиваем в кликабельный виджет для обработки правого клика и превью
 	clickableCard := hover_preview.NewClickableCard(cardRenderer, func() {
-		// Показываем меню при правом клике
+		// Показываем меню при правом клике в режиме без кнопок
 		menuManager := hover_preview.NewMenuManager()
-		menuManager.ShowSimpleMenu(item, cardRenderer, nil)
+		menuManager.ShowSimpleMenu(item, cardRenderer, nil, true)
 	})
 
 	return clickableCard

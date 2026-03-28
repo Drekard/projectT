@@ -56,7 +56,8 @@ func (mm *MenuManager) SetSearchEntry(entry *widget.Entry) {
 }
 
 // ShowSimpleMenu показывает простое меню действий
-func (mm *MenuManager) ShowSimpleMenu(item *models.Item, cont fyne.CanvasObject, onClose func()) {
+// Параметр noButtons управляет отображением кнопок действий (true - скрыть кнопки)
+func (mm *MenuManager) ShowSimpleMenu(item *models.Item, cont fyne.CanvasObject, onClose func(), noButtons ...bool) {
 	window := fyne.CurrentApp().Driver().CanvasForObject(cont)
 	if window == nil {
 		return
@@ -65,6 +66,9 @@ func (mm *MenuManager) ShowSimpleMenu(item *models.Item, cont fyne.CanvasObject,
 	// Получаем позицию и размер карточки для центрирования попапов
 	cardPos := fyne.CurrentApp().Driver().AbsolutePositionForObject(cont)
 	cardSize := cont.MinSize()
+
+	// Проверяем, нужно ли скрыть кнопки
+	hideButtons := len(noButtons) > 0 && noButtons[0]
 
 	// Создаем переменную для попапа, чтобы была возможность его закрыть из обработчика кнопки
 	var popup *widget.PopUp
@@ -91,161 +95,167 @@ func (mm *MenuManager) ShowSimpleMenu(item *models.Item, cont fyne.CanvasObject,
 	children = append(children,
 		widget.NewLabel("Создан: "+item.CreatedAt.Format("02.01.2006 15:04")),
 		widget.NewLabel("Изменен: "+item.UpdatedAt.Format("02.01.2006 15:04")),
-		container.NewBorder(
-			nil, nil, nil,
-			func() fyne.CanvasObject {
-				buttons := []fyne.CanvasObject{
-					widget.NewButton("✏️ Редактировать", func() {
-						appWindows := fyne.CurrentApp().Driver().AllWindows()
-						if len(appWindows) > 0 {
-							edit_item.ShowCreateItemModalForEdit(appWindows[0], item.ID)
-						}
-					}),
-					widget.NewButton("🗑 Удалить", func() {
-						appWindow := fyne.CurrentApp().Driver().AllWindows()[0]
-						dialog.ShowConfirm("Подтверждение удаления",
-							fmt.Sprintf("Вы уверены, что хотите удалить элемент \"%s\"?", item.Title),
-							func(confirmed bool) {
-								if confirmed {
-									if err := mm.deleteItem(item); err != nil {
-										dialog.ShowError(fmt.Errorf("Ошибка при удалении элемента: %v", err), appWindow)
-									} else {
-										popup.Hide()
-										if onClose != nil {
-											onClose()
+	)
+
+	// Добавляем кнопки только если не установлен режим hideButtons
+	if !hideButtons {
+		children = append(children,
+			container.NewBorder(
+				nil, nil, nil,
+				func() fyne.CanvasObject {
+					buttons := []fyne.CanvasObject{
+						widget.NewButton("✏️ Редактировать", func() {
+							appWindows := fyne.CurrentApp().Driver().AllWindows()
+							if len(appWindows) > 0 {
+								edit_item.ShowCreateItemModalForEdit(appWindows[0], item.ID)
+							}
+						}),
+						widget.NewButton("🗑 Удалить", func() {
+							appWindow := fyne.CurrentApp().Driver().AllWindows()[0]
+							dialog.ShowConfirm("Подтверждение удаления",
+								fmt.Sprintf("Вы уверены, что хотите удалить элемент \"%s\"?", item.Title),
+								func(confirmed bool) {
+									if confirmed {
+										if err := mm.deleteItem(item); err != nil {
+											dialog.ShowError(fmt.Errorf("Ошибка при удалении элемента: %v", err), appWindow)
+										} else {
+											popup.Hide()
+											if onClose != nil {
+												onClose()
+											}
 										}
 									}
-								}
-							}, appWindow)
-					}),
-				}
-
-				// Добавляем кнопку избранного только для папок
-				if item.Type == models.ItemTypeFolder {
-					isFavorite, err := favoritesService.IsFavorite("folder", item.ElementUUID)
-					if err != nil {
-						isFavorite = false
+								}, appWindow)
+						}),
 					}
 
-					// Создаем кнопку избранного с правильным начальным состоянием
-					var favButton *widget.Button
+					// Добавляем кнопку избранного только для папок
+					if item.Type == models.ItemTypeFolder {
+						isFavorite, err := favoritesService.IsFavorite("folder", item.ElementUUID)
+						if err != nil {
+							isFavorite = false
+						}
+
+						// Создаем кнопку избранного с правильным начальным состоянием
+						var favButton *widget.Button
+
+						// Для корректной работы с замыканиями создаем функцию вне блока
+						// чтобы избежать проблем с областью видимости
+						var createFavHandler func(currentState bool) func()
+
+						// Определяем функцию обработчика
+						createFavHandler = func(currentState bool) func() {
+							if currentState {
+								// Если сейчас в избранном - делаем обработчик для удаления
+								return func() {
+									err := favoritesService.RemoveFromFavorites("folder", item.ElementUUID)
+									if err != nil {
+										return
+									}
+									// Обновляем текст кнопки
+									favButton.SetText("⭐️")
+									// Устанавливаем новый обработчик для следующего клика
+									favButton.OnTapped = createFavHandler(false)
+								}
+							} else {
+								// Если сейчас не в избранном - делаем обработчик для добавления
+								return func() {
+									err := favoritesService.AddToFavorites("folder", item.ElementUUID)
+									if err != nil {
+										return
+									}
+									// Обновляем текст кнопки
+									favButton.SetText("✨")
+									// Устанавливаем новый обработчик для следующего клика
+									favButton.OnTapped = createFavHandler(true)
+								}
+							}
+						}
+
+						// Создаем кнопку с правильным начальным текстом и обработчиком
+						if isFavorite {
+							favButton = widget.NewButton("✨", createFavHandler(true))
+						} else {
+							favButton = widget.NewButton("⭐️", createFavHandler(false))
+						}
+
+						// Вставляем кнопку избранного первой в список кнопок
+						buttons = append([]fyne.CanvasObject{favButton}, buttons...)
+					}
+
+					// Добавляем кнопку отправки для всех типов элементов
+					sendButton := widget.NewButton("📤 Отправить", func() {
+						// Показываем диалог выбора контакта
+						showSendToContactDialog(item, popup)
+					})
+					// Вставляем кнопку отправки перед кнопками редактирования и удаления
+					buttons = append([]fyne.CanvasObject{sendButton}, buttons...)
+
+					// Добавляем кнопку перемещения для всех типов элементов
+					moveButton := widget.NewButton("📁 Переместить", func() {
+						// Показываем список папок для перемещения
+						showMoveFolderSelection(popup, item)
+					})
+					// Вставляем кнопку перемещения перед кнопками редактирования и удаления
+					buttons = append([]fyne.CanvasObject{moveButton}, buttons...)
+
+					// Добавляем кнопку закрепления для всех типов элементов
+					isPinned, err := pinnedService.IsItemPinned(item.ID)
+					if err != nil {
+						isPinned = false
+					}
+
+					// Создаем кнопку закрепления с правильным начальным состоянием
+					var pinButton *widget.Button
 
 					// Для корректной работы с замыканиями создаем функцию вне блока
 					// чтобы избежать проблем с областью видимости
-					var createFavHandler func(currentState bool) func()
+					var createPinHandler func(currentState bool) func()
 
 					// Определяем функцию обработчика
-					createFavHandler = func(currentState bool) func() {
+					createPinHandler = func(currentState bool) func() {
 						if currentState {
-							// Если сейчас в избранном - делаем обработчик для удаления
+							// Если сейчас закреплено - делаем обработчик для открепления
 							return func() {
-								err := favoritesService.RemoveFromFavorites("folder", item.ElementUUID)
+								err := pinnedService.UnpinItem(item.ID)
 								if err != nil {
 									return
 								}
 								// Обновляем текст кнопки
-								favButton.SetText("⭐️")
+								pinButton.SetText("📌")
 								// Устанавливаем новый обработчик для следующего клика
-								favButton.OnTapped = createFavHandler(false)
+								pinButton.OnTapped = createPinHandler(false)
 							}
 						} else {
-							// Если сейчас не в избранном - делаем обработчик для добавления
+							// Если сейчас не закреплено - делаем обработчик для закрепления
 							return func() {
-								err := favoritesService.AddToFavorites("folder", item.ElementUUID)
+								err := pinnedService.PinItem(item.ID)
 								if err != nil {
 									return
 								}
 								// Обновляем текст кнопки
-								favButton.SetText("✨")
+								pinButton.SetText("✅📌")
 								// Устанавливаем новый обработчик для следующего клика
-								favButton.OnTapped = createFavHandler(true)
+								pinButton.OnTapped = createPinHandler(true)
 							}
 						}
 					}
 
 					// Создаем кнопку с правильным начальным текстом и обработчиком
-					if isFavorite {
-						favButton = widget.NewButton("✨", createFavHandler(true))
+					if isPinned {
+						pinButton = widget.NewButton("✅📌", createPinHandler(true))
 					} else {
-						favButton = widget.NewButton("⭐️", createFavHandler(false))
+						pinButton = widget.NewButton("📌", createPinHandler(false))
 					}
 
-					// Вставляем кнопку избранного первой в список кнопок
-					buttons = append([]fyne.CanvasObject{favButton}, buttons...)
-				}
+					// Вставляем кнопку закрепления перед кнопками редактирования и удаления
+					buttons = append([]fyne.CanvasObject{pinButton}, buttons...)
 
-				// Добавляем кнопку отправки для всех типов элементов
-				sendButton := widget.NewButton("📤 Отправить", func() {
-					// Показываем диалог выбора контакта
-					showSendToContactDialog(item, popup)
-				})
-				// Вставляем кнопку отправки перед кнопками редактирования и удаления
-				buttons = append([]fyne.CanvasObject{sendButton}, buttons...)
-
-				// Добавляем кнопку перемещения для всех типов элементов
-				moveButton := widget.NewButton("📁 Переместить", func() {
-					// Показываем список папок для перемещения
-					showMoveFolderSelection(popup, item)
-				})
-				// Вставляем кнопку перемещения перед кнопками редактирования и удаления
-				buttons = append([]fyne.CanvasObject{moveButton}, buttons...)
-
-				// Добавляем кнопку закрепления для всех типов элементов
-				isPinned, err := pinnedService.IsItemPinned(item.ID)
-				if err != nil {
-					isPinned = false
-				}
-
-				// Создаем кнопку закрепления с правильным начальным состоянием
-				var pinButton *widget.Button
-
-				// Для корректной работы с замыканиями создаем функцию вне блока
-				// чтобы избежать проблем с областью видимости
-				var createPinHandler func(currentState bool) func()
-
-				// Определяем функцию обработчика
-				createPinHandler = func(currentState bool) func() {
-					if currentState {
-						// Если сейчас закреплено - делаем обработчик для открепления
-						return func() {
-							err := pinnedService.UnpinItem(item.ID)
-							if err != nil {
-								return
-							}
-							// Обновляем текст кнопки
-							pinButton.SetText("📌")
-							// Устанавливаем новый обработчик для следующего клика
-							pinButton.OnTapped = createPinHandler(false)
-						}
-					} else {
-						// Если сейчас не закреплено - делаем обработчик для закрепления
-						return func() {
-							err := pinnedService.PinItem(item.ID)
-							if err != nil {
-								return
-							}
-							// Обновляем текст кнопки
-							pinButton.SetText("✅📌")
-							// Устанавливаем новый обработчик для следующего клика
-							pinButton.OnTapped = createPinHandler(true)
-						}
-					}
-				}
-
-				// Создаем кнопку с правильным начальным текстом и обработчиком
-				if isPinned {
-					pinButton = widget.NewButton("✅📌", createPinHandler(true))
-				} else {
-					pinButton = widget.NewButton("📌", createPinHandler(false))
-				}
-
-				// Вставляем кнопку закрепления перед кнопками редактирования и удаления
-				buttons = append([]fyne.CanvasObject{pinButton}, buttons...)
-
-				return container.NewHBox(buttons...)
-			}(),
-		),
-	)
+					return container.NewHBox(buttons...)
+				}(),
+			),
+		)
+	}
 
 	content := container.NewVBox(children...)
 

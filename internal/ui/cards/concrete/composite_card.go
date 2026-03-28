@@ -15,12 +15,17 @@ import (
 type CompositeCard struct {
 	*cards.BaseCard
 	isContentInitialized bool // Флаг: контент уже инициализирован
+	noButtonsMode        bool // Режим отображения без кнопок в меню
 }
 
 // NewCompositeCard создает новую карточку для составного элемента
-func NewCompositeCard(item *models.Item) interfaces.CardRenderer {
+// Опциональный параметр noButtons управляет режимом отображения меню без кнопок
+func NewCompositeCard(item *models.Item, noButtons ...bool) interfaces.CardRenderer {
+	noButtonsMode := len(noButtons) > 0 && noButtons[0]
+
 	compositeCard := &CompositeCard{
-		BaseCard: cards.NewBaseCard(item),
+		BaseCard:      cards.NewBaseCard(item),
+		noButtonsMode: noButtonsMode,
 	}
 
 	// Парсим ContentMeta для получения всех блоков
@@ -164,7 +169,7 @@ func NewCompositeCard(item *models.Item) interfaces.CardRenderer {
 		func() {
 			// Обычный клик - показываем меню
 			menuManager := hover_preview.NewMenuManager()
-			menuManager.ShowSimpleMenu(compositeCard.Item, compositeCard.Container, nil)
+			menuManager.ShowSimpleMenu(compositeCard.Item, compositeCard.Container, nil, compositeCard.noButtonsMode)
 		},
 		func() {
 			// Двойной клик - открываем первый файл или изображение
@@ -201,7 +206,7 @@ func (cc *CompositeCard) UpdateContent() {
 	}
 
 	// Первый вызов - пересоздаем карточку с обновленным элементом
-	newCard := NewCompositeCard(cc.Item)
+	newCard := NewCompositeCard(cc.Item, cc.noButtonsMode)
 
 	// Копируем контейнер новой карточки в текущую
 	cc.Container = newCard.GetContainer()

@@ -340,7 +340,17 @@ func (ws *Workspace) initializeChatsUI() {
 		// Устанавливаем P2P сервис если доступен
 		if ws.p2pNetwork != nil {
 			p2pUI := p2p_ui.NewUIP2P(ws.p2pNetwork)
+			// Устанавливаем callback для обновления UI после загрузки профиля
+			p2pUI.SetOnProfileUpdated(func(peerID string) {
+				// Обновляем правую панель с профилем в UI потоке
+				ws.chatsUI.RefreshRightPanel(peerID)
+			})
 			ws.chatsUI.SetP2PService(p2pUI)
+
+			// Устанавливаем UI API в profile exchange для уведомлений
+			if ws.p2pNetwork.ProfileExchange() != nil {
+				ws.p2pNetwork.ProfileExchange().SetUIP2P(p2pUI)
+			}
 		}
 
 		// Подписываемся на события сообщений
