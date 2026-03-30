@@ -38,8 +38,9 @@ type UI struct {
 	chatMenuManager *dialogs.ChatMenuManager
 
 	// Каналы сообщений
-	messageChannel <-chan *services.ChatMessageEvent
-	onSendMessage  func(text string)
+	messageChannel       <-chan *services.ChatMessageEvent
+	onSendMessage        func(text string)
+	onSendElementMessage func(item *models.Item)
 }
 
 // New создает и возвращает новый UI чатов
@@ -105,6 +106,11 @@ func (ui *UI) SetOnSendMessage(handler func(text string)) {
 	ui.onSendMessage = handler
 }
 
+// SetOnSendElementMessage устанавливает обработчик отправки элемента
+func (ui *UI) SetOnSendElementMessage(handler func(item *models.Item)) {
+	ui.onSendElementMessage = handler
+}
+
 // SetP2PService устанавливает P2P сервис
 func (ui *UI) SetP2PService(p2pUI *network.UIP2P) {
 	ui.p2pUI = p2pUI
@@ -152,6 +158,45 @@ func (ui *UI) SetP2PService(p2pUI *network.UIP2P) {
 
 		log.Printf("[Chat] ✅ Сообщение отправлено пиру %s", peerID[:8])
 	})
+
+	// Устанавливаем обработчик отправки элементов
+	log.Printf("[Chat] 🔧 Установка обработчика отправки элементов (SetOnSendElementMessage)")
+	ui.SetOnSendElementMessage(func(item *models.Item) {
+		log.Printf("[Chat] 📨 Обработчик отправки элемента вызван: element_uuid=%s", item.ElementUUID)
+
+		if ui.p2pUI == nil {
+			log.Printf("[Chat] ❌ Ошибка: P2P сервис не инициализирован")
+			return
+		}
+
+		// Получаем PeerID пира
+		if ui.currentContact == nil || ui.currentContact.PeerID == "" {
+			log.Printf("[Chat] ❌ Ошибка: текущий контакт не выбран или не имеет PeerID")
+			return
+		}
+
+		// Для локального чата не отправляем через P2P
+		if ui.currentContact.IsLocalChat() {
+			log.Printf("[Chat] ℹ️ Локальный чат, элемент не отправляется через P2P")
+			return
+		}
+
+		peerID, err := peer.Decode(ui.currentContact.PeerID)
+		if err != nil {
+			log.Printf("[Chat] ❌ Ошибка декодирования PeerID: %v", err)
+			return
+		}
+
+		log.Printf("[Chat] 📤 Отправка элемента пиру %s: element_uuid=%s", peerID[:8], item.ElementUUID)
+
+		// Отправляем элемент через P2P сервис
+		if err := ui.p2pUI.SendElementMessage(peerID, item); err != nil {
+			log.Printf("[Chat] ❌ Ошибка отправки элемента: %v", err)
+			return
+		}
+
+		log.Printf("[Chat] ✅ Элемент отправлен пиру %s", peerID[:8])
+	})
 }
 
 // selectChat выбирает чат с пиром
@@ -176,13 +221,33 @@ func (ui *UI) OpenPeerChat(peerID, username string) {
 	log.Printf("[Chat] 🔍 ОТЛАДКА: OpenPeerChat peerID полный = %s", peerID)
 	log.Printf("[Chat] 🔍 ОТЛАДКА: OpenPeerChat username = %s", username)
 
-	// Создаём временный контакт для чата
-	tempContact := &models.Contact{
-		PeerID:   peerID,
-		Username: username,
-		ID:       0, // ID = 0 означает, что контакт не в БД
+	// Получаем профиль пира из БД для корректного отображения
+	profile, err := queries.GetProfileByPeerID(peerID)
+	if err == nil && profile != nil {
+		log.Printf("[Chat] 📋 Профиль пира найден: username=%q, avatar_path=%q, content_char=%q, pinned_uuids=%s",
+			profile.Username, profile.AvatarPath, profile.ContentChar, profile.PinnedUUIDs)
+	} else {
+		log.Printf("[Chat] ⚠️ Профиль пира не найден или ошибка: %v", err)
 	}
-	log.Printf("[Chat] 📋 Временный контакт создан: ID=0, PeerID=%s (полный=%s)", peerID[:8], tempContact.PeerID)
+
+	// Создаём временный контакт для чата
+	// Используем данные из профиля если он найден, иначе используем параметры функции
+	contactUsername := username
+	contactAvatarPath := ""
+	if profile != nil {
+		contactUsername = profile.Username
+		contactAvatarPath = profile.AvatarPath
+		log.Printf("[Chat] 📋 Используем данные из профиля: username=%q, avatar_path=%q", contactUsername, contactAvatarPath)
+	}
+
+	tempContact := &models.Contact{
+		PeerID:     peerID,
+		Username:   contactUsername,
+		AvatarPath: contactAvatarPath,
+		ID:         0, // ID = 0 означает, что контакт не в БД
+	}
+	log.Printf("[Chat] 📋 Временный контакт создан: ID=0, PeerID=%s (полный=%s), Username=%q, AvatarPath=%q",
+		peerID[:8], tempContact.PeerID, tempContact.Username, tempContact.AvatarPath)
 
 	// Выбираем чат
 	ui.selectChat(tempContact)
@@ -231,8 +296,18 @@ func (ui *UI) SubscribeToMessages() {
 // handleMessageEvents обрабатывает события новых сообщений
 func (ui *UI) handleMessageEvents() {
 	for event := range ui.messageChannel {
+		// Безопасное получение PeerID для логирования
+		fromPeer := ""
+		if len(event.Message.FromPeerID) >= 8 {
+			fromPeer = event.Message.FromPeerID[:8]
+		} else if event.Message.FromPeerID != "" {
+			fromPeer = event.Message.FromPeerID
+		} else {
+			fromPeer = "unknown"
+		}
+
 		log.Printf("[Chat] 📬 Получено событие сообщения: contactID=%d, from=%s, len=%d",
-			event.ContactID, event.Message.FromPeerID[:8], len(event.Message.Content))
+			event.ContactID, fromPeer, len(event.Message.Content))
 
 		// Проверяем, открыт ли сейчас чат с этим контактом
 		if ui.currentContact != nil && ui.currentContact.ID == event.ContactID {

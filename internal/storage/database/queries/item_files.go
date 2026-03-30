@@ -4,6 +4,7 @@ package queries
 import (
 	"database/sql"
 	"errors"
+	"log"
 
 	"projectT/internal/storage/database"
 	"projectT/internal/storage/database/models"
@@ -30,6 +31,8 @@ func CreateItemFile(file *models.ItemFile) error {
 
 // GetItemFile возвращает файл элемента по ID элемента
 func GetItemFile(itemID int) (*models.ItemFile, error) {
+	log.Printf("[DB] 🔍 GetItemFile: поиск файла для item_id=%d", itemID)
+
 	query := `
 		SELECT item_id, hash, file_path, size, mime_type, is_remote, source_peer_id
 		FROM item_files
@@ -45,10 +48,14 @@ func GetItemFile(itemID int) (*models.ItemFile, error) {
 	)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
+			log.Printf("[DB] ⚠️ GetItemFile: файл НЕ найден для item_id=%d", itemID)
 			return nil, errors.New("файл элемента не найден")
 		}
+		log.Printf("[DB] ❌ GetItemFile: ошибка: %v", err)
 		return nil, err
 	}
+
+	log.Printf("[DB] ✅ GetItemFile: файл найден: hash=%s, size=%d, path=%s", file.Hash[:16], file.Size, file.FilePath)
 
 	if sourcePeerID.Valid {
 		file.SourcePeerID = sourcePeerID.String

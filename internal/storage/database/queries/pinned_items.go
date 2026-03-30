@@ -8,7 +8,7 @@ import (
 // GetPinnedItems возвращает все закрепленные элементы
 func GetPinnedItems() ([]*models.Item, error) {
 	query := `
-		SELECT i.id, i.type, i.title, i.description, i.content_meta, i.parent_id, i.created_at, i.updated_at
+		SELECT i.id, i.element_uuid, i.hash, i.type, i.title, i.description, i.content_meta, i.parent_id, i.created_at, i.updated_at
 		FROM items i
 		INNER JOIN pinned_items pi ON i.id = pi.item_id
 	`
@@ -22,7 +22,7 @@ func GetPinnedItems() ([]*models.Item, error) {
 	var items []*models.Item
 	for rows.Next() {
 		var item models.Item
-		err := rows.Scan(&item.ID, &item.Type, &item.Title, &item.Description, &item.ContentMeta, &item.ParentID, &item.CreatedAt, &item.UpdatedAt)
+		err := rows.Scan(&item.ID, &item.ElementUUID, &item.Hash, &item.Type, &item.Title, &item.Description, &item.ContentMeta, &item.ParentID, &item.CreatedAt, &item.UpdatedAt)
 		if err != nil {
 			return nil, err
 		}

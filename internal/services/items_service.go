@@ -47,3 +47,18 @@ func (is *ItemsService) SearchItems(query string) ([]*models.Item, error) {
 func (is *ItemsService) GetAllItemsWithoutParentFilter() ([]*models.Item, error) {
 	return queries.GetAllItems()
 }
+
+// GetSavedItemsWithoutParentFilter возвращает только сохранённые элементы (status='saved') без фильтрации по родительскому ID
+func (is *ItemsService) GetSavedItemsWithoutParentFilter() ([]*models.Item, error) {
+	return queries.GetSavedItems()
+}
+
+// GetPreviewItemsWithoutParentFilter возвращает элементы со статусом 'preview' без фильтрации по родительскому ID
+func (is *ItemsService) GetPreviewItemsWithoutParentFilter() ([]*models.Item, error) {
+	return queries.GetPreviewItems()
+}
+
+// SavePreviewItem изменяет статус элемента с 'preview' на 'saved'
+func (is *ItemsService) SavePreviewItem(itemID int) error {
+	return queries.SetItemStatus(itemID, models.ItemStatusSaved)
+}

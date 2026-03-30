@@ -21,10 +21,10 @@ func ResetButtonImportance(container *fyne.Container) {
 	}
 }
 
-// GetAllItems возвращает все элементы из базы данных
-func GetAllItems() ([]*models.Item, error) {
-	// Выполняем SQL-запрос для получения всех элементов
-	query := `SELECT id, type, title, description, content_meta, parent_id, created_at, updated_at FROM items ORDER BY updated_at DESC`
+// GetSavedItems возвращает только сохранённые элементы из базы данных
+func GetSavedItems() ([]*models.Item, error) {
+	// Выполняем SQL-запрос для получения только сохранённых элементов
+	query := `SELECT id, type, title, description, content_meta, parent_id, created_at, updated_at, status FROM items WHERE status = 'saved' ORDER BY updated_at DESC`
 	rows, err := database.DB.Query(query)
 	if err != nil {
 		return nil, err
@@ -35,8 +35,9 @@ func GetAllItems() ([]*models.Item, error) {
 	for rows.Next() {
 		var item models.Item
 		var parentID sql.NullInt64
+		var status string
 		err := rows.Scan(
-			&item.ID, &item.Type, &item.Title, &item.Description, &item.ContentMeta, &parentID, &item.CreatedAt, &item.UpdatedAt,
+			&item.ID, &item.Type, &item.Title, &item.Description, &item.ContentMeta, &parentID, &item.CreatedAt, &item.UpdatedAt, &status,
 		)
 		if err != nil {
 			return nil, err
@@ -46,6 +47,7 @@ func GetAllItems() ([]*models.Item, error) {
 			parentIDValue := int(parentID.Int64)
 			item.ParentID = &parentIDValue
 		}
+		item.Status = models.ItemStatus(status)
 
 		items = append(items, &item)
 	}
@@ -68,8 +70,8 @@ func CreateFolderSelection(breadcrumbManager BreadcrumbManagerInterface) *fyne.C
 	// Получаем ID текущей папки из хлебных крошек
 	currentFolderID := breadcrumbManager.GetCurrentFolderID()
 
-	// Для получения всех папок мы должны получить все элементы и отфильтровать по типу
-	allItems, err := GetAllItems()
+	// Для получения всех папок мы должны получить все сохранённые элементы и отфильтровать по типу
+	allItems, err := GetSavedItems()
 	if err != nil {
 		// В случае ошибки добавим хотя бы сообщение об этом
 		errorLabel := widget.NewLabel("Ошибка загрузки папок")

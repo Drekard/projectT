@@ -51,6 +51,13 @@ func RunMigrations() {
 	createElementUUIDTrigger()
 
 	// ============================================================
+	// ЧАСТЬ 4: Миграции существующих таблиц
+	// ============================================================
+
+	migrateItemsAddStatusColumn()
+	createRemoteItemUniqueIndex()
+
+	// ============================================================
 	// ЧАСТЬ 5: SEED ДАННЫЕ
 	// ============================================================
 
@@ -78,6 +85,7 @@ func createItemsTable() {
 			parent_id       INTEGER,
 			signature       BLOB,
 			version         INTEGER DEFAULT 1,
+			status          TEXT DEFAULT 'saved' CHECK (status IN ('saved', 'preview', 'archived')),
 			cached_at       DATETIME,
 			created_at      DATETIME DEFAULT CURRENT_TIMESTAMP,
 			updated_at      DATETIME DEFAULT CURRENT_TIMESTAMP,
@@ -311,6 +319,8 @@ func createItemsIndexes() {
 		`CREATE INDEX IF NOT EXISTS idx_items_source_peer ON items(source_peer_id)`,
 		`CREATE INDEX IF NOT EXISTS idx_items_element_uuid ON items(element_uuid)`,
 		`CREATE INDEX IF NOT EXISTS idx_items_hash ON items(hash)`,
+		// UNIQUE индекс для предотвращения дубликатов remote элементов
+		`CREATE UNIQUE INDEX IF NOT EXISTS idx_items_remote_unique ON items(source_peer_id, element_uuid)`,
 	}
 
 	for _, sql := range indexes {
@@ -423,6 +433,55 @@ func createElementUUIDTrigger() {
 	`)
 	if err != nil {
 		log.Printf("Ошибка при создании триггера validate_element_uuid_insert: %v", err)
+	}
+}
+
+// ============================================================
+// ЧАСТЬ 4.5: МИГРАЦИИ СУЩЕСТВУЮЩИХ ТАБЛИЦ
+// ============================================================
+
+// migrateItemsAddStatusColumn добавляет колонку status в таблицу items
+// Для существующих элементов устанавливается status = 'saved'
+func migrateItemsAddStatusColumn() {
+	// Проверяем, существует ли уже колонка
+	var count int
+	err := DB.QueryRow(`
+		SELECT COUNT(*) FROM pragma_table_info('items') WHERE name = 'status'
+	`).Scan(&count)
+
+	if err != nil {
+		log.Printf("Ошибка проверки колонки status: %v", err)
+		return
+	}
+
+	if count > 0 {
+		log.Println("[Миграция] Колонка status уже существует в таблице items")
+		return
+	}
+
+	// Добавляем колонку
+	_, err = DB.Exec(`
+		ALTER TABLE items ADD COLUMN status TEXT DEFAULT 'saved' CHECK (status IN ('saved', 'preview', 'archived'))
+	`)
+	if err != nil {
+		log.Printf("Ошибка добавления колонки status: %v", err)
+		return
+	}
+
+	log.Println("[Миграция] Колонка status добавлена в таблицу items")
+}
+
+// createRemoteItemUniqueIndex создаёт UNIQUE индекс для remote элементов
+// Это необходимо для работы ON CONFLICT в CreateRemoteItem
+func createRemoteItemUniqueIndex() {
+	_, err := DB.Exec(`
+		CREATE UNIQUE INDEX IF NOT EXISTS idx_items_remote_unique 
+		ON items(source_peer_id, element_uuid)
+	`)
+	if err != nil {
+		log.Printf("[Миграция] Ошибка создания UNIQUE индекса: %v", err)
+	} else {
+		log.Println("[Миграция] UNIQUE индекс для remote элементов создан")
 	}
 }
 

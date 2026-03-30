@@ -10,6 +10,15 @@ const (
 	ItemTypeElement ItemType = "element"
 )
 
+// ItemStatus определяет статус просмотра элемента
+type ItemStatus string
+
+const (
+	ItemStatusSaved    ItemStatus = "saved"    // Сохранён в коллекции
+	ItemStatusPreview  ItemStatus = "preview"  // Загружен для просмотра из чата
+	ItemStatusArchived ItemStatus = "archived" // Архивированный элемент
+)
+
 // Item представляет элемент в системе (локальный или кэшированный от другого пира)
 type Item struct {
 	ID           int        `json:"-"`                        // Внутренний ID для FK в SQLite (скрыт из JSON)
@@ -24,6 +33,7 @@ type Item struct {
 	ParentID     *int       `json:"parent_id,omitempty"`    // ID родительского элемента (если есть)
 	Signature    []byte     `json:"signature,omitempty"`    // Подпись владельца (для remote)
 	Version      int        `json:"version"`                // Версия элемента
+	Status       ItemStatus `json:"status"`                 // Статус просмотра: 'saved', 'preview', 'archived'
 	CachedAt     *time.Time `json:"cached_at,omitempty"`    // Время кэширования (для remote)
 	CreatedAt    time.Time  `json:"created_at"`
 	UpdatedAt    time.Time  `json:"updated_at"`
@@ -52,4 +62,19 @@ func (i *Item) IsDuplicateOf(other *Item) bool {
 		return false
 	}
 	return i.Hash == other.Hash
+}
+
+// IsSaved возвращает true, если элемент сохранён в коллекции
+func (i *Item) IsSaved() bool {
+	return i.Status == ItemStatusSaved
+}
+
+// IsPreview возвращает true, если элемент загружен для просмотра
+func (i *Item) IsPreview() bool {
+	return i.Status == ItemStatusPreview
+}
+
+// IsArchived возвращает true, если элемент архивирован
+func (i *Item) IsArchived() bool {
+	return i.Status == ItemStatusArchived
 }

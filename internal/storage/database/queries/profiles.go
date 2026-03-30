@@ -4,6 +4,7 @@ package queries
 import (
 	"database/sql"
 	"errors"
+	"log"
 	"time"
 
 	"projectT/internal/storage/database"
@@ -48,6 +49,7 @@ func GetLocalProfile() (*models.Profile, error) {
 
 // GetRemoteProfile возвращает чужой профиль по PeerID
 func GetRemoteProfile(peerID string) (*models.Profile, error) {
+	log.Printf("[DB] 🔍 GetRemoteProfile: поиск профиля для peer_id=%s...", peerID[:min(10, len(peerID))])
 	query := `
 		SELECT id, owner_type, peer_id, username, title,
 		       COALESCE(avatar_path, ''),
@@ -63,7 +65,7 @@ func GetRemoteProfile(peerID string) (*models.Profile, error) {
 	var cachedAt sql.NullString
 	var createdAt, updatedAt string
 
-	err := database.DB.QueryRow(query).Scan(
+	err := database.DB.QueryRow(query, peerID).Scan(
 		&profile.ID, &profile.OwnerType, &profile.PeerID, &profile.Username,
 		&profile.Title, &profile.AvatarPath, &profile.BackgroundPath,
 		&profile.ContentChar, &profile.PinnedUUIDs, &cachedAt,
@@ -71,10 +73,14 @@ func GetRemoteProfile(peerID string) (*models.Profile, error) {
 	)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
+			log.Printf("[DB] ❌ GetRemoteProfile: профиль не найден для peer_id=%s", peerID[:min(10, len(peerID))])
 			return nil, errors.New("профиль пира не найден")
 		}
+		log.Printf("[DB] ❌ GetRemoteProfile: ошибка %v", err)
 		return nil, err
 	}
+
+	log.Printf("[DB] ✅ GetRemoteProfile: профиль найден, avatar_path=%q", profile.AvatarPath)
 
 	if cachedAt.Valid {
 		t, _ := time.Parse("2006-01-02 15:04:05", cachedAt.String)
@@ -183,6 +189,8 @@ func CreateRemoteProfile(profile *models.Profile) error {
 
 // UpdateRemoteProfile обновляет чужой профиль
 func UpdateRemoteProfile(profile *models.Profile) error {
+	log.Printf("[DB] 🔄 UpdateRemoteProfile: обновление профиля для peer_id=%s, avatar_path=%q",
+		profile.PeerID[:min(10, len(profile.PeerID))], profile.AvatarPath)
 	query := `
 		UPDATE profiles
 		SET username = ?, title = ?, avatar_path = ?, background_path = ?,
@@ -190,11 +198,18 @@ func UpdateRemoteProfile(profile *models.Profile) error {
 		    updated_at = CURRENT_TIMESTAMP
 		WHERE peer_id = ? AND owner_type = 'remote'
 	`
-	_, err := database.DB.Exec(query,
+	result, err := database.DB.Exec(query,
 		profile.Username, profile.Title, profile.AvatarPath, profile.BackgroundPath,
 		profile.ContentChar, profile.PinnedUUIDs, profile.PeerID,
 	)
-	return err
+	if err != nil {
+		log.Printf("[DB] ❌ UpdateRemoteProfile: ошибка %v", err)
+		return err
+	}
+
+	rowsAffected, _ := result.RowsAffected()
+	log.Printf("[DB] ✅ UpdateRemoteProfile: обновлено строк: %d", rowsAffected)
+	return nil
 }
 
 // UpdateLocalProfile обновляет локальный профиль

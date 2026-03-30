@@ -125,6 +125,24 @@ func GetChatsWithLastMessages() ([]*models.ChatWithLastMessage, error) {
 		}
 	}
 
+	// Debug: проверяем данные в profiles для каждого чата
+	debugProfilesQuery := `
+		SELECT c.peer_id, p.owner_type, p.username, p.avatar_path
+		FROM chats c
+		LEFT JOIN profiles p ON c.peer_id = p.peer_id
+		WHERE c.peer_id IS NOT NULL AND c.peer_id != ''
+	`
+	debugProfilesRows, err := database.DB.Query(debugProfilesQuery)
+	if err == nil {
+		defer debugProfilesRows.Close()
+		for debugProfilesRows.Next() {
+			var peerID, ownerType, username, avatarPath string
+			_ = debugProfilesRows.Scan(&peerID, &ownerType, &username, &avatarPath)
+			log.Printf("[Chat] 🔍 DEBUG profiles: peer_id=%s..., owner_type=%s, username=%s, avatar_path=%q",
+				peerID[:min(10, len(peerID))], ownerType, username, avatarPath)
+		}
+	}
+
 	query := `
 		SELECT
 			c.id,
@@ -140,7 +158,7 @@ func GetChatsWithLastMessages() ([]*models.ChatWithLastMessage, error) {
 			COALESCE(lm.from_peer_id, '') != c.peer_id as is_outgoing,
 			COALESCE(uc.unread_count, 0) as unread_count
 		FROM chats c
-		LEFT JOIN profiles p ON c.peer_id = p.peer_id
+		LEFT JOIN profiles p ON c.peer_id = p.peer_id AND p.owner_type = 'remote'
 		LEFT JOIN (
 			SELECT
 				cm1.chat_id,
@@ -151,10 +169,13 @@ func GetChatsWithLastMessages() ([]*models.ChatWithLastMessage, error) {
 				cm1.sent_at
 			FROM chat_messages cm1
 			INNER JOIN (
-				SELECT chat_id, MAX(sent_at) as max_sent_at
+				SELECT chat_id, MAX(id) as max_id
 				FROM chat_messages
+				WHERE sent_at IN (
+					SELECT MAX(sent_at) FROM chat_messages GROUP BY chat_id
+				)
 				GROUP BY chat_id
-			) cm2 ON cm1.chat_id = cm2.chat_id AND cm1.sent_at = cm2.max_sent_at
+			) cm2 ON cm1.chat_id = cm2.chat_id AND cm1.id = cm2.max_id
 		) lm ON c.id = lm.chat_id
 		LEFT JOIN (
 			SELECT chat_id, COUNT(*) as unread_count
@@ -163,6 +184,7 @@ func GetChatsWithLastMessages() ([]*models.ChatWithLastMessage, error) {
 			GROUP BY chat_id
 		) uc ON c.id = uc.chat_id
 		WHERE c.peer_id IS NOT NULL AND c.peer_id != ''
+		GROUP BY c.id
 	`
 
 	rows, err := database.DB.Query(query)
@@ -209,8 +231,8 @@ func GetChatsWithLastMessages() ([]*models.ChatWithLastMessage, error) {
 			chat.LastMessageAt = &t
 		}
 
-		log.Printf("[Chat] 📋 Чат из БД: ID=%d, peer=%s, username=%q, lastMsg=%q",
-			chat.ID, chat.PeerID[:8], chat.Username, chat.LastMessage)
+		log.Printf("[Chat] 📋 Чат из БД: ID=%d, peer=%s, username=%q, lastMsg=%q, avatar_path=%q",
+			chat.ID, chat.PeerID[:8], chat.Username, chat.LastMessage, chat.AvatarPath)
 
 		chats = append(chats, chat)
 	}

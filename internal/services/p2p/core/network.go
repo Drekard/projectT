@@ -19,6 +19,7 @@ import (
 	dht "github.com/libp2p/go-libp2p-kad-dht"
 	"github.com/libp2p/go-libp2p/p2p/discovery/routing"
 
+	"projectT/internal/services"
 	p2p "projectT/internal/services/p2p"
 	"projectT/internal/services/p2p/connection"
 	"projectT/internal/services/p2p/discovery"
@@ -189,11 +190,15 @@ func (n *P2PNetwork) Start() error {
 	// Связываем сервис чата с сервисом передачи файлов
 	if n.chat != nil && n.transfer != nil {
 		n.chat.SetTransferService(n.transfer)
+		n.chat.SetItemSyncService(n.itemSync)
+		log.Println("[Chat] ✅ Transfer Service и ItemSync сервис связаны с Chat сервисом")
 	}
 
-	// Связываем сервис обмена профилями с сервисом передачи файлов
-	if n.profileExchange != nil && n.transfer != nil {
-		n.profileExchange.SetTransferService(n.transfer)
+	// Устанавливаем ItemSync сервис в глобальный ChatService для использования из profile_exchange
+	globalChatSvc := services.GetChatService()
+	if globalChatSvc != nil && n.itemSync != nil {
+		globalChatSvc.SetItemSyncService(n.itemSync)
+		log.Println("[Chat] ✅ ItemSync сервис установлен в глобальный ChatService")
 	}
 
 	// Инициализируем и запускаем сервис обнаружения

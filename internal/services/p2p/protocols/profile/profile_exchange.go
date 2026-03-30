@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"strings"
 	"sync"
 	"time"
 
@@ -17,6 +18,7 @@ import (
 	"github.com/libp2p/go-libp2p/core/network"
 	"github.com/libp2p/go-libp2p/core/peer"
 
+	"projectT/internal/services"
 	"projectT/internal/services/p2p/protocols/transfer"
 	"projectT/internal/storage/database/models"
 	"projectT/internal/storage/database/queries"
@@ -41,7 +43,8 @@ type ProfileResponse struct {
 	AvatarData     []byte   `json:"avatar_data,omitempty"` // Данные аватара в base64
 	BackgroundPath string   `json:"background_path"`
 	ContentChar    string   `json:"content_characteristic"`
-	PinnedUUIDs    []string `json:"pinned_uuids"` // UUID избранных элементов
+	PinnedUUIDs    []string `json:"pinned_uuids"`          // UUID избранных элементов
+	PinnedData     []byte   `json:"pinned_data,omitempty"` // Сжатые данные закреплённых элементов
 	PublicKey      []byte   `json:"public_key"`
 	Signature      []byte   `json:"signature,omitempty"` // Подпись профиля
 	Timestamp      int64    `json:"timestamp"`
@@ -184,7 +187,7 @@ func (pes *ExchangeService) handleProfileRequest(stream network.Stream) {
 		PeerID:         response.PeerID,
 		Username:       response.Username,
 		Title:          response.Title,
-		AvatarPath:     response.AvatarPath,
+		AvatarPath:     "", // Путь будет установлен после сохранения аватара локально
 		BackgroundPath: response.BackgroundPath,
 		ContentChar:    response.ContentChar,
 		PinnedUUIDs:    "[]",
@@ -205,6 +208,52 @@ func (pes *ExchangeService) handleProfileRequest(stream network.Stream) {
 	}
 
 	log.Printf("[Profile] ✅ Профиль инициатора %s сохранён (username: %s)", response.PeerID[:8], response.Username)
+
+	// Загружаем аватар если он есть и данные получены
+	if len(response.AvatarData) > 0 {
+		go func() {
+			// Проверяем, существует ли уже файл аватара
+			existingAvatar, err := filesystem.GetAvatar(remotePeer.String())
+			if err == nil && existingAvatar != "" {
+				log.Printf("[Profile] Аватар уже загружен для %s: %s", remotePeer.String()[:8], existingAvatar)
+				// Обновляем путь к аватару в профиле, даже если аватар уже загружен
+				remoteProfile, err := queries.GetRemoteProfile(remotePeer.String())
+				if err == nil && remoteProfile != nil && remoteProfile.AvatarPath != existingAvatar {
+					remoteProfile.AvatarPath = existingAvatar
+					if err := queries.UpdateRemoteProfile(remoteProfile); err != nil {
+						log.Printf("[Profile] Не удалось обновить путь к аватару в БД: %v", err)
+					} else {
+						log.Printf("[Profile] ✅ Путь к аватару обновлён в БД: %s", existingAvatar)
+					}
+				}
+				return
+			}
+
+			// Сохраняем аватар
+			filePath, err := filesystem.SaveAvatar(remotePeer.String(), response.AvatarData)
+			if err != nil {
+				log.Printf("[Profile] Не удалось сохранить аватар от %s: %v", remotePeer.String()[:8], err)
+			} else {
+				log.Printf("[Profile] ✅ Аватар сохранён: %s", filePath)
+
+				// Обновляем путь к аватару в профиле
+				remoteProfile, err := queries.GetRemoteProfile(remotePeer.String())
+				if err == nil && remoteProfile != nil {
+					remoteProfile.AvatarPath = filePath
+					if err := queries.UpdateRemoteProfile(remoteProfile); err != nil {
+						log.Printf("[Profile] Не удалось обновить путь к аватару в БД: %v", err)
+					} else {
+						log.Printf("[Profile] ✅ Путь к аватару обновлён в БД")
+					}
+				}
+			}
+		}()
+	}
+
+	// Загружаем pinned элементы через ItemSync если они есть
+	if len(response.PinnedUUIDs) > 0 {
+		go pes.downloadPinnedItems(remotePeer, response.PinnedUUIDs)
+	}
 
 	// Сохраняем ключ шифрования пира
 	if len(response.EncryptionKey) > 0 {
@@ -236,13 +285,20 @@ func (pes *ExchangeService) handleProfileRequest(stream network.Stream) {
 			}
 
 			// Обновляем путь к аватару в профиле (всегда, даже если аватар уже загружен)
+			log.Printf("[Profile] 🔍 Получение профиля для %s...", remotePeer.String()[:8])
 			remoteProfile, err := queries.GetRemoteProfile(remotePeer.String())
+			if err != nil {
+				log.Printf("[Profile] ❌ Ошибка GetRemoteProfile(%s): %v", remotePeer.String()[:8], err)
+			}
 			if err == nil && remoteProfile != nil {
+				log.Printf("[Profile] 📋 Профиль найден: ID=%d, username=%s, текущий avatar_path=%q",
+					remoteProfile.ID, remoteProfile.Username, remoteProfile.AvatarPath)
 				// Проверяем, нужно ли обновлять путь
 				if remoteProfile.AvatarPath != filePath {
+					log.Printf("[Profile] 🔄 Обновление avatar_path: %q → %q", remoteProfile.AvatarPath, filePath)
 					remoteProfile.AvatarPath = filePath
 					if err := queries.UpdateRemoteProfile(remoteProfile); err != nil {
-						log.Printf("[Profile] Не удалось обновить путь к аватару в БД: %v", err)
+						log.Printf("[Profile] ❌ Не удалось обновить путь к аватару в БД: %v", err)
 					} else {
 						log.Printf("[Profile] ✅ Путь к аватару обновлён в БД: %s", filePath)
 					}
@@ -353,7 +409,7 @@ func (pes *ExchangeService) requestPeerProfileWithRole(ctx context.Context, peer
 		PeerID:         response.PeerID,
 		Username:       response.Username,
 		Title:          response.Title,
-		AvatarPath:     response.AvatarPath,
+		AvatarPath:     "", // Путь будет установлен после сохранения аватара локально
 		BackgroundPath: response.BackgroundPath,
 		ContentChar:    response.ContentChar,
 		PinnedUUIDs:    "[]",
@@ -363,7 +419,13 @@ func (pes *ExchangeService) requestPeerProfileWithRole(ctx context.Context, peer
 		uuidsJSON, err := json.Marshal(response.PinnedUUIDs)
 		if err == nil {
 			profile.PinnedUUIDs = string(uuidsJSON)
+			log.Printf("[Profile] 📌 Получены PinnedUUIDs от пира %s: %d элементов, UUIDs=%v",
+				peerID.String()[:8], len(response.PinnedUUIDs), response.PinnedUUIDs)
+		} else {
+			log.Printf("[Profile] ❌ Ошибка маршалинга PinnedUUIDs: %v", err)
 		}
+	} else {
+		log.Printf("[Profile] ℹ️ Пир %s не имеет закреплённых элементов", peerID.String()[:8])
 	}
 
 	now := time.Now()
@@ -397,6 +459,16 @@ func (pes *ExchangeService) requestPeerProfileWithRole(ctx context.Context, peer
 			existingAvatar, err := filesystem.GetAvatar(peerID.String())
 			if err == nil && existingAvatar != "" {
 				log.Printf("[Profile] Аватар уже загружен для %s: %s", peerID.String()[:8], existingAvatar)
+				// Обновляем путь к аватару в профиле, даже если аватар уже загружен
+				remoteProfile, err := queries.GetRemoteProfile(peerID.String())
+				if err == nil && remoteProfile != nil && remoteProfile.AvatarPath != existingAvatar {
+					remoteProfile.AvatarPath = existingAvatar
+					if err := queries.UpdateRemoteProfile(remoteProfile); err != nil {
+						log.Printf("[Profile] Не удалось обновить путь к аватару в БД: %v", err)
+					} else {
+						log.Printf("[Profile] ✅ Путь к аватару обновлён в БД: %s", existingAvatar)
+					}
+				}
 				return
 			}
 
@@ -448,8 +520,11 @@ func (pes *ExchangeService) sendLocalProfile(stream network.Stream, isInitiator 
 	for _, item := range pinnedItems {
 		if item.ElementUUID != "" {
 			pinnedUUIDs = append(pinnedUUIDs, item.ElementUUID)
+		} else {
+			log.Printf("[Profile] ⚠️ Элемент ID=%d, title=%q не имеет ElementUUID, пропускаем", item.ID, item.Title)
 		}
 	}
+	log.Printf("[Profile] 📌 PinnedUUIDs для отправки: %d элементов, UUIDs=%v", len(pinnedUUIDs), pinnedUUIDs)
 
 	// Читаем данные аватара если он есть
 	var avatarData []byte
@@ -501,7 +576,8 @@ func (pes *ExchangeService) sendLocalProfile(stream network.Stream, isInitiator 
 
 // savePeerProfile сохраняет профиль пира в базу данных
 func (pes *ExchangeService) savePeerProfile(profile *models.Profile, publicKey, signature []byte) error {
-	log.Printf("[Profile] savePeerProfile: peer_id=%s, username=%s, owner_type=%s", profile.PeerID[:8], profile.Username, profile.OwnerType)
+	log.Printf("[Profile] savePeerProfile: peer_id=%s, username=%s, owner_type=%s, avatar_path=%q",
+		profile.PeerID[:8], profile.Username, profile.OwnerType, profile.AvatarPath)
 
 	// Сохраняем публичный ключ в Peerstore для проверки подписи
 	peerID, err := peer.Decode(profile.PeerID)
@@ -523,12 +599,16 @@ func (pes *ExchangeService) savePeerProfile(profile *models.Profile, publicKey, 
 	// Проверяем, есть ли уже профиль
 	existing, err := queries.GetProfileByPeerID(profile.PeerID)
 	if err == nil && existing != nil {
-		log.Printf("[Profile] Профиль уже существует: owner_type=%s, username=%s", existing.OwnerType, existing.Username)
-		// Профиль существует - обновляем
+		log.Printf("[Profile] Профиль уже существует: owner_type=%s, username=%s, avatar_path=%q",
+			existing.OwnerType, existing.Username, existing.AvatarPath)
+		// Профиль существует - обновляем, но сохраняем существующий avatar_path
+		// Аватар будет обновлён асинхронно после сохранения файла
+		profile.AvatarPath = existing.AvatarPath
 		if err := queries.UpdateRemoteProfile(profile); err != nil {
 			return fmt.Errorf("ошибка обновления профиля: %w", err)
 		}
-		log.Printf("[Profile] ✅ Профиль обновлён: %s (username: %s)", profile.PeerID[:8], profile.Username)
+		log.Printf("[Profile] ✅ Профиль обновлён: %s (username: %s, avatar_path сохранён: %q)",
+			profile.PeerID[:8], profile.Username, existing.AvatarPath)
 		return nil
 	}
 
@@ -542,6 +622,7 @@ func (pes *ExchangeService) savePeerProfile(profile *models.Profile, publicKey, 
 			// Получаем существующий профиль и обновляем его
 			existing, err = queries.GetProfileByPeerID(profile.PeerID)
 			if err == nil && existing != nil {
+				profile.AvatarPath = existing.AvatarPath
 				if err := queries.UpdateRemoteProfile(profile); err != nil {
 					return fmt.Errorf("ошибка обновления профиля после UNIQUE constraint: %w", err)
 				}
@@ -774,6 +855,140 @@ func generateEncryptionKey() []byte {
 		return []byte("projectt-chat-encryption-key-32")
 	}
 	return key
+}
+
+// downloadPinnedItems загружает pinned элементы через ItemSync
+func (pes *ExchangeService) downloadPinnedItems(peerID peer.ID, pinnedUUIDs []string) {
+	log.Printf("[Profile] 📌 === НАЧАЛО ЗАГРУЗКИ PINNED ЭЛЕМЕНТОВ ===")
+	log.Printf("[Profile] 📌 PeerID: %s", peerID.String())
+	log.Printf("[Profile] 📌 Количество pinned элементов: %d", len(pinnedUUIDs))
+	log.Printf("[Profile] 📌 UUIDs: %v", pinnedUUIDs)
+
+	// Получаем глобальный ItemSync сервис
+	itemSync := services.GetChatService()
+	if itemSync == nil {
+		log.Printf("[Profile] ❌ ItemSync сервис не инициализирован (GetChatService вернул nil), пропускаем загрузку pinned элементов")
+		return
+	}
+
+	itemSyncSvc := itemSync.ItemSync()
+	if itemSyncSvc == nil {
+		log.Printf("[Profile] ❌ ItemSync().ItemSync() вернул nil, пропускаем загрузку pinned элементов")
+		return
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
+	defer cancel()
+
+	// Запрашиваем элементы по UUID
+	var requestedUUIDs []string
+	var existingUUIDs []string
+
+	log.Printf("[Profile] 🔍 ПРОВЕРКА НАЛИЧИЯ ЭЛЕМЕНТОВ В БД...")
+	for _, uuid := range pinnedUUIDs {
+		// Проверяем, есть ли уже элемент с таким UUID в БД
+		existing, err := queries.GetItemByElementUUID(uuid)
+		if err != nil {
+			log.Printf("[Profile] ⚠️ Ошибка проверки элемента %s в БД: %v", uuid, err)
+			requestedUUIDs = append(requestedUUIDs, uuid)
+			continue
+		}
+		if existing != nil {
+			log.Printf("[Profile] ✅ Элемент уже существует в БД: UUID=%s, ID=%d, title=%q, type=%s, status=%s, owner=%s",
+				uuid, existing.ID, existing.Title, existing.Type, existing.Status, existing.OwnerType)
+			existingUUIDs = append(existingUUIDs, uuid)
+			continue
+		}
+
+		log.Printf("[Profile] ❌ Элемент НЕ найден в БД: UUID=%s - будет запрошен у пира", uuid)
+		requestedUUIDs = append(requestedUUIDs, uuid)
+	}
+
+	log.Printf("[Profile] 📊 === СТАТИСТИКА ПРОВЕРКИ ===")
+	log.Printf("[Profile] 📊 Уже загружено: %d", len(existingUUIDs))
+	log.Printf("[Profile] 📊 Требуется загрузить: %d", len(requestedUUIDs))
+	log.Printf("[Profile] 📊 Существующие UUIDs: %v", existingUUIDs)
+	log.Printf("[Profile] 📊 Запрашиваемые UUIDs: %v", requestedUUIDs)
+
+	if len(requestedUUIDs) == 0 {
+		log.Printf("[Profile] ✅ Все pinned элементы уже загружены - завершаем")
+		return
+	}
+
+	log.Printf("[Profile] 📥 === ЗАПРОС %d ОТСУТСТВУЮЩИХ ЭЛЕМЕНТОВ ЧЕРЕЗ ItemSync ===", len(requestedUUIDs))
+
+	// Запрашиваем каждый элемент (одна попытка, без повторений)
+	loadedCount := 0
+	failedCount := 0
+
+	for i, uuid := range requestedUUIDs {
+		log.Printf("[Profile] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
+		log.Printf("[Profile] 🔄 Загрузка элемента %d/%d: UUID=%s", i+1, len(requestedUUIDs), uuid)
+		log.Printf("[Profile] 🔌 ВЫЗОВ: ItemSync.RequestItemByElementUUID(peerID=%s, uuid=%s, timeout=60s)",
+			peerID.String()[:16], uuid)
+
+		item, err := itemSyncSvc.RequestItemByElementUUID(ctx, peerID, uuid)
+
+		if err != nil {
+			failedCount++
+			log.Printf("[Profile] ❌ ОШИБКА загрузки элемента %s: %T: %v", uuid, err, err)
+
+			// Детализация ошибки
+			if strings.Contains(err.Error(), "deadline") || strings.Contains(err.Error(), "timeout") {
+				log.Printf("[Profile] ⏱️ ТАЙМАУТ: Пир не ответил за 60 секунд. Возможные причины:")
+				log.Printf("[Profile]   - Пир не в сети или отключился")
+				log.Printf("[Profile]   - NAT/Firewall блокирует соединение")
+				log.Printf("[Profile]   - ItemSync протокол не зарегистрирован на стороне отправителя")
+			} else if strings.Contains(err.Error(), "stream reset") {
+				log.Printf("[Profile] 🔌 STREAM RESET: Соединение разорвано во время передачи")
+				log.Printf("[Profile]   - Отправитель закрыл соединение")
+				log.Printf("[Profile]   - Сетевая ошибка")
+			} else if strings.Contains(err.Error(), "not found") || strings.Contains(err.Error(), "не найден") {
+				log.Printf("[Profile] 📭 ЭЛЕМЕНТ НЕ НАЙДЕН: У отправителя нет элемента с UUID=%s", uuid)
+			} else {
+				log.Printf("[Profile] ❓ НЕИЗВЕСТНАЯ ОШИБКА: %v", err)
+			}
+			continue
+		}
+
+		if item == nil {
+			failedCount++
+			log.Printf("[Profile] ⚠️ Element=nil: ItemSync вернул nil без ошибки для UUID=%s", uuid)
+			continue
+		}
+
+		// Элемент загружен успешно
+		log.Printf("[Profile] ✅ Элемент загружен: UUID=%s, ID=%d, title=%q, type=%s, hash=%s",
+			uuid, item.ID, item.Title, item.Type, item.Hash)
+
+		// Проверяем наличие файла
+		if item.Type == "element" && item.ContentMeta != "" {
+			log.Printf("[Profile] 📎 ContentMeta: %s", item.ContentMeta[:min(100, len(item.ContentMeta))])
+		}
+
+		// Устанавливаем status='preview' для загруженных pinned элементов
+		if err := queries.SetItemStatus(item.ID, models.ItemStatusPreview); err != nil {
+			log.Printf("[Profile] ⚠️ Не удалось установить status='preview' для элемента %d: %v", item.ID, err)
+		} else {
+			log.Printf("[Profile] ✅ Установлен status='preview' для элемента ID=%d", item.ID)
+		}
+
+		loadedCount++
+		log.Printf("[Profile] ✅ Загружен pinned элемент: UUID=%s, ID=%d, title=%s", uuid, item.ID, item.Title)
+	}
+
+	log.Printf("[Profile] 📊 ИТОГИ: загружено=%d/%d, ошибок=%d", loadedCount, len(requestedUUIDs), failedCount)
+
+	if loadedCount < len(requestedUUIDs) {
+		log.Printf("[Profile] ⚠️ НЕ все элементы загружены!")
+		log.Printf("[Profile] 💡 РЕШЕНИЕ: Отправь элементы через чат:")
+		log.Printf("[Profile]    1. Открой профиль с закрепленными элементами")
+		log.Printf("[Profile]    2. Правый клик на элементе → Отправить в чат")
+		log.Printf("[Profile]    3. Выбери собеседника")
+		log.Printf("[Profile]    4. Элемент будет доставлен через P2P Chat Protocol")
+	} else {
+		log.Printf("[Profile] 🎉 Все pinned элементы успешно загружены!")
+	}
 }
 
 // GetPeerEncryptionKey возвращает ключ шифрования для пира

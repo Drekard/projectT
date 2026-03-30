@@ -3,11 +3,13 @@ package ui
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"log"
 	"strings"
 	"time"
 
+	"projectT/internal/services"
 	"projectT/internal/services/p2p/address"
 	"projectT/internal/services/p2p/connection"
 	"projectT/internal/services/p2p/core"
@@ -607,6 +609,24 @@ func (api *UIP2P) GetPeerAddresses(peerIDStr string) []string {
 // SendMessage отправляет текстовое сообщение пиру
 func (api *UIP2P) SendMessage(peerID peer.ID, content string) error {
 	log.Printf("[Chat] 📤 UIP2P.SendMessage: пиру %s, len=%d", peerID[:8], len(content))
+
+	// Сначала сохраняем сообщение в БД через ChatService
+	chatSvc := services.GetChatService()
+	if chatSvc != nil {
+		localPeerID := ""
+		if api.network != nil && api.network.Host() != nil {
+			localPeerID = api.network.Host().ID().String()
+		}
+		log.Printf("[Chat] 📝 Сохранение сообщения в БД через ChatService (fromPeerID=%s)", localPeerID[:min(10, len(localPeerID))])
+		_, err := chatSvc.SendTextMessage(0, peerID.String(), localPeerID, content)
+		if err != nil {
+			log.Printf("[Chat] ❌ Ошибка сохранения сообщения в БД: %v", err)
+			// Не прерываем отправку, если сохранение не удалось
+		} else {
+			log.Printf("[Chat] ✅ Сообщение сохранено в БД")
+		}
+	}
+
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 
@@ -615,6 +635,40 @@ func (api *UIP2P) SendMessage(peerID peer.ID, content string) error {
 		log.Printf("[Chat] ❌ UIP2P.SendMessage ошибка: %v", err)
 	} else {
 		log.Printf("[Chat] ✅ UIP2P.SendMessage успешно")
+	}
+	return err
+}
+
+// SendElementMessage отправляет элемент пиру через P2P
+func (api *UIP2P) SendElementMessage(peerID peer.ID, item *models.Item) error {
+	log.Printf("[Chat] 📤 UIP2P.SendElementMessage: пиру %s, element_uuid=%s", peerID[:8], item.ElementUUID)
+
+	// Создаём метаданные элемента
+	metadata := map[string]interface{}{
+		"item_id":      item.ID,
+		"item_type":    string(item.Type),
+		"item_title":   item.Title,
+		"item_desc":    item.Description,
+		"content_meta": item.ContentMeta,
+		"item_hash":    item.Hash,
+		"sent_at":      item.CreatedAt.Format(time.RFC3339),
+	}
+
+	metadataJSON, err := json.Marshal(metadata)
+	if err != nil {
+		log.Printf("[Chat] ❌ Ошибка сериализации метаданных элемента: %v", err)
+		return fmt.Errorf("ошибка сериализации метаданных: %w", err)
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	// Отправляем элемент через P2P Chat Service
+	err = api.network.SendMessage(ctx, peerID, item.ElementUUID, "element", string(metadataJSON))
+	if err != nil {
+		log.Printf("[Chat] ❌ UIP2P.SendElementMessage ошибка: %v", err)
+	} else {
+		log.Printf("[Chat] ✅ UIP2P.SendElementMessage успешно")
 	}
 	return err
 }
@@ -760,4 +814,12 @@ func (api *UIP2P) GetProfiles() ([]*models.Profile, error) {
 // DeleteContact удаляет контакт по ID
 func (api *UIP2P) DeleteContact(id int) error {
 	return queries.DeleteContact(id)
+}
+
+// min возвращает минимальное из двух чисел
+func min(a, b int) int {
+	if a < b {
+		return a
+	}
+	return b
 }

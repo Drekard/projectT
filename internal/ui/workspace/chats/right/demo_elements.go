@@ -4,12 +4,13 @@ package right
 import (
 	"encoding/json"
 	"fmt"
+	"image/color"
+	"log"
 
+	"projectT/internal/storage/database/models"
 	"projectT/internal/storage/database/queries"
 	"projectT/internal/ui/cards/concrete"
 	"projectT/internal/ui/cards/hover_preview"
-
-	"image/color"
 
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/canvas"
@@ -104,26 +105,36 @@ func (p *Panel) loadDemoElements(jsonStr string) {
 		return
 	}
 
+	log.Printf("[DemoElements] 📦 Загрузка витрины элементов: pinned_uuids=%s", jsonStr)
+
 	p.demoElementsContainer.Objects = nil
 
 	// Используем новую функцию парсинга с поддержкой старых форматов
 	demoElements, err := parseDemoElements(jsonStr)
 	if err != nil {
+		log.Printf("[DemoElements] ❌ Ошибка парсинга JSON: %v", err)
 		return
 	}
+
+	log.Printf("[DemoElements] 📋 Распарсено %d элементов", len(demoElements))
 
 	if len(demoElements) == 0 {
 		emptyLabel := widget.NewLabel("Нет элементов витрины")
 		emptyLabel.TextStyle = fyne.TextStyle{Italic: true}
 		p.demoElementsContainer.Add(emptyLabel)
+		log.Printf("[DemoElements] ℹ️ Витрина пуста")
 	} else {
-		for _, elem := range demoElements {
+		for i, elem := range demoElements {
 			elementUUID := elem.GetElementUUID()
 			if elementUUID != "" {
+				log.Printf("[DemoElements] 🔍 Загрузка элемента #%d: UUID=%s, title=%q", i+1, elementUUID, elem.Title)
 				elementCard := p.createDemoElementCard(elementUUID)
 				p.demoElementsContainer.Add(elementCard)
+			} else {
+				log.Printf("[DemoElements] ⚠️ Элемент #%d имеет пустой UUID, пропускаем", i+1)
 			}
 		}
+		log.Printf("[DemoElements] ✅ Витрина загружена: %d элементов отображено", len(demoElements))
 	}
 
 	p.demoElementsContainer.Refresh()
@@ -132,39 +143,114 @@ func (p *Panel) loadDemoElements(jsonStr string) {
 // createDemoElementCard создает карточку demo элемента (аналогично chat_panel.go)
 func (p *Panel) createDemoElementCard(elementUUID string) fyne.CanvasObject {
 	if elementUUID == "" {
+		log.Printf("[DemoElements] ❌ createDemoElementCard: пустой UUID")
 		// Если UUID пустой, показываем ошибку
 		return p.createDemoElementError("Неверный формат элемента")
 	}
 
+	log.Printf("[DemoElements] 🔍 Загрузка элемента из БД: UUID=%s", elementUUID)
+
 	// Загружаем элемент из базы данных по element_uuid
 	item, err := queries.GetItemByElementUUID(elementUUID)
 	if err != nil {
+		log.Printf("[DemoElements] ❌ Элемент не найден в БД: UUID=%s, ошибка: %v", elementUUID, err)
 		// Если элемент не найден, показываем сообщение об ошибке
 		return p.createDemoElementError("Элемент не найден")
 	}
+
+	log.Printf("[DemoElements] ✅ Элемент найден: ID=%d, title=%q, type=%s, status=%s",
+		item.ID, item.Title, item.Type, item.Status)
 
 	// Создаём полноценную карточку элемента используя функционал concrete
 	// Для профиля используем режим без кнопок
 	var cardRenderer fyne.CanvasObject
 	switch item.Type {
 	case "folder":
+		log.Printf("[DemoElements] 📁 Создание карточки папки")
 		cardRenderer = concrete.NewFolderCard(item, true).GetContainer()
 	case "element":
+		log.Printf("[DemoElements] 📄 Создание карточки элемента")
 		// Для элементов используем композитную карточку в режиме без кнопок
 		cardRenderer = concrete.NewCompositeCard(item, true).GetContainer()
 	default:
+		log.Printf("[DemoElements] ❓ Неизвестный тип элемента: %s, используем композитную карточку", item.Type)
 		// Для неизвестных типов используем композитную карточку в режиме без кнопок
 		cardRenderer = concrete.NewCompositeCard(item, true).GetContainer()
 	}
 
 	// Оборачиваем в кликабельный виджет для обработки правого клика и превью
 	clickableCard := hover_preview.NewClickableCard(cardRenderer, func() {
+		log.Printf("[DemoElements] 🖱️ Правый клик на элементе: ID=%d, title=%q", item.ID, item.Title)
 		// Показываем меню при правом клике в режиме без кнопок
 		menuManager := hover_preview.NewMenuManager()
 		menuManager.ShowSimpleMenu(item, cardRenderer, nil, true)
 	})
 
-	return clickableCard
+	// Добавляем индикатор статуса элемента
+	statusIndicator := p.createStatusIndicator(item)
+
+	// Компоновка: карточка + индикатор статуса
+	cardWithStatus := container.NewVBox(
+		clickableCard,
+		statusIndicator,
+	)
+
+	log.Printf("[DemoElements] ✅ Карточка элемента создана: ID=%d", item.ID)
+	return cardWithStatus
+}
+
+// createStatusIndicator создаёт индикатор статуса элемента
+func (p *Panel) createStatusIndicator(item *models.Item) fyne.CanvasObject {
+	// Для saved элементов не показываем индикатор
+	if item.IsSaved() {
+		return container.NewHBox()
+	}
+
+	// Для preview элементов показываем индикатор
+	var statusLabel *widget.Label
+
+	if item.IsPreview() {
+		statusLabel = widget.NewLabel("📋 Просмотр")
+	} else if item.IsArchived() {
+		statusLabel = widget.NewLabel("🗄️ Архив")
+	} else {
+		return container.NewHBox()
+	}
+
+	statusLabel.TextStyle = fyne.TextStyle{Italic: true}
+
+	// Кнопка "Сохранить" для preview элементов
+	var saveButton *widget.Button
+	if item.IsPreview() {
+		saveButton = widget.NewButton("Сохранить", func() {
+			p.saveElement(item)
+		})
+		saveButton.Importance = widget.HighImportance
+	}
+
+	// Компоновка индикатора
+	indicator := container.NewHBox(statusLabel)
+	if saveButton != nil {
+		indicator.Add(saveButton)
+	}
+
+	return indicator
+}
+
+// saveElement сохраняет элемент (меняет статус с 'preview' на 'saved')
+func (p *Panel) saveElement(item *models.Item) {
+	log.Printf("[DemoElement] Сохранение элемента: ID=%d, title=%s", item.ID, item.Title)
+
+	err := queries.SetItemStatus(item.ID, models.ItemStatusSaved)
+	if err != nil {
+		log.Printf("Ошибка сохранения элемента: %v", err)
+		return
+	}
+
+	log.Printf("[DemoElement] ✅ Элемент сохранён: ID=%d", item.ID)
+
+	// Обновляем панель
+	p.Refresh()
 }
 
 // createDemoElementError создает карточку с сообщением об ошибке

@@ -11,16 +11,22 @@ import (
 )
 
 // CreateRemoteItem создаёт кэшированный элемент от другого пира в таблице items
+// По умолчанию устанавливается status = 'preview' (элемент загружен для просмотра)
 func CreateRemoteItem(item *models.Item) error {
+	// Устанавливаем status = 'preview' по умолчанию для remote элементов
+	if item.Status == "" {
+		item.Status = models.ItemStatusPreview
+	}
+
 	query := `
 		INSERT INTO items (
 			element_uuid, hash,
 			owner_type, source_peer_id,
 			type, title, description, content_meta,
-			signature, version, cached_at,
+			signature, version, status,
 			created_at, updated_at
 		)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
 		ON CONFLICT(source_peer_id, element_uuid) DO UPDATE SET
 			title = excluded.title,
 			description = excluded.description,
@@ -33,7 +39,7 @@ func CreateRemoteItem(item *models.Item) error {
 		item.ElementUUID, item.Hash,
 		models.OwnerTypeRemote, item.SourcePeerID,
 		item.Type, item.Title, item.Description, item.ContentMeta,
-		item.Signature, item.Version, item.CachedAt,
+		item.Signature, item.Version, item.Status,
 	)
 	if err != nil {
 		return err
@@ -53,7 +59,7 @@ func GetRemoteItemByElementUUID(sourcePeerID, elementUUID string) (*models.Item,
 		SELECT id, element_uuid, hash,
 		       owner_type, source_peer_id,
 		       type, title, description, content_meta,
-		       signature, version, cached_at,
+		       signature, version, status, cached_at,
 		       created_at, updated_at
 		FROM items
 		WHERE source_peer_id = ? AND element_uuid = ? AND owner_type = 'remote'
@@ -63,12 +69,13 @@ func GetRemoteItemByElementUUID(sourcePeerID, elementUUID string) (*models.Item,
 	var cachedAt, createdAt, updatedAt sql.NullTime
 	var parentID sql.NullInt64
 	var sourcePeerIDNull sql.NullString
+	var status string
 
 	err := database.DB.QueryRow(query, sourcePeerID, elementUUID).Scan(
 		&item.ID, &item.ElementUUID, &item.Hash,
 		&item.OwnerType, &sourcePeerIDNull,
 		&item.Type, &item.Title, &item.Description, &item.ContentMeta,
-		&item.Signature, &item.Version, &cachedAt,
+		&item.Signature, &item.Version, &status, &cachedAt,
 		&createdAt, &updatedAt,
 	)
 	if err != nil {
@@ -83,6 +90,7 @@ func GetRemoteItemByElementUUID(sourcePeerID, elementUUID string) (*models.Item,
 	}
 	item.CreatedAt = createdAt.Time
 	item.UpdatedAt = updatedAt.Time
+	item.Status = models.ItemStatus(status)
 
 	if parentID.Valid {
 		parentIDValue := int(parentID.Int64)
@@ -102,7 +110,7 @@ func GetRemoteItemByHash(sourcePeerID, hash string) (*models.Item, error) {
 		SELECT id, element_uuid, hash,
 		       owner_type, source_peer_id,
 		       type, title, description, content_meta,
-		       signature, version, cached_at,
+		       signature, version, status, cached_at,
 		       created_at, updated_at
 		FROM items
 		WHERE source_peer_id = ? AND hash = ? AND owner_type = 'remote'
@@ -112,12 +120,13 @@ func GetRemoteItemByHash(sourcePeerID, hash string) (*models.Item, error) {
 	var cachedAt, createdAt, updatedAt sql.NullTime
 	var parentID sql.NullInt64
 	var sourcePeerIDNull sql.NullString
+	var status string
 
 	err := database.DB.QueryRow(query, sourcePeerID, hash).Scan(
 		&item.ID, &item.ElementUUID, &item.Hash,
 		&item.OwnerType, &sourcePeerIDNull,
 		&item.Type, &item.Title, &item.Description, &item.ContentMeta,
-		&item.Signature, &item.Version, &cachedAt,
+		&item.Signature, &item.Version, &status, &cachedAt,
 		&createdAt, &updatedAt,
 	)
 	if err != nil {
@@ -132,6 +141,7 @@ func GetRemoteItemByHash(sourcePeerID, hash string) (*models.Item, error) {
 	}
 	item.CreatedAt = createdAt.Time
 	item.UpdatedAt = updatedAt.Time
+	item.Status = models.ItemStatus(status)
 
 	if parentID.Valid {
 		parentIDValue := int(parentID.Int64)
@@ -151,7 +161,7 @@ func GetRemoteItemsByPeer(sourcePeerID string) ([]*models.Item, error) {
 		SELECT id, element_uuid, hash,
 		       owner_type, source_peer_id,
 		       type, title, description, content_meta,
-		       signature, version, cached_at,
+		       signature, version, status, cached_at,
 		       created_at, updated_at
 		FROM items
 		WHERE source_peer_id = ? AND owner_type = 'remote'
@@ -169,12 +179,13 @@ func GetRemoteItemsByPeer(sourcePeerID string) ([]*models.Item, error) {
 		var cachedAt, createdAt, updatedAt sql.NullTime
 		var parentID sql.NullInt64
 		var sourcePeerIDNull sql.NullString
+		var status string
 
 		err := rows.Scan(
 			&item.ID, &item.ElementUUID, &item.Hash,
 			&item.OwnerType, &sourcePeerIDNull,
 			&item.Type, &item.Title, &item.Description, &item.ContentMeta,
-			&item.Signature, &item.Version, &cachedAt,
+			&item.Signature, &item.Version, &status, &cachedAt,
 			&createdAt, &updatedAt,
 		)
 		if err != nil {
@@ -186,6 +197,7 @@ func GetRemoteItemsByPeer(sourcePeerID string) ([]*models.Item, error) {
 		}
 		item.CreatedAt = createdAt.Time
 		item.UpdatedAt = updatedAt.Time
+		item.Status = models.ItemStatus(status)
 
 		if parentID.Valid {
 			parentIDValue := int(parentID.Int64)
@@ -208,7 +220,7 @@ func GetRemoteItemByID(id int) (*models.Item, error) {
 		SELECT id, element_uuid, hash,
 		       owner_type, source_peer_id,
 		       type, title, description, content_meta,
-		       signature, version, cached_at,
+		       signature, version, status, cached_at,
 		       created_at, updated_at
 		FROM items
 		WHERE id = ?
@@ -217,12 +229,13 @@ func GetRemoteItemByID(id int) (*models.Item, error) {
 	var cachedAt, createdAt, updatedAt sql.NullTime
 	var parentID sql.NullInt64
 	var sourcePeerIDNull sql.NullString
+	var status string
 
 	err := database.DB.QueryRow(query, id).Scan(
 		&item.ID, &item.ElementUUID, &item.Hash,
 		&item.OwnerType, &sourcePeerIDNull,
 		&item.Type, &item.Title, &item.Description, &item.ContentMeta,
-		&item.Signature, &item.Version, &cachedAt,
+		&item.Signature, &item.Version, &status, &cachedAt,
 		&createdAt, &updatedAt,
 	)
 	if err != nil {
@@ -237,6 +250,7 @@ func GetRemoteItemByID(id int) (*models.Item, error) {
 	}
 	item.CreatedAt = createdAt.Time
 	item.UpdatedAt = updatedAt.Time
+	item.Status = models.ItemStatus(status)
 
 	if parentID.Valid {
 		parentIDValue := int(parentID.Int64)
@@ -256,13 +270,13 @@ func UpdateRemoteItem(item *models.Item) error {
 		UPDATE items
 		SET element_uuid = ?, hash = ?,
 		    title = ?, description = ?, content_meta = ?, signature = ?,
-		    version = ?, cached_at = CURRENT_TIMESTAMP
+		    version = ?, status = ?, cached_at = CURRENT_TIMESTAMP
 		WHERE id = ? AND owner_type = 'remote'
 	`
 	_, err := database.DB.Exec(query,
 		item.ElementUUID, item.Hash,
 		item.Title, item.Description, item.ContentMeta,
-		item.Signature, item.Version, item.ID,
+		item.Signature, item.Version, item.Status, item.ID,
 	)
 	return err
 }

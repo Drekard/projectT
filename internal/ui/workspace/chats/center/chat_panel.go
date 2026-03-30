@@ -305,8 +305,15 @@ func (ml *MessagesList) AddMessage(message *models.ChatMessage, isOutgoing bool)
 	if isOutgoing {
 		direction = "исходящее"
 	}
+	// Безопасное получение PeerID для логирования
+	fromPeer := "unknown"
+	if len(message.FromPeerID) >= 8 {
+		fromPeer = message.FromPeerID[:8]
+	} else if message.FromPeerID != "" {
+		fromPeer = message.FromPeerID
+	}
 	log.Printf("[Chat] 💬 Добавление сообщения в UI: %s, от=%s, len=%d",
-		direction, message.FromPeerID[:8], len(message.Content))
+		direction, fromPeer, len(message.Content))
 
 	// Создаём пузырёк сообщения с обработчиком правого клика
 	var bubbleContainer fyne.CanvasObject

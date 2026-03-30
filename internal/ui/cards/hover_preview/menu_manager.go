@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"image/color"
+	"log"
 	"projectT/internal/services"
 	"projectT/internal/services/favorites"
 	"projectT/internal/services/pinned"
@@ -11,13 +12,13 @@ import (
 	"projectT/internal/storage/database/queries"
 	"projectT/internal/storage/filesystem"
 	"projectT/internal/ui/edit_item"
+	"projectT/internal/ui/workspace/chats/dialogs"
 	"time"
 
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/canvas"
 	"fyne.io/fyne/v2/container"
 	"fyne.io/fyne/v2/dialog"
-	"fyne.io/fyne/v2/layout"
 	"fyne.io/fyne/v2/widget"
 )
 
@@ -185,8 +186,16 @@ func (mm *MenuManager) ShowSimpleMenu(item *models.Item, cont fyne.CanvasObject,
 
 					// Добавляем кнопку отправки для всех типов элементов
 					sendButton := widget.NewButton("📤 Отправить", func() {
-						// Показываем диалог выбора контакта
-						showSendToContactDialog(item, popup)
+						// Показываем диалог выбора чата
+						dialogs.ShowSendToChatDialog(item, func(chat *models.ChatWithLastMessage) {
+							// Закрываем попап
+							if popup != nil {
+								popup.Hide()
+							}
+							// Отправляем элемент в выбранный чат
+							appWindow := fyne.CurrentApp().Driver().AllWindows()[0]
+							sendItemToChat(chat, item, appWindow)
+						})
 					})
 					// Вставляем кнопку отправки перед кнопками редактирования и удаления
 					buttons = append([]fyne.CanvasObject{sendButton}, buttons...)
@@ -641,8 +650,8 @@ func showMoveFolderSelection(parentPopup *widget.PopUp, item *models.Item) {
 	// Контейнер для кнопок папок
 	folderButtonsContainer := container.NewVBox()
 
-	// Для получения всех папок мы должны получить все элементы и отфильтровать по типу
-	allItems, err := queries.GetAllItems()
+	// Для получения всех папок мы должны получить все сохранённые элементы и отфильтровать по типу
+	allItems, err := queries.GetSavedItems()
 	if err != nil {
 		// В случае ошибки добавим хотя бы сообщение об этом
 		errorLabel := widget.NewLabel("Ошибка загрузки папок")
@@ -706,177 +715,8 @@ func showMoveFolderSelection(parentPopup *widget.PopUp, item *models.Item) {
 	dialog.ShowCustom("Перемещение в папку", "Отмена", content, window)
 }
 
-// showSendToContactDialog показывает диалог выбора контакта для отправки элемента
-func showSendToContactDialog(item *models.Item, parentPopup *widget.PopUp) {
-	window := fyne.CurrentApp().Driver().AllWindows()[0]
-	if window == nil {
-		return
-	}
-
-	// Загружаем все контакты
-	contacts, err := queries.GetAllContacts()
-	if err != nil {
-		dialog.ShowError(err, window)
-		return
-	}
-
-	// Создаём список контактов
-	contactsList := container.NewVBox()
-
-	// Добавляем опцию "Локальный чат" (с самим собой)
-	localChatRow := createLocalChatRow(item, window, parentPopup)
-	contactsList.Add(localChatRow)
-
-	// Разделитель
-	if len(contacts) > 0 {
-		separator := canvas.NewRectangle(color.RGBA{R: 64, G: 64, B: 64, A: 255})
-		separator.SetMinSize(fyne.NewSize(0, 1))
-		contactsList.Add(separator)
-	}
-
-	for _, contact := range contacts {
-		// Создаём строку контакта
-		contactRow := createContactRow(contact, item, window, parentPopup)
-		contactsList.Add(contactRow)
-	}
-
-	// Если контактов нет, показываем сообщение
-	if len(contacts) == 0 {
-		infoLabel := widget.NewLabel("Нет контактов. Можно отправить в локальный чат.")
-		infoLabel.TextStyle = fyne.TextStyle{Italic: true}
-		contactsList.Add(infoLabel)
-	}
-
-	// Добавляем прокрутку если контактов много
-	scrollContainer := container.NewVScroll(contactsList)
-	scrollContainer.SetMinSize(fyne.NewSize(300, 200))
-
-	// Создаём контент диалога
-	content := container.NewVBox(
-		widget.NewLabel("Выберите контакт для отправки:"),
-		scrollContainer,
-	)
-
-	// Показываем диалог
-	dialog.ShowCustom("Отправить элемент", "Отмена", content, window)
-}
-
-// createContactRow создаёт строку контакта для диалога отправки
-func createContactRow(
-	contact *models.Contact,
-	item *models.Item,
-	window fyne.Window,
-	parentPopup *widget.PopUp,
-) *fyne.Container {
-	// Аватар контакта (если есть)
-	var avatar fyne.CanvasObject
-	if contact.AvatarPath != "" {
-		// Загружаем изображение как ресурс
-		avatarRes, err := fyne.LoadResourceFromPath(contact.AvatarPath)
-		if err == nil {
-			avatarImg := widget.NewIcon(avatarRes)
-			avatar = container.NewStack(avatarImg)
-		} else {
-			// Если ошибка загрузки - используем заглушку
-			initial := "?"
-			if len(contact.Username) > 0 {
-				initial = string(contact.Username[0])
-			}
-			avatar = widget.NewLabel(initial)
-			avatar.Resize(fyne.NewSize(30, 30))
-		}
-	} else {
-		// Заглушка вместо аватара
-		initial := "?"
-		if len(contact.Username) > 0 {
-			initial = string(contact.Username[0])
-		}
-		avatar = widget.NewLabel(initial)
-		avatar.Resize(fyne.NewSize(30, 30))
-	}
-
-	// Имя контакта
-	nameLabel := widget.NewLabel(contact.Username)
-	nameLabel.TextStyle = fyne.TextStyle{Bold: true}
-
-	// Кнопка отправки
-	sendButton := widget.NewButton("Отправить", func() {
-		// Закрываем родительский попап
-		if parentPopup != nil {
-			parentPopup.Hide()
-		}
-
-		// Отправляем элемент
-		sendItemToContact(contact, item, window)
-	})
-	sendButton.Importance = widget.HighImportance
-
-	// Собираем строку
-	row := container.NewHBox(
-		avatar,
-		container.NewVBox(nameLabel),
-		layout.NewSpacer(),
-		sendButton,
-	)
-
-	return container.NewPadded(row)
-}
-
-// createLocalChatRow создаёт строку для локального чата (с самим собой)
-func createLocalChatRow(
-	item *models.Item,
-	window fyne.Window,
-	parentPopup *widget.PopUp,
-) *fyne.Container {
-	// Аватар - свой профиль
-	var avatar fyne.CanvasObject
-	localProfile, err := queries.GetLocalProfile()
-	if err == nil && localProfile.AvatarPath != "" {
-		avatarRes, err := fyne.LoadResourceFromPath(localProfile.AvatarPath)
-		if err == nil {
-			avatarImg := widget.NewIcon(avatarRes)
-			avatar = container.NewStack(avatarImg)
-		} else {
-			avatar = widget.NewLabel("👤")
-			avatar.Resize(fyne.NewSize(30, 30))
-		}
-	} else {
-		avatar = widget.NewLabel("👤")
-		avatar.Resize(fyne.NewSize(30, 30))
-	}
-
-	// Имя
-	nameLabel := widget.NewLabel(localProfile.Username)
-	if err != nil {
-		nameLabel.SetText("Локальный чат")
-	}
-	nameLabel.TextStyle = fyne.TextStyle{Bold: true}
-
-	// Кнопка отправки
-	sendButton := widget.NewButton("Отправить", func() {
-		// Закрываем родительский попап
-		if parentPopup != nil {
-			parentPopup.Hide()
-		}
-
-		// Отправляем в локальный чат (contact_id = 0)
-		sendItemToLocalChat(item, window)
-	})
-	sendButton.Importance = widget.HighImportance
-
-	// Собираем строку
-	row := container.NewHBox(
-		avatar,
-		container.NewVBox(nameLabel),
-		layout.NewSpacer(),
-		sendButton,
-	)
-
-	return container.NewPadded(row)
-}
-
-// sendItemToLocalChat отправляет элемент в локальный чат (с самим собой)
-func sendItemToLocalChat(item *models.Item, window fyne.Window) {
+// sendItemToChat отправляет элемент в выбранный чат
+func sendItemToChat(chat *models.ChatWithLastMessage, item *models.Item, window fyne.Window) {
 	// Получаем локальный профиль для from_peer_id
 	localProfile, err := queries.GetLocalProfile()
 	if err != nil {
@@ -884,36 +724,34 @@ func sendItemToLocalChat(item *models.Item, window fyne.Window) {
 		return
 	}
 
+	log.Printf("[SendDialog] 📤 Отправка элемента в чат: chat_id=%d, peer_id=%s, username=%q, element_uuid=%s",
+		chat.ID, chat.PeerID[:min(10, len(chat.PeerID))], chat.Username, item.ElementUUID)
+
+	// Определяем ID контакта для отправки
+	// Для локального чата используем 0, иначе используем ContactID из чата
+	contactID := 0
+	if chat.PeerID != models.LocalChatPeerID && chat.ContactID != nil {
+		contactID = *chat.ContactID
+	}
+
+	// Передаём peer_id получателя явно
+	recipientPeerID := chat.PeerID
+
 	// Используем ChatService для отправки сообщения
-	_, err = services.GetChatService().SendElementMessage(0, localProfile.PeerID, item)
+	// ChatService автоматически отправит элемент через P2P если это не локальный чат
+	_, err = services.GetChatService().SendElementMessage(contactID, recipientPeerID, localProfile.PeerID, item)
 	if err != nil {
 		dialog.ShowError(err, window)
 		return
 	}
-
-	dialog.ShowInformation("Успех", "Элемент отправлен в локальный чат", window)
-}
-
-// sendItemToContact отправляет элемент контакту
-func sendItemToContact(contact *models.Contact, item *models.Item, window fyne.Window) {
-	// Получаем локальный профиль для from_peer_id
-	localProfile, err := queries.GetLocalProfile()
-	if err != nil {
-		dialog.ShowError(fmt.Errorf("ошибка получения профиля: %v", err), window)
-		return
-	}
-
-	// Используем ChatService для отправки сообщения
-	_, err = services.GetChatService().SendElementMessage(contact.ID, localProfile.PeerID, item)
-	if err != nil {
-		dialog.ShowError(err, window)
-		return
-	}
-
-	// TODO: Отправить через P2P если активен
-	// if p2pNetwork != nil && p2pNetwork.IsStarted() {
-	//     p2pNetwork.SendChatMessage(contact.PeerID, message)
-	// }
 
 	dialog.ShowInformation("Успех", "Элемент отправлен в чат", window)
+}
+
+// min возвращает минимальное из двух чисел
+func min(a, b int) int {
+	if a < b {
+		return a
+	}
+	return b
 }

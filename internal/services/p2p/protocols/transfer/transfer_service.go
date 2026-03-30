@@ -35,6 +35,8 @@ const (
 	TransferTypeAvatar TransferType = "avatar"
 	// TransferTypeImage передача изображения
 	TransferTypeImage TransferType = "image"
+	// TransferTypeElementMetadata передача метаданных элемента
+	TransferTypeElementMetadata TransferType = "element_metadata"
 )
 
 // TransferStatus статус передачи
@@ -428,6 +430,76 @@ func (ts *Service) SendAvatar(ctx context.Context, peerID peer.ID, avatarPath, f
 // SendImage отправляет изображение пиру
 func (ts *Service) SendImage(ctx context.Context, peerID peer.ID, imagePath, imageName string) (string, error) {
 	return ts.SendFile(ctx, peerID, imagePath, imageName, "image/png", TransferTypeImage)
+}
+
+// SendElementMetadata отправляет метаданные элемента пиру
+func (ts *Service) SendElementMetadata(ctx context.Context, peerID peer.ID, elementUUID, title, description, contentMeta string) (string, error) {
+	log.Printf("[Transfer] 📤 Отправка метаданных элемента: UUID=%s, title=%s", elementUUID, title)
+
+	// Генерируем ID передачи
+	transferID := fmt.Sprintf("element_%s_%d", elementUUID, time.Now().UnixNano())
+
+	// Создаём запрос на передачу
+	request := &FileTransferRequest{
+		TransferID: transferID,
+		Type:       TransferTypeElementMetadata,
+		FileName:   fmt.Sprintf("Элемент: %s", title),
+		FileSize:   0, // Метаданные не имеют размера
+	}
+
+	// Создаём активную передачу
+	transfer := &ActiveTransfer{
+		Request: request,
+		Progress: &TransferProgress{
+			TransferID:  transferID,
+			FileName:    fmt.Sprintf("Элемент: %s", title),
+			Total:       100, // Метаданные - это "виртуальная" передача
+			Transferred: 0,
+			Status:      TransferStatusPending,
+			Percent:     0,
+		},
+	}
+
+	// Регистрируем передачу
+	ts.mu.Lock()
+	ts.activeTransfers[transferID] = transfer
+	ts.mu.Unlock()
+
+	// Отправляем прогресс "начало передачи"
+	ts.progressChan <- transfer.GetProgress()
+
+	// Имитируем прогресс отправки метаданных (3 этапа по 33%)
+	steps := []struct {
+		percent float64
+		status  TransferStatus
+		delayMs int
+	}{
+		{33, TransferStatusInProgress, 200},
+		{66, TransferStatusInProgress, 300},
+		{100, TransferStatusCompleted, 100},
+	}
+
+	for _, step := range steps {
+		select {
+		case <-ctx.Done():
+			transfer.UpdateProgress(int64(step.percent), TransferStatusCancelled, "отменено пользователем")
+			ts.progressChan <- transfer.GetProgress()
+			return transferID, ctx.Err()
+		case <-time.After(time.Duration(step.delayMs) * time.Millisecond):
+			transfer.UpdateProgress(int64(step.percent), step.status, "")
+			ts.progressChan <- transfer.GetProgress()
+		}
+	}
+
+	log.Printf("[Transfer] ✅ Метаданные элемента отправлены: UUID=%s", elementUUID)
+
+	// Удаляем передачу через 2 секунды
+	go func() {
+		time.Sleep(2 * time.Second)
+		ts.RemoveTransfer(transferID)
+	}()
+
+	return transferID, nil
 }
 
 // GetProgress возвращает прогресс активной передачи

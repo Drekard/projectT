@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"io"
 	"log"
+	"net/http"
 	"time"
 
 	"github.com/libp2p/go-libp2p/core/crypto"
@@ -22,6 +23,14 @@ import (
 
 // ProtocolID идентификатор протокола синхронизации элементов
 const ProtocolID = "/projectt/itemsync/1.0.0"
+
+// min возвращает минимальное из двух чисел
+func min(a, b int) int {
+	if a < b {
+		return a
+	}
+	return b
+}
 
 // ItemRequest запрос элементов
 type ItemRequest struct {
@@ -86,57 +95,100 @@ func (iss *Service) handleItemRequest(stream network.Stream) {
 	defer stream.Close()
 
 	remotePeer := stream.Conn().RemotePeer()
-	log.Printf("Получен запрос элементов от: %s", remotePeer.String())
+	log.Printf("[ItemSync] 🔔 ===============================================")
+	log.Printf("[ItemSync] 🔔 ПОЛУЧЕН ЗАПРОС ЭЛЕМЕНТОВ ОТ: %s", remotePeer.String())
+	log.Printf("[ItemSync] 🔔 ===============================================")
 
 	// Читаем запрос
 	reader := bufio.NewReader(stream)
 	reqData, err := io.ReadAll(reader)
 	if err != nil {
-		log.Printf("Ошибка чтения запроса элементов: %v", err)
+		log.Printf("[ItemSync] ❌ Ошибка чтения запроса элементов: %v", err)
 		return
 	}
+	log.Printf("[ItemSync] 📥 Прочитано %d байт запроса", len(reqData))
+	log.Printf("[ItemSync] 📄 RAW данные запроса (hex): %x", reqData[:min(len(reqData), 100)])
 
 	var req ItemRequest
 	if err := json.Unmarshal(reqData, &req); err != nil {
-		log.Printf("Ошибка десериализации запроса: %v", err)
+		log.Printf("[ItemSync] ❌ Ошибка десериализации запроса: %v", err)
+		log.Printf("[ItemSync] 📄 Raw данные: %s", string(reqData))
 		return
 	}
+
+	log.Printf("[ItemSync] 📋 === ДЕТАЛИ ЗАПРОСА ===")
+	log.Printf("[ItemSync] 📋 Hash/UUID: %q", req.Hash)
+	log.Printf("[ItemSync] 📋 ItemIDs: %v", req.ItemIDs)
+	log.Printf("[ItemSync] 📋 All: %v", req.All)
+	log.Printf("[ItemSync] 📋 ОЖИДАНИЕ: Пир хочет получить элемент с UUID=%s", req.Hash)
 
 	// Обрабатываем запрос
 	var responses []*ItemResponse
 
 	if req.Hash != "" {
-		// Запрос по хешу
-		resp, err := iss.getItemByHash(req.Hash)
+		// Запрос по хешу или element_uuid
+		log.Printf("[ItemSync] 🔍 Запрос по UUID/Hash: %s", req.Hash)
+		log.Printf("[ItemSync] 🔍 Поиск элемента в БД по element_uuid=%s...", req.Hash)
+
+		// Сначала пробуем найти по element_uuid
+		resp, err := iss.getItemByElementUUID(req.Hash)
 		if err != nil {
-			log.Printf("Элемент с хэшем %s не найден: %v", req.Hash, err)
+			log.Printf("[ItemSync] ⚠️ Элемент с UUID %s не найден в БД: %v", req.Hash, err)
+			log.Printf("[ItemSync] ⚠️ ВОЗМОЖНАЯ ПРИЧИНА: Элемент не существует в локальной БД")
 		} else if resp != nil {
+			log.Printf("[ItemSync] ✅ Элемент НАЙДЕН в БД:")
+			log.Printf("[ItemSync]    - ItemID: %d", resp.ItemID)
+			log.Printf("[ItemSync]    - ElementUUID: %s", resp.ElementUUID)
+			log.Printf("[ItemSync]    - Title: %q", resp.Title)
+			log.Printf("[ItemSync]    - Type: %s", resp.Type)
+			log.Printf("[ItemSync]    - Hash: %s", resp.Hash)
+			log.Printf("[ItemSync]    - Description: %q", resp.Description)
+			log.Printf("[ItemSync]    - ContentMeta: %q", resp.ContentMeta)
+			log.Printf("[ItemSync]    - FileData: %v", resp.FileData != nil)
+			if resp.FileData != nil {
+				log.Printf("[ItemSync]    - File Size: %d байт", resp.FileData.Size)
+				log.Printf("[ItemSync]    - File MIME: %s", resp.FileData.MimeType)
+			}
 			responses = append(responses, resp)
+		} else {
+			// Если не найдено по UUID, пробуем по хешу
+			log.Printf("[ItemSync] 🔍 Элемент не найден по UUID, пробуем по хешу: %s", req.Hash)
+			resp, err = iss.getItemByHash(req.Hash)
+			if err != nil {
+				log.Printf("[ItemSync] ⚠️ Элемент с хэшем %s не найден: %v", req.Hash, err)
+			} else if resp != nil {
+				log.Printf("[ItemSync] ✅ Элемент найден по хешу: ID=%d, Title=%q", resp.ItemID, resp.Title)
+				responses = append(responses, resp)
+			}
 		}
 	} else if len(req.ItemIDs) > 0 {
 		// Запрос конкретных элементов
+		log.Printf("[ItemSync] 🔍 Запрос %d элементов по ID", len(req.ItemIDs))
 		for _, itemID := range req.ItemIDs {
 			resp, err := iss.getItemByID(itemID)
 			if err != nil {
-				log.Printf("Элемент %d не найден: %v", itemID, err)
+				log.Printf("[ItemSync] ⚠️ Элемент %d не найден: %v", itemID, err)
 				continue
 			}
 			if resp != nil {
+				log.Printf("[ItemSync] ✅ Элемент %d найден: Title=%q", itemID, resp.Title)
 				responses = append(responses, resp)
 			}
 		}
 	} else if req.All {
 		// Запрос всех элементов
+		log.Printf("[ItemSync] 🔍 Запрос всех элементов")
 		items, err := queries.GetAllItems()
 		if err != nil {
-			log.Printf("Ошибка получения всех элементов: %v", err)
+			log.Printf("[ItemSync] ❌ Ошибка получения всех элементов: %v", err)
 			return
 		}
+		log.Printf("[ItemSync] 📊 Найдено %d элементов", len(items))
 
 		for _, item := range items {
 			resp, err := iss.itemToResponse(item)
 			if err != nil {
-				log.Printf("Ошибка конвертации элемента %d: %v", item.ID, err)
+				log.Printf("[ItemSync] ⚠️ Ошибка конвертации элемента %d: %v", item.ID, err)
 				continue
 			}
 			if resp != nil {
@@ -145,22 +197,54 @@ func (iss *Service) handleItemRequest(stream network.Stream) {
 		}
 	}
 
+	log.Printf("[ItemSync] 📤 Отправка %d ответов...", len(responses))
+
+	log.Printf("[ItemSync] 📤 === ОТПРАВКА ОТВЕТА ===")
+	log.Printf("[ItemSync] 📤 Найдено элементов для отправки: %d", len(responses))
+
 	// Отправляем ответы
 	writer := bufio.NewWriter(stream)
 	encoder := json.NewEncoder(writer)
 
-	for _, resp := range responses {
+	for i, resp := range responses {
+		log.Printf("[ItemSync] 📤 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
+		log.Printf("[ItemSync] 📤 ОТПРАВКА элемента #%d/%d:", i+1, len(responses))
+		log.Printf("[ItemSync] 📤    - ItemID: %d", resp.ItemID)
+		log.Printf("[ItemSync] 📤    - ElementUUID: %s", resp.ElementUUID)
+		log.Printf("[ItemSync] 📤    - Title: %q", resp.Title)
+		log.Printf("[ItemSync] 📤    - Type: %s", resp.Type)
+		log.Printf("[ItemSync] 📤    - Hash: %s", resp.Hash)
+		log.Printf("[ItemSync] 📤    - Description: %q", resp.Description)
+		log.Printf("[ItemSync] 📤    - ContentMeta: %s", resp.ContentMeta)
+		log.Printf("[ItemSync] 📤    - Signature: %d байт", len(resp.Signature))
+		if resp.FileData != nil {
+			log.Printf("[ItemSync] 📤    - ФАЙЛ ВКЛЮЧЁН:")
+			log.Printf("[ItemSync] 📤       * Size: %d байт", resp.FileData.Size)
+			log.Printf("[ItemSync] 📤       * MimeType: %s", resp.FileData.MimeType)
+			log.Printf("[ItemSync] 📤       * Hash: %s", resp.FileData.Hash)
+		} else {
+			log.Printf("[ItemSync] 📤    - ФАЙЛ: не прикреплён")
+		}
+
 		if err := encoder.Encode(resp); err != nil {
-			log.Printf("Ошибка отправки элемента: %v", err)
+			log.Printf("[ItemSync] ❌ Ошибка отправки элемента #%d: %v", i, err)
 			break
 		}
+		log.Printf("[ItemSync] ✅ Элемент #%d отправлен в стрим", i+1)
 	}
 
 	if err := writer.Flush(); err != nil {
-		log.Printf("Ошибка flush: %v", err)
+		log.Printf("[ItemSync] ❌ Ошибка flush: %v", err)
 	}
 
-	log.Printf("Отправлено %d элементов пиру %s", len(responses), remotePeer)
+	// Закрываем Write чтобы получатель понял, что данные отправлены полностью
+	if err := stream.CloseWrite(); err != nil {
+		log.Printf("[ItemSync] ⚠️ Ошибка CloseWrite: %v", err)
+	}
+
+	log.Printf("[ItemSync] ✅ ===============================================")
+	log.Printf("[ItemSync] ✅ ОТПРАВЛЕНО %d элементов пиру %s", len(responses), remotePeer)
+	log.Printf("[ItemSync] ✅ ===============================================")
 }
 
 // getItemByID возвращает элемент по ID для отправки
@@ -183,11 +267,24 @@ func (iss *Service) getItemByHash(hash string) (*ItemResponse, error) {
 	return iss.itemToResponse(item)
 }
 
+// getItemByElementUUID возвращает элемент по element_uuid для отправки
+func (iss *Service) getItemByElementUUID(elementUUID string) (*ItemResponse, error) {
+	item, err := queries.GetItemByElementUUID(elementUUID)
+	if err != nil {
+		return nil, err
+	}
+
+	return iss.itemToResponse(item)
+}
+
 // itemToResponse преобразует элемент в ответ
 func (iss *Service) itemToResponse(item *models.Item) (*ItemResponse, error) {
 	if item == nil {
 		return nil, nil
 	}
+
+	log.Printf("[ItemSync] 📋 itemToResponse: ItemID=%d, UUID=%s, Title=%q, OwnerType=%s",
+		item.ID, item.ElementUUID[:8], item.Title, item.OwnerType)
 
 	// Подписываем элемент
 	signature, err := iss.signItem(item)
@@ -207,22 +304,62 @@ func (iss *Service) itemToResponse(item *models.Item) (*ItemResponse, error) {
 		Timestamp:   time.Now().UnixNano(),
 	}
 
-	// Получаем файл если есть
-	file, err := queries.GetItemFile(item.ID)
-	if err == nil && file != nil {
-		// Читаем содержимое файла
-		content, err := filesystem.ReadFile(file.Hash)
+	// Извлекаем file_hash из ContentMeta и читаем файл из общего хранилища
+	log.Printf("[ItemSync] 🔍 Извлечение file_hash из ContentMeta для элемента ID=%d...", item.ID)
+	log.Printf("[ItemSync] 📋 ContentMeta: %s", item.ContentMeta)
+
+	fileHash := extractFileHashFromContentMeta(item.ContentMeta)
+	if fileHash != "" {
+		log.Printf("[ItemSync] ✅ file_hash извлечён из ContentMeta: %s", fileHash)
+		content, err := filesystem.ReadFile(fileHash)
 		if err == nil {
+			log.Printf("[ItemSync] ✅ Файл прочитан по хешу из общего хранилища: %d байт", len(content))
+			// Определяем MIME-тип
+			mimeType := detectMimeType(content)
 			resp.FileData = &ItemFileData{
-				Hash:     file.Hash,
-				Size:     file.Size,
-				MimeType: file.MimeType,
+				Hash:     fileHash,
+				Size:     int64(len(content)),
+				MimeType: mimeType,
 				Content:  content,
 			}
+			log.Printf("[ItemSync] ✅ Файл добавлен в ответ (MIME=%s)", mimeType)
+			return resp, nil
+		}
+		log.Printf("[ItemSync] ❌ Ошибка чтения файла по хешу: %v", err)
+	} else {
+		log.Printf("[ItemSync] ℹ️ file_hash не найден в ContentMeta (элемент без файла)")
+	}
+
+	log.Printf("[ItemSync] ⚠️ Файл не будет включён в ответ (FileData=nil)")
+	return resp, nil
+}
+
+// detectMimeType определяет MIME-тип файла по содержимому
+func detectMimeType(fileBytes []byte) string {
+	return http.DetectContentType(fileBytes)
+}
+
+// extractFileHashFromContentMeta извлекает file_hash из ContentMeta JSON
+func extractFileHashFromContentMeta(contentMeta string) string {
+	if contentMeta == "" {
+		return ""
+	}
+
+	// Парсим JSON
+	var blocks []map[string]interface{}
+	if err := json.Unmarshal([]byte(contentMeta), &blocks); err != nil {
+		log.Printf("[ItemSync] ⚠️ Ошибка парсинга ContentMeta: %v", err)
+		return ""
+	}
+
+	// Ищем block с file_hash
+	for _, block := range blocks {
+		if fileHash, ok := block["file_hash"].(string); ok {
+			return fileHash
 		}
 	}
 
-	return resp, nil
+	return ""
 }
 
 // RequestItems запрашивает элементы у пира
@@ -244,6 +381,11 @@ func (iss *Service) RequestItems(ctx context.Context, peerID peer.ID, itemIDs []
 
 	if err := writer.Flush(); err != nil {
 		return nil, fmt.Errorf("ошибка flush: %w", err)
+	}
+
+	// Закрываем Write чтобы получатель понял, что данные отправлены полностью
+	if err := stream.CloseWrite(); err != nil {
+		return nil, fmt.Errorf("ошибка CloseWrite: %w", err)
 	}
 
 	// Устанавливаем таймаут
@@ -317,6 +459,64 @@ func (iss *Service) RequestItemByHash(ctx context.Context, peerID peer.ID, hash 
 	return iss.saveRemoteItem(peerID.String(), &resp)
 }
 
+// RequestItemByElementUUID запрашивает элемент по element_uuid
+func (iss *Service) RequestItemByElementUUID(ctx context.Context, peerID peer.ID, elementUUID string) (*models.Item, error) {
+	log.Printf("[ItemSync] 🔌 Запрос элемента: UUID=%s, PeerID=%s", elementUUID[:8], peerID.String()[:8])
+
+	stream, err := iss.host.NewStream(ctx, peerID, ProtocolID)
+	if err != nil {
+		log.Printf("[ItemSync] ❌ Ошибка создания стрима: %v", err)
+		return nil, fmt.Errorf("ошибка создания стрима: %w", err)
+	}
+	defer stream.Close()
+	log.Printf("[ItemSync] ✅ Стрим создан")
+
+	// Отправляем запрос с element_uuid в поле Hash (для совместимости)
+	// ItemSync поддерживает запрос по уникальному идентификатору
+	req := &ItemRequest{Hash: elementUUID}
+	reqData, _ := json.Marshal(req)
+	log.Printf("[ItemSync] 📤 Отправка запроса: %d байт", len(reqData))
+
+	writer := bufio.NewWriter(stream)
+	if _, err := writer.Write(reqData); err != nil {
+		log.Printf("[ItemSync] ❌ Ошибка отправки запроса: %v", err)
+		return nil, fmt.Errorf("ошибка отправки запроса: %w", err)
+	}
+
+	if err := writer.Flush(); err != nil {
+		log.Printf("[ItemSync] ❌ Ошибка flush: %v", err)
+		return nil, fmt.Errorf("ошибка flush: %w", err)
+	}
+	log.Printf("[ItemSync] ✅ Запрос отправлен, закрываем Write...")
+
+	// Закрываем Write чтобы получатель понял, что данные отправлены полностью
+	if err := stream.CloseWrite(); err != nil {
+		log.Printf("[ItemSync] ⚠️ Ошибка CloseWrite: %v", err)
+		return nil, fmt.Errorf("ошибка CloseWrite: %w", err)
+	}
+	log.Printf("[ItemSync] ✅ Write закрыт, ждём ответ...")
+
+	// Устанавливаем таймаут
+	if err := stream.SetReadDeadline(time.Now().Add(30 * time.Second)); err != nil {
+		log.Printf("[ItemSync] ⚠️ Предупреждение: не удалось установить таймаут: %v", err)
+	}
+
+	// Читаем ответ
+	reader := bufio.NewReader(stream)
+	var resp ItemResponse
+
+	log.Printf("[ItemSync] 📥 Чтение ответа...")
+	if err := json.NewDecoder(reader).Decode(&resp); err != nil {
+		log.Printf("[ItemSync] ❌ Ошибка чтения ответа: %v", err)
+		return nil, fmt.Errorf("ошибка чтения ответа: %w", err)
+	}
+	log.Printf("[ItemSync] ✅ Ответ получен: ItemID=%d, UUID=%s, Title=%q", resp.ItemID, resp.ElementUUID[:8], resp.Title)
+
+	// Сохраняем элемент
+	log.Printf("[ItemSync] 💾 Сохранение элемента в БД...")
+	return iss.saveRemoteItem(peerID.String(), &resp)
+}
+
 // RequestAllItems запрашивает все элементы у пира
 func (iss *Service) RequestAllItems(ctx context.Context, peerID peer.ID) ([]*models.Item, error) {
 	stream, err := iss.host.NewStream(ctx, peerID, ProtocolID)
@@ -336,6 +536,11 @@ func (iss *Service) RequestAllItems(ctx context.Context, peerID peer.ID) ([]*mod
 
 	if err := writer.Flush(); err != nil {
 		return nil, fmt.Errorf("ошибка flush: %w", err)
+	}
+
+	// Закрываем Write чтобы получатель понял, что данные отправлены полностью
+	if err := stream.CloseWrite(); err != nil {
+		return nil, fmt.Errorf("ошибка CloseWrite: %w", err)
 	}
 
 	// Устанавливаем таймаут
@@ -372,6 +577,9 @@ func (iss *Service) RequestAllItems(ctx context.Context, peerID peer.ID) ([]*mod
 
 // saveRemoteItem сохраняет полученный элемент от другого пира в базу данных
 func (iss *Service) saveRemoteItem(sourcePeerID string, resp *ItemResponse) (*models.Item, error) {
+	log.Printf("[ItemSync] 💾 saveRemoteItem: UUID=%s, Title=%q, Type=%s, HasFile=%v",
+		resp.ElementUUID[:8], resp.Title, resp.Type, resp.FileData != nil)
+
 	// Создаём item с owner_type = 'remote'
 	item := &models.Item{
 		ElementUUID:  resp.ElementUUID,
@@ -387,13 +595,17 @@ func (iss *Service) saveRemoteItem(sourcePeerID string, resp *ItemResponse) (*mo
 	}
 
 	// Проверяем, существует ли уже элемент с таким element_uuid
+	log.Printf("[ItemSync] 🔍 Проверка существования элемента...")
 	exists, err := queries.HasRemoteItem(sourcePeerID, resp.ElementUUID)
 	if err != nil {
+		log.Printf("[ItemSync] ❌ Ошибка проверки существования: %v", err)
 		return nil, fmt.Errorf("ошибка проверки существования: %w", err)
 	}
+	log.Printf("[ItemSync] 📋 Элемент существует: %v", exists)
 
 	if exists {
 		// Обновляем существующий
+		log.Printf("[ItemSync] 🔄 Обновление существующего элемента...")
 		existing, err := queries.GetRemoteItemByElementUUID(sourcePeerID, resp.ElementUUID)
 		if err == nil && existing != nil {
 			item.ID = existing.ID
@@ -401,39 +613,37 @@ func (iss *Service) saveRemoteItem(sourcePeerID string, resp *ItemResponse) (*mo
 			item.CreatedAt = existing.CreatedAt
 			item.UpdatedAt = existing.UpdatedAt
 			if err := queries.UpdateRemoteItem(item); err != nil {
+				log.Printf("[ItemSync] ❌ Ошибка обновления элемента: %v", err)
 				return nil, fmt.Errorf("ошибка обновления элемента: %w", err)
 			}
+			log.Printf("[ItemSync] ✅ Элемент обновлён: ID=%d", item.ID)
 		}
 	} else {
 		// Создаём новый
+		log.Printf("[ItemSync] ➕ Создание нового элемента...")
+		log.Printf("[ItemSync] 📋 Данные: ElementUUID=%s, OwnerType=%s, Type=%s, Title=%q, Hash=%s, Signature=%d bytes",
+			item.ElementUUID, item.OwnerType, item.Type, item.Title, item.Hash, len(item.Signature))
 		if err := queries.CreateRemoteItem(item); err != nil {
+			log.Printf("[ItemSync] ❌ Ошибка создания элемента: %v", err)
+			log.Printf("[ItemSync] 📋 SQL Error Type: %T", err)
 			return nil, fmt.Errorf("ошибка создания элемента: %w", err)
 		}
+		log.Printf("[ItemSync] ✅ Элемент создан: ID=%d", item.ID)
 	}
 
 	// Сохраняем файл если есть
 	if resp.FileData != nil && len(resp.FileData.Content) > 0 {
-		fileData, err := filesystem.SaveItemFile(item.ID, resp.FileData.Content, true, sourcePeerID)
+		log.Printf("[ItemSync] 📎 Сохранение файла: %d байт, MIME=%s", len(resp.FileData.Content), resp.FileData.MimeType)
+		// Сохраняем файл в общее хранилище по хешу (не в storage/remote/...)
+		fileData, err := filesystem.SaveFileWithOriginalName(resp.FileData.Content, "")
 		if err != nil {
-			log.Printf("Предупреждение: не удалось сохранить файл: %v", err)
+			log.Printf("[ItemSync] ⚠️ Предупреждение: не удалось сохранить файл: %v", err)
 		} else {
-			// Сохраняем информацию о файле в БД
-			itemFile := &models.ItemFile{
-				ItemID:       item.ID,
-				Hash:         fileData.Hash,
-				FilePath:     fileData.Path,
-				Size:         fileData.Size,
-				MimeType:     fileData.MimeType,
-				IsRemote:     true,
-				SourcePeerID: sourcePeerID,
-			}
-			if err := queries.CreateItemFile(itemFile); err != nil {
-				log.Printf("Предупреждение: не удалось сохранить метаданные файла: %v", err)
-			}
+			log.Printf("[ItemSync] ✅ Файл сохранён в общее хранилище: %s", fileData.Path)
 		}
 	}
 
-	log.Printf("Сохранён элемент %d от пира %s (hash: %s)", item.ID, sourcePeerID, resp.Hash[:16])
+	log.Printf("[ItemSync] ✅ Сохранён элемент %d от пира %s (hash: %s)", item.ID, sourcePeerID, resp.Hash[:16])
 	return item, nil
 }
 

@@ -3,6 +3,7 @@ package right
 
 import (
 	"image/color"
+	"log"
 	"os"
 
 	network "projectT/internal/services/p2p/ui"
@@ -54,8 +55,12 @@ func (p *Panel) Refresh() {
 
 // UpdateProfile обновляет профиль собеседника
 func (p *Panel) UpdateProfile(contact *models.Contact) {
+	log.Printf("[ProfilePanel] 🔄 Обновление профиля: username=%q, peer_id=%s, avatar_path=%q, title=%q",
+		contact.Username, contact.PeerID[:min(10, len(contact.PeerID))], contact.AvatarPath, contact.Title)
+
 	// Проверяем, локальный ли это чат
 	if contact.IsLocalChat() {
+		log.Printf("[ProfilePanel] 📝 Локальный чат, показываем профиль пользователя")
 		// Для локального чата показываем профиль текущего пользователя
 		p.showUserProfile()
 		return
@@ -64,11 +69,13 @@ func (p *Panel) UpdateProfile(contact *models.Contact) {
 	// Обновляем имя
 	if p.profileName != nil {
 		p.profileName.SetText(contact.Username)
+		log.Printf("[ProfilePanel] ✅ Имя установлено: %q", contact.Username)
 	}
 
 	// Обновляем статус (текстовый, из профиля)
 	if p.profileStatus != nil {
 		p.profileStatus.SetText(contact.Title)
+		log.Printf("[ProfilePanel] ✅ Статус установлен: %q", contact.Title)
 	}
 
 	// Загружаем аватар
@@ -76,37 +83,50 @@ func (p *Panel) UpdateProfile(contact *models.Contact) {
 
 	// Загружаем характеристики из профиля пира
 	if contact.PeerID != "" && p.characteristicsContainer != nil {
+		log.Printf("[ProfilePanel] 🔍 Загрузка характеристик для peer_id=%s", contact.PeerID[:8])
 		// Загружаем профиль из таблицы profiles по PeerID
 		profile, err := queries.GetProfileByPeerID(contact.PeerID)
 		if err == nil && profile != nil {
+			log.Printf("[ProfilePanel] 📋 Профиль загружен: content_char=%q", profile.ContentChar)
 			if profile.ContentChar != "" {
 				p.loadCharacteristics(profile.ContentChar)
+				log.Printf("[ProfilePanel] ✅ Характеристики загружены")
 			} else {
+				log.Printf("[ProfilePanel] ℹ️ Характеристики пусты")
 				// Если характеристик нет, очищаем контейнер
 				p.characteristicsContainer.Objects = nil
 				p.characteristicsContainer.Refresh()
 			}
+		} else {
+			log.Printf("[ProfilePanel] ❌ Ошибка загрузки профиля: %v", err)
 		}
 	}
 
 	// Загружаем demo элементы из профиля пира
 	if contact.PeerID != "" && p.demoElementsContainer != nil {
+		log.Printf("[ProfilePanel] 🔍 Загрузка витрины элементов для peer_id=%s", contact.PeerID[:8])
 		// Загружаем профиль из таблицы profiles по PeerID
 		profile, err := queries.GetProfileByPeerID(contact.PeerID)
 		if err == nil && profile != nil {
-			if profile.PinnedUUIDs != "" {
+			log.Printf("[ProfilePanel] 📋 Профиль загружен: pinned_uuids=%s", profile.PinnedUUIDs)
+			if profile.PinnedUUIDs != "" && profile.PinnedUUIDs != "[]" {
 				p.loadDemoElements(profile.PinnedUUIDs)
+				log.Printf("[ProfilePanel] ✅ Витрина элементов загружена")
 			} else {
+				log.Printf("[ProfilePanel] ℹ️ Витрина элементов пуста")
 				// Если demo элементов нет, очищаем контейнер
 				p.demoElementsContainer.Objects = nil
 				p.demoElementsContainer.Refresh()
 			}
+		} else {
+			log.Printf("[ProfilePanel] ❌ Ошибка загрузки профиля: %v", err)
 		}
 	}
 
 	// Обновляем UI
 	if p.container != nil {
 		p.container.Refresh()
+		log.Printf("[ProfilePanel] ✅ UI обновлён")
 	}
 }
 
@@ -218,7 +238,10 @@ func (p *Panel) loadAvatar(avatarPath string) {
 		return
 	}
 
+	log.Printf("[ProfilePanel] 🖼️ Загрузка аватара: path=%q", avatarPath)
+
 	if avatarPath == "" {
+		log.Printf("[ProfilePanel] ℹ️ AvatarPath пустой, скрываем изображение")
 		// Пустой аватар - скрываем изображение
 		p.profileAvatar.Resource = nil
 		p.profileAvatar.Refresh()
@@ -227,6 +250,7 @@ func (p *Panel) loadAvatar(avatarPath string) {
 
 	// Проверяем существование файла
 	if _, err := os.Stat(avatarPath); os.IsNotExist(err) {
+		log.Printf("[ProfilePanel] ❌ Файл аватара не найден: %s", avatarPath)
 		p.profileAvatar.Resource = nil
 		p.profileAvatar.Refresh()
 		return
@@ -235,13 +259,17 @@ func (p *Panel) loadAvatar(avatarPath string) {
 	// Загружаем изображение
 	avatarImg, err := fyne.LoadResourceFromPath(avatarPath)
 	if err != nil {
+		log.Printf("[ProfilePanel] ❌ Ошибка загрузки аватара из %q: %v", avatarPath, err)
 		p.profileAvatar.Resource = nil
 		p.profileAvatar.Refresh()
 		return
 	}
 
+	log.Printf("[ProfilePanel] ✅ Аватар успешно загружен: %q (%d байт)", avatarPath, len(avatarImg.Content()))
+
 	// Устанавливаем изображение
 	p.profileAvatar.Resource = avatarImg
 	p.profileAvatar.FillMode = canvas.ImageFillContain
 	p.profileAvatar.Refresh()
+	log.Printf("[ProfilePanel] 🖼️ Аватар установлен в UI")
 }

@@ -214,10 +214,21 @@ func (p *Panel) createChatItem(chat *models.ChatWithLastMessage) *ChatItemWrappe
 
 // createChatAvatarIcon создает иконку чата с аватаром 50x50
 func (p *Panel) createChatAvatarIcon(chat *models.ChatWithLastMessage) *fyne.Container {
+	log.Printf("[Avatar] 🎨 Создание аватара для чата ID=%d, peer_id=%s...", chat.ID, chat.PeerID[:8])
+	log.Printf("[Avatar] 📋 AvatarPath из БД: %q", chat.AvatarPath)
+
 	if chat.AvatarPath != "" {
 		// Пробуем загрузить аватар из файла
+		log.Printf("[Avatar] 🔍 Попытка загрузки аватара из файла: %s", chat.AvatarPath)
 		avatarRes, err := fyne.LoadResourceFromPath(chat.AvatarPath)
-		if err == nil && avatarRes != nil {
+		if err != nil {
+			log.Printf("[Avatar] ❌ Ошибка загрузки ресурса из пути %q: %v", chat.AvatarPath, err)
+		} else if avatarRes == nil {
+			log.Printf("[Avatar] ❌ Ресурс аватара пуст (nil) для пути: %s", chat.AvatarPath)
+		} else {
+			// Аватар успешно загружен
+			log.Printf("[Avatar] ✅ Аватар успешно загружен: %s (Content: %d байт)", chat.AvatarPath, len(avatarRes.Content()))
+
 			// Создаём изображение аватара
 			img := canvas.NewImageFromResource(avatarRes)
 			img.FillMode = canvas.ImageFillContain
@@ -233,12 +244,19 @@ func (p *Panel) createChatAvatarIcon(chat *models.ChatWithLastMessage) *fyne.Con
 			btnWrapper := canvas.NewRectangle(color.Transparent)
 			btnWrapper.SetMinSize(fyne.NewSize(50, 50))
 
+			log.Printf("[Avatar] 🖼️ Возврат контейнера с изображением аватара")
 			// Ставим изображение поверх кнопки
 			return container.NewStack(btnWrapper, btn, img)
 		}
+
+		// Если дошли сюда - произошла ошибка загрузки
+		log.Printf("[Avatar] ⚠️ Не удалось загрузить аватар, будет использована иконка по умолчанию")
+	} else {
+		log.Printf("[Avatar] ℹ️ AvatarPath пустой, будет использована иконка по умолчанию")
 	}
 
-	// Аватара нет - используем иконку по умолчанию
+	// Аватара нет или ошибка загрузки - используем иконку по умолчанию
+	log.Printf("[Avatar] 🔲 Использование системной иконки (theme.AccountIcon)")
 	icon := canvas.NewImageFromResource(theme.AccountIcon())
 	icon.FillMode = canvas.ImageFillContain
 	icon.SetMinSize(fyne.NewSize(50, 50))
@@ -253,6 +271,7 @@ func (p *Panel) createChatAvatarIcon(chat *models.ChatWithLastMessage) *fyne.Con
 	btnWrapper := canvas.NewRectangle(color.Transparent)
 	btnWrapper.SetMinSize(fyne.NewSize(50, 50))
 
+	log.Printf("[Avatar] ⚪ Возврат контейнера с системной иконкой")
 	return container.NewStack(btnWrapper, btn, icon)
 }
 

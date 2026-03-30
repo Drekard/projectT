@@ -18,21 +18,24 @@ func CreateItem(item *models.Item) error {
 	if item.Version == 0 {
 		item.Version = 1
 	}
+	if item.Status == "" {
+		item.Status = models.ItemStatusSaved
+	}
 
 	query := `
 		INSERT INTO items (
 			element_uuid, hash,
 			owner_type, source_peer_id,
 			type, title, description, content_meta, parent_id,
-			signature, version, cached_at, created_at, updated_at
+			signature, version, status, cached_at, created_at, updated_at
 		)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 	`
 	result, err := database.DB.Exec(query,
 		item.ElementUUID, item.Hash,
 		item.OwnerType, item.SourcePeerID,
 		item.Type, item.Title, item.Description, item.ContentMeta, item.ParentID,
-		item.Signature, item.Version, item.CachedAt, time.Now(), time.Now(),
+		item.Signature, item.Version, item.Status, item.CachedAt, time.Now(), time.Now(),
 	)
 	if err != nil {
 		return err
@@ -55,7 +58,7 @@ func GetItemByID(id int) (*models.Item, error) {
 		SELECT id, element_uuid, hash,
 		       owner_type, source_peer_id,
 		       type, title, description, content_meta, parent_id,
-		       signature, version, cached_at, created_at, updated_at
+		       signature, version, status, cached_at, created_at, updated_at
 		FROM items
 		WHERE id = ?
 	`
@@ -63,12 +66,13 @@ func GetItemByID(id int) (*models.Item, error) {
 	var parentID sql.NullInt64
 	var sourcePeerID sql.NullString
 	var cachedAt, createdAt, updatedAt sql.NullTime
+	var status string
 
 	err := database.DB.QueryRow(query, id).Scan(
 		&item.ID, &item.ElementUUID, &item.Hash,
 		&item.OwnerType, &sourcePeerID,
 		&item.Type, &item.Title, &item.Description, &item.ContentMeta, &parentID,
-		&item.Signature, &item.Version, &cachedAt, &createdAt, &updatedAt,
+		&item.Signature, &item.Version, &status, &cachedAt, &createdAt, &updatedAt,
 	)
 	if err != nil {
 		return nil, err
@@ -89,6 +93,7 @@ func GetItemByID(id int) (*models.Item, error) {
 
 	item.CreatedAt = createdAt.Time
 	item.UpdatedAt = updatedAt.Time
+	item.Status = models.ItemStatus(status)
 
 	return &item, nil
 }
@@ -99,7 +104,7 @@ func GetItemByHash(hash string) (*models.Item, error) {
 		SELECT id, element_uuid, hash,
 		       owner_type, source_peer_id,
 		       type, title, description, content_meta, parent_id,
-		       signature, version, cached_at, created_at, updated_at
+		       signature, version, status, cached_at, created_at, updated_at
 		FROM items
 		WHERE hash = ?
 	`
@@ -107,12 +112,13 @@ func GetItemByHash(hash string) (*models.Item, error) {
 	var parentID sql.NullInt64
 	var sourcePeerID sql.NullString
 	var cachedAt, createdAt, updatedAt sql.NullTime
+	var status string
 
 	err := database.DB.QueryRow(query, hash).Scan(
 		&item.ID, &item.ElementUUID, &item.Hash,
 		&item.OwnerType, &sourcePeerID,
 		&item.Type, &item.Title, &item.Description, &item.ContentMeta, &parentID,
-		&item.Signature, &item.Version, &cachedAt, &createdAt, &updatedAt,
+		&item.Signature, &item.Version, &status, &cachedAt, &createdAt, &updatedAt,
 	)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
@@ -136,6 +142,7 @@ func GetItemByHash(hash string) (*models.Item, error) {
 
 	item.CreatedAt = createdAt.Time
 	item.UpdatedAt = updatedAt.Time
+	item.Status = models.ItemStatus(status)
 
 	return &item, nil
 }
@@ -146,7 +153,7 @@ func GetItemByElementUUID(elementUUID string) (*models.Item, error) {
 		SELECT id, element_uuid, hash,
 		       owner_type, source_peer_id,
 		       type, title, description, content_meta, parent_id,
-		       signature, version, cached_at, created_at, updated_at
+		       signature, version, status, cached_at, created_at, updated_at
 		FROM items
 		WHERE element_uuid = ?
 	`
@@ -154,12 +161,13 @@ func GetItemByElementUUID(elementUUID string) (*models.Item, error) {
 	var parentID sql.NullInt64
 	var sourcePeerID sql.NullString
 	var cachedAt, createdAt, updatedAt sql.NullTime
+	var status string
 
 	err := database.DB.QueryRow(query, elementUUID).Scan(
 		&item.ID, &item.ElementUUID, &item.Hash,
 		&item.OwnerType, &sourcePeerID,
 		&item.Type, &item.Title, &item.Description, &item.ContentMeta, &parentID,
-		&item.Signature, &item.Version, &cachedAt, &createdAt, &updatedAt,
+		&item.Signature, &item.Version, &status, &cachedAt, &createdAt, &updatedAt,
 	)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
@@ -183,6 +191,7 @@ func GetItemByElementUUID(elementUUID string) (*models.Item, error) {
 
 	item.CreatedAt = createdAt.Time
 	item.UpdatedAt = updatedAt.Time
+	item.Status = models.ItemStatus(status)
 
 	return &item, nil
 }
@@ -275,7 +284,7 @@ func GetAllItems() ([]*models.Item, error) {
 		SELECT id, element_uuid, hash,
 		       owner_type, source_peer_id,
 		       type, title, description, content_meta, parent_id,
-		       signature, version, cached_at, created_at, updated_at
+		       signature, version, status, cached_at, created_at, updated_at
 		FROM items
 		ORDER BY created_at DESC
 	`
@@ -291,12 +300,13 @@ func GetAllItems() ([]*models.Item, error) {
 		var parentID sql.NullInt64
 		var sourcePeerID sql.NullString
 		var cachedAt, createdAt, updatedAt sql.NullTime
+		var status string
 
 		err := rows.Scan(
 			&item.ID, &item.ElementUUID, &item.Hash,
 			&item.OwnerType, &sourcePeerID,
 			&item.Type, &item.Title, &item.Description, &item.ContentMeta, &parentID,
-			&item.Signature, &item.Version, &cachedAt, &createdAt, &updatedAt,
+			&item.Signature, &item.Version, &status, &cachedAt, &createdAt, &updatedAt,
 		)
 		if err != nil {
 			return nil, err
@@ -317,6 +327,123 @@ func GetAllItems() ([]*models.Item, error) {
 
 		item.CreatedAt = createdAt.Time
 		item.UpdatedAt = updatedAt.Time
+		item.Status = models.ItemStatus(status)
+
+		items = append(items, &item)
+	}
+
+	return items, nil
+}
+
+// GetSavedItems возвращает только сохранённые элементы (status = 'saved')
+func GetSavedItems() ([]*models.Item, error) {
+	query := `
+		SELECT id, element_uuid, hash,
+		       owner_type, source_peer_id,
+		       type, title, description, content_meta, parent_id,
+		       signature, version, status, cached_at, created_at, updated_at
+		FROM items
+		WHERE status = 'saved'
+		ORDER BY created_at DESC
+	`
+	rows, err := database.DB.Query(query)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var items []*models.Item
+	for rows.Next() {
+		var item models.Item
+		var parentID sql.NullInt64
+		var sourcePeerID sql.NullString
+		var cachedAt, createdAt, updatedAt sql.NullTime
+		var status string
+
+		err := rows.Scan(
+			&item.ID, &item.ElementUUID, &item.Hash,
+			&item.OwnerType, &sourcePeerID,
+			&item.Type, &item.Title, &item.Description, &item.ContentMeta, &parentID,
+			&item.Signature, &item.Version, &status, &cachedAt, &createdAt, &updatedAt,
+		)
+		if err != nil {
+			return nil, err
+		}
+
+		if parentID.Valid {
+			parentIDValue := int(parentID.Int64)
+			item.ParentID = &parentIDValue
+		}
+
+		if sourcePeerID.Valid {
+			item.SourcePeerID = &sourcePeerID.String
+		}
+
+		if cachedAt.Valid {
+			item.CachedAt = &cachedAt.Time
+		}
+
+		item.CreatedAt = createdAt.Time
+		item.UpdatedAt = updatedAt.Time
+		item.Status = models.ItemStatus(status)
+
+		items = append(items, &item)
+	}
+
+	return items, nil
+}
+
+// GetPreviewItems возвращает элементы со статусом 'preview' (загружены для просмотра)
+func GetPreviewItems() ([]*models.Item, error) {
+	query := `
+		SELECT id, element_uuid, hash,
+		       owner_type, source_peer_id,
+		       type, title, description, content_meta, parent_id,
+		       signature, version, status, cached_at, created_at, updated_at
+		FROM items
+		WHERE status = 'preview'
+		ORDER BY created_at DESC
+	`
+	rows, err := database.DB.Query(query)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var items []*models.Item
+	for rows.Next() {
+		var item models.Item
+		var parentID sql.NullInt64
+		var sourcePeerID sql.NullString
+		var cachedAt, createdAt, updatedAt sql.NullTime
+		var status string
+
+		err := rows.Scan(
+			&item.ID, &item.ElementUUID, &item.Hash,
+			&item.OwnerType, &sourcePeerID,
+			&item.Type, &item.Title, &item.Description, &item.ContentMeta, &parentID,
+			&item.Signature, &item.Version, &status, &cachedAt, &createdAt, &updatedAt,
+		)
+		if err != nil {
+			return nil, err
+		}
+
+		if parentID.Valid {
+			parentIDValue := int(parentID.Int64)
+			item.ParentID = &parentIDValue
+		}
+
+		if sourcePeerID.Valid {
+			item.SourcePeerID = &sourcePeerID.String
+		}
+
+		if cachedAt.Valid {
+			item.CachedAt = &cachedAt.Time
+		}
+
+		item.CreatedAt = createdAt.Time
+		item.UpdatedAt = updatedAt.Time
+		item.Status = models.ItemStatus(status)
 
 		items = append(items, &item)
 	}
@@ -399,15 +526,22 @@ func UpdateItem(item *models.Item) error {
 	SET element_uuid = ?, hash = ?,
 	    owner_type = ?, source_peer_id = ?,
 	    type = ?, title = ?, description = ?, content_meta = ?, parent_id = ?,
-	    signature = ?, version = ?, cached_at = ?, updated_at = ?
+	    signature = ?, version = ?, status = ?, cached_at = ?, updated_at = ?
 	WHERE id = ?
 	`
 	_, err := database.DB.Exec(query,
 		item.ElementUUID, item.Hash,
 		item.OwnerType, item.SourcePeerID,
 		item.Type, item.Title, item.Description, item.ContentMeta, item.ParentID,
-		item.Signature, item.Version, item.CachedAt, time.Now(), item.ID,
+		item.Signature, item.Version, item.Status, item.CachedAt, time.Now(), item.ID,
 	)
+	return err
+}
+
+// SetItemStatus обновляет статус элемента
+func SetItemStatus(itemID int, status models.ItemStatus) error {
+	query := `UPDATE items SET status = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?`
+	_, err := database.DB.Exec(query, status, itemID)
 	return err
 }
 

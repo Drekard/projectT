@@ -351,6 +351,9 @@ func (ws *Workspace) initializeChatsUI() {
 			if ws.p2pNetwork.ProfileExchange() != nil {
 				ws.p2pNetwork.ProfileExchange().SetUIP2P(p2pUI)
 			}
+
+			// Устанавливаем глобальный P2P сервис для ChatService
+			services.SetGlobalP2PNetwork(ws.p2pNetwork)
 		}
 
 		// Подписываемся на события сообщений
@@ -387,10 +390,10 @@ func (ws *Workspace) ApplyFilters(options services.FilterOptions) {
 
 	// Определяем, какой режим отображения использовать
 	if options.TabMode == "all_items" {
-		// Режим "Все элементы" - отображаем все элементы без учета ParentID
+		// Режим "Все элементы" - отображаем все сохранённые элементы без учета ParentID
 		ws.showMode = "all_items"
-		// Загружаем все элементы из базы данных
-		allItems, err := itemsService.GetAllItemsWithoutParentFilter() // используем метод, который возвращает все элементы
+		// Загружаем только сохранённые элементы (status='saved') из базы данных
+		allItems, err := itemsService.GetSavedItemsWithoutParentFilter()
 		if err != nil {
 			// В случае ошибки загружаем пустой список
 			allItems = []*models.Item{}

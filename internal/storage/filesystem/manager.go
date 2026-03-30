@@ -220,9 +220,12 @@ func ReadFileByHash(hash string) ([]byte, *FileData, error) {
 // peerID - идентификатор пира (для remote профилей) или "local" (для локального)
 // fileBytes - содержимое файла аватарки
 func SaveAvatar(peerID string, fileBytes []byte) (string, error) {
+	log.Printf("[Filesystem] 💾 Сохранение аватара для peer_id=%s (%d байт)...", peerID[:min(10, len(peerID))], len(fileBytes))
+
 	// Ограничение на размер аватара: 2MB
 	const MaxAvatarSize = 2 * 1024 * 1024 // 2MB
 	if len(fileBytes) > MaxAvatarSize {
+		log.Printf("[Filesystem] ❌ Размер аватара превышает лимит 2MB (%d байт)", len(fileBytes))
 		return "", fmt.Errorf("размер аватара превышает лимит 2MB (%d байт)", len(fileBytes))
 	}
 
@@ -233,56 +236,75 @@ func SaveAvatar(peerID string, fileBytes []byte) (string, error) {
 	if len(exts) > 0 {
 		ext = exts[0]
 	}
+	log.Printf("[Filesystem] 📊 MIME-тип: %s, расширение: %s", mimeType, ext)
 
 	// Вычисляем хеш содержимого для уникального имени файла
 	fileHash := CalculateHash(fileBytes)
+	log.Printf("[Filesystem] 🔐 Хеш файла: %s", fileHash[:16])
 
 	// Формируем имя файла: {peerID}_{hash}.{ext}
 	fileName := fmt.Sprintf("%s_%s%s", peerID, fileHash[:16], ext)
 	filePath := filepath.Join("storage", "files", "avatars", "remote", fileName)
+	log.Printf("[Filesystem] 📁 Путь сохранения: %s", filePath)
 
 	// Проверяем, существует ли уже файл
 	if _, err := os.Stat(filePath); err == nil {
 		// Файл уже существует, возвращаем путь
+		log.Printf("[Filesystem] ℹ️ Файл уже существует, возвращаем путь: %s", filePath)
 		return filePath, nil
 	}
 
 	// Создаем директорию для аватарок
 	if err := os.MkdirAll(filepath.Dir(filePath), 0755); err != nil {
+		log.Printf("[Filesystem] ❌ Ошибка создания директории для аватарки: %v", err)
 		return "", fmt.Errorf("ошибка создания директории для аватарки: %w", err)
 	}
 
 	// Сохраняем файл
 	if err := os.WriteFile(filePath, fileBytes, 0644); err != nil {
+		log.Printf("[Filesystem] ❌ Ошибка сохранения аватарки: %v", err)
 		return "", fmt.Errorf("ошибка сохранения аватарки: %w", err)
 	}
 
-	log.Printf("[Filesystem] Аватар сохранён: %s (%d байт, hash: %s)", filePath, len(fileBytes), fileHash[:8])
+	log.Printf("[Filesystem] ✅ Аватар сохранён: %s (%d байт, hash: %s)", filePath, len(fileBytes), fileHash[:8])
 	return filePath, nil
 }
 
 // GetAvatar возвращает путь к аватарке по peerID
 func GetAvatar(peerID string) (string, error) {
+	log.Printf("[Filesystem] 🔍 Поиск аватара для peer_id=%s...", peerID[:min(10, len(peerID))])
+
 	// Ищем файл аватарки по peerID
 	avatarDir := filepath.Join("storage", "files", "avatars", "remote")
+	log.Printf("[Filesystem] 📂 Директория аватаров: %s", avatarDir)
 
 	// Проверяем существование директории
 	if _, err := os.Stat(avatarDir); os.IsNotExist(err) {
+		log.Printf("[Filesystem] ❌ Директория аватаров не найдена: %s", avatarDir)
 		return "", fmt.Errorf("директория аватарок не найдена")
 	}
 
 	// Ищем файл с именем, начинающимся с peerID_ (формат: {peerID}_{hash}.{ext})
 	pattern := filepath.Join(avatarDir, peerID+"_*")
+	log.Printf("[Filesystem] 🔍 Паттерн поиска: %s", pattern)
 	matches, err := filepath.Glob(pattern)
 	if err != nil {
+		log.Printf("[Filesystem] ❌ Ошибка Glob: %v", err)
 		return "", fmt.Errorf("ошибка поиска аватарки: %w", err)
 	}
 
+	log.Printf("[Filesystem] 📊 Найдено совпадений: %d", len(matches))
+	for i, match := range matches {
+		log.Printf("[Filesystem]   [%d] %s", i, match)
+	}
+
 	if len(matches) == 0 {
+		log.Printf("[Filesystem] ❌ Аватарка для пира %s не найдена", peerID[:min(10, len(peerID))])
 		return "", fmt.Errorf("аватарка для пира %s не найдена", peerID)
 	}
 
 	// Возвращаем первый найденный файл
+	log.Printf("[Filesystem] ✅ Аватар найден: %s", matches[0])
 	return matches[0], nil
 }
 
@@ -427,4 +449,12 @@ func DeleteRemoteItemFiles(sourcePeerID string) error {
 
 	// Удаляем директорию со всем содержимым
 	return os.RemoveAll(remoteDir)
+}
+
+// min возвращает минимальное значение из двух
+func min(a, b int) int {
+	if a < b {
+		return a
+	}
+	return b
 }
