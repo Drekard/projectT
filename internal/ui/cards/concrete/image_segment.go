@@ -35,17 +35,24 @@ type ImageCard struct {
 	fixedHeight           float32         // Фиксированная высота контейнера
 	isFixedSizeCalculated bool            // Флаг, указывающий, что фиксированные размеры уже вычислены
 	isContentInitialized  bool            // Флаг: контент уже инициализирован (не нужно пересоздавать)
+	noButtonsMode         bool            // Режим отображения без кнопок в меню
 }
 
 // NewImageCard создает новую карточку для изображения
-func NewImageCard(item *models.Item) interfaces.CardRenderer {
-	return NewImageCardWithCallback(item, nil)
+// Опциональный параметр noButtons управляет режимом отображения меню без кнопок
+func NewImageCard(item *models.Item, noButtons ...bool) interfaces.CardRenderer {
+	noButtonsMode := len(noButtons) > 0 && noButtons[0]
+	return NewImageCardWithCallback(item, nil, noButtonsMode)
 }
 
 // NewImageCardWithCallback создает новую карточку для изображения с пользовательским обработчиком клика
-func NewImageCardWithCallback(item *models.Item, clickCallback func()) interfaces.CardRenderer {
+// Опциональный параметр noButtons управляет режимом отображения меню без кнопок
+func NewImageCardWithCallback(item *models.Item, clickCallback func(), noButtons ...bool) interfaces.CardRenderer {
+	noButtonsMode := len(noButtons) > 0 && noButtons[0]
+
 	imageCard := &ImageCard{
-		BaseCard: cards.NewBaseCard(item),
+		BaseCard:      cards.NewBaseCard(item),
+		noButtonsMode: noButtonsMode,
 	}
 
 	// Извлекаем все изображения из content_meta
@@ -130,7 +137,7 @@ func NewImageCardWithCallback(item *models.Item, clickCallback func()) interface
 		clickableCard := hover_preview.NewClickableCardWithDoubleTap(imageCard.mainContainer, func() {
 			// Обработчик одинарного клика - показываем меню действий
 			menuManager := hover_preview.NewMenuManager()
-			menuManager.ShowSimpleMenu(imageCard.Item, imageCard.mainContainer, nil)
+			menuManager.ShowSimpleMenu(imageCard.Item, imageCard.mainContainer, nil, imageCard.noButtonsMode)
 		}, func() {
 			// Обработчик двойного клика - открываем изображение в проводнике
 			imageCard.openImageWithDefaultWindowsApp()
@@ -175,7 +182,7 @@ func (ic *ImageCard) UpdateContent() {
 	}
 
 	// Первый вызов - пересоздаем карточку с обновленным элементом
-	newCard := NewImageCardWithCallback(ic.Item, nil)
+	newCard := NewImageCardWithCallback(ic.Item, nil, ic.noButtonsMode)
 
 	// Копируем контейнер новой карточки в текущую
 	ic.Container = newCard.GetContainer()

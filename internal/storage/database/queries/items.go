@@ -451,6 +451,84 @@ func GetPreviewItems() ([]*models.Item, error) {
 	return items, nil
 }
 
+// GetPreviewItemsByParent возвращает элементы со статусом 'preview' по родительскому ID
+func GetPreviewItemsByParent(parentID int) ([]*models.Item, error) {
+	var query string
+	var rows *sql.Rows
+	var err error
+
+	if parentID == 0 {
+		// Для корневого уровня (parent_id = 0 или parent_id IS NULL)
+		query = `
+			SELECT id, element_uuid, hash,
+			       owner_type, source_peer_id,
+			       type, title, description, content_meta, parent_id,
+			       signature, version, status, cached_at, created_at, updated_at
+			FROM items
+			WHERE (parent_id = 0 OR parent_id IS NULL) AND status = 'preview'
+			ORDER BY updated_at DESC
+		`
+		rows, err = database.DB.Query(query)
+	} else {
+		// Для конкретной папки
+		query = `
+			SELECT id, element_uuid, hash,
+			       owner_type, source_peer_id,
+			       type, title, description, content_meta, parent_id,
+			       signature, version, status, cached_at, created_at, updated_at
+			FROM items
+			WHERE parent_id = ? AND status = 'preview'
+			ORDER BY updated_at DESC
+		`
+		rows, err = database.DB.Query(query, parentID)
+	}
+
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var items []*models.Item
+	for rows.Next() {
+		var item models.Item
+		var parentID sql.NullInt64
+		var sourcePeerID sql.NullString
+		var cachedAt, createdAt, updatedAt sql.NullTime
+		var status string
+
+		err := rows.Scan(
+			&item.ID, &item.ElementUUID, &item.Hash,
+			&item.OwnerType, &sourcePeerID,
+			&item.Type, &item.Title, &item.Description, &item.ContentMeta, &parentID,
+			&item.Signature, &item.Version, &status, &cachedAt, &createdAt, &updatedAt,
+		)
+		if err != nil {
+			return nil, err
+		}
+
+		if parentID.Valid {
+			parentIDValue := int(parentID.Int64)
+			item.ParentID = &parentIDValue
+		}
+
+		if sourcePeerID.Valid {
+			item.SourcePeerID = &sourcePeerID.String
+		}
+
+		if cachedAt.Valid {
+			item.CachedAt = &cachedAt.Time
+		}
+
+		item.CreatedAt = createdAt.Time
+		item.UpdatedAt = updatedAt.Time
+		item.Status = models.ItemStatus(status)
+
+		items = append(items, &item)
+	}
+
+	return items, nil
+}
+
 // PinItem закрепляет элемент
 func PinItem(itemID int) error {
 	// Добавляем в pinned_items

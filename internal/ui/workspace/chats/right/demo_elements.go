@@ -201,17 +201,15 @@ func (p *Panel) createDemoElementCard(elementUUID string) fyne.CanvasObject {
 
 // createStatusIndicator создаёт индикатор статуса элемента
 func (p *Panel) createStatusIndicator(item *models.Item) fyne.CanvasObject {
-	// Для saved элементов не показываем индикатор
-	if item.IsSaved() {
+	// Для saved и preview элементов не показываем индикатор
+	if item.IsSaved() || item.IsPreview() {
 		return container.NewHBox()
 	}
 
-	// Для preview элементов показываем индикатор
+	// Для archived элементов показываем индикатор
 	var statusLabel *widget.Label
 
-	if item.IsPreview() {
-		statusLabel = widget.NewLabel("📋 Просмотр")
-	} else if item.IsArchived() {
+	if item.IsArchived() {
 		statusLabel = widget.NewLabel("🗄️ Архив")
 	} else {
 		return container.NewHBox()
@@ -219,38 +217,10 @@ func (p *Panel) createStatusIndicator(item *models.Item) fyne.CanvasObject {
 
 	statusLabel.TextStyle = fyne.TextStyle{Italic: true}
 
-	// Кнопка "Сохранить" для preview элементов
-	var saveButton *widget.Button
-	if item.IsPreview() {
-		saveButton = widget.NewButton("Сохранить", func() {
-			p.saveElement(item)
-		})
-		saveButton.Importance = widget.HighImportance
-	}
-
 	// Компоновка индикатора
 	indicator := container.NewHBox(statusLabel)
-	if saveButton != nil {
-		indicator.Add(saveButton)
-	}
 
 	return indicator
-}
-
-// saveElement сохраняет элемент (меняет статус с 'preview' на 'saved')
-func (p *Panel) saveElement(item *models.Item) {
-	log.Printf("[DemoElement] Сохранение элемента: ID=%d, title=%s", item.ID, item.Title)
-
-	err := queries.SetItemStatus(item.ID, models.ItemStatusSaved)
-	if err != nil {
-		log.Printf("Ошибка сохранения элемента: %v", err)
-		return
-	}
-
-	log.Printf("[DemoElement] ✅ Элемент сохранён: ID=%d", item.ID)
-
-	// Обновляем панель
-	p.Refresh()
 }
 
 // createDemoElementError создает карточку с сообщением об ошибке

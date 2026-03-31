@@ -58,6 +58,11 @@ func (is *ItemsService) GetPreviewItemsWithoutParentFilter() ([]*models.Item, er
 	return queries.GetPreviewItems()
 }
 
+// GetPreviewItemsByParent возвращает элементы со статусом 'preview' по родительскому ID
+func (is *ItemsService) GetPreviewItemsByParent(parentID int) ([]*models.Item, error) {
+	return queries.GetPreviewItemsByParent(parentID)
+}
+
 // SavePreviewItem изменяет статус элемента с 'preview' на 'saved'
 func (is *ItemsService) SavePreviewItem(itemID int) error {
 	return queries.SetItemStatus(itemID, models.ItemStatusSaved)

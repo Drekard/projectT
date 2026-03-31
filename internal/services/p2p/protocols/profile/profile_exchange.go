@@ -897,6 +897,18 @@ func (pes *ExchangeService) downloadPinnedItems(peerID peer.ID, pinnedUUIDs []st
 			log.Printf("[Profile] ✅ Элемент уже существует в БД: UUID=%s, ID=%d, title=%q, type=%s, status=%s, owner=%s",
 				uuid, existing.ID, existing.Title, existing.Type, existing.Status, existing.OwnerType)
 			existingUUIDs = append(existingUUIDs, uuid)
+
+			// Если это remote элемент, убеждаемся, что у него статус 'preview'
+			// Чтобы он не отображался в сетке сохранённых
+			if existing.IsRemote() && existing.Status != models.ItemStatusPreview {
+				log.Printf("[Profile] 🔄 Обновляем статус remote элемента с '%s' на 'preview': ID=%d, UUID=%s",
+					existing.Status, existing.ID, uuid)
+				if err := queries.SetItemStatus(existing.ID, models.ItemStatusPreview); err != nil {
+					log.Printf("[Profile] ⚠️ Не удалось обновить статус remote элемента ID=%d: %v", existing.ID, err)
+				} else {
+					log.Printf("[Profile] ✅ Статус remote элемента обновлён на 'preview': ID=%d", existing.ID)
+				}
+			}
 			continue
 		}
 

@@ -98,19 +98,86 @@ func (mm *MenuManager) ShowSimpleMenu(item *models.Item, cont fyne.CanvasObject,
 		widget.NewLabel("Изменен: "+item.UpdatedAt.Format("02.01.2006 15:04")),
 	)
 
-	// Добавляем кнопки только если не установлен режим hideButtons
-	if !hideButtons {
-		children = append(children,
-			container.NewBorder(
-				nil, nil, nil,
-				func() fyne.CanvasObject {
-					buttons := []fyne.CanvasObject{
-						widget.NewButton("✏️ Редактировать", func() {
-							appWindows := fyne.CurrentApp().Driver().AllWindows()
-							if len(appWindows) > 0 {
-								edit_item.ShowCreateItemModalForEdit(appWindows[0], item.ID)
+	// Добавляем информацию о владельце только для remote элементов
+	// Для local элементов строка "Владелец" не отображается
+	if item.IsRemote() && item.SourcePeerID != nil {
+		ownerLabel := widget.NewLabel("Владелец: " + formatPeerID(*item.SourcePeerID))
+		ownerLabel.TextStyle = fyne.TextStyle{Italic: true}
+		children = append(children, ownerLabel)
+	}
+
+	// Добавляем кнопки
+	children = append(children,
+		container.NewBorder(
+			nil, nil, nil,
+			func() fyne.CanvasObject {
+				buttons := []fyne.CanvasObject{}
+
+				// Кнопка "Сохранить в коллекцию" для preview элементов
+				// Отображается только для noButtonsMode + remote элементов
+				// Для local элементов в noButtonsMode кнопка скрыта
+				if item.IsPreview() {
+					// Показываем кнопку, если это не noButtonsMode или если это remote элемент
+					if !hideButtons || item.IsRemote() {
+						saveButton := widget.NewButton("💾 Сохранить в коллекцию", func() {
+							if err := mm.saveItemToCollection(item); err != nil {
+								appWindow := fyne.CurrentApp().Driver().AllWindows()[0]
+								dialog.ShowError(fmt.Errorf("Ошибка сохранения: %v", err), appWindow)
+							} else {
+								popup.Hide()
+								if onClose != nil {
+									onClose()
+								}
 							}
-						}),
+						})
+						saveButton.Importance = widget.HighImportance
+						buttons = append(buttons, saveButton)
+					}
+				}
+
+				// Кнопка "Удалить из коллекции" для saved элементов (возвращает в preview)
+				// Отображается только для noButtonsMode + remote элементов
+				// Для local элементов в noButtonsMode кнопка скрыта
+				if item.IsSaved() {
+					// Показываем кнопку, если это не noButtonsMode или если это remote элемент
+					if !hideButtons || item.IsRemote() {
+						removeButton := widget.NewButton("📤 Удалить из коллекции", func() {
+							appWindow := fyne.CurrentApp().Driver().AllWindows()[0]
+							dialog.ShowConfirm("Удалить из коллекции",
+								fmt.Sprintf("Элемент \"%s\" будет возвращён в чат (статус изменится на 'preview'). Продолжить?", item.Title),
+								func(confirmed bool) {
+									if confirmed {
+										if err := mm.removeItemFromCollection(item); err != nil {
+											dialog.ShowError(fmt.Errorf("Ошибка удаления из коллекции: %v", err), appWindow)
+										} else {
+											popup.Hide()
+											if onClose != nil {
+												onClose()
+											}
+										}
+									}
+								}, appWindow)
+						})
+						removeButton.Importance = widget.DangerImportance
+						buttons = append(buttons, removeButton)
+					}
+				}
+
+				// Остальные кнопки отображаются только если не установлен режим hideButtons
+				if !hideButtons {
+					// Кнопка "Редактировать" скрыта для remote элементов
+					if item.IsLocal() {
+						buttons = append(buttons,
+							widget.NewButton("✏️ Редактировать", func() {
+								appWindows := fyne.CurrentApp().Driver().AllWindows()
+								if len(appWindows) > 0 {
+									edit_item.ShowCreateItemModalForEdit(appWindows[0], item.ID)
+								}
+							}),
+						)
+					}
+
+					buttons = append(buttons,
 						widget.NewButton("🗑 Удалить", func() {
 							appWindow := fyne.CurrentApp().Driver().AllWindows()[0]
 							dialog.ShowConfirm("Подтверждение удаления",
@@ -128,7 +195,7 @@ func (mm *MenuManager) ShowSimpleMenu(item *models.Item, cont fyne.CanvasObject,
 									}
 								}, appWindow)
 						}),
-					}
+					)
 
 					// Добавляем кнопку избранного только для папок
 					if item.Type == models.ItemTypeFolder {
@@ -259,12 +326,12 @@ func (mm *MenuManager) ShowSimpleMenu(item *models.Item, cont fyne.CanvasObject,
 
 					// Вставляем кнопку закрепления перед кнопками редактирования и удаления
 					buttons = append([]fyne.CanvasObject{pinButton}, buttons...)
+				}
 
-					return container.NewHBox(buttons...)
-				}(),
-			),
-		)
-	}
+				return container.NewHBox(buttons...)
+			}(),
+		),
+	)
 
 	content := container.NewVBox(children...)
 
@@ -338,6 +405,43 @@ func (mm *MenuManager) deleteItem(item *models.Item) error {
 	}
 
 	return nil
+}
+
+// saveItemToCollection сохраняет элемент в коллекцию (меняет статус с 'preview' на 'saved')
+func (mm *MenuManager) saveItemToCollection(item *models.Item) error {
+	log.Printf("[MenuManager] 💾 Сохранение элемента в коллекцию: ID=%d, title=%q, status=%s",
+		item.ID, item.Title, item.Status)
+
+	err := queries.SetItemStatus(item.ID, models.ItemStatusSaved)
+	if err != nil {
+		return fmt.Errorf("ошибка изменения статуса элемента: %v", err)
+	}
+
+	log.Printf("[MenuManager] ✅ Элемент сохранён в коллекцию: ID=%d", item.ID)
+	return nil
+}
+
+// removeItemFromCollection удаляет элемент из коллекции (меняет статус с 'saved' на 'preview')
+func (mm *MenuManager) removeItemFromCollection(item *models.Item) error {
+	log.Printf("[MenuManager] 📤 Удаление элемента из коллекции: ID=%d, title=%q, status=%s",
+		item.ID, item.Title, item.Status)
+
+	err := queries.SetItemStatus(item.ID, models.ItemStatusPreview)
+	if err != nil {
+		return fmt.Errorf("ошибка изменения статуса элемента: %v", err)
+	}
+
+	log.Printf("[MenuManager] ✅ Элемент удалён из коллекции (возвращён в preview): ID=%d", item.ID)
+	return nil
+}
+
+// formatPeerID форматирует PeerID для отображения (сокращает до короткой версии)
+func formatPeerID(peerID string) string {
+	if len(peerID) <= 16 {
+		return peerID
+	}
+	// Показываем первые 8 и последние 4 символа
+	return fmt.Sprintf("%s...%s", peerID[:8], peerID[len(peerID)-4:])
 }
 
 // MoveItemToFolder перемещает элемент в указанную папку

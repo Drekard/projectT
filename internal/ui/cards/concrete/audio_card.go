@@ -42,6 +42,7 @@ type AudioCard struct {
 	durationLabel        *widget.Label
 	volumeSlider         *widget.Slider
 	isContentInitialized bool // Флаг: контент уже инициализирован
+	noButtonsMode        bool // Режим отображения без кнопок в меню
 
 	// Аудио плеер
 	ctrl     *beep.Ctrl
@@ -49,14 +50,20 @@ type AudioCard struct {
 }
 
 // NewAudioCard создает новую карточку для аудио
-func NewAudioCard(item *models.Item) interfaces.CardRenderer {
-	return NewAudioCardWithCallback(item, nil)
+// Опциональный параметр noButtons управляет режимом отображения меню без кнопок
+func NewAudioCard(item *models.Item, noButtons ...bool) interfaces.CardRenderer {
+	noButtonsMode := len(noButtons) > 0 && noButtons[0]
+	return NewAudioCardWithCallback(item, nil, noButtonsMode)
 }
 
 // NewAudioCardWithCallback создает новую карточку для аудио с пользовательским обработчиком клика
-func NewAudioCardWithCallback(item *models.Item, clickCallback func()) interfaces.CardRenderer {
+// Опциональный параметр noButtons управляет режимом отображения меню без кнопок
+func NewAudioCardWithCallback(item *models.Item, clickCallback func(), noButtons ...bool) interfaces.CardRenderer {
+	noButtonsMode := len(noButtons) > 0 && noButtons[0]
+
 	audioCard := &AudioCard{
 		BaseCard:        cards.NewBaseCard(item),
+		noButtonsMode:   noButtonsMode,
 		audioFiles:      make([]*cards.Block, 0),
 		selectedFileIdx: -1,
 		currentFileIdx:  0,
@@ -185,7 +192,7 @@ func (ac *AudioCard) createAudioUI(fileIndex int) {
 		func() {
 			// Одинарный клик - показываем меню
 			menuManager := hover_preview.NewMenuManager()
-			menuManager.ShowSimpleMenu(ac.Item, ac.Container, nil)
+			menuManager.ShowSimpleMenu(ac.Item, ac.Container, nil, ac.noButtonsMode)
 		},
 		func() {
 			// Двойной клик - открываем файл в проводнике
@@ -540,6 +547,6 @@ func (ac *AudioCard) UpdateContent() {
 	}
 
 	// Первый вызов - пересоздаем карточку с обновленным элементом
-	newCard := NewAudioCardWithCallback(ac.Item, nil)
+	newCard := NewAudioCardWithCallback(ac.Item, nil, ac.noButtonsMode)
 	ac.Container = newCard.GetContainer()
 }

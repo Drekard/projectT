@@ -129,21 +129,8 @@ func (mb *MessageBubble) createBubbleForElement(message *models.ChatMessage, isO
 		cardRenderer = concrete.NewCompositeCard(item, true).GetContainer()
 	}
 
-	// Время отправки
-	timeStr := message.SentAt.Format("15:04")
-	timeLabel := widget.NewLabel(timeStr)
-	timeLabel.TextStyle = fyne.TextStyle{Italic: true}
-
-	// Выравнивание времени в зависимости от направления
-	if isOutgoing {
-		timeLabel.Alignment = fyne.TextAlignTrailing
-	}
-
-	// Компонуем карточку и время
-	content := container.NewVBox(
-		cardRenderer,
-		timeLabel,
-	)
+	// Компонуем только карточку (без времени)
+	content := container.NewVBox(cardRenderer)
 
 	// Цвет фона в зависимости от направления
 	bgColor := color.RGBA{R: 144, G: 55, B: 255, A: 200} // Синий для исходящих
@@ -374,7 +361,9 @@ func (ml *MessagesList) scrollToBottom() {
 // ChatPanel панель чата
 type ChatPanel struct {
 	container    *fyne.Container
+	contact      *models.Contact
 	contactID    int
+	peerID       string
 	messagesList *MessagesList
 	messageInput *MessageInput
 	menuManager  *dialogs.MessageMenuManager
@@ -384,7 +373,9 @@ type ChatPanel struct {
 // NewChatPanel создаёт новую панель чата
 func NewChatPanel(contact *models.Contact, onSend func(), onClose func(), localPeerID string) *ChatPanel {
 	cp := &ChatPanel{
+		contact:     contact,
 		contactID:   contact.ID,
+		peerID:      contact.PeerID,
 		localPeerID: localPeerID,
 	}
 
@@ -464,19 +455,38 @@ func (cp *ChatPanel) LoadMessages(messages []*models.ChatMessage, localPeerID st
 
 // LoadMessagesForCurrentContact загружает сообщения для текущего контакта
 func (cp *ChatPanel) LoadMessagesForCurrentContact() {
-	log.Printf("[Chat] 📖 Загрузка сообщений для контакта ID=%d", cp.contactID)
+	log.Printf("[Chat] 📖 Загрузка сообщений для контакта: ID=%d, peerID=%s", cp.contactID, cp.peerID[:min(8, len(cp.peerID))])
 
 	// Очищаем текущие сообщения
 	cp.Clear()
 	log.Printf("[Chat] 🧹 Список сообщений очищен")
 
-	// Получаем сообщения из БД
-	messages, err := queries.GetMessagesForContact(cp.contactID, 100, 0)
+	// Для контактов с ID=0 (временные) используем загрузку по peerID
+	var messages []*models.ChatMessage
+	var err error
+
+	if cp.contactID == 0 {
+		// Временный контакт - загружаем по peerID через GetChatByPeerID
+		chat, chatErr := queries.GetChatByPeerID(cp.peerID)
+		if chatErr != nil {
+			log.Printf("[Chat] ❌ Ошибка получения чата по peerID: %v", chatErr)
+			return
+		}
+		if chat == nil {
+			log.Printf("[Chat] 📚 Чат не найден, сообщений нет")
+			return
+		}
+		messages, err = queries.GetMessagesForChat(chat.ID, 100, 0)
+	} else {
+		// Обычный контакт - загружаем по contactID
+		messages, err = queries.GetMessagesForContact(cp.contactID, 100, 0)
+	}
+
 	if err != nil {
 		log.Printf("[Chat] ❌ Ошибка загрузки сообщений: %v", err)
-		// Если ошибка, просто не загружаем ничего
 		return
 	}
+
 	log.Printf("[Chat] 📚 Получено %d сообщений из БД", len(messages))
 
 	// Загружаем сообщения в список
@@ -486,4 +496,12 @@ func (cp *ChatPanel) LoadMessagesForCurrentContact() {
 // Clear очищает панель
 func (cp *ChatPanel) Clear() {
 	cp.messagesList.Clear()
+}
+
+// min возвращает минимальное из двух чисел
+func min(a, b int) int {
+	if a < b {
+		return a
+	}
+	return b
 }

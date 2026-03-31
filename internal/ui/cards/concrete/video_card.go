@@ -26,19 +26,26 @@ type VideoCard struct {
 	videoFiles           []*cards.Block
 	currentFileIdx       int
 	isContentInitialized bool // Флаг: контент уже инициализирован
+	noButtonsMode        bool // Режим отображения без кнопок в меню
 	previewContent       fyne.CanvasObject
 	playOverlay          *fyne.Container
 }
 
 // NewVideoCard создает новую карточку для видео
-func NewVideoCard(item *models.Item) interfaces.CardRenderer {
-	return NewVideoCardWithCallback(item, nil)
+// Опциональный параметр noButtons управляет режимом отображения меню без кнопок
+func NewVideoCard(item *models.Item, noButtons ...bool) interfaces.CardRenderer {
+	noButtonsMode := len(noButtons) > 0 && noButtons[0]
+	return NewVideoCardWithCallback(item, nil, noButtonsMode)
 }
 
 // NewVideoCardWithCallback создает новую карточку для видео с пользовательским обработчиком клика
-func NewVideoCardWithCallback(item *models.Item, clickCallback func()) interfaces.CardRenderer {
+// Опциональный параметр noButtons управляет режимом отображения меню без кнопок
+func NewVideoCardWithCallback(item *models.Item, clickCallback func(), noButtons ...bool) interfaces.CardRenderer {
+	noButtonsMode := len(noButtons) > 0 && noButtons[0]
+
 	videoCard := &VideoCard{
 		BaseCard:       cards.NewBaseCard(item),
+		noButtonsMode:  noButtonsMode,
 		videoFiles:     make([]*cards.Block, 0),
 		currentFileIdx: 0,
 	}
@@ -137,7 +144,7 @@ func (vc *VideoCard) createVideoUI(fileIndex int) {
 		func() {
 			// Одинарный клик - показываем меню
 			menuManager := hover_preview.NewMenuManager()
-			menuManager.ShowSimpleMenu(vc.Item, vc.Container, nil)
+			menuManager.ShowSimpleMenu(vc.Item, vc.Container, nil, vc.noButtonsMode)
 		},
 		func() {
 			// Двойной клик - открываем файл
@@ -229,6 +236,6 @@ func (vc *VideoCard) UpdateContent() {
 	}
 
 	// Первый вызов - пересоздаем карточку с обновленным элементом
-	newCard := NewVideoCardWithCallback(vc.Item, nil)
+	newCard := NewVideoCardWithCallback(vc.Item, nil, vc.noButtonsMode)
 	vc.Container = newCard.GetContainer()
 }

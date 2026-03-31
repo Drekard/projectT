@@ -89,7 +89,7 @@ func NewCompositeCard(item *models.Item, noButtons ...bool) interfaces.CardRende
 		tempItem.ContentMeta = ""
 
 		// Создаем карточку текста и получаем ее контейнер
-		textCard := NewTextCardWithCallback(&tempItem, nil)
+		textCard := NewTextCardWithCallback(&tempItem, nil, compositeCard.noButtonsMode)
 		if textCard.GetContainer() != nil {
 			sections = append(sections, textCard.GetContainer())
 		}
@@ -102,7 +102,7 @@ func NewCompositeCard(item *models.Item, noButtons ...bool) interfaces.CardRende
 		tempItem.ContentMeta = item.ContentMeta // используем оригинальные данные
 
 		// Создаем карточку изображения и получаем ее контейнер
-		imageCard := NewImageCardWithCallback(&tempItem, nil)
+		imageCard := NewImageCardWithCallback(&tempItem, nil, compositeCard.noButtonsMode)
 		if imageCard.GetContainer() != nil {
 			sections = append(sections, imageCard.GetContainer())
 		}
@@ -115,7 +115,7 @@ func NewCompositeCard(item *models.Item, noButtons ...bool) interfaces.CardRende
 		tempItem.ContentMeta = item.ContentMeta // используем оригинальные данные
 
 		// Создаем карточку файла и получаем ее контейнер
-		fileCard := NewFileCardWithCallback(&tempItem, nil)
+		fileCard := NewFileCardWithCallback(&tempItem, nil, compositeCard.noButtonsMode)
 		sections = append(sections, fileCard.GetContainer())
 	}
 
@@ -126,7 +126,7 @@ func NewCompositeCard(item *models.Item, noButtons ...bool) interfaces.CardRende
 		tempItem.ContentMeta = item.ContentMeta // используем оригинальные данные
 
 		// Создаем карточку ссылки и получаем ее контейнер
-		linkCard := NewLinkCardWithCallback(&tempItem, nil)
+		linkCard := NewLinkCardWithCallback(&tempItem, nil, compositeCard.noButtonsMode)
 		if linkCard.GetContainer() != nil {
 			sections = append(sections, linkCard.GetContainer())
 		}
@@ -139,7 +139,7 @@ func NewCompositeCard(item *models.Item, noButtons ...bool) interfaces.CardRende
 		tempItem.ContentMeta = item.ContentMeta // используем оригинальные данные
 
 		// Создаем аудио карточку и получаем ее контейнер
-		audioCard := NewAudioCardWithCallback(&tempItem, nil)
+		audioCard := NewAudioCardWithCallback(&tempItem, nil, compositeCard.noButtonsMode)
 		sections = append(sections, audioCard.GetContainer())
 	}
 
@@ -150,7 +150,7 @@ func NewCompositeCard(item *models.Item, noButtons ...bool) interfaces.CardRende
 		tempItem.ContentMeta = item.ContentMeta // используем оригинальные данные
 
 		// Создаем видео карточку и получаем ее контейнер
-		videoCard := NewVideoCardWithCallback(&tempItem, nil)
+		videoCard := NewVideoCardWithCallback(&tempItem, nil, compositeCard.noButtonsMode)
 		sections = append(sections, videoCard.GetContainer())
 	}
 

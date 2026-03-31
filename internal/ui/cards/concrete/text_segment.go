@@ -14,17 +14,24 @@ import (
 type TextCard struct {
 	*cards.BaseCard
 	isContentInitialized bool // Флаг: контент уже инициализирован
+	noButtonsMode        bool // Режим отображения без кнопок в меню
 }
 
 // NewTextCard создает новую карточку для текста
-func NewTextCard(item *models.Item) interfaces.CardRenderer {
-	return NewTextCardWithCallback(item, nil)
+// Опциональный параметр noButtons управляет режимом отображения меню без кнопок
+func NewTextCard(item *models.Item, noButtons ...bool) interfaces.CardRenderer {
+	noButtonsMode := len(noButtons) > 0 && noButtons[0]
+	return NewTextCardWithCallback(item, nil, noButtonsMode)
 }
 
 // NewTextCardWithCallback создает новую карточку для текста с пользовательским обработчиком клика
-func NewTextCardWithCallback(item *models.Item, clickCallback func()) interfaces.CardRenderer {
+// Опциональный параметр noButtons управляет режимом отображения меню без кнопок
+func NewTextCardWithCallback(item *models.Item, clickCallback func(), noButtons ...bool) interfaces.CardRenderer {
+	noButtonsMode := len(noButtons) > 0 && noButtons[0]
+
 	textCard := &TextCard{
-		BaseCard: cards.NewBaseCard(item),
+		BaseCard:      cards.NewBaseCard(item),
+		noButtonsMode: noButtonsMode,
 	}
 
 	// Создаем метку для описания (меньший шрифт, с отступами)
@@ -73,7 +80,7 @@ func (tc *TextCard) UpdateContent() {
 	}
 
 	// Первый вызов - пересоздаем карточку с обновленным элементом
-	newCard := NewTextCardWithCallback(tc.Item, nil)
+	newCard := NewTextCardWithCallback(tc.Item, nil, tc.noButtonsMode)
 
 	// Копируем контейнер новой карточки в текущую
 	tc.Container = newCard.GetContainer()

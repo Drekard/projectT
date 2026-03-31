@@ -28,9 +28,18 @@ type ContentType string
 
 const (
 	ContentTypeSaved   ContentType = "saved"
+	ContentTypePreview ContentType = "preview"
 	ContentTypeProfile ContentType = "profile"
 	ContentTypeTags    ContentType = "tags"
 	ContentTypeChats   ContentType = "chats"
+)
+
+// PreviewMode определяет режим отображения элементов
+type PreviewMode string
+
+const (
+	PreviewModeSaved   PreviewMode = "saved"   // Показывать только saved элементы
+	PreviewModePreview PreviewMode = "preview" // Показывать только preview элементы
 )
 
 // NavigationHandler интерфейс для обработки навигации
@@ -44,16 +53,17 @@ type NavigationHandler interface {
 
 // Workspace управляет рабочей областью
 type Workspace struct {
-	container         *fyne.Container
-	gridManager       *saved.GridManager
-	currentType       ContentType
-	contentCache      map[ContentType]fyne.CanvasObject
-	navigationManager *NavigationManager // Менеджер навигации
-	profileUI         *profile.UI
-	tagsUI            *tags.UI
-	chatsUI           *chats.UI
-	window            fyne.Window
-	p2pNetwork        *p2p_network.P2PNetwork // P2P сеть
+	container          *fyne.Container
+	gridManager        *saved.GridManager // Единый менеджер сетки
+	currentType        ContentType
+	currentPreviewMode PreviewMode // Текущий режим (saved/preview)
+	contentCache       map[ContentType]fyne.CanvasObject
+	navigationManager  *NavigationManager // Менеджер навигации
+	profileUI          *profile.UI
+	tagsUI             *tags.UI
+	chatsUI            *chats.UI
+	window             fyne.Window
+	p2pNetwork         *p2p_network.P2PNetwork // P2P сеть
 	// Флаги для отслеживания, были ли UI-компоненты инициализированы
 	tagsInitialized  bool
 	chatsInitialized bool
@@ -67,11 +77,12 @@ type Workspace struct {
 // CreateWorkspace создает и возвращает рабочую область
 func CreateWorkspace(window fyne.Window, p2pNetwork *p2p_network.P2PNetwork) *Workspace {
 	ws := &Workspace{
-		container:    container.NewStack(),
-		currentType:  ContentTypeSaved,
-		contentCache: make(map[ContentType]fyne.CanvasObject),
-		window:       window,
-		p2pNetwork:   p2pNetwork,
+		container:          container.NewStack(),
+		currentType:        ContentTypeSaved,
+		currentPreviewMode: PreviewModeSaved, // По умолчанию показываем saved
+		contentCache:       make(map[ContentType]fyne.CanvasObject),
+		window:             window,
+		p2pNetwork:         p2pNetwork,
 	}
 
 	// Инициализируем UI компоненты
@@ -84,7 +95,7 @@ func CreateWorkspace(window fyne.Window, p2pNetwork *p2p_network.P2PNetwork) *Wo
 	// Устанавливаем окно для profile UI
 	ws.profileUI.SetWindow(window)
 
-	// Инициализируем GridManager для сохраненного контента
+	// Инициализируем единый GridManager
 	ws.gridManager = saved.NewGridManager()
 
 	// Инициализируем NavigationManager
@@ -142,6 +153,7 @@ func (ws *Workspace) UpdateContent(contentType string, param ...interface{}) {
 	var newContent fyne.CanvasObject
 	switch ct {
 	case ContentTypeSaved:
+		ws.currentPreviewMode = PreviewModeSaved
 		if extraParam != nil {
 			// Если передан ID папки, переходим к этой папке
 			if folderID, ok := extraParam.(int); ok {
@@ -149,6 +161,15 @@ func (ws *Workspace) UpdateContent(contentType string, param ...interface{}) {
 			}
 		}
 		newContent = ws.createSavedContent()
+	case ContentTypePreview:
+		ws.currentPreviewMode = PreviewModePreview
+		if extraParam != nil {
+			// Если передан ID папки, переходим к этой папке
+			if folderID, ok := extraParam.(int); ok {
+				_ = ws.NavigateToPreviewFolder(folderID)
+			}
+		}
+		newContent = ws.createPreviewContent()
 	case ContentTypeProfile:
 		newContent = ws.createProfileContent()
 	case ContentTypeTags:
@@ -182,6 +203,37 @@ func (ws *Workspace) loadSavedContent() {
 
 	// Устанавливаем корневой элемент как текущий
 	ws.gridManager.SetCurrentParentID(0)
+}
+
+// loadPreviewContent загружает preview элементы
+func (ws *Workspace) loadPreviewContent() {
+	items, err := itemsService.GetPreviewItemsByParent(0)
+	if err != nil {
+		items = []*models.Item{}
+	}
+	ws.gridManager.LoadItems(items)
+
+	// Устанавливаем корневой элемент как текущий
+	ws.gridManager.SetCurrentParentID(0)
+}
+
+// NavigateToPreviewFolder переходит в указанную папку для preview элементов
+func (ws *Workspace) NavigateToPreviewFolder(folderID int) error {
+	err := ws.navigationManager.GoToFolderInPath(folderID)
+	if err != nil {
+		return err
+	}
+
+	// Загружаем элементы текущей папки с учетом настроек сортировки
+	currentParentID := ws.navigationManager.GetCurrentFolderID()
+	err = ws.gridManager.LoadItemsByParentWithSort(currentParentID)
+	if err != nil {
+		return err
+	}
+
+	// Обновляем текущий тип контента на "папка"
+	ws.currentType = ContentType("folder_" + fmt.Sprintf("%d", currentParentID))
+	return nil
 }
 
 // NavigateToFolder переходит в указанную папку
@@ -297,6 +349,13 @@ func (ws *Workspace) createSavedContent() fyne.CanvasObject {
 	return ws.gridManager.GetContainer()
 }
 
+// createPreviewContent создает контент для "Загруженного"
+func (ws *Workspace) createPreviewContent() fyne.CanvasObject {
+	// Загружаем актуальные данные
+	ws.loadPreviewContent()
+	return ws.gridManager.GetContainer()
+}
+
 // createProfileContent создает контент для профиля
 func (ws *Workspace) createProfileContent() fyne.CanvasObject {
 	return ws.profileUI.CreateView()
@@ -385,28 +444,47 @@ func (ws *Workspace) GetContainer() *fyne.Container {
 
 // ApplyFilters применяет фильтры и обновляет сетку элементов
 func (ws *Workspace) ApplyFilters(options services.FilterOptions) {
-	// Обновляем настройки сортировки в GridManager
+	// Обновляем настройки сортировки
 	ws.gridManager.SetSortOptions(&options)
 
 	// Определяем, какой режим отображения использовать
 	if options.TabMode == "all_items" {
-		// Режим "Все элементы" - отображаем все сохранённые элементы без учета ParentID
+		// Режим "Все элементы"
 		ws.showMode = "all_items"
-		// Загружаем только сохранённые элементы (status='saved') из базы данных
-		allItems, err := itemsService.GetSavedItemsWithoutParentFilter()
+
+		// Загружаем элементы в зависимости от текущего режима (saved/preview)
+		var allItems []*models.Item
+		var err error
+
+		if ws.currentPreviewMode == PreviewModePreview {
+			// Загружаем только preview элементы (status='preview')
+			allItems, err = itemsService.GetPreviewItemsWithoutParentFilter()
+		} else {
+			// Загружаем только сохранённые элементы (status='saved')
+			allItems, err = itemsService.GetSavedItemsWithoutParentFilter()
+		}
+
 		if err != nil {
 			// В случае ошибки загружаем пустой список
 			allItems = []*models.Item{}
 		}
+
 		// Применяем сортировку к полученным элементам
-		// Так как GridManager может не иметь метода GetSorter, применяем сортировку напрямую
 		sortedItems := ws.sortItems(allItems, &options)
 		ws.gridManager.LoadItems(sortedItems)
 	} else {
 		// Режим "Эта папка" - отображаем элементы текущей папки
 		ws.showMode = "current_folder"
 		currentParentID := ws.navigationManager.GetCurrentFolderID()
-		err := ws.gridManager.LoadItemsByParentWithSort(currentParentID)
+
+		// Загружаем элементы в зависимости от текущего режима (saved/preview)
+		var err error
+		if ws.currentPreviewMode == PreviewModePreview {
+			err = ws.gridManager.LoadItemsByParentWithSort(currentParentID)
+		} else {
+			err = ws.gridManager.LoadItemsByParentWithSort(currentParentID)
+		}
+
 		if err != nil {
 			_ = err //nolint:staticcheck // В случае ошибки можно залогировать или обработать по-другому
 		}

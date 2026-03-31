@@ -104,6 +104,11 @@ func (api *UIP2P) OnProfileUpdated(peerID string) {
 	}
 }
 
+// GetNetwork возвращает P2P сеть для внутреннего использования (контроллерами)
+func (api *UIP2P) GetNetwork() *core.P2PNetwork {
+	return api.network
+}
+
 // GetStatus возвращает текущий статус P2P
 func (api *UIP2P) GetStatus() *P2PStatus {
 	status := &P2PStatus{

@@ -3,7 +3,7 @@ package chats
 import (
 	"log"
 
-	"projectT/internal/services"
+	"projectT/internal/controllers"
 	network "projectT/internal/services/p2p/ui"
 	"projectT/internal/storage/database/models"
 	"projectT/internal/storage/database/queries"
@@ -16,7 +16,6 @@ import (
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/container"
 	"fyne.io/fyne/v2/widget"
-	"github.com/libp2p/go-libp2p/core/peer"
 )
 
 // UI представляет интерфейс чатов
@@ -24,6 +23,7 @@ type UI struct {
 	content        fyne.CanvasObject
 	window         fyne.Window
 	p2pUI          *network.UIP2P
+	chatController *controllers.ChatController
 	currentChatID  int
 	currentContact *models.Contact
 	chatPanel      *center.ChatPanel
@@ -36,11 +36,6 @@ type UI struct {
 
 	// Менеджеры
 	chatMenuManager *dialogs.ChatMenuManager
-
-	// Каналы сообщений
-	messageChannel       <-chan *services.ChatMessageEvent
-	onSendMessage        func(text string)
-	onSendElementMessage func(item *models.Item)
 }
 
 // New создает и возвращает новый UI чатов
@@ -101,105 +96,82 @@ func (ui *UI) CreateView() fyne.CanvasObject {
 	return ui.content
 }
 
-// SetOnSendMessage устанавливает обработчик отправки сообщения
-func (ui *UI) SetOnSendMessage(handler func(text string)) {
-	ui.onSendMessage = handler
-}
-
-// SetOnSendElementMessage устанавливает обработчик отправки элемента
-func (ui *UI) SetOnSendElementMessage(handler func(item *models.Item)) {
-	ui.onSendElementMessage = handler
-}
-
-// SetP2PService устанавливает P2P сервис
+// SetP2PService устанавливает P2P сервис и создаёт контроллер
 func (ui *UI) SetP2PService(p2pUI *network.UIP2P) {
 	ui.p2pUI = p2pUI
+
+	// Создаём контроллер чатов
+	ui.chatController = controllers.NewChatController()
+	ui.chatController.SetP2PService(p2pUI)
 
 	// Передаем P2P сервис в p2p панель
 	if ui.p2pPanel != nil {
 		ui.p2pPanel.SetP2PService(p2pUI)
 	}
 
-	// Устанавливаем обработчик отправки сообщений
-	log.Printf("[Chat] 🔧 Установка обработчика отправки сообщений (SetOnSendMessage)")
-	ui.SetOnSendMessage(func(text string) {
-		log.Printf("[Chat] 📨 Обработчик отправки сообщения вызван: len=%d", len(text))
-		log.Printf("[Chat] 🔍 ОТЛАДКА: ui.currentContact = %+v", ui.currentContact)
-		if ui.currentContact != nil {
-			log.Printf("[Chat] 🔍 ОТЛАДКА: currentContact.PeerID полный = %s", ui.currentContact.PeerID)
-			log.Printf("[Chat] 🔍 ОТЛАДКА: currentContact.PeerID len = %d", len(ui.currentContact.PeerID))
+	// Настраиваем callback-функции контроллера
+	ui.setupControllerCallbacks()
+}
+
+// setupControllerCallbacks настраивает callback-функции контроллера для связи с UI
+func (ui *UI) setupControllerCallbacks() {
+	if ui.chatController == nil {
+		return
+	}
+
+	// Callback при открытии чата
+	ui.chatController.SetOnChatOpened(func(contact *models.Contact) {
+		log.Printf("[Chat] 🗨️ Чат открыт: %s", contact.Username)
+
+		// Создаём панель чата
+		chatPanel := ui.createChatPanel(contact)
+		ui.chatAreaObj.Objects = []fyne.CanvasObject{chatPanel}
+		ui.chatAreaObj.Refresh()
+
+		// Обновляем профиль
+		if ui.rightPanel != nil {
+			ui.rightPanel.UpdateProfile(contact)
 		}
-
-		if ui.p2pUI == nil {
-			log.Printf("[Chat] ❌ Ошибка: P2P сервис не инициализирован")
-			return
-		}
-
-		// Получаем PeerID пира
-		if ui.currentContact == nil || ui.currentContact.PeerID == "" {
-			log.Printf("[Chat] ❌ Ошибка: текущий контакт не выбран или не имеет PeerID")
-			return
-		}
-
-		peerID, err := peer.Decode(ui.currentContact.PeerID)
-		if err != nil {
-			log.Printf("[Chat] ❌ Ошибка декодирования PeerID: %v", err)
-			log.Printf("[Chat] 🔍 ОТЛАДКА: ui.currentContact.PeerID = %q", ui.currentContact.PeerID)
-			return
-		}
-
-		log.Printf("[Chat] 📤 Отправка сообщения пиру %s: %q", peerID[:8], text)
-
-		// Отправляем сообщение через P2P сервис
-		if err := ui.p2pUI.SendMessage(peerID, text); err != nil {
-			log.Printf("[Chat] ❌ Ошибка отправки сообщения: %v", err)
-			return
-		}
-
-		log.Printf("[Chat] ✅ Сообщение отправлено пиру %s", peerID[:8])
 	})
 
-	// Устанавливаем обработчик отправки элементов
-	log.Printf("[Chat] 🔧 Установка обработчика отправки элементов (SetOnSendElementMessage)")
-	ui.SetOnSendElementMessage(func(item *models.Item) {
-		log.Printf("[Chat] 📨 Обработчик отправки элемента вызван: element_uuid=%s", item.ElementUUID)
+	// Callback при закрытии чата
+	ui.chatController.SetOnChatClosed(func() {
+		log.Printf("[Chat] 🚪 Чат закрыт")
 
-		if ui.p2pUI == nil {
-			log.Printf("[Chat] ❌ Ошибка: P2P сервис не инициализирован")
-			return
+		// Показываем пустую панель
+		emptyPanel := ui.createEmptyPanel()
+		ui.chatAreaObj.Objects = []fyne.CanvasObject{emptyPanel}
+		ui.chatAreaObj.Refresh()
+	})
+
+	// Callback при обновлении контактов
+	ui.chatController.SetOnContactsRefreshed(func() {
+		log.Printf("[Chat] 🔄 Контакты обновлены")
+		if ui.leftPanel != nil {
+			ui.leftPanel.Refresh()
+		}
+	})
+
+	// Callback при получении сообщения
+	ui.chatController.SetOnMessageReceived(func(event *controllers.ChatMessageEvent) {
+		log.Printf("[Chat] 📬 Получено сообщение: contactID=%d", event.ContactID)
+
+		// Проверяем, открыт ли чат с этим контактом
+		if ui.currentContact != nil && ui.currentContact.ID == event.ContactID {
+			log.Printf("[Chat] 📭 Чат открыт, добавляем сообщение в UI")
+			if ui.chatPanel != nil {
+				ui.chatPanel.AddMessage(event.Message, event.IsOutgoing)
+			}
 		}
 
-		// Получаем PeerID пира
-		if ui.currentContact == nil || ui.currentContact.PeerID == "" {
-			log.Printf("[Chat] ❌ Ошибка: текущий контакт не выбран или не имеет PeerID")
-			return
+		// Обновляем левую панель
+		if ui.leftPanel != nil {
+			ui.leftPanel.Refresh()
 		}
-
-		// Для локального чата не отправляем через P2P
-		if ui.currentContact.IsLocalChat() {
-			log.Printf("[Chat] ℹ️ Локальный чат, элемент не отправляется через P2P")
-			return
-		}
-
-		peerID, err := peer.Decode(ui.currentContact.PeerID)
-		if err != nil {
-			log.Printf("[Chat] ❌ Ошибка декодирования PeerID: %v", err)
-			return
-		}
-
-		log.Printf("[Chat] 📤 Отправка элемента пиру %s: element_uuid=%s", peerID[:8], item.ElementUUID)
-
-		// Отправляем элемент через P2P сервис
-		if err := ui.p2pUI.SendElementMessage(peerID, item); err != nil {
-			log.Printf("[Chat] ❌ Ошибка отправки элемента: %v", err)
-			return
-		}
-
-		log.Printf("[Chat] ✅ Элемент отправлен пиру %s", peerID[:8])
 	})
 }
 
-// selectChat выбирает чат с пиром
+// selectChat выбирает чат с пиром (устарел, использовать через контроллер)
 func (ui *UI) selectChat(contact *models.Contact) {
 	ui.currentContact = contact
 	ui.currentChatID = contact.ID
@@ -218,117 +190,63 @@ func (ui *UI) selectChat(contact *models.Contact) {
 // OpenPeerChat открывает чат с пиром (публичный метод для вызова из p2p_panel)
 func (ui *UI) OpenPeerChat(peerID, username string) {
 	log.Printf("[Chat] 🆕 OpenPeerChat: создание чата с пиром %s (%s)", username, peerID[:8])
-	log.Printf("[Chat] 🔍 ОТЛАДКА: OpenPeerChat peerID полный = %s", peerID)
-	log.Printf("[Chat] 🔍 ОТЛАДКА: OpenPeerChat username = %s", username)
+
+	// Используем контроллер для открытия чата
+	if ui.chatController != nil {
+		if err := ui.chatController.OpenPeerChat(peerID, username); err != nil {
+			log.Printf("[Chat] ❌ Ошибка открытия чата: %v", err)
+		}
+	} else {
+		// Fallback для обратной совместимости
+		ui.openPeerChatLegacy(peerID, username)
+	}
+}
+
+// openPeerChatLegacy открывает чат по-старому (для обратной совместимости)
+func (ui *UI) openPeerChatLegacy(peerID, username string) {
+	log.Printf("[Chat] ⚠️ Использование legacy метода openPeerChatLegacy")
 
 	// Получаем профиль пира из БД для корректного отображения
 	profile, err := queries.GetProfileByPeerID(peerID)
 	if err == nil && profile != nil {
-		log.Printf("[Chat] 📋 Профиль пира найден: username=%q, avatar_path=%q, content_char=%q, pinned_uuids=%s",
-			profile.Username, profile.AvatarPath, profile.ContentChar, profile.PinnedUUIDs)
-	} else {
-		log.Printf("[Chat] ⚠️ Профиль пира не найден или ошибка: %v", err)
+		log.Printf("[Chat] 📋 Профиль пира найден: username=%q", profile.Username)
 	}
 
-	// Создаём временный контакт для чата
-	// Используем данные из профиля если он найден, иначе используем параметры функции
 	contactUsername := username
 	contactAvatarPath := ""
 	if profile != nil {
 		contactUsername = profile.Username
 		contactAvatarPath = profile.AvatarPath
-		log.Printf("[Chat] 📋 Используем данные из профиля: username=%q, avatar_path=%q", contactUsername, contactAvatarPath)
 	}
 
 	tempContact := &models.Contact{
 		PeerID:     peerID,
 		Username:   contactUsername,
 		AvatarPath: contactAvatarPath,
-		ID:         0, // ID = 0 означает, что контакт не в БД
+		ID:         0,
 	}
-	log.Printf("[Chat] 📋 Временный контакт создан: ID=0, PeerID=%s (полный=%s), Username=%q, AvatarPath=%q",
-		peerID[:8], tempContact.PeerID, tempContact.Username, tempContact.AvatarPath)
 
-	// Выбираем чат
 	ui.selectChat(tempContact)
-	log.Printf("[Chat] ✅ Чат выбран в UI")
-
-	// Загружаем сообщения по chat_id (получаем чат по peer_id)
 	ui.loadMessagesForPeer(peerID)
-	log.Printf("[Chat] 📥 Загружены сообщения для контакта (ожидается 0 сообщений)")
 
-	// Запрашиваем профиль у пира если P2P инициализирован
 	if ui.p2pUI != nil {
-		log.Printf("[Profile] 🔍 Запрос профиля у пира %s (асинхронно)...", peerID[:8])
 		go func() {
-			err := ui.p2pUI.RequestProfile(peerID)
-			if err != nil {
-				log.Printf("[Profile] ❌ Не удалось запросить профиль у пира %s: %v", peerID, err)
-			} else {
-				log.Printf("[Profile] ✅ Профиль запрошен у пира %s", peerID[:8])
-			}
+			_ = ui.p2pUI.RequestProfile(peerID)
 		}()
 	}
 
-	// Обновляем правую панель с профилем
 	if ui.rightPanel != nil {
-		log.Printf("[Profile] 🔄 Обновление правой панели с профилем пира %s", peerID[:8])
 		ui.rightPanel.UpdateProfile(tempContact)
 	}
 
-	// Обновляем UI
 	if ui.chatAreaObj != nil {
 		ui.chatAreaObj.Refresh()
-		log.Printf("[Chat] ✅ UI чата обновлён")
 	}
 }
 
-// SubscribeToMessages подписывается на события сообщений и запускает обработчик
+// SubscribeToMessages подписывается на события сообщений (устарел, контроллер сам подписывается)
 func (ui *UI) SubscribeToMessages() {
-	// Получаем глобальный экземпляр сервиса чатов
-	chatSvc := services.GetChatService()
-	if chatSvc != nil {
-		ui.messageChannel = chatSvc.Subscribe()
-		go ui.handleMessageEvents()
-	}
-}
-
-// handleMessageEvents обрабатывает события новых сообщений
-func (ui *UI) handleMessageEvents() {
-	for event := range ui.messageChannel {
-		// Безопасное получение PeerID для логирования
-		fromPeer := ""
-		if len(event.Message.FromPeerID) >= 8 {
-			fromPeer = event.Message.FromPeerID[:8]
-		} else if event.Message.FromPeerID != "" {
-			fromPeer = event.Message.FromPeerID
-		} else {
-			fromPeer = "unknown"
-		}
-
-		log.Printf("[Chat] 📬 Получено событие сообщения: contactID=%d, from=%s, len=%d",
-			event.ContactID, fromPeer, len(event.Message.Content))
-
-		// Проверяем, открыт ли сейчас чат с этим контактом
-		if ui.currentContact != nil && ui.currentContact.ID == event.ContactID {
-			log.Printf("[Chat] 📭 Чат открыт, добавляем сообщение в UI")
-			// Добавляем сообщение в UI
-			if ui.chatPanel != nil {
-				ui.chatPanel.AddMessage(event.Message, event.IsOutgoing)
-				log.Printf("[Chat] ✅ Сообщение добавлено в UI чата")
-			}
-		} else {
-			log.Printf("[Chat] ℹ️ Чат не открыт (currentContactID=%v, event.ContactID=%d), сообщение сохранено в БД",
-				ui.currentContact != nil && ui.currentContact.ID != 0, event.ContactID)
-		}
-
-		// ✅ Обновляем левую панель со списком чатов
-		// Это нужно для отображения последнего сообщения и времени
-		if ui.leftPanel != nil {
-			log.Printf("[Chat] 🔄 Обновление левой панели со списком чатов")
-			ui.leftPanel.Refresh()
-		}
-	}
+	log.Printf("[Chat] ℹ️ SubscribeToMessages вызван - контроллер сам подписывается на события")
 }
 
 // createChatArea создает центральную область чата
@@ -393,7 +311,7 @@ func (ui *UI) createChatPanel(contact *models.Contact) fyne.CanvasObject {
 	return ui.chatPanel.Container()
 }
 
-// sendMessage отправляет сообщение
+// sendMessage отправляет сообщение (вызывается из chatPanel)
 func (ui *UI) sendMessage() {
 	if ui.chatPanel == nil {
 		return
@@ -410,10 +328,11 @@ func (ui *UI) sendMessage() {
 	ui.chatPanel.MessageInput().Clear()
 	log.Printf("[Chat] 🧹 Поле ввода очищено")
 
-	// Вызываем внешний обработчик если установлен
-	if ui.onSendMessage != nil {
-		log.Printf("[Chat] 🚀 Вызов обработчика отправки сообщения (onSendMessage)")
-		ui.onSendMessage(text)
+	// Отправляем сообщение через контроллер
+	if ui.chatController != nil {
+		if err := ui.chatController.SendMessage(text); err != nil {
+			log.Printf("[Chat] ❌ Ошибка отправки сообщения: %v", err)
+		}
 	}
 }
 
@@ -426,49 +345,24 @@ func (ui *UI) loadMessagesForPeer(peerID string) {
 	// Очищаем текущие сообщения
 	ui.chatPanel.Clear()
 
-	// Получаем чат по peer_id
-	chat, err := queries.GetChatByPeerID(peerID)
+	// Получаем сообщения через контроллер
+	messages, err := ui.chatController.LoadMessages()
 	if err != nil {
-		log.Printf("Ошибка получения чата: %v", err)
-		return
-	}
-	if chat == nil {
-		log.Printf("[Chat] 📚 Чат не найден, сообщений нет")
-		return
-	}
-
-	// Загружаем сообщения по chat_id
-	messages, err := queries.GetMessagesForChat(chat.ID, 100, 0)
-	if err != nil {
-		log.Printf("Ошибка загрузки сообщений: %v", err)
+		log.Printf("[Chat] ❌ Ошибка загрузки сообщений: %v", err)
 		return
 	}
 
 	log.Printf("[Chat] 📚 Получено %d сообщений из БД", len(messages))
 
-	// Получаем наш локальный PeerID для определения направления
-	localPeerID := ""
-	if ui.p2pUI != nil {
-		status := ui.p2pUI.GetStatus()
-		if status != nil {
-			localPeerID = status.PeerID
-		}
-	}
-
-	// Загружаем сообщения
-	ui.chatPanel.LoadMessages(messages, localPeerID)
+	// Загружаем сообщения в панель
+	ui.chatPanel.LoadMessages(messages, ui.chatController.GetLocalPeerID())
 }
 
-// closeChat закрывает текущий чат
+// closeChat закрывает текущий чат (вызывается из chatPanel)
 func (ui *UI) closeChat() {
-	ui.currentContact = nil
-	ui.currentChatID = 0
-	ui.chatPanel = nil
-
-	// Показываем пустую панель
-	emptyPanel := ui.createEmptyPanel()
-	ui.chatAreaObj.Objects = []fyne.CanvasObject{emptyPanel}
-	ui.chatAreaObj.Refresh()
+	if ui.chatController != nil {
+		_ = ui.chatController.CloseChat()
+	}
 }
 
 // ShowChatMenu показывает меню действий для чата (реализация для left.UIProvider)
@@ -482,17 +376,11 @@ func (ui *UI) ShowChatMenu(chatID int, peerID string, username string, cont fyne
 
 // OnChatDeleted обработчик удаления чата (реализация для left.UIProvider)
 func (ui *UI) OnChatDeleted(chatID int, peerID string) {
-	// Обновляем левую панель
-	if ui.leftPanel != nil {
-		ui.leftPanel.Refresh()
-	}
-
-	// Если текущий чат был удалён, закрываем его
-	if ui.currentChatID == chatID {
-		ui.currentChatID = 0
-		ui.currentContact = nil
-		ui.chatAreaObj.Objects = []fyne.CanvasObject{}
-		ui.chatAreaObj.Refresh()
+	// Удаляем контакт через контроллер
+	if ui.chatController != nil {
+		if err := ui.chatController.DeleteContact(chatID, peerID); err != nil {
+			log.Printf("[Chat] ❌ Ошибка удаления чата: %v", err)
+		}
 	}
 
 	log.Printf("Чат %s (%d) удалён", peerID, chatID)
@@ -502,48 +390,48 @@ func (ui *UI) OnChatDeleted(chatID int, peerID string) {
 func (ui *UI) OpenLocalChat() {
 	log.Printf("[Chat] 🗨️ Открытие локального чата (Избранное)")
 
-	// Загружаем локальный профиль
+	// Используем контроллер для открытия локального чата
+	if ui.chatController != nil {
+		if err := ui.chatController.OpenLocalChat(); err != nil {
+			log.Printf("[Chat] ❌ Ошибка открытия локального чата: %v", err)
+		}
+	} else {
+		// Fallback для обратной совместимости
+		ui.openLocalChatLegacy()
+	}
+}
+
+// openLocalChatLegacy открывает локальный чат по-старому (для обратной совместимости)
+func (ui *UI) openLocalChatLegacy() {
+	log.Printf("[Chat] ⚠️ Использование legacy метода openLocalChatLegacy")
+
 	localProfile, err := queries.GetLocalProfile()
 	if err != nil {
 		log.Printf("[Chat] ❌ Ошибка загрузки локального профиля: %v", err)
 		return
 	}
-	log.Printf("[Chat] 📋 Локальный профиль загружён: %s", localProfile.Username)
 
-	// Получаем или создаём локальный чат (с contact_id = NULL)
 	localChat, err := queries.GetOrCreateLocalChat(localProfile.PeerID)
 	if err != nil {
 		log.Printf("[Chat] ❌ Ошибка получения локального чата: %v", err)
 		return
 	}
-	log.Printf("[Chat] 💬 Локальный чат: ID=%d, peer_id=%s", localChat.ID, localChat.PeerID[:8])
 
-	// Создаём специальный контакт для локального чата (виртуальный, не из БД)
 	localContact := models.NewLocalContact(
 		localProfile.Username,
 		localProfile.Title,
 		localProfile.AvatarPath,
 	)
-	log.Printf("[Chat] 📝 Виртуальный контакт создан: ID=0, PeerID=__local__")
 
-	// Выбираем чат
 	ui.selectChat(localContact)
-	log.Printf("[Chat] ✅ Чат выбран в UI")
-
-	// Загружаем сообщения для локального чата через chat_id
 	ui.loadMessagesForChat(localChat.ID)
-	log.Printf("[Chat] 📥 Загружены сообщения для локального чата ID=%d", localChat.ID)
 
-	// Обновляем правую панель с профилем
 	if ui.rightPanel != nil {
-		log.Printf("[Profile] 🔄 Обновление правой панели с локальным профилем")
 		ui.rightPanel.UpdateProfile(localContact)
 	}
 
-	// Обновляем UI
 	if ui.chatAreaObj != nil {
 		ui.chatAreaObj.Refresh()
-		log.Printf("[Chat] ✅ UI локального чата обновлён")
 	}
 }
 
@@ -569,30 +457,15 @@ func (ui *UI) loadMessagesForChat(chatID int) {
 	// Очищаем текущие сообщения
 	ui.chatPanel.Clear()
 
-	// Загружаем сообщения чата
-	messages, err := queries.GetMessagesForChat(chatID, 100, 0)
+	// Загружаем сообщения через контроллер
+	messages, err := ui.chatController.LoadMessagesForChat(chatID)
 	if err != nil {
-		log.Printf("Ошибка загрузки сообщений чата: %v", err)
+		log.Printf("[Chat] ❌ Ошибка загрузки сообщений: %v", err)
 		return
 	}
 
-	// Получаем наш локальный PeerID для определения направления
-	localPeerID := ""
-	if ui.p2pUI != nil {
-		status := ui.p2pUI.GetStatus()
-		if status != nil {
-			localPeerID = status.PeerID
-		}
-	} else {
-		// Если P2P не инициализирован, используем PeerID из локального профиля
-		localProfile, err := queries.GetLocalProfile()
-		if err == nil {
-			localPeerID = localProfile.PeerID
-		}
-	}
-
-	// Загружаем сообщения (все сообщения в локальном чате - исходящие)
-	ui.chatPanel.LoadMessages(messages, localPeerID)
+	// Загружаем сообщения в панель
+	ui.chatPanel.LoadMessages(messages, ui.chatController.GetLocalPeerID())
 }
 
 // RefreshContactsList обновляет список чатов (публичный метод для вызова извне)
@@ -604,14 +477,29 @@ func (ui *UI) RefreshContactsList() {
 
 // RefreshRightPanel обновляет правую панель с профилем пира (вызывается из callback после загрузки профиля)
 func (ui *UI) RefreshRightPanel(peerID string) {
-	// Получаем профиль из БД
+	// Используем контроллер для получения информации о пире
+	if ui.chatController != nil {
+		contact, err := ui.chatController.GetContactByPeerID(peerID)
+		if err == nil && contact != nil {
+			if ui.rightPanel != nil {
+				ui.rightPanel.UpdateProfile(contact)
+				log.Printf("[Profile] 🔄 Правая панель обновлена для %s", peerID[:8])
+			}
+			if ui.leftPanel != nil {
+				ui.leftPanel.Refresh()
+				log.Printf("[Profile] 🔄 Левая панель обновлена")
+			}
+			return
+		}
+	}
+
+	// Fallback: получаем профиль напрямую из БД
 	profile, err := queries.GetProfileByPeerID(peerID)
 	if err != nil || profile == nil {
 		log.Printf("[Profile] ⚠️ Не удалось получить профиль для обновления UI: %v", err)
 		return
 	}
 
-	// Создаём контакт с обновлёнными данными
 	contact := &models.Contact{
 		PeerID:     peerID,
 		Username:   profile.Username,
@@ -619,16 +507,11 @@ func (ui *UI) RefreshRightPanel(peerID string) {
 		AvatarPath: profile.AvatarPath,
 	}
 
-	// Обновляем правую панель
 	if ui.rightPanel != nil {
 		ui.rightPanel.UpdateProfile(contact)
-		log.Printf("[Profile] 🔄 Правая панель обновлена для %s", peerID[:8])
 	}
-
-	// Также обновляем левую панель (список чатов)
 	if ui.leftPanel != nil {
 		ui.leftPanel.Refresh()
-		log.Printf("[Profile] 🔄 Левая панель обновлена")
 	}
 }
 

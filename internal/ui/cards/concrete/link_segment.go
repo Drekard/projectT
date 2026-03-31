@@ -16,17 +16,24 @@ type LinkCard struct {
 	*cards.BaseCard
 	richText             *widget.RichText
 	isContentInitialized bool // Флаг: контент уже инициализирован
+	noButtonsMode        bool // Режим отображения без кнопок в меню
 }
 
 // NewLinkCard создает новую карточку для ссылки
-func NewLinkCard(item *models.Item) interfaces.CardRenderer {
-	return NewLinkCardWithCallback(item, nil)
+// Опциональный параметр noButtons управляет режимом отображения меню без кнопок
+func NewLinkCard(item *models.Item, noButtons ...bool) interfaces.CardRenderer {
+	noButtonsMode := len(noButtons) > 0 && noButtons[0]
+	return NewLinkCardWithCallback(item, nil, noButtonsMode)
 }
 
 // NewLinkCardWithCallback создает новую карточку для ссылки с пользовательским обработчиком клика
-func NewLinkCardWithCallback(item *models.Item, clickCallback func()) interfaces.CardRenderer {
+// Опциональный параметр noButtons управляет режимом отображения меню без кнопок
+func NewLinkCardWithCallback(item *models.Item, clickCallback func(), noButtons ...bool) interfaces.CardRenderer {
+	noButtonsMode := len(noButtons) > 0 && noButtons[0]
+
 	linkCard := &LinkCard{
-		BaseCard: cards.NewBaseCard(item),
+		BaseCard:      cards.NewBaseCard(item),
+		noButtonsMode: noButtonsMode,
 	}
 
 	// Извлекаем все ссылки
@@ -94,7 +101,7 @@ func (lc *LinkCard) UpdateContent() {
 	}
 
 	// Первый вызов - пересоздаем карточку с обновленным элементом
-	newCard := NewLinkCardWithCallback(lc.Item, nil)
+	newCard := NewLinkCardWithCallback(lc.Item, nil, lc.noButtonsMode)
 
 	// Копируем контейнер новой карточки в текущую
 	lc.Container = newCard.GetContainer()

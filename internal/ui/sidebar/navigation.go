@@ -17,10 +17,10 @@ type NavigationHandler interface {
 
 // CreateNavigation создает навигационные кнопки
 func CreateNavigation(handler NavigationHandler) *fyne.Container {
-	var profileButton, savedButton, tagsButton, chatsButton *widget.Button
+	var profileButton, savedButton, previewButton, tagsButton, chatsButton *widget.Button
 
 	updateButtonState := func(clickedButton *widget.Button, contentType string) {
-		buttons := []*widget.Button{profileButton, savedButton, tagsButton, chatsButton}
+		buttons := []*widget.Button{profileButton, savedButton, previewButton, tagsButton, chatsButton}
 		for _, btn := range buttons {
 			btn.Importance = widget.LowImportance
 			btn.Refresh()
@@ -42,6 +42,10 @@ func CreateNavigation(handler NavigationHandler) *fyne.Container {
 		updateButtonState(savedButton, "saved")
 	})
 
+	previewButton = createCustomNavButton("Загруженное", theme.DownloadIcon(), func() {
+		updateButtonState(previewButton, "preview")
+	})
+
 	tagsButton = createCustomNavButton("Мои теги", theme.SettingsIcon(), func() {
 		updateButtonState(tagsButton, "tags")
 	})
@@ -58,6 +62,7 @@ func CreateNavigation(handler NavigationHandler) *fyne.Container {
 	return container.NewVBox(
 		profileButton,
 		savedButton,
+		previewButton,
 		tagsButton,
 		chatsButton,
 		separator,

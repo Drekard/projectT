@@ -2,7 +2,6 @@
 package left
 
 import (
-	"fmt"
 	"image/color"
 	"log"
 
@@ -163,43 +162,8 @@ func (p *Panel) createChatItem(chat *models.ChatWithLastMessage) *ChatItemWrappe
 	// Аватар 50x50
 	avatarContainer := p.createChatAvatarIcon(chat)
 
-	// Информация о чате (имя, последнее сообщение, время)
-	nameLabel := widget.NewLabel(chat.Username)
-	nameLabel.TextStyle = fyne.TextStyle{Bold: true}
-	nameLabel.Truncation = fyne.TextTruncateEllipsis
-
-	// Последнее сообщение
-	lastMsgLabel := widget.NewLabel(chat.LastMessage)
-	lastMsgLabel.TextStyle = fyne.TextStyle{Italic: true}
-	lastMsgLabel.Truncation = fyne.TextTruncateEllipsis
-	if chat.LastMessage == "" {
-		lastMsgLabel.SetText("Нет сообщений")
-	}
-
-	// Время последнего сообщения
-	timeLabel := widget.NewLabel("")
-	if chat.LastMessageAt != nil {
-		timeLabel.SetText(chat.LastMessageAt.Format("15:04"))
-	}
-	timeLabel.TextStyle = fyne.TextStyle{Italic: true}
-
-	// Счётчик непрочитанных
-	unreadBadge := widget.NewLabel("")
-	if chat.UnreadCount > 0 {
-		unreadBadge.SetText(fmt.Sprintf("%d", chat.UnreadCount))
-		unreadBadge.TextStyle = fyne.TextStyle{Bold: true}
-	}
-
-	// Компонуем: аватар | имя + сообщение | время + непрочитанные
-	infoContainer := container.NewVBox(nameLabel, lastMsgLabel)
-	timeContainer := container.NewVBox(timeLabel, unreadBadge)
-
-	content := container.NewBorder(
-		nil, nil,
-		avatarContainer,
-		timeContainer,
-		infoContainer,
-	)
+	// Компонуем: только аватар
+	content := container.NewStack(avatarContainer)
 
 	// Создаём обёртку с обработчиками
 	return NewChatItemWrapper(content, chat.ID, chat.PeerID, chat.Username,

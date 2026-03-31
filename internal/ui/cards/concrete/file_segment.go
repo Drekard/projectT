@@ -26,19 +26,26 @@ type FileCard struct {
 	fileBlocks           []*cards.Block
 	selectedFileIdx      int
 	isContentInitialized bool // Флаг: контент уже инициализирован
+	noButtonsMode        bool // Режим отображения без кнопок в меню
 }
 
 // NewFileCard создает новую карточку для файла
-func NewFileCard(item *models.Item) interfaces.CardRenderer {
-	return NewFileCardWithCallback(item, nil)
+// Опциональный параметр noButtons управляет режимом отображения меню без кнопок
+func NewFileCard(item *models.Item, noButtons ...bool) interfaces.CardRenderer {
+	noButtonsMode := len(noButtons) > 0 && noButtons[0]
+	return NewFileCardWithCallback(item, nil, noButtonsMode)
 }
 
 // NewFileCardWithCallback создает новую карточку для файла с пользовательским обработчиком клика
-func NewFileCardWithCallback(item *models.Item, clickCallback func()) interfaces.CardRenderer {
+// Опциональный параметр noButtons управляет режимом отображения меню без кнопок
+func NewFileCardWithCallback(item *models.Item, clickCallback func(), noButtons ...bool) interfaces.CardRenderer {
+	noButtonsMode := len(noButtons) > 0 && noButtons[0]
+
 	fileCard := &FileCard{
 		BaseCard:        cards.NewBaseCard(item),
 		fileBlocks:      make([]*cards.Block, 0),
 		selectedFileIdx: -1,
+		noButtonsMode:   noButtonsMode,
 	}
 
 	// Извлекаем все блоки для определения типа файлов
@@ -135,7 +142,7 @@ func NewFileCardWithCallback(item *models.Item, clickCallback func()) interfaces
 				// Одинарный клик - выбираем файл и показываем меню
 				fileCard.selectedFileIdx = idx
 				menuManager := hover_preview.NewMenuManager()
-				menuManager.ShowSimpleMenu(fileCard.Item, fileCard.Container, nil)
+				menuManager.ShowSimpleMenu(fileCard.Item, fileCard.Container, nil, fileCard.noButtonsMode)
 			},
 			func() {
 				// Двойной клик - открываем конкретный файл
@@ -163,7 +170,7 @@ func NewFileCardWithCallback(item *models.Item, clickCallback func()) interfaces
 		func() {
 			// Одинарный клик по карточке - показываем меню
 			menuManager := hover_preview.NewMenuManager()
-			menuManager.ShowSimpleMenu(fileCard.Item, fileCard.Container, nil)
+			menuManager.ShowSimpleMenu(fileCard.Item, fileCard.Container, nil, fileCard.noButtonsMode)
 		},
 		func() {
 			// Двойной клик по карточке - открываем первый файл
@@ -201,7 +208,7 @@ func (fc *FileCard) UpdateContent() {
 	}
 
 	// Первый вызов - пересоздаем карточку с обновленным элементом
-	newCard := NewFileCardWithCallback(fc.Item, nil)
+	newCard := NewFileCardWithCallback(fc.Item, nil, fc.noButtonsMode)
 
 	// Копируем контейнер новой карточки в текущую
 	fc.Container = newCard.GetContainer()
