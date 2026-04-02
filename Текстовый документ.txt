@@ -1,0 +1,761 @@
+Логи ноута
+2026/04/01 22:53:08 [Миграция] Колонка status уже существует в таблице items
+2026/04/01 22:53:08 [Миграция] UNIQUE индекс для remote элементов создан
+2026/04/01 22:53:08 Все миграции базы данных выполнены успешно
+2026/04/01 22:53:08 [P2P] Порт установлен: 4000
+2026/04/01 22:53:08 [App] P2P порт из config: 4000
+2026/04/01 22:53:08 Загружен существующий P2P профиль: 12D3KooWJyZ283MgjARck96rPQSDWsXS27qtxxP5Xu5cH8Fghyxe
+2026/04/01 22:53:08 NAT Port Mapping включён
+2026/04/01 22:53:08 Relay включён
+2026/04/01 22:53:08 AutoRelay включён
+2026/04/01 22:53:08 mDNS включён (локальное обнаружение)
+2026/04/01 22:53:08 STUN клиент выключен
+2026/04/01 22:53:08 DHT инициализирована
+2026/04/01 22:53:08 PubSub инициализирована
+2026/04/01 22:53:08 ChatService запущен
+2026/04/01 22:53:08 P2P хост запущен: 12D3KooWJyZ283MgjARck96rPQSDWsXS27qtxxP5Xu5cH8Fghyxe
+2026/04/01 22:53:08 Адреса для подключения: [/ip4/127.0.0.1/tcp/4000 /ip4/192.168.0.20/tcp/4000 /ip6/::1/tcp/4000]
+2026/04/01 22:53:08 ConnectionService запущен
+2026/04/01 22:53:08 ProfileExchangeService v2.0 запущен
+2026/04/01 22:53:08 TransferService запущен
+2026/04/01 22:53:08 ItemSyncService запущен
+2026/04/01 22:53:08 ChatService запущен
+2026/04/01 22:53:08 [Chat] ✅ Transfer Service и ItemSync сервис связаны с Chat сервисом
+2026/04/01 22:53:08 [Chat] ✅ ItemSync Service установлен
+2026/04/01 22:53:08 [Chat] ✅ ItemSync сервис установлен в глобальный ChatService
+2026/04/01 22:53:08 mDNS временно недоступен - используется только DHT discovery
+2026/04/01 22:53:08 mDNS обнаружение запущено
+2026/04/01 22:53:08 Сервис обнаружения запущен (ожидание ручного подключения)
+2026/04/01 22:53:08 P2P запущен
+2026/04/01 22:53:19 [Chat] 🔍 DEBUG: чат id=1, peer_id=12D3KooWNS..., contact_id={0 false}, is_temporary=true
+2026/04/01 22:53:19 [Chat] 🔍 DEBUG: чат id=2, peer_id=12D3KooWJy..., contact_id={0 false}, is_temporary=false
+2026/04/01 22:53:19 [Chat] 🔍 DEBUG profiles: peer_id=12D3KooWJy..., owner_type=local, username=Egor, avatar_path="storage\\files\\avatars\\local\\Безымянный3.png"
+2026/04/01 22:53:19 [Chat] 🔍 DEBUG profiles: peer_id=12D3KooWNS..., owner_type=remote, username=User_12D3KooW, avatar_path=""
+2026/04/01 22:53:19 [Chat] 📋 Чат из БД: ID=1, peer=12D3KooW, username="User_12D3KooW", lastMsg="00000039-0000-0000-0000-000000000039", avatar_path=""
+2026/04/01 22:53:19 [Chat] 📋 Чат из БД: ID=2, peer=12D3KooW, username="12D3KooWJyZ283MgjARck96rPQSDWsXS27qtxxP5Xu5cH8Fghyxe", lastMsg="", avatar_path=""
+2026/04/01 22:53:19 [Chat] 📚 rows.Next() вернул 2 чатов
+2026/04/01 22:53:19 [Chat] 📚 Загружено чатов из БД: 2
+2026/04/01 22:53:19 [Chat] 📋 Чат #0: ID=1, peer=12D3KooW, username="User_12D3KooW", lastMsg="00000039-0000-0000-0000-000000000039", contactID=<nil>
+2026/04/01 22:53:19 [Chat] 📋 Чат #1: ID=2, peer=12D3KooW, username="12D3KooWJyZ283MgjARck96rPQSDWsXS27qtxxP5Xu5cH8Fghyxe", lastMsg="", contactID=<nil>
+2026/04/01 22:53:19 [Chat] 🎨 Создание элемента чата: ID=1, peer=12D3KooW, lastMsg="00000039-0000-0000-0000-000000000039"
+2026/04/01 22:53:19 [Avatar] 🎨 Создание аватара для чата ID=1, peer_id=12D3KooW...
+2026/04/01 22:53:19 [Avatar] 📋 AvatarPath из БД: ""
+2026/04/01 22:53:19 [Avatar] ℹ️ AvatarPath пустой, будет использована иконка по умолчанию
+2026/04/01 22:53:19 [Avatar] 🔲 Использование системной иконки (theme.AccountIcon)
+2026/04/01 22:53:19 [Avatar] ⚪ Возврат контейнера с системной иконкой
+2026/04/01 22:53:19 [Chat] 🎨 Создание элемента чата: ID=2, peer=12D3KooW, lastMsg=""
+2026/04/01 22:53:19 [Avatar] 🎨 Создание аватара для чата ID=2, peer_id=12D3KooW...
+2026/04/01 22:53:19 [Avatar] 📋 AvatarPath из БД: ""
+2026/04/01 22:53:19 [Avatar] ℹ️ AvatarPath пустой, будет использована иконка по умолчанию
+2026/04/01 22:53:19 [Avatar] 🔲 Использование системной иконки (theme.AccountIcon)
+2026/04/01 22:53:19 [Avatar] ⚪ Возврат контейнера с системной иконкой
+2026/04/01 22:53:19 [ProfilePanel] 🔄 Обновление профиля: username="Egor", peer_id=12D3KooWJy, avatar_path="storage\\files\\avatars\\local\\Безымянный3.png", title="Не статус"
+2026/04/01 22:53:19 [ProfilePanel] ✅ Имя установлено: "Egor"
+2026/04/01 22:53:19 [ProfilePanel] ✅ Статус установлен: "Не статус"
+2026/04/01 22:53:19 [ProfilePanel] 🖼️ Загрузка аватара: path="storage\\files\\avatars\\local\\Безымянный3.png"
+2026/04/01 22:53:19 [ProfilePanel] ✅ Аватар успешно загружен: "storage\\files\\avatars\\local\\Безымянный3.png" (173494 байт)
+2026/04/01 22:53:19 [ProfilePanel] 🖼️ Аватар установлен в UI
+2026/04/01 22:53:19 [ProfilePanel] 🔍 Загрузка характеристик для peer_id=12D3KooW
+2026/04/01 22:53:19 [ProfilePanel] 📋 Профиль загружен: content_char="[{\"element_uuid\":\"\",\"title\":\"Возраст\",\"value\":\"19 годиков\"},{\"element_uuid\":\"\",\"title\":\"Но душой в\",\"value\":\"103к\"},{\"element_uuid\":\"\",\"title\":\"Должность\",\"value\":\"Разраб\"},{\"element_uuid\":\"\",\"title\":\"Город\",\"value\":\"404\"}]"
+2026/04/01 22:53:19 [ProfilePanel] ✅ Характеристики загружены
+2026/04/01 22:53:19 [ProfilePanel] 🔍 Загрузка витрины элементов для peer_id=12D3KooW
+2026/04/01 22:53:19 [ProfilePanel] 📋 Профиль загружен: pinned_uuids=["00000024-0000-0000-0000-000000000024","00000041-0000-0000-0000-000000000041","00000045-0000-0000-0000-000000000045"]     
+2026/04/01 22:53:19 [DemoElements] 📦 Загрузка витрины элементов: pinned_uuids=["00000024-0000-0000-0000-000000000024","00000041-0000-0000-0000-000000000041","00000045-0000-0000-0000-000000000045"]
+2026/04/01 22:53:19 [DemoElements] 📋 Распарсено 3 элементов
+2026/04/01 22:53:19 [DemoElements] 🔍 Загрузка элемента #1: UUID=00000024-0000-0000-0000-000000000024, title="Элемент"
+2026/04/01 22:53:19 [DemoElements] 🔍 Загрузка элемента из БД: UUID=00000024-0000-0000-0000-000000000024
+2026/04/01 22:53:19 [DemoElements] ✅ Элемент найден: ID=24, title="Корона", type=element, status=saved
+2026/04/01 22:53:19 [DemoElements] 📄 Создание карточки элемента
+2026/04/01 22:53:19 [DemoElements] ✅ Карточка элемента создана: ID=24
+2026/04/01 22:53:19 [DemoElements] 🔍 Загрузка элемента #2: UUID=00000041-0000-0000-0000-000000000041, title="Элемент"
+2026/04/01 22:53:19 [DemoElements] 🔍 Загрузка элемента из БД: UUID=00000041-0000-0000-0000-000000000041
+2026/04/01 22:53:19 [DemoElements] ✅ Элемент найден: ID=41, title="", type=element, status=saved
+2026/04/01 22:53:19 [DemoElements] 📄 Создание карточки элемента
+2026/04/01 22:53:19 [DemoElements] ✅ Карточка элемента создана: ID=41
+2026/04/01 22:53:19 [DemoElements] 🔍 Загрузка элемента #3: UUID=00000045-0000-0000-0000-000000000045, title="Элемент"
+2026/04/01 22:53:19 [DemoElements] 🔍 Загрузка элемента из БД: UUID=00000045-0000-0000-0000-000000000045
+2026/04/01 22:53:19 [DemoElements] ✅ Элемент найден: ID=45, title="Енот альбинос Лола", type=element, status=saved
+2026/04/01 22:53:19 [DemoElements] 📄 Создание карточки элемента
+2026/04/01 22:53:19 [DemoElements] ✅ Карточка элемента создана: ID=45
+2026/04/01 22:53:19 [DemoElements] ✅ Витрина загружена: 3 элементов отображено
+2026/04/01 22:53:19 [ProfilePanel] ✅ Витрина элементов загружена
+2026/04/01 22:53:19 [ProfilePanel] ✅ UI обновлён
+2026/04/01 22:53:19 [DemoElements] 📦 Загрузка витрины элементов: pinned_uuids=["00000024-0000-0000-0000-000000000024","00000041-0000-0000-0000-000000000041","00000045-0000-0000-0000-000000000045"]
+2026/04/01 22:53:19 [DemoElements] 📋 Распарсено 3 элементов
+2026/04/01 22:53:19 [DemoElements] 🔍 Загрузка элемента #1: UUID=00000024-0000-0000-0000-000000000024, title="Элемент"
+2026/04/01 22:53:19 [DemoElements] 🔍 Загрузка элемента из БД: UUID=00000024-0000-0000-0000-000000000024
+2026/04/01 22:53:19 [DemoElements] ✅ Элемент найден: ID=24, title="Корона", type=element, status=saved
+2026/04/01 22:53:19 [DemoElements] 📄 Создание карточки элемента
+2026/04/01 22:53:19 [DemoElements] ✅ Карточка элемента создана: ID=24
+2026/04/01 22:53:19 [DemoElements] 🔍 Загрузка элемента #2: UUID=00000041-0000-0000-0000-000000000041, title="Элемент"
+2026/04/01 22:53:19 [DemoElements] 🔍 Загрузка элемента из БД: UUID=00000041-0000-0000-0000-000000000041
+2026/04/01 22:53:19 [DemoElements] ✅ Элемент найден: ID=41, title="", type=element, status=saved
+2026/04/01 22:53:19 [DemoElements] 📄 Создание карточки элемента
+2026/04/01 22:53:19 [DemoElements] ✅ Карточка элемента создана: ID=41
+2026/04/01 22:53:19 [DemoElements] 🔍 Загрузка элемента #3: UUID=00000045-0000-0000-0000-000000000045, title="Элемент"
+2026/04/01 22:53:19 [DemoElements] 🔍 Загрузка элемента из БД: UUID=00000045-0000-0000-0000-000000000045
+2026/04/01 22:53:19 [DemoElements] ✅ Элемент найден: ID=45, title="Енот альбинос Лола", type=element, status=saved
+2026/04/01 22:53:19 [DemoElements] 📄 Создание карточки элемента
+2026/04/01 22:53:19 [DemoElements] ✅ Карточка элемента создана: ID=45
+2026/04/01 22:53:19 [DemoElements] ✅ Витрина загружена: 3 элементов отображено
+2026/04/01 22:53:20 [Chat] ✅ Глобальный P2P сервис установлен
+2026/04/01 22:53:20 [Chat] ℹ️ SubscribeToMessages вызван - контроллер сам подписывается на события
+2026/04/01 22:53:20 [loadP2PSettings] Загрузка настроек...
+2026/04/01 22:53:20 [loadP2PSettings] Получены настройки: Port=4000, NAT=true, Relay=true
+2026/04/01 22:53:20 [loadP2PSettings] Настройки загружены, порт=4000
+2026/04/01 22:53:25 [ConnectToPeer] Попытка подключения к: projectt:12D3KooWEJdEZtdAseDErV8oLzQiDjBn2Toytn1L4jnF2FAsdZFs@/ip4/192.168.0.13/tcp/4000/p2p/12D3KooWEJdEZtdAseDErV8oLzQiDjBn2Toytn1L4jnF2FAsdZFs
+2026/04/01 22:53:25 [ConnectToPeer] Наш PeerID: 12D3KooWJyZ283MgjARck96rPQSDWsXS27qtxxP5Xu5cH8Fghyxe
+=== ConnectToPeer ===
+[DEBUG] Исходная строка адреса: "projectt:12D3KooWEJdEZtdAseDErV8oLzQiDjBn2Toytn1L4jnF2FAsdZFs@/ip4/192.168.0.13/tcp/4000/p2p/12D3KooWEJdEZtdAseDErV8oLzQiDjBn2Toytn1L4jnF2FAsdZFs"
+[DEBUG] Длина строки: 145 символов
+[DEBUG] Первые символы (hex): 70 72 6f 6a 65 63 74 74 3a 31 32 44 33 4b 6f 6f 57 45 4a 64 45 5a 74 64 41 73 65 44 45 72 56 38 6f 4c 7a 51 69 44 6a 42 6e 32 54 6f 79 74 6e 31 4c 34
+[DEBUG] После удаления префиксов: "12D3KooWEJdEZtdAseDErV8oLzQiDjBn2Toytn1L4jnF2FAsdZFs@/ip4/192.168.0.13/tcp/4000/p2p/12D3KooWEJdEZtdAseDErV8oLzQiDjBn2Toytn1L4jnF2FAsdZFs"
+[DEBUG] Ошибка парсинга multiaddr: failed to parse multiaddr "12D3KooWEJdEZtdAseDErV8oLzQiDjBn2Toytn1L4jnF2FAsdZFs@/ip4/192.168.0.13/tcp/4000/p2p/12D3KooWEJdEZtdAseDErV8oLzQiDjBn2Toytn1L4jnF2FAsdZFs": must begin with /
+[DEBUG] Обнаружен символ @, пробуем извлечь multiaddr...
+[DEBUG] Извлечён multiaddr: "/ip4/192.168.0.13/tcp/4000/p2p/12D3KooWEJdEZtdAseDErV8oLzQiDjBn2Toytn1L4jnF2FAsdZFs"
+[DEBUG] Multiaddr после очистки: "/ip4/192.168.0.13/tcp/4000/p2p/12D3KooWEJdEZtdAseDErV8oLzQiDjBn2Toytn1L4jnF2FAsdZFs"
+[DEBUG] Multiaddr успешно распарсен!
+2026/04/01 22:53:25 [ConnectToPeer] ✅ Multiaddr успешно распарсен: /ip4/192.168.0.13/tcp/4000/p2p/12D3KooWEJdEZtdAseDErV8oLzQiDjBn2Toytn1L4jnF2FAsdZFs
+2026/04/01 22:53:25 [ConnectToPeer] Попытка подключения к 12D3KooWEJdEZtdAseDErV8oLzQiDjBn2Toytn1L4jnF2FAsdZFs через /ip4/192.168.0.13/tcp/4000/p2p/12D3KooWEJdEZtdAseDErV8oLzQiDjBn2Toytn1L4jnF2FAsdZFs
+2026/04/01 22:53:25 Пир подключён: 12D3KooWEJdEZtdAseDErV8oLzQiDjBn2Toytn1L4jnF2FAsdZFs
+2026/04/01 22:53:25 [ConnectToPeer] ✅ Подключено к пиру: 12D3KooWEJdEZtdAseDErV8oLzQiDjBn2Toytn1L4jnF2FAsdZFs
+2026/04/01 22:53:25 [ConnectToContact] Подключение к 12D3KooW успешно, запрашиваем профиль...
+2026/04/01 22:53:25 [Profile] Запрос профиля у пира 12D3KooW (роль: ИНИЦИАТОР)...
+2026/04/01 22:53:25 [Profile] Пир 12D3KooW отмечен как ожидающий обмена профиля
+2026/04/01 22:53:25 [Profile] Стрим создан для 12D3KooW за 1.0542ms
+2026/04/01 22:53:25 [Profile] Отправка запроса профилю 12D3KooW (IsInitiator=true)...
+2026/04/01 22:53:25 [Profile] Запрос отправлен 12D3KooW, ждём ответ...
+2026/04/01 22:53:25 [Profile] Чтение ответа (профиль сервера) от 12D3KooW...
+2026/04/01 22:53:25 [Profile] ✅ Профиль сервера получен от 12D3KooW за 5.4703ms (username: User_12D3KooW, аватар: 0 байт, encryption_key[0]=230)
+2026/04/01 22:53:25 [Profile] Отправка своего профиля пиру 12D3KooW...
+2026/04/01 22:53:25 [Profile] 📌 PinnedUUIDs для отправки: 3 элементов, UUIDs=[00000024-0000-0000-0000-000000000024 00000041-0000-0000-0000-000000000041 00000045-0000-0000-0000-000000000045]  
+2026/04/01 22:53:25 [Profile] Аватар загружен (173494 байт) для отправки
+2026/04/01 22:53:25 [Profile] 🔑 Локальный ключ шифрования (len=32) добавлен в ProfileResponse
+2026/04/01 22:53:25 [Profile] ✅ Свой профиль отправлен 12D3KooW
+2026/04/01 22:53:25 [Profile] ℹ️ Пир 12D3KooW не имеет закреплённых элементов
+2026/04/01 22:53:25 [Profile] savePeerProfile: peer_id=12D3KooW, username=User_12D3KooW, owner_type=remote, avatar_path=""
+2026/04/01 22:53:25 [Profile] ✅ Публичный ключ сохранён в Peerstore для 12D3KooW
+2026/04/01 22:53:25 [Profile] Создаём новый профиль...
+2026/04/01 22:53:25 [Profile] ✅ Профиль создан: 12D3KooW (username: User_12D3KooW)
+2026/04/01 22:53:25 [Profile] ✅ Профиль сервера 12D3KooW сохранён в БД и Peerstore
+2026/04/01 22:53:25 [Profile] 🔑 Ключ шифрования сохранён для 12D3KooW (len=32, key[0]=230)
+2026/04/01 22:53:25 [Profile] Обмен профиля с 12D3KooW завершён
+2026/04/01 22:53:25 [DB] 🔄 UpdateRemoteProfile: обновление профиля для peer_id=12D3KooWEJ, avatar_path=""
+2026/04/01 22:53:25 [DB] ✅ UpdateRemoteProfile: обновлено строк: 1
+2026/04/01 22:53:25 [ConnectToContact] ✅ Профиль пира 12D3KooWEJdEZtdAseDErV8oLzQiDjBn2Toytn1L4jnF2FAsdZFs получен: User_12D3KooW
+2026/04/01 22:53:25 [ItemSync] 🔔 ===============================================
+2026/04/01 22:53:25 [ItemSync] 🔔 ПОЛУЧЕН ЗАПРОС ЭЛЕМЕНТОВ ОТ: 12D3KooWEJdEZtdAseDErV8oLzQiDjBn2Toytn1L4jnF2FAsdZFs
+2026/04/01 22:53:25 [ItemSync] 🔔 ===============================================
+2026/04/01 22:53:25 [ItemSync] 📥 Прочитано 47 байт запроса
+2026/04/01 22:53:25 [ItemSync] 📄 RAW данные запроса (hex): 7b2268617368223a2230303030303032342d303030302d303030302d303030302d303030303030303030303234227d
+2026/04/01 22:53:25 [ItemSync] 📋 === ДЕТАЛИ ЗАПРОСА ===
+2026/04/01 22:53:25 [ItemSync] 📋 Hash/UUID: "00000024-0000-0000-0000-000000000024"
+2026/04/01 22:53:25 [ItemSync] 📋 ItemIDs: []
+2026/04/01 22:53:25 [ItemSync] 📋 All: false
+2026/04/01 22:53:25 [ItemSync] 📋 ОЖИДАНИЕ: Пир хочет получить элемент с UUID=00000024-0000-0000-0000-000000000024
+2026/04/01 22:53:25 [ItemSync] 🔍 Запрос по UUID/Hash: 00000024-0000-0000-0000-000000000024
+2026/04/01 22:53:25 [ItemSync] 🔍 Поиск элемента в БД по element_uuid=00000024-0000-0000-0000-000000000024...
+2026/04/01 22:53:25 [ItemSync] 📋 itemToResponse: ItemID=24, UUID=00000024, Title="Корона", OwnerType=local
+2026/04/01 22:53:25 [ItemSync] 🔍 Извлечение file_hash из ContentMeta для элемента ID=24...
+2026/04/01 22:53:25 [ItemSync] 📋 ContentMeta: [{"type":"image","file_hash":"e42d409ac58a053413622d0bdb1193f79b614e70d8049011de2b2243b0069395","original_name":"C:\\Users\\egors\\OneDrive\\Рабочий стол\\238c9b909408e71145cf70dbebd39b4d.jpg","extension":"jpg"}]
+2026/04/01 22:53:25 [ItemSync] ✅ file_hash извлечён из ContentMeta: e42d409ac58a053413622d0bdb1193f79b614e70d8049011de2b2243b0069395
+2026/04/01 22:53:25 [ItemSync] ✅ Файл прочитан по хешу из общего хранилища: 212100 байт
+2026/04/01 22:53:25 [ItemSync] ✅ Файл добавлен в ответ (MIME=image/jpeg)
+2026/04/01 22:53:25 [ItemSync] ✅ Элемент НАЙДЕН в БД:
+2026/04/01 22:53:25 [ItemSync]    - ItemID: 24
+2026/04/01 22:53:25 [ItemSync]    - ElementUUID: 00000024-0000-0000-0000-000000000024
+2026/04/01 22:53:25 [ItemSync]    - Title: "Корона"
+2026/04/01 22:53:25 [ItemSync]    - Type: element
+2026/04/01 22:53:25 [ItemSync]    - Hash: 00000000000000000000000000000000000000000000000000000006e61043c8
+2026/04/01 22:53:25 [ItemSync]    - Description: ""
+2026/04/01 22:53:25 [ItemSync]    - ContentMeta: "[{\"type\":\"image\",\"file_hash\":\"e42d409ac58a053413622d0bdb1193f79b614e70d8049011de2b2243b0069395\",\"original_name\":\"C:\\\\Users\\\\egors\\\\OneDrive\\\\Рабочий стол\\\\238c9b909408e71145cf70dbebd39b4d.jpg\",\"extension\":\"jpg\"}]"
+2026/04/01 22:53:25 [ItemSync]    - FileData: true
+2026/04/01 22:53:25 [ItemSync]    - File Size: 212100 байт
+2026/04/01 22:53:25 [ItemSync]    - File MIME: image/jpeg
+2026/04/01 22:53:25 [ItemSync] 📤 Отправка 1 ответов...
+2026/04/01 22:53:25 [ItemSync] 📤 === ОТПРАВКА ОТВЕТА ===
+2026/04/01 22:53:25 [ItemSync] 📤 Найдено элементов для отправки: 1
+2026/04/01 22:53:25 [ItemSync] 📤 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+2026/04/01 22:53:25 [ItemSync] 📤 ОТПРАВКА элемента #1/1:
+2026/04/01 22:53:25 [ItemSync] 📤    - ItemID: 24
+2026/04/01 22:53:25 [ItemSync] 📤    - ElementUUID: 00000024-0000-0000-0000-000000000024
+2026/04/01 22:53:25 [ItemSync] 📤    - Title: "Корона"
+2026/04/01 22:53:25 [ItemSync] 📤    - Type: element
+2026/04/01 22:53:25 [ItemSync] 📤    - Hash: 00000000000000000000000000000000000000000000000000000006e61043c8
+2026/04/01 22:53:25 [ItemSync] 📤    - Description: ""
+2026/04/01 22:53:25 [ItemSync] 📤    - ContentMeta: [{"type":"image","file_hash":"e42d409ac58a053413622d0bdb1193f79b614e70d8049011de2b2243b0069395","original_name":"C:\\Users\\egors\\OneDrive\\Рабочий стол\\238c9b909408e71145cf70dbebd39b4d.jpg","extension":"jpg"}]
+2026/04/01 22:53:25 [ItemSync] 📤    - Signature: 64 байт
+2026/04/01 22:53:25 [ItemSync] 📤    - ФАЙЛ ВКЛЮЧЁН:
+2026/04/01 22:53:25 [ItemSync] 📤       * Size: 212100 байт
+2026/04/01 22:53:25 [ItemSync] 📤       * MimeType: image/jpeg
+2026/04/01 22:53:25 [ItemSync] 📤       * Hash: e42d409ac58a053413622d0bdb1193f79b614e70d8049011de2b2243b0069395
+2026/04/01 22:53:25 [ItemSync] ✅ Элемент #1 отправлен в стрим
+2026/04/01 22:53:25 [ItemSync] ✅ ===============================================
+2026/04/01 22:53:25 [ItemSync] ✅ ОТПРАВЛЕНО 1 элементов пиру 12D3KooWEJdEZtdAseDErV8oLzQiDjBn2Toytn1L4jnF2FAsdZFs
+2026/04/01 22:53:25 [ItemSync] ✅ ===============================================
+2026/04/01 22:53:26 [ItemSync] 🔔 ===============================================
+2026/04/01 22:53:26 [ItemSync] 🔔 ПОЛУЧЕН ЗАПРОС ЭЛЕМЕНТОВ ОТ: 12D3KooWEJdEZtdAseDErV8oLzQiDjBn2Toytn1L4jnF2FAsdZFs
+2026/04/01 22:53:26 [ItemSync] 🔔 ===============================================
+2026/04/01 22:53:26 [ItemSync] 📥 Прочитано 47 байт запроса
+2026/04/01 22:53:26 [ItemSync] 📄 RAW данные запроса (hex): 7b2268617368223a2230303030303034312d303030302d303030302d303030302d303030303030303030303431227d
+2026/04/01 22:53:26 [ItemSync] 📋 === ДЕТАЛИ ЗАПРОСА ===
+2026/04/01 22:53:26 [ItemSync] 📋 Hash/UUID: "00000041-0000-0000-0000-000000000041"
+2026/04/01 22:53:26 [ItemSync] 📋 ItemIDs: []
+2026/04/01 22:53:26 [ItemSync] 📋 All: false
+2026/04/01 22:53:26 [ItemSync] 📋 ОЖИДАНИЕ: Пир хочет получить элемент с UUID=00000041-0000-0000-0000-000000000041
+2026/04/01 22:53:26 [ItemSync] 🔍 Запрос по UUID/Hash: 00000041-0000-0000-0000-000000000041
+2026/04/01 22:53:26 [ItemSync] 🔍 Поиск элемента в БД по element_uuid=00000041-0000-0000-0000-000000000041...
+2026/04/01 22:53:26 [ItemSync] 📋 itemToResponse: ItemID=41, UUID=00000041, Title="", OwnerType=local
+2026/04/01 22:53:26 [ItemSync] 🔍 Извлечение file_hash из ContentMeta для элемента ID=41...
+2026/04/01 22:53:26 [ItemSync] 📋 ContentMeta: [{"type":"image","file_hash":"1910190c6703e0c4e76e97de79180984bbe5fbe51772e80b0316ed2518d761b3","original_name":"C:\\Users\\egors\\OneDrive\\Рабочий стол\\ad64ea2cc0e7000f0d2d40ad0ad0eef5.jpg","extension":"jpg"}]
+2026/04/01 22:53:26 [ItemSync] ✅ file_hash извлечён из ContentMeta: 1910190c6703e0c4e76e97de79180984bbe5fbe51772e80b0316ed2518d761b3
+2026/04/01 22:53:26 [ItemSync] ✅ Файл прочитан по хешу из общего хранилища: 153456 байт
+2026/04/01 22:53:26 [ItemSync] ✅ Файл добавлен в ответ (MIME=image/jpeg)
+2026/04/01 22:53:26 [ItemSync] ✅ Элемент НАЙДЕН в БД:
+2026/04/01 22:53:26 [ItemSync]    - ItemID: 41
+2026/04/01 22:53:26 [ItemSync]    - ElementUUID: 00000041-0000-0000-0000-000000000041
+2026/04/01 22:53:26 [ItemSync]    - Title: ""
+2026/04/01 22:53:26 [ItemSync]    - Type: element
+2026/04/01 22:53:26 [ItemSync]    - Hash: 0000000000000000000000000000000000000000000000000000000bc90673cb
+2026/04/01 22:53:26 [ItemSync]    - Description: ""
+2026/04/01 22:53:26 [ItemSync]    - ContentMeta: "[{\"type\":\"image\",\"file_hash\":\"1910190c6703e0c4e76e97de79180984bbe5fbe51772e80b0316ed2518d761b3\",\"original_name\":\"C:\\\\Users\\\\egors\\\\OneDrive\\\\Рабочий стол\\\\ad64ea2cc0e7000f0d2d40ad0ad0eef5.jpg\",\"extension\":\"jpg\"}]"
+2026/04/01 22:53:26 [ItemSync]    - FileData: true
+2026/04/01 22:53:26 [ItemSync]    - File Size: 153456 байт
+2026/04/01 22:53:26 [ItemSync]    - File MIME: image/jpeg
+2026/04/01 22:53:26 [ItemSync] 📤 Отправка 1 ответов...
+2026/04/01 22:53:26 [ItemSync] 📤 === ОТПРАВКА ОТВЕТА ===
+2026/04/01 22:53:26 [ItemSync] 📤 Найдено элементов для отправки: 1
+2026/04/01 22:53:26 [ItemSync] 📤 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+2026/04/01 22:53:26 [ItemSync] 📤 ОТПРАВКА элемента #1/1:
+2026/04/01 22:53:26 [ItemSync] 📤    - ItemID: 41
+2026/04/01 22:53:26 [ItemSync] 📤    - ElementUUID: 00000041-0000-0000-0000-000000000041
+2026/04/01 22:53:26 [ItemSync] 📤    - Title: ""
+2026/04/01 22:53:26 [ItemSync] 📤    - Type: element
+2026/04/01 22:53:26 [ItemSync] 📤    - Hash: 0000000000000000000000000000000000000000000000000000000bc90673cb
+2026/04/01 22:53:26 [ItemSync] 📤    - Description: ""
+2026/04/01 22:53:26 [ItemSync] 📤    - ContentMeta: [{"type":"image","file_hash":"1910190c6703e0c4e76e97de79180984bbe5fbe51772e80b0316ed2518d761b3","original_name":"C:\\Users\\egors\\OneDrive\\Рабочий стол\\ad64ea2cc0e7000f0d2d40ad0ad0eef5.jpg","extension":"jpg"}]
+2026/04/01 22:53:26 [ItemSync] 📤    - Signature: 64 байт
+2026/04/01 22:53:26 [ItemSync] 📤    - ФАЙЛ ВКЛЮЧЁН:
+2026/04/01 22:53:26 [ItemSync] 📤       * Size: 153456 байт
+2026/04/01 22:53:26 [ItemSync] 📤       * MimeType: image/jpeg
+2026/04/01 22:53:26 [ItemSync] 📤       * Hash: 1910190c6703e0c4e76e97de79180984bbe5fbe51772e80b0316ed2518d761b3
+2026/04/01 22:53:26 [ItemSync] ✅ Элемент #1 отправлен в стрим
+2026/04/01 22:53:26 [ItemSync] ✅ ===============================================
+2026/04/01 22:53:26 [ItemSync] ✅ ОТПРАВЛЕНО 1 элементов пиру 12D3KooWEJdEZtdAseDErV8oLzQiDjBn2Toytn1L4jnF2FAsdZFs
+2026/04/01 22:53:26 [ItemSync] ✅ ===============================================
+2026/04/01 22:53:26 [ItemSync] 🔔 ===============================================
+2026/04/01 22:53:26 [ItemSync] 🔔 ПОЛУЧЕН ЗАПРОС ЭЛЕМЕНТОВ ОТ: 12D3KooWEJdEZtdAseDErV8oLzQiDjBn2Toytn1L4jnF2FAsdZFs
+2026/04/01 22:53:26 [ItemSync] 🔔 ===============================================
+2026/04/01 22:53:26 [ItemSync] 📥 Прочитано 47 байт запроса
+2026/04/01 22:53:26 [ItemSync] 📄 RAW данные запроса (hex): 7b2268617368223a2230303030303034352d303030302d303030302d303030302d303030303030303030303435227d
+2026/04/01 22:53:26 [ItemSync] 📋 === ДЕТАЛИ ЗАПРОСА ===
+2026/04/01 22:53:26 [ItemSync] 📋 Hash/UUID: "00000045-0000-0000-0000-000000000045"
+2026/04/01 22:53:26 [ItemSync] 📋 ItemIDs: []
+2026/04/01 22:53:26 [ItemSync] 📋 All: false
+2026/04/01 22:53:26 [ItemSync] 📋 ОЖИДАНИЕ: Пир хочет получить элемент с UUID=00000045-0000-0000-0000-000000000045
+2026/04/01 22:53:26 [ItemSync] 🔍 Запрос по UUID/Hash: 00000045-0000-0000-0000-000000000045
+2026/04/01 22:53:26 [ItemSync] 🔍 Поиск элемента в БД по element_uuid=00000045-0000-0000-0000-000000000045...
+2026/04/01 22:53:26 [ItemSync] 📋 itemToResponse: ItemID=45, UUID=00000045, Title="Енот альбинос Лола", OwnerType=local
+2026/04/01 22:53:26 [ItemSync] 🔍 Извлечение file_hash из ContentMeta для элемента ID=45...
+2026/04/01 22:53:26 [ItemSync] 📋 ContentMeta: [{"type":"link","content":"https://www.youtube.com/shorts/gPQAlBZkmHo"}]
+2026/04/01 22:53:26 [ItemSync] ℹ️ file_hash не найден в ContentMeta (элемент без файла)
+2026/04/01 22:53:26 [ItemSync] ⚠️ Файл не будет включён в ответ (FileData=nil)
+2026/04/01 22:53:26 [ItemSync] ✅ Элемент НАЙДЕН в БД:
+2026/04/01 22:53:26 [ItemSync]    - ItemID: 45
+2026/04/01 22:53:26 [ItemSync]    - ElementUUID: 00000045-0000-0000-0000-000000000045
+2026/04/01 22:53:26 [ItemSync]    - Title: "Енот альбинос Лола"
+2026/04/01 22:53:26 [ItemSync]    - Type: element
+2026/04/01 22:53:26 [ItemSync]    - Hash: 51ca031c023790fb3f466973a7ccf3b45c926e424d499d077605c900e506195b
+2026/04/01 22:53:26 [ItemSync]    - Description: ""
+2026/04/01 22:53:26 [ItemSync]    - ContentMeta: "[{\"type\":\"link\",\"content\":\"https://www.youtube.com/shorts/gPQAlBZkmHo\"}]"
+2026/04/01 22:53:26 [ItemSync]    - FileData: false
+2026/04/01 22:53:26 [ItemSync] 📤 Отправка 1 ответов...
+2026/04/01 22:53:26 [ItemSync] 📤 === ОТПРАВКА ОТВЕТА ===
+2026/04/01 22:53:26 [ItemSync] 📤 Найдено элементов для отправки: 1
+2026/04/01 22:53:26 [ItemSync] 📤 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+2026/04/01 22:53:26 [ItemSync] 📤 ОТПРАВКА элемента #1/1:
+2026/04/01 22:53:26 [ItemSync] 📤    - ItemID: 45
+2026/04/01 22:53:26 [ItemSync] 📤    - ElementUUID: 00000045-0000-0000-0000-000000000045
+2026/04/01 22:53:26 [ItemSync] 📤    - Title: "Енот альбинос Лола"
+2026/04/01 22:53:26 [ItemSync] 📤    - Type: element
+2026/04/01 22:53:26 [ItemSync] 📤    - Hash: 51ca031c023790fb3f466973a7ccf3b45c926e424d499d077605c900e506195b
+2026/04/01 22:53:26 [ItemSync] 📤    - Description: ""
+2026/04/01 22:53:26 [ItemSync] 📤    - ContentMeta: [{"type":"link","content":"https://www.youtube.com/shorts/gPQAlBZkmHo"}]
+2026/04/01 22:53:26 [ItemSync] 📤    - Signature: 64 байт
+2026/04/01 22:53:26 [ItemSync] 📤    - ФАЙЛ: не прикреплён
+2026/04/01 22:53:26 [ItemSync] ✅ Элемент #1 отправлен в стрим
+2026/04/01 22:53:26 [ItemSync] ✅ ===============================================
+2026/04/01 22:53:26 [ItemSync] ✅ ОТПРАВЛЕНО 1 элементов пиру 12D3KooWEJdEZtdAseDErV8oLzQiDjBn2Toytn1L4jnF2FAsdZFs
+2026/04/01 22:53:26 [ItemSync] ✅ ===============================================
+2026/04/01 22:54:08 [KeepAlive] Ping пира 12D3KooW (начало)...
+2026/04/01 22:54:08 [KeepAlive] Стрим создан для 12D3KooW за 0s
+2026/04/01 22:54:08 [KeepAlive] Ping отправлен 12D3KooW, ждём pong...
+2026/04/01 22:54:08 [KeepAlive] ✅ Pong получен от 12D3KooW, latency: 84.1436ms
+2026/04/01 22:54:08 KeepAlive: 12D3KooWEJdEZtdAseDErV8oLzQiDjBn2Toytn1L4jnF2FAsdZFs - latency: 84.1436ms
+2026/04/01 22:55:08 [KeepAlive] Ping пира 12D3KooW (начало)...
+2026/04/01 22:55:08 [KeepAlive] Стрим создан для 12D3KooW за 771.1µs
+2026/04/01 22:55:08 [KeepAlive] Ping отправлен 12D3KooW, ждём pong...
+2026/04/01 22:55:08 [KeepAlive] ✅ Pong получен от 12D3KooW, latency: 10.9834ms
+2026/04/01 22:55:08 KeepAlive: 12D3KooWEJdEZtdAseDErV8oLzQiDjBn2Toytn1L4jnF2FAsdZFs - latency: 10.9834ms
+2026/04/01 22:56:08 [KeepAlive] Ping пира 12D3KooW (начало)...
+2026/04/01 22:56:08 [KeepAlive] Стрим создан для 12D3KooW за 674.4µs
+2026/04/01 22:56:08 [KeepAlive] Ping отправлен 12D3KooW, ждём pong...
+2026/04/01 22:56:08 [KeepAlive] ✅ Pong получен от 12D3KooW, latency: 10.7778ms
+2026/04/01 22:56:08 KeepAlive: 12D3KooWEJdEZtdAseDErV8oLzQiDjBn2Toytn1L4jnF2FAsdZFs - latency: 10.7778ms
+2026/04/01 22:57:08 [KeepAlive] Ping пира 12D3KooW (начало)...
+2026/04/01 22:57:08 [KeepAlive] Стрим создан для 12D3KooW за 0s
+2026/04/01 22:57:08 [KeepAlive] Ping отправлен 12D3KooW, ждём pong...
+2026/04/01 22:57:08 [KeepAlive] ✅ Pong получен от 12D3KooW, latency: 9.0273ms
+2026/04/01 22:57:08 KeepAlive: 12D3KooWEJdEZtdAseDErV8oLzQiDjBn2Toytn1L4jnF2FAsdZFs - latency: 9.0273ms
+2026/04/01 22:58:08 [KeepAlive] Ping пира 12D3KooW (начало)...
+2026/04/01 22:58:08 [KeepAlive] Стрим создан для 12D3KooW за 0s
+2026/04/01 22:58:08 [KeepAlive] Ping отправлен 12D3KooW, ждём pong...
+2026/04/01 22:58:08 [KeepAlive] ✅ Pong получен от 12D3KooW, latency: 5.0854ms
+2026/04/01 22:58:08 KeepAlive: 12D3KooWEJdEZtdAseDErV8oLzQiDjBn2Toytn1L4jnF2FAsdZFs - latency: 5.0854ms
+2026/04/01 22:58:09 [Chat] 🗨️ Открытие чата с пиром: 12D3KooW (12D3KooW)
+2026/04/01 22:58:09 [Chat] 🆕 OpenPeerChat: создание чата с пиром 12D3KooW (12D3KooW)
+2026/04/01 22:58:09 [ChatController] 🆕 Открытие чата с пиром: 12D3KooW (12D3KooW)
+2026/04/01 22:58:09 [ChatController] 📋 Профиль пира найден: username="User_12D3KooW"
+2026/04/01 22:58:09 [ChatController] 🗨️ Открытие чата: peerID=12D3KooW, username=User_12D3KooW
+2026/04/01 22:58:09 [Chat] 🗨️ Чат открыт: User_12D3KooW
+2026/04/01 22:58:09 [Chat] 📖 Загрузка сообщений для контакта: ID=0, peerID=12D3KooW
+2026/04/01 22:58:09 [Chat] 🧹 Список сообщений очищен
+2026/04/01 22:58:09 [Chat] 📚 Чат не найден, сообщений нет
+2026/04/01 22:58:09 [ProfilePanel] 🔄 Обновление профиля: username="User_12D3KooW", peer_id=12D3KooWEJ, avatar_path="", title="online"
+2026/04/01 22:58:09 [ProfilePanel] ✅ Имя установлено: "User_12D3KooW"
+2026/04/01 22:58:09 [ProfilePanel] ✅ Статус установлен: "online"
+2026/04/01 22:58:09 [ProfilePanel] 🖼️ Загрузка аватара: path=""
+2026/04/01 22:58:09 [ProfilePanel] ℹ️ AvatarPath пустой, скрываем изображение
+2026/04/01 22:58:09 [ProfilePanel] 🔍 Загрузка характеристик для peer_id=12D3KooW
+2026/04/01 22:58:09 [ProfilePanel] 📋 Профиль загружен: content_char="null"
+2026/04/01 22:58:09 [ProfilePanel] ✅ Характеристики загружены
+2026/04/01 22:58:09 [ProfilePanel] 🔍 Загрузка витрины элементов для peer_id=12D3KooW
+2026/04/01 22:58:09 [ProfilePanel] 📋 Профиль загружен: pinned_uuids=[]
+2026/04/01 22:58:09 [ProfilePanel] ℹ️ Витрина элементов пуста
+2026/04/01 22:58:09 [ProfilePanel] ✅ UI обновлён
+2026/04/01 22:58:09 [ChatController] 📥 Загрузка сообщений для контакта: peerID=12D3KooW
+2026/04/01 22:58:09 [ChatController] 📚 Чат не найден, сообщений нет
+2026/04/01 22:58:09 [Chat] ✅ Чат открыт в UI для пира: 12D3KooW (12D3KooW)
+2026/04/01 22:58:09 [DB] 🔍 GetRemoteProfile: поиск профиля для peer_id=12D3KooWEJ...
+2026/04/01 22:58:09 [DB] ✅ GetRemoteProfile: профиль найден, avatar_path=""
+2026/04/01 22:58:09 [Profile] ✅ Профиль уже есть в БД для 12D3KooW (username: User_12D3KooW), повторный запрос не требуется
+2026/04/01 22:58:11 [Chat] 🔍 DEBUG: чат id=1, peer_id=12D3KooWNS..., contact_id={0 false}, is_temporary=true
+2026/04/01 22:58:11 [Chat] 🔍 DEBUG: чат id=2, peer_id=12D3KooWJy..., contact_id={0 false}, is_temporary=false
+2026/04/01 22:58:11 [Chat] 🔍 DEBUG profiles: peer_id=12D3KooWJy..., owner_type=local, username=Egor, avatar_path="storage\\files\\avatars\\local\\Безымянный3.png"
+2026/04/01 22:58:11 [Chat] 🔍 DEBUG profiles: peer_id=12D3KooWNS..., owner_type=remote, username=User_12D3KooW, avatar_path=""
+2026/04/01 22:58:11 [Chat] 📋 Чат из БД: ID=1, peer=12D3KooW, username="User_12D3KooW", lastMsg="00000039-0000-0000-0000-000000000039", avatar_path=""
+2026/04/01 22:58:11 [Chat] 📋 Чат из БД: ID=2, peer=12D3KooW, username="12D3KooWJyZ283MgjARck96rPQSDWsXS27qtxxP5Xu5cH8Fghyxe", lastMsg="", avatar_path=""
+2026/04/01 22:58:11 [Chat] 📚 rows.Next() вернул 2 чатов
+2026/04/01 22:58:11 [Chat] 📚 Загружено чатов из БД: 2
+2026/04/01 22:58:11 [Chat] 📋 Чат #0: ID=1, peer=12D3KooW, username="User_12D3KooW", lastMsg="00000039-0000-0000-0000-000000000039", contactID=<nil>
+2026/04/01 22:58:11 [Chat] 📋 Чат #1: ID=2, peer=12D3KooW, username="12D3KooWJyZ283MgjARck96rPQSDWsXS27qtxxP5Xu5cH8Fghyxe", lastMsg="", contactID=<nil>
+2026/04/01 22:58:11 [Chat] 🎨 Создание элемента чата: ID=1, peer=12D3KooW, lastMsg="00000039-0000-0000-0000-000000000039"
+2026/04/01 22:58:11 [Avatar] 🎨 Создание аватара для чата ID=1, peer_id=12D3KooW...
+2026/04/01 22:58:11 [Avatar] 📋 AvatarPath из БД: ""
+2026/04/01 22:58:11 [Avatar] ℹ️ AvatarPath пустой, будет использована иконка по умолчанию
+2026/04/01 22:58:11 [Avatar] 🔲 Использование системной иконки (theme.AccountIcon)
+2026/04/01 22:58:11 [Avatar] ⚪ Возврат контейнера с системной иконкой
+2026/04/01 22:58:11 [Chat] 🎨 Создание элемента чата: ID=2, peer=12D3KooW, lastMsg=""
+2026/04/01 22:58:11 [Avatar] 🎨 Создание аватара для чата ID=2, peer_id=12D3KooW...
+2026/04/01 22:58:11 [Avatar] 📋 AvatarPath из БД: ""
+2026/04/01 22:58:11 [Avatar] ℹ️ AvatarPath пустой, будет использована иконка по умолчанию
+2026/04/01 22:58:11 [Avatar] 🔲 Использование системной иконки (theme.AccountIcon)
+2026/04/01 22:58:11 [Avatar] ⚪ Возврат контейнера с системной иконкой
+2026/04/01 22:58:11 [Chat] 🔍 DEBUG: чат id=1, peer_id=12D3KooWNS..., contact_id={0 false}, is_temporary=true
+2026/04/01 22:58:11 [Chat] 🔍 DEBUG: чат id=2, peer_id=12D3KooWJy..., contact_id={0 false}, is_temporary=false
+2026/04/01 22:58:11 [Chat] 🔍 DEBUG profiles: peer_id=12D3KooWJy..., owner_type=local, username=Egor, avatar_path="storage\\files\\avatars\\local\\Безымянный3.png"
+2026/04/01 22:58:11 [Chat] 🔍 DEBUG profiles: peer_id=12D3KooWNS..., owner_type=remote, username=User_12D3KooW, avatar_path=""
+2026/04/01 22:58:11 [Chat] 📋 Чат из БД: ID=1, peer=12D3KooW, username="User_12D3KooW", lastMsg="00000039-0000-0000-0000-000000000039", avatar_path=""
+2026/04/01 22:58:11 [Chat] 📋 Чат из БД: ID=2, peer=12D3KooW, username="12D3KooWJyZ283MgjARck96rPQSDWsXS27qtxxP5Xu5cH8Fghyxe", lastMsg="", avatar_path=""
+2026/04/01 22:58:11 [Chat] 📚 rows.Next() вернул 2 чатов
+2026/04/01 22:58:11 [Chat] 📚 Загружено чатов из БД: 2
+2026/04/01 22:58:11 [Chat] 📋 Чат #0: ID=1, peer=12D3KooW, username="User_12D3KooW", lastMsg="00000039-0000-0000-0000-000000000039", contactID=<nil>
+2026/04/01 22:58:11 [Chat] 📋 Чат #1: ID=2, peer=12D3KooW, username="12D3KooWJyZ283MgjARck96rPQSDWsXS27qtxxP5Xu5cH8Fghyxe", lastMsg="", contactID=<nil>
+2026/04/01 22:58:11 [Chat] 🎨 Создание элемента чата: ID=1, peer=12D3KooW, lastMsg="00000039-0000-0000-0000-000000000039"
+2026/04/01 22:58:11 [Avatar] 🎨 Создание аватара для чата ID=1, peer_id=12D3KooW...
+2026/04/01 22:58:11 [Avatar] 📋 AvatarPath из БД: ""
+2026/04/01 22:58:11 [Avatar] ℹ️ AvatarPath пустой, будет использована иконка по умолчанию
+2026/04/01 22:58:11 [Avatar] 🔲 Использование системной иконки (theme.AccountIcon)
+2026/04/01 22:58:11 [Avatar] ⚪ Возврат контейнера с системной иконкой
+2026/04/01 22:58:11 [Chat] 🎨 Создание элемента чата: ID=2, peer=12D3KooW, lastMsg=""
+2026/04/01 22:58:11 [Avatar] 🎨 Создание аватара для чата ID=2, peer_id=12D3KooW...
+2026/04/01 22:58:11 [Avatar] 📋 AvatarPath из БД: ""
+2026/04/01 22:58:11 [Avatar] ℹ️ AvatarPath пустой, будет использована иконка по умолчанию
+2026/04/01 22:58:11 [Avatar] 🔲 Использование системной иконки (theme.AccountIcon)
+2026/04/01 22:58:11 [Avatar] ⚪ Возврат контейнера с системной иконкой
+2026/04/01 22:58:13 [Chat] 🚪 Открытие чата по ID=1
+2026/04/01 22:58:13 [Chat] ℹ️ Профиль найден: User_12D3KooW
+2026/04/01 22:58:13 [Chat] 🗨️ Открытие чата с пиром: User_12D3KooW (12D3KooW)
+2026/04/01 22:58:13 [Chat] 🆕 OpenPeerChat: создание чата с пиром User_12D3KooW (12D3KooW)
+2026/04/01 22:58:13 [ChatController] 🆕 Открытие чата с пиром: User_12D3KooW (12D3KooW)
+2026/04/01 22:58:13 [ChatController] 📋 Профиль пира найден: username="User_12D3KooW"
+2026/04/01 22:58:13 [ChatController] 🗨️ Открытие чата: peerID=12D3KooW, username=User_12D3KooW
+2026/04/01 22:58:13 [Chat] 🗨️ Чат открыт: User_12D3KooW
+2026/04/01 22:58:13 [Chat] 📖 Загрузка сообщений для контакта: ID=0, peerID=12D3KooW
+2026/04/01 22:58:13 [Chat] 🧹 Список сообщений очищен
+2026/04/01 22:58:13 [Chat] 📚 Получено 2 сообщений из БД
+2026/04/01 22:58:13 [Chat] 📚 Загрузка 2 сообщений в чат
+2026/04/01 22:58:13 [Chat] 🔍 localPeerID = "12D3KooWJyZ283MgjARck96rPQSDWsXS27qtxxP5Xu5cH8Fghyxe" (len=52)
+2026/04/01 22:58:13 [Chat] 📨 Сообщение #0: from="12D3KooWJyZ283MgjARck96rPQSDWsXS27qtxxP5Xu5cH8Fghyxe" (len=52), isOutgoing=true
+2026/04/01 22:58:13 [Chat] 💬 Добавление сообщения в UI: исходящее, от=12D3KooW, len=18
+2026/04/01 22:58:13 [Chat] 📭 Сообщение добавлено в контейнер, выполняется прокрутка вниз
+2026/04/01 22:58:13 [Chat] 📨 Сообщение #1: from="12D3KooWJyZ283MgjARck96rPQSDWsXS27qtxxP5Xu5cH8Fghyxe" (len=52), isOutgoing=true
+2026/04/01 22:58:13 [Chat] 💬 Добавление сообщения в UI: исходящее, от=12D3KooW, len=36
+2026/04/01 22:58:13 [Chat] 📭 Сообщение добавлено в контейнер, выполняется прокрутка вниз
+2026/04/01 22:58:13 [Chat] ✅ Загрузка сообщений завершена
+2026/04/01 22:58:13 [ProfilePanel] 🔄 Обновление профиля: username="User_12D3KooW", peer_id=12D3KooWNS, avatar_path="", title="online"
+2026/04/01 22:58:13 [ProfilePanel] ✅ Имя установлено: "User_12D3KooW"
+2026/04/01 22:58:13 [ProfilePanel] ✅ Статус установлен: "online"
+2026/04/01 22:58:13 [ProfilePanel] 🖼️ Загрузка аватара: path=""
+2026/04/01 22:58:13 [ProfilePanel] ℹ️ AvatarPath пустой, скрываем изображение
+2026/04/01 22:58:13 [ProfilePanel] 🔍 Загрузка характеристик для peer_id=12D3KooW
+2026/04/01 22:58:13 [ProfilePanel] 📋 Профиль загружен: content_char="null"
+2026/04/01 22:58:13 [ProfilePanel] ✅ Характеристики загружены
+2026/04/01 22:58:13 [ProfilePanel] 🔍 Загрузка витрины элементов для peer_id=12D3KooW
+2026/04/01 22:58:13 [ProfilePanel] 📋 Профиль загружен: pinned_uuids=[]
+2026/04/01 22:58:13 [ProfilePanel] ℹ️ Витрина элементов пуста
+2026/04/01 22:58:13 [ProfilePanel] ✅ UI обновлён
+2026/04/01 22:58:13 [ChatController] 📥 Загрузка сообщений для контакта: peerID=12D3KooW
+2026/04/01 22:58:13 [ChatController] 📚 Получено 2 сообщений из БД
+2026/04/01 22:58:13 [DB] 🔍 GetRemoteProfile: поиск профиля для peer_id=12D3KooWNS...
+2026/04/01 22:58:13 [DB] ✅ GetRemoteProfile: профиль найден, avatar_path=""
+2026/04/01 22:58:13 [Profile] ✅ Профиль уже есть в БД для 12D3KooW (username: User_12D3KooW), повторный запрос не требуется
+2026/04/01 22:58:14 [Chat] 🚪 Открытие чата по ID=2
+2026/04/01 22:58:14 [Chat] ℹ️ Профиль найден: Egor
+2026/04/01 22:58:14 [Chat] 🗨️ Открытие чата с пиром: Egor (12D3KooW)
+2026/04/01 22:58:14 [Chat] 🆕 OpenPeerChat: создание чата с пиром Egor (12D3KooW)
+2026/04/01 22:58:14 [ChatController] 🆕 Открытие чата с пиром: Egor (12D3KooW)
+2026/04/01 22:58:14 [ChatController] 📋 Профиль пира найден: username="Egor"
+2026/04/01 22:58:14 [ChatController] 🗨️ Открытие чата: peerID=12D3KooW, username=Egor
+2026/04/01 22:58:14 [Chat] 🗨️ Чат открыт: Egor
+2026/04/01 22:58:14 [Chat] 📖 Загрузка сообщений для контакта: ID=0, peerID=12D3KooW
+2026/04/01 22:58:14 [Chat] 🧹 Список сообщений очищен
+2026/04/01 22:58:14 [Chat] 📚 Получено 0 сообщений из БД
+2026/04/01 22:58:14 [Chat] 📚 Загрузка 0 сообщений в чат
+2026/04/01 22:58:14 [Chat] 🔍 localPeerID = "12D3KooWJyZ283MgjARck96rPQSDWsXS27qtxxP5Xu5cH8Fghyxe" (len=52)
+2026/04/01 22:58:14 [Chat] ✅ Загрузка сообщений завершена
+2026/04/01 22:58:14 [ProfilePanel] 🔄 Обновление профиля: username="Egor", peer_id=12D3KooWJy, avatar_path="storage\\files\\avatars\\local\\Безымянный3.png", title="Не статус"
+2026/04/01 22:58:14 [ProfilePanel] ✅ Имя установлено: "Egor"
+2026/04/01 22:58:14 [ProfilePanel] ✅ Статус установлен: "Не статус"
+2026/04/01 22:58:14 [ProfilePanel] 🖼️ Загрузка аватара: path="storage\\files\\avatars\\local\\Безымянный3.png"
+2026/04/01 22:58:14 [ProfilePanel] ✅ Аватар успешно загружен: "storage\\files\\avatars\\local\\Безымянный3.png" (173494 байт)
+2026/04/01 22:58:15 [ProfilePanel] 🖼️ Аватар установлен в UI
+2026/04/01 22:58:15 [ProfilePanel] 🔍 Загрузка характеристик для peer_id=12D3KooW
+2026/04/01 22:58:15 [ProfilePanel] 📋 Профиль загружен: content_char="[{\"element_uuid\":\"\",\"title\":\"Возраст\",\"value\":\"19 годиков\"},{\"element_uuid\":\"\",\"title\":\"Но душой в\",\"value\":\"103к\"},{\"element_uuid\":\"\",\"title\":\"Должность\",\"value\":\"Разраб\"},{\"element_uuid\":\"\",\"title\":\"Город\",\"value\":\"404\"}]"
+2026/04/01 22:58:15 [ProfilePanel] ✅ Характеристики загружены
+2026/04/01 22:58:15 [ProfilePanel] 🔍 Загрузка витрины элементов для peer_id=12D3KooW
+2026/04/01 22:58:15 [ProfilePanel] 📋 Профиль загружен: pinned_uuids=["00000024-0000-0000-0000-000000000024","00000041-0000-0000-0000-000000000041","00000045-0000-0000-0000-000000000045"]     
+2026/04/01 22:58:15 [DemoElements] 📦 Загрузка витрины элементов: pinned_uuids=["00000024-0000-0000-0000-000000000024","00000041-0000-0000-0000-000000000041","00000045-0000-0000-0000-000000000045"]
+2026/04/01 22:58:15 [DemoElements] 📋 Распарсено 3 элементов
+2026/04/01 22:58:15 [DemoElements] 🔍 Загрузка элемента #1: UUID=00000024-0000-0000-0000-000000000024, title="Элемент"
+2026/04/01 22:58:15 [DemoElements] 🔍 Загрузка элемента из БД: UUID=00000024-0000-0000-0000-000000000024
+2026/04/01 22:58:15 [DemoElements] ✅ Элемент найден: ID=24, title="Корона", type=element, status=saved
+2026/04/01 22:58:15 [DemoElements] 📄 Создание карточки элемента
+2026/04/01 22:58:15 [DemoElements] ✅ Карточка элемента создана: ID=24
+2026/04/01 22:58:15 [DemoElements] 🔍 Загрузка элемента #2: UUID=00000041-0000-0000-0000-000000000041, title="Элемент"
+2026/04/01 22:58:15 [DemoElements] 🔍 Загрузка элемента из БД: UUID=00000041-0000-0000-0000-000000000041
+2026/04/01 22:58:15 [DemoElements] ✅ Элемент найден: ID=41, title="", type=element, status=saved
+2026/04/01 22:58:15 [DemoElements] 📄 Создание карточки элемента
+2026/04/01 22:58:15 [DemoElements] ✅ Карточка элемента создана: ID=41
+2026/04/01 22:58:15 [DemoElements] 🔍 Загрузка элемента #3: UUID=00000045-0000-0000-0000-000000000045, title="Элемент"
+2026/04/01 22:58:15 [DemoElements] 🔍 Загрузка элемента из БД: UUID=00000045-0000-0000-0000-000000000045
+2026/04/01 22:58:15 [DemoElements] ✅ Элемент найден: ID=45, title="Енот альбинос Лола", type=element, status=saved
+2026/04/01 22:58:15 [DemoElements] 📄 Создание карточки элемента
+2026/04/01 22:58:15 [DemoElements] ✅ Карточка элемента создана: ID=45
+2026/04/01 22:58:15 [DemoElements] ✅ Витрина загружена: 3 элементов отображено
+2026/04/01 22:58:15 [ProfilePanel] ✅ Витрина элементов загружена
+2026/04/01 22:58:16 [ProfilePanel] ✅ UI обновлён
+2026/04/01 22:58:16 [ChatController] 📥 Загрузка сообщений для контакта: peerID=12D3KooW
+2026/04/01 22:58:16 [ChatController] 📚 Получено 0 сообщений из БД
+2026/04/01 22:58:16 [DB] 🔍 GetRemoteProfile: поиск профиля для peer_id=12D3KooWJy...
+2026/04/01 22:58:16 [DB] ❌ GetRemoteProfile: профиль не найден для peer_id=12D3KooWJy
+2026/04/01 22:58:16 [Profile] Запрос профиля у пира 12D3KooW (роль: ИНИЦИАТОР)...
+2026/04/01 22:58:16 [Profile] Пир 12D3KooW отмечен как ожидающий обмена профиля
+2026/04/01 22:58:16 [Profile] Ошибка создания стрима для 12D3KooW: failed to dial: dial to self attempted
+2026/04/01 22:58:16 [Profile] Обмен профиля с 12D3KooW завершён
+2026/04/01 22:58:16 [ChatController] ❌ Не удалось запросить профиль у пира: ошибка создания стрима: failed to dial: dial to self attempted
+2026/04/01 22:58:19 [Chat] 🗨️ Открытие чата с пиром: 12D3KooW (12D3KooW)
+2026/04/01 22:58:19 [Chat] 🆕 OpenPeerChat: создание чата с пиром 12D3KooW (12D3KooW)
+2026/04/01 22:58:19 [ChatController] 🆕 Открытие чата с пиром: 12D3KooW (12D3KooW)
+2026/04/01 22:58:19 [ChatController] 📋 Профиль пира найден: username="User_12D3KooW"
+2026/04/01 22:58:19 [ChatController] 🗨️ Открытие чата: peerID=12D3KooW, username=User_12D3KooW
+2026/04/01 22:58:19 [Chat] 🗨️ Чат открыт: User_12D3KooW
+2026/04/01 22:58:19 [Chat] 📖 Загрузка сообщений для контакта: ID=0, peerID=12D3KooW
+2026/04/01 22:58:19 [Chat] 🧹 Список сообщений очищен
+2026/04/01 22:58:19 [Chat] 📚 Чат не найден, сообщений нет
+2026/04/01 22:58:19 [ProfilePanel] 🔄 Обновление профиля: username="User_12D3KooW", peer_id=12D3KooWEJ, avatar_path="", title="online"
+2026/04/01 22:58:19 [ProfilePanel] ✅ Имя установлено: "User_12D3KooW"
+2026/04/01 22:58:19 [ProfilePanel] ✅ Статус установлен: "online"
+2026/04/01 22:58:19 [ProfilePanel] 🖼️ Загрузка аватара: path=""
+2026/04/01 22:58:19 [ProfilePanel] ℹ️ AvatarPath пустой, скрываем изображение
+2026/04/01 22:58:19 [ProfilePanel] 🔍 Загрузка характеристик для peer_id=12D3KooW
+2026/04/01 22:58:19 [ProfilePanel] 📋 Профиль загружен: content_char="null"
+2026/04/01 22:58:19 [ProfilePanel] ✅ Характеристики загружены
+2026/04/01 22:58:19 [ProfilePanel] 🔍 Загрузка витрины элементов для peer_id=12D3KooW
+2026/04/01 22:58:19 [ProfilePanel] 📋 Профиль загружен: pinned_uuids=[]
+2026/04/01 22:58:19 [ProfilePanel] ℹ️ Витрина элементов пуста
+2026/04/01 22:58:19 [ProfilePanel] ✅ UI обновлён
+2026/04/01 22:58:19 [ChatController] 📥 Загрузка сообщений для контакта: peerID=12D3KooW
+2026/04/01 22:58:19 [ChatController] 📚 Чат не найден, сообщений нет
+2026/04/01 22:58:19 [Chat] ✅ Чат открыт в UI для пира: 12D3KooW (12D3KooW)
+2026/04/01 22:58:19 [DB] 🔍 GetRemoteProfile: поиск профиля для peer_id=12D3KooWEJ...
+2026/04/01 22:58:19 [DB] ✅ GetRemoteProfile: профиль найден, avatar_path=""
+2026/04/01 22:58:19 [Profile] ✅ Профиль уже есть в БД для 12D3KooW (username: User_12D3KooW), повторный запрос не требуется
+2026/04/01 22:58:19 [Chat] 🗨️ Открытие чата с пиром: 12D3KooW (12D3KooW)
+2026/04/01 22:58:19 [Chat] 🆕 OpenPeerChat: создание чата с пиром 12D3KooW (12D3KooW)
+2026/04/01 22:58:19 [ChatController] 🆕 Открытие чата с пиром: 12D3KooW (12D3KooW)
+2026/04/01 22:58:19 [ChatController] 📋 Профиль пира найден: username="User_12D3KooW"
+2026/04/01 22:58:19 [ChatController] 🗨️ Открытие чата: peerID=12D3KooW, username=User_12D3KooW
+2026/04/01 22:58:19 [Chat] 🗨️ Чат открыт: User_12D3KooW
+2026/04/01 22:58:19 [Chat] 📖 Загрузка сообщений для контакта: ID=0, peerID=12D3KooW
+2026/04/01 22:58:19 [Chat] 🧹 Список сообщений очищен
+2026/04/01 22:58:19 [Chat] 📚 Чат не найден, сообщений нет
+2026/04/01 22:58:19 [ProfilePanel] 🔄 Обновление профиля: username="User_12D3KooW", peer_id=12D3KooWEJ, avatar_path="", title="online"
+2026/04/01 22:58:19 [ProfilePanel] ✅ Имя установлено: "User_12D3KooW"
+2026/04/01 22:58:19 [ProfilePanel] ✅ Статус установлен: "online"
+2026/04/01 22:58:19 [ProfilePanel] 🖼️ Загрузка аватара: path=""
+2026/04/01 22:58:19 [ProfilePanel] ℹ️ AvatarPath пустой, скрываем изображение
+2026/04/01 22:58:19 [ProfilePanel] 🔍 Загрузка характеристик для peer_id=12D3KooW
+2026/04/01 22:58:19 [ProfilePanel] 📋 Профиль загружен: content_char="null"
+2026/04/01 22:58:19 [ProfilePanel] ✅ Характеристики загружены
+2026/04/01 22:58:19 [ProfilePanel] 🔍 Загрузка витрины элементов для peer_id=12D3KooW
+2026/04/01 22:58:19 [ProfilePanel] 📋 Профиль загружен: pinned_uuids=[]
+2026/04/01 22:58:19 [ProfilePanel] ℹ️ Витрина элементов пуста
+2026/04/01 22:58:19 [ProfilePanel] ✅ UI обновлён
+2026/04/01 22:58:19 [ChatController] 📥 Загрузка сообщений для контакта: peerID=12D3KooW
+2026/04/01 22:58:19 [ChatController] 📚 Чат не найден, сообщений нет
+2026/04/01 22:58:19 [Chat] ✅ Чат открыт в UI для пира: 12D3KooW (12D3KooW)
+2026/04/01 22:58:19 [DB] 🔍 GetRemoteProfile: поиск профиля для peer_id=12D3KooWEJ...
+2026/04/01 22:58:19 [DB] ✅ GetRemoteProfile: профиль найден, avatar_path=""
+2026/04/01 22:58:19 [Profile] ✅ Профиль уже есть в БД для 12D3KooW (username: User_12D3KooW), повторный запрос не требуется
+2026/04/01 22:58:38 TransferService остановлен
+2026/04/01 22:58:38 ItemSyncService остановлен
+2026/04/01 22:58:38 ChatService остановлен
+2026/04/01 22:58:38 Сервис обнаружения остановлен
+2026/04/01 22:58:38 ConnectionService остановлен
+2026/04/01 22:58:38 ProfileExchangeService остановлен
+2026/04/01 22:58:38 Пир отключён: 12D3KooWEJdEZtdAseDErV8oLzQiDjBn2Toytn1L4jnF2FAsdZFs
+
+Логи ПК
+026/04/01 22:52:12 [Миграция] Колонка status уже существует в таблице items
+2026/04/01 22:52:12 [Миграция] UNIQUE индекс для remote элементов создан
+2026/04/01 22:52:12 Все миграции базы данных выполнены успешно
+2026/04/01 22:52:12 [P2P] Порт установлен: 4000
+2026/04/01 22:52:12 [App] P2P порт из config: 4000
+2026/04/01 22:52:12 Создание нового P2P профиля...
+2026/04/01 22:52:12 Предупреждение: приватный ключ сохранён без шифрования
+2026/04/01 22:52:12 Создан новый P2P профиль: 12D3KooWEJdEZtdAseDErV8oLzQiDjBn2Toytn1L4jnF2FAsdZFs
+2026/04/01 22:52:12 NAT Port Mapping включён
+2026/04/01 22:52:12 Relay включён
+2026/04/01 22:52:12 AutoRelay включён
+2026/04/01 22:52:12 mDNS включён (локальное обнаружение)
+2026/04/01 22:52:12 STUN клиент выключен
+2026/04/01 22:52:12 DHT инициализирована
+2026/04/01 22:52:12 PubSub инициализирована
+2026/04/01 22:52:12 ChatService запущен
+2026/04/01 22:52:12 P2P хост запущен: 12D3KooWEJdEZtdAseDErV8oLzQiDjBn2Toytn1L4jnF2FAsdZFs
+2026/04/01 22:52:12 Адреса для подключения: [/ip4/127.0.0.1/tcp/4000 /ip4/192.168.0.13/tcp/4000 /ip6/::1/tcp/4000]
+2026/04/01 22:52:12 ConnectionService запущен
+2026/04/01 22:52:12 ProfileExchangeService v2.0 запущен
+2026/04/01 22:52:12 TransferService запущен
+2026/04/01 22:52:12 ItemSyncService запущен
+2026/04/01 22:52:12 ChatService запущен
+2026/04/01 22:52:12 [Chat] ✅ Transfer Service и ItemSync сервис связаны с Chat сервисом
+2026/04/01 22:52:12 [Chat] ✅ ItemSync Service установлен
+2026/04/01 22:52:12 [Chat] ✅ ItemSync сервис установлен в глобальный ChatService
+2026/04/01 22:52:12 mDNS временно недоступен - используется только DHT discovery
+2026/04/01 22:52:12 mDNS обнаружение запущено
+2026/04/01 22:52:12 Сервис обнаружения запущен (ожидание ручного подключения)
+2026/04/01 22:52:12 P2P запущен
+Ошибка загрузки избранных папок: no such column: f.entity_id
+Ошибка загрузки избранных тегов: no such column: f.entity_id
+2026/04/01 22:52:46 [Chat] 📚 rows.Next() вернул 0 чатов
+2026/04/01 22:52:46 [Chat] 📚 Загружено чатов из БД: 0
+2026/04/01 22:52:46 [ProfilePanel] 🔄 Обновление профиля: username="User_12D3KooW", peer_id=12D3KooWEJ, avatar_path="", title="online"
+2026/04/01 22:52:46 [ProfilePanel] ✅ Имя установлено: "User_12D3KooW"
+2026/04/01 22:52:46 [ProfilePanel] ✅ Статус установлен: "online"
+2026/04/01 22:52:46 [ProfilePanel] 🖼️ Загрузка аватара: path=""
+2026/04/01 22:52:46 [ProfilePanel] ℹ️ AvatarPath пустой, скрываем изображение
+2026/04/01 22:52:46 [ProfilePanel] 🔍 Загрузка характеристик для peer_id=12D3KooW
+2026/04/01 22:52:46 [ProfilePanel] 📋 Профиль загружен: content_char="null"
+2026/04/01 22:52:46 [ProfilePanel] ✅ Характеристики загружены
+2026/04/01 22:52:46 [ProfilePanel] 🔍 Загрузка витрины элементов для peer_id=12D3KooW
+2026/04/01 22:52:46 [ProfilePanel] 📋 Профиль загружен: pinned_uuids=[]
+2026/04/01 22:52:46 [ProfilePanel] ℹ️ Витрина элементов пуста
+2026/04/01 22:52:46 [ProfilePanel] ✅ UI обновлён
+2026/04/01 22:52:46 [DemoElements] 📦 Загрузка витрины элементов: pinned_uuids=[]
+2026/04/01 22:52:46 [DemoElements] 📋 Распарсено 0 элементов
+2026/04/01 22:52:46 [DemoElements] ℹ️ Витрина пуста
+2026/04/01 22:52:47 [Chat] ✅ Глобальный P2P сервис установлен
+2026/04/01 22:52:47 [Chat] ℹ️ SubscribeToMessages вызван - контроллер сам подписывается на события
+2026/04/01 22:52:47 [loadP2PSettings] Загрузка настроек...
+2026/04/01 22:52:47 [loadP2PSettings] Получены настройки: Port=4000, NAT=true, Relay=true
+2026/04/01 22:52:47 [loadP2PSettings] Настройки загружены, порт=4000
+2026/04/01 22:52:48 [GetLocalAddresses] PeerID: 12D3KooWEJdEZtdAseDErV8oLzQiDjBn2Toytn1L4jnF2FAsdZFs, Конфигурированный порт: 4000
+2026/04/01 22:52:48 [GetLocalAddresses] Всего адресов: 4
+2026/04/01 22:52:48 [GetLocalAddresses] Пропущен адрес с портом 46061 (ожидался 4000)
+2026/04/01 22:52:48 [GetLocalAddresses] ✅ Адрес: projectt:12D3KooWEJdEZtdAseDErV8oLzQiDjBn2Toytn1L4jnF2FAsdZFs@/ip4/192.168.0.13/tcp/4000/p2p/12D3KooWEJdEZtdAseDErV8oLzQiDjBn2Toytn1L4jnF2FAsdZFs
+2026/04/01 22:53:10 [Chat] 📚 rows.Next() вернул 0 чатов
+2026/04/01 22:53:10 [Chat] 📚 Загружено чатов из БД: 0
+2026/04/01 22:53:10 [Chat] 📚 rows.Next() вернул 0 чатов
+2026/04/01 22:53:10 [Chat] 📚 Загружено чатов из БД: 0
+2026/04/01 22:53:25 Пир подключён: 12D3KooWJyZ283MgjARck96rPQSDWsXS27qtxxP5Xu5cH8Fghyxe
+2026/04/01 22:53:25 [Profile] === Получен запрос профиля от: 12D3KooWJyZ283MgjARck96rPQSDWsXS27qtxxP5Xu5cH8Fghyxe (Роль 2 - СЕРВЕР) ===
+2026/04/01 22:53:25 [Profile] Чтение запроса от 12D3KooW...
+2026/04/01 22:53:25 [Profile] Запрос получен от 12D3KooW: RequestFull=true, IsInitiator=true
+2026/04/01 22:53:25 [Profile] Отправка своего профиля (СЕРВЕР) пиру 12D3KooW...
+2026/04/01 22:53:25 [Profile] 📌 PinnedUUIDs для отправки: 0 элементов, UUIDs=[]
+2026/04/01 22:53:25 [Profile] 🔑 Локальный ключ шифрования (len=32) добавлен в ProfileResponse
+2026/04/01 22:53:25 [Profile] ✅ Свой профиль (СЕРВЕР) отправлен 12D3KooW
+2026/04/01 22:53:25 [Profile] Чтение профиля инициатора от 12D3KooW...
+2026/04/01 22:53:25 [Profile] ✅ Профиль инициатора получен от 12D3KooW за 71.3034ms (username: Egor, аватар: 173494 байт, encryption_key[0]=3)
+2026/04/01 22:53:25 [Profile] savePeerProfile: peer_id=12D3KooW, username=Egor, owner_type=remote, avatar_path=""
+2026/04/01 22:53:25 [Profile] ✅ Публичный ключ сохранён в Peerstore для 12D3KooW
+2026/04/01 22:53:25 [Profile] Создаём новый профиль...
+2026/04/01 22:53:25 [Profile] ✅ Профиль создан: 12D3KooW (username: Egor)
+2026/04/01 22:53:25 [Profile] ✅ Профиль инициатора 12D3KooW сохранён (username: Egor)
+2026/04/01 22:53:25 [Profile] 🔑 Ключ шифрования сохранён для 12D3KooW (len=32, key[0]=3)
+2026/04/01 22:53:25 [Filesystem] 🔍 Поиск аватара для peer_id=12D3KooWJy...
+2026/04/01 22:53:25 [Filesystem] 📂 Директория аватаров: storage\files\avatars\remote
+2026/04/01 22:53:25 [Profile] 📌 === НАЧАЛО ЗАГРУЗКИ PINNED ЭЛЕМЕНТОВ ===
+2026/04/01 22:53:25 [Profile] 📌 PeerID: 12D3KooWJyZ283MgjARck96rPQSDWsXS27qtxxP5Xu5cH8Fghyxe
+2026/04/01 22:53:25 [Profile] 📌 Количество pinned элементов: 3
+2026/04/01 22:53:25 [Profile] 📌 UUIDs: [00000024-0000-0000-0000-000000000024 00000041-0000-0000-0000-000000000041 00000045-0000-0000-0000-000000000045]
+2026/04/01 22:53:25 [Profile] 🔍 ПРОВЕРКА НАЛИЧИЯ ЭЛЕМЕНТОВ В БД...
+2026/04/01 22:53:25 [Filesystem] 🔍 Поиск аватара для peer_id=12D3KooWJy...
+2026/04/01 22:53:25 [Filesystem] ❌ Директория аватаров не найдена: storage\files\avatars\remote
+2026/04/01 22:53:25 [Filesystem] 📂 Директория аватаров: storage\files\avatars\remote
+2026/04/01 22:53:25 [Filesystem] 💾 Сохранение аватара для peer_id=12D3KooWJy (173494 байт)...
+2026/04/01 22:53:25 [Profile] ⚠️ Ошибка проверки элемента 00000024-0000-0000-0000-000000000024 в БД: элемент не найден
+2026/04/01 22:53:25 [Filesystem] ❌ Директория аватаров не найдена: storage\files\avatars\remote
+2026/04/01 22:53:25 [Filesystem] 💾 Сохранение аватара для peer_id=12D3KooWJy (173494 байт)...
+2026/04/01 22:53:25 [Profile] ⚠️ Ошибка проверки элемента 00000041-0000-0000-0000-000000000041 в БД: элемент не найден
+2026/04/01 22:53:25 [Profile] ⚠️ Ошибка проверки элемента 00000045-0000-0000-0000-000000000045 в БД: элемент не найден
+2026/04/01 22:53:25 [Profile] 📊 === СТАТИСТИКА ПРОВЕРКИ ===
+2026/04/01 22:53:25 [Profile] 📊 Уже загружено: 0
+2026/04/01 22:53:25 [Profile] 📊 Требуется загрузить: 3
+2026/04/01 22:53:25 [Profile] 📊 Существующие UUIDs: []
+2026/04/01 22:53:25 [Profile] 📊 Запрашиваемые UUIDs: [00000024-0000-0000-0000-000000000024 00000041-0000-0000-0000-000000000041 00000045-0000-0000-0000-000000000045]
+2026/04/01 22:53:25 [Profile] 📥 === ЗАПРОС 3 ОТСУТСТВУЮЩИХ ЭЛЕМЕНТОВ ЧЕРЕЗ ItemSync ===
+2026/04/01 22:53:25 [Profile] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+2026/04/01 22:53:25 [Profile] 🔄 Загрузка элемента 1/3: UUID=00000024-0000-0000-0000-000000000024
+2026/04/01 22:53:25 [Profile] 🔌 ВЫЗОВ: ItemSync.RequestItemByElementUUID(peerID=12D3KooWJyZ283Mg, uuid=00000024-0000-0000-0000-000000000024, timeout=60s)
+2026/04/01 22:53:25 [ItemSync] 🔌 Запрос элемента: UUID=00000024, PeerID=12D3KooW
+2026/04/01 22:53:25 [ItemSync] ✅ Стрим создан
+2026/04/01 22:53:25 [ItemSync] 📤 Отправка запроса: 47 байт
+2026/04/01 22:53:25 [ItemSync] ✅ Запрос отправлен, закрываем Write...
+2026/04/01 22:53:25 [ItemSync] ✅ Write закрыт, ждём ответ...
+2026/04/01 22:53:25 [ItemSync] 📥 Чтение ответа...
+2026/04/01 22:53:26 [Filesystem] 📊 MIME-тип: image/png, расширение: .png
+2026/04/01 22:53:26 [Filesystem] 📊 MIME-тип: image/png, расширение: .png
+2026/04/01 22:53:26 [Filesystem] 🔐 Хеш файла: d5cf11ad2301fb2a
+2026/04/01 22:53:26 [Filesystem] 📁 Путь сохранения: storage\files\avatars\remote\12D3KooWJyZ283MgjARck96rPQSDWsXS27qtxxP5Xu5cH8Fghyxe_d5cf11ad2301fb2a.png
+2026/04/01 22:53:26 [Filesystem] 🔐 Хеш файла: d5cf11ad2301fb2a
+2026/04/01 22:53:26 [Filesystem] 📁 Путь сохранения: storage\files\avatars\remote\12D3KooWJyZ283MgjARck96rPQSDWsXS27qtxxP5Xu5cH8Fghyxe_d5cf11ad2301fb2a.png
+2026/04/01 22:53:26 [Filesystem] ✅ Аватар сохранён: storage\files\avatars\remote\12D3KooWJyZ283MgjARck96rPQSDWsXS27qtxxP5Xu5cH8Fghyxe_d5cf11ad2301fb2a.png (173494 байт, hash: d5cf11ad)
+2026/04/01 22:53:26 [Profile] ✅ Аватар сохранён: storage\files\avatars\remote\12D3KooWJyZ283MgjARck96rPQSDWsXS27qtxxP5Xu5cH8Fghyxe_d5cf11ad2301fb2a.png
+2026/04/01 22:53:26 [Profile] 🔍 Получение профиля для 12D3KooW...
+2026/04/01 22:53:26 [DB] 🔍 GetRemoteProfile: поиск профиля для peer_id=12D3KooWJy...
+2026/04/01 22:53:26 [Filesystem] ✅ Аватар сохранён: storage\files\avatars\remote\12D3KooWJyZ283MgjARck96rPQSDWsXS27qtxxP5Xu5cH8Fghyxe_d5cf11ad2301fb2a.png (173494 байт, hash: d5cf11ad)
+2026/04/01 22:53:26 [Profile] ✅ Аватар сохранён: storage\files\avatars\remote\12D3KooWJyZ283MgjARck96rPQSDWsXS27qtxxP5Xu5cH8Fghyxe_d5cf11ad2301fb2a.png
+2026/04/01 22:53:26 [DB] 🔍 GetRemoteProfile: поиск профиля для peer_id=12D3KooWJy...
+2026/04/01 22:53:26 [DB] ✅ GetRemoteProfile: профиль найден, avatar_path=""
+2026/04/01 22:53:26 [Profile] 📋 Профиль найден: ID=2, username=Egor, текущий avatar_path=""
+2026/04/01 22:53:26 [Profile] 🔄 Обновление avatar_path: "" → "storage\\files\\avatars\\remote\\12D3KooWJyZ283MgjARck96rPQSDWsXS27qtxxP5Xu5cH8Fghyxe_d5cf11ad2301fb2a.png"
+2026/04/01 22:53:26 [DB] 🔄 UpdateRemoteProfile: обновление профиля для peer_id=12D3KooWJy, avatar_path="storage\\files\\avatars\\remote\\12D3KooWJyZ283MgjARck96rPQSDWsXS27qtxxP5Xu5cH8Fghyxe_d5cf11ad2301fb2a.png"
+2026/04/01 22:53:26 [DB] ✅ GetRemoteProfile: профиль найден, avatar_path=""
+2026/04/01 22:53:26 [DB] 🔄 UpdateRemoteProfile: обновление профиля для peer_id=12D3KooWJy, avatar_path="storage\\files\\avatars\\remote\\12D3KooWJyZ283MgjARck96rPQSDWsXS27qtxxP5Xu5cH8Fghyxe_d5cf11ad2301fb2a.png"
+2026/04/01 22:53:26 [DB] ✅ UpdateRemoteProfile: обновлено строк: 1
+2026/04/01 22:53:26 [Profile] ✅ Путь к аватару обновлён в БД: storage\files\avatars\remote\12D3KooWJyZ283MgjARck96rPQSDWsXS27qtxxP5Xu5cH8Fghyxe_d5cf11ad2301fb2a.png
+2026/04/01 22:53:26 [DB] ✅ UpdateRemoteProfile: обновлено строк: 1
+2026/04/01 22:53:26 [Profile] ✅ Путь к аватару обновлён в БД
+2026/04/01 22:53:26 [ProfilePanel] 🔄 Обновление профиля: username="Egor", peer_id=12D3KooWJy, avatar_path="storage\\files\\avatars\\remote\\12D3KooWJyZ283MgjARck96rPQSDWsXS27qtxxP5Xu5cH8Fghyxe_d5cf11ad2301fb2a.png", title="Не статус"
+2026/04/01 22:53:26 [ProfilePanel] ✅ Имя установлено: "Egor"
+2026/04/01 22:53:26 [ProfilePanel] ✅ Статус установлен: "Не статус"
+2026/04/01 22:53:26 [ProfilePanel] 🖼️ Загрузка аватара: path="storage\\files\\avatars\\remote\\12D3KooWJyZ283MgjARck96rPQSDWsXS27qtxxP5Xu5cH8Fghyxe_d5cf11ad2301fb2a.png"
+2026/04/01 22:53:26 [ProfilePanel] ✅ Аватар успешно загружен: "storage\\files\\avatars\\remote\\12D3KooWJyZ283MgjARck96rPQSDWsXS27qtxxP5Xu5cH8Fghyxe_d5cf11ad2301fb2a.png" (173494 байт)
+2026/04/01 22:53:26 [ProfilePanel] 🖼️ Аватар установлен в UI
+2026/04/01 22:53:26 [ProfilePanel] 🔍 Загрузка характеристик для peer_id=12D3KooW
+2026/04/01 22:53:26 [ProfilePanel] 📋 Профиль загружен: content_char="[{\"element_uuid\":\"\",\"title\":\"Возраст\",\"value\":\"19 годиков\"},{\"element_uuid\":\"\",\"title\":\"Но душой в\",\"value\":\"103к\"},{\"element_uuid\":\"\",\"title\":\"Должность\",\"value\":\"Разраб\"},{\"element_uuid\":\"\",\"title\":\"Город\",\"value\":\"404\"}]"
+2026/04/01 22:53:26 [ProfilePanel] ✅ Характеристики загружены
+2026/04/01 22:53:26 [ProfilePanel] 🔍 Загрузка витрины элементов для peer_id=12D3KooW
+2026/04/01 22:53:26 [ProfilePanel] 📋 Профиль загружен: pinned_uuids=["00000024-0000-0000-0000-000000000024","00000041-0000-0000-0000-000000000041","00000045-0000-0000-0000-000000000045"]
+2026/04/01 22:53:26 [DemoElements] 📦 Загрузка витрины элементов: pinned_uuids=["00000024-0000-0000-0000-000000000024","00000041-0000-0000-0000-000000000041","00000045-0000-0000-0000-000000000045"]
+2026/04/01 22:53:26 [DemoElements] 📋 Распарсено 3 элементов
+2026/04/01 22:53:26 [DemoElements] 🔍 Загрузка элемента #1: UUID=00000024-0000-0000-0000-000000000024, title="Элемент"
+2026/04/01 22:53:26 [DemoElements] 🔍 Загрузка элемента из БД: UUID=00000024-0000-0000-0000-000000000024
+2026/04/01 22:53:26 [DemoElements] ❌ Элемент не найден в БД: UUID=00000024-0000-0000-0000-000000000024, ошибка: элемент не найден
+2026/04/01 22:53:26 [DemoElements] 🔍 Загрузка элемента #2: UUID=00000041-0000-0000-0000-000000000041, title="Элемент"
+2026/04/01 22:53:26 [DemoElements] 🔍 Загрузка элемента из БД: UUID=00000041-0000-0000-0000-000000000041
+2026/04/01 22:53:26 [DemoElements] ❌ Элемент не найден в БД: UUID=00000041-0000-0000-0000-000000000041, ошибка: элемент не найден
+2026/04/01 22:53:26 [DemoElements] 🔍 Загрузка элемента #3: UUID=00000045-0000-0000-0000-000000000045, title="Элемент"
+2026/04/01 22:53:26 [DemoElements] 🔍 Загрузка элемента из БД: UUID=00000045-0000-0000-0000-000000000045
+2026/04/01 22:53:26 [DemoElements] ❌ Элемент не найден в БД: UUID=00000045-0000-0000-0000-000000000045, ошибка: элемент не найден
+2026/04/01 22:53:26 [DemoElements] ✅ Витрина загружена: 3 элементов отображено
+2026/04/01 22:53:26 [ProfilePanel] ✅ Витрина элементов загружена
+2026/04/01 22:53:26 [ProfilePanel] ✅ UI обновлён
+2026/04/01 22:53:26 [Chat] 📚 rows.Next() вернул 0 чатов
+2026/04/01 22:53:26 [Chat] 📚 Загружено чатов из БД: 0
+2026/04/01 22:53:26 [ItemSync] ✅ Ответ получен: ItemID=24, UUID=00000024, Title="Корона"
+2026/04/01 22:53:26 [ItemSync] 💾 Сохранение элемента в БД...
+2026/04/01 22:53:26 [ItemSync] 💾 saveRemoteItem: UUID=00000024, Title="Корона", Type=element, HasFile=true
+2026/04/01 22:53:26 [ItemSync] 🔍 Проверка существования элемента...
+2026/04/01 22:53:26 [ItemSync] 📋 Элемент существует: false
+2026/04/01 22:53:26 [ItemSync] ➕ Создание нового элемента...
+2026/04/01 22:53:26 [ItemSync] 📋 Данные: ElementUUID=00000024-0000-0000-0000-000000000024, OwnerType=remote, Type=element, Title="Корона", Hash=00000000000000000000000000000000000000000000000000000006e61043c8, Signature=64 bytes
+2026/04/01 22:53:26 [ItemSync] ✅ Элемент создан: ID=1
+2026/04/01 22:53:26 [ItemSync] 📎 Сохранение файла: 212100 байт, MIME=image/jpeg
+2026/04/01 22:53:26 [ItemSync] ✅ Файл сохранён в общее хранилище: C:\Users\I\Desktop\storage\files\e4\e42d409ac58a053413622d0bdb1193f79b614e70d8049011de2b2243b0069395
+2026/04/01 22:53:26 [ItemSync] ✅ Сохранён элемент 1 от пира 12D3KooWJyZ283MgjARck96rPQSDWsXS27qtxxP5Xu5cH8Fghyxe (hash: 0000000000000000)
+2026/04/01 22:53:26 [Profile] ✅ Элемент загружен: UUID=00000024-0000-0000-0000-000000000024, ID=1, title="Корона", type=element, hash=00000000000000000000000000000000000000000000000000000006e61043c8
+2026/04/01 22:53:26 [Profile] 📎 ContentMeta: [{"type":"image","file_hash":"e42d409ac58a053413622d0bdb1193f79b614e70d8049011de2b2243b0069395","ori
+2026/04/01 22:53:26 [Profile] ✅ Установлен status='preview' для элемента ID=1
+2026/04/01 22:53:26 [Profile] ✅ Загружен pinned элемент: UUID=00000024-0000-0000-0000-000000000024, ID=1, title=Корона
+2026/04/01 22:53:26 [Profile] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+2026/04/01 22:53:26 [Profile] 🔄 Загрузка элемента 2/3: UUID=00000041-0000-0000-0000-000000000041
+2026/04/01 22:53:26 [Profile] 🔌 ВЫЗОВ: ItemSync.RequestItemByElementUUID(peerID=12D3KooWJyZ283Mg, uuid=00000041-0000-0000-0000-000000000041, timeout=60s)
+2026/04/01 22:53:26 [ItemSync] 🔌 Запрос элемента: UUID=00000041, PeerID=12D3KooW
+2026/04/01 22:53:26 [ItemSync] ✅ Стрим создан
+2026/04/01 22:53:26 [ItemSync] 📤 Отправка запроса: 47 байт
+2026/04/01 22:53:26 [ItemSync] ✅ Запрос отправлен, закрываем Write...
+2026/04/01 22:53:26 [ItemSync] ✅ Write закрыт, ждём ответ...
+2026/04/01 22:53:26 [ItemSync] 📥 Чтение ответа...
+2026/04/01 22:53:26 [ItemSync] ✅ Ответ получен: ItemID=41, UUID=00000041, Title=""
+2026/04/01 22:53:26 [ItemSync] 💾 Сохранение элемента в БД...
+2026/04/01 22:53:26 [ItemSync] 💾 saveRemoteItem: UUID=00000041, Title="", Type=element, HasFile=true
+2026/04/01 22:53:26 [ItemSync] 🔍 Проверка существования элемента...
+2026/04/01 22:53:26 [ItemSync] 📋 Элемент существует: false
+2026/04/01 22:53:26 [ItemSync] ➕ Создание нового элемента...
+2026/04/01 22:53:26 [ItemSync] 📋 Данные: ElementUUID=00000041-0000-0000-0000-000000000041, OwnerType=remote, Type=element, Title="", Hash=0000000000000000000000000000000000000000000000000000000bc90673cb, Signature=64 bytes
+2026/04/01 22:53:26 [ItemSync] ✅ Элемент создан: ID=2
+2026/04/01 22:53:26 [ItemSync] 📎 Сохранение файла: 153456 байт, MIME=image/jpeg
+2026/04/01 22:53:26 [ItemSync] ✅ Файл сохранён в общее хранилище: C:\Users\I\Desktop\storage\files\19\1910190c6703e0c4e76e97de79180984bbe5fbe51772e80b0316ed2518d761b3
+2026/04/01 22:53:26 [ItemSync] ✅ Сохранён элемент 2 от пира 12D3KooWJyZ283MgjARck96rPQSDWsXS27qtxxP5Xu5cH8Fghyxe (hash: 0000000000000000)
+2026/04/01 22:53:26 [Profile] ✅ Элемент загружен: UUID=00000041-0000-0000-0000-000000000041, ID=2, title="", type=element, hash=0000000000000000000000000000000000000000000000000000000bc90673cb
+2026/04/01 22:53:26 [Profile] 📎 ContentMeta: [{"type":"image","file_hash":"1910190c6703e0c4e76e97de79180984bbe5fbe51772e80b0316ed2518d761b3","ori
+2026/04/01 22:53:26 [Profile] ✅ Установлен status='preview' для элемента ID=2
+2026/04/01 22:53:26 [Profile] ✅ Загружен pinned элемент: UUID=00000041-0000-0000-0000-000000000041, ID=2, title=
+2026/04/01 22:53:26 [Profile] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+2026/04/01 22:53:26 [Profile] 🔄 Загрузка элемента 3/3: UUID=00000045-0000-0000-0000-000000000045
+2026/04/01 22:53:26 [Profile] 🔌 ВЫЗОВ: ItemSync.RequestItemByElementUUID(peerID=12D3KooWJyZ283Mg, uuid=00000045-0000-0000-0000-000000000045, timeout=60s)
+2026/04/01 22:53:26 [ItemSync] 🔌 Запрос элемента: UUID=00000045, PeerID=12D3KooW
+2026/04/01 22:53:26 [ItemSync] ✅ Стрим создан
+2026/04/01 22:53:26 [ItemSync] 📤 Отправка запроса: 47 байт
+2026/04/01 22:53:26 [ItemSync] ✅ Запрос отправлен, закрываем Write...
+2026/04/01 22:53:26 [ItemSync] ✅ Write закрыт, ждём ответ...
+2026/04/01 22:53:26 [ItemSync] 📥 Чтение ответа...
+2026/04/01 22:53:26 [ItemSync] ✅ Ответ получен: ItemID=45, UUID=00000045, Title="Енот альбинос Лола"
+2026/04/01 22:53:26 [ItemSync] 💾 Сохранение элемента в БД...
+2026/04/01 22:53:26 [ItemSync] 💾 saveRemoteItem: UUID=00000045, Title="Енот альбинос Лола", Type=element, HasFile=false
+2026/04/01 22:53:26 [ItemSync] 🔍 Проверка существования элемента...
+2026/04/01 22:53:26 [ItemSync] 📋 Элемент существует: false
+2026/04/01 22:53:26 [ItemSync] ➕ Создание нового элемента...
+2026/04/01 22:53:26 [ItemSync] 📋 Данные: ElementUUID=00000045-0000-0000-0000-000000000045, OwnerType=remote, Type=element, Title="Енот альбинос Лола", Hash=51ca031c023790fb3f466973a7ccf3b45c926e424d499d077605c900e506195b, Signature=64 bytes
+2026/04/01 22:53:26 [ItemSync] ✅ Элемент создан: ID=3
+2026/04/01 22:53:26 [ItemSync] ✅ Сохранён элемент 3 от пира 12D3KooWJyZ283MgjARck96rPQSDWsXS27qtxxP5Xu5cH8Fghyxe (hash: 51ca031c023790fb)
+2026/04/01 22:53:26 [Profile] ✅ Элемент загружен: UUID=00000045-0000-0000-0000-000000000045, ID=3, title="Енот альбинос Лола", type=element, hash=51ca031c023790fb3f466973a7ccf3b45c926e424d499d077605c900e506195b
+2026/04/01 22:53:26 [Profile] 📎 ContentMeta: [{"type":"link","content":"https://www.youtube.com/shorts/gPQAlBZkmHo"}]
+2026/04/01 22:53:26 [Profile] ✅ Установлен status='preview' для элемента ID=3
+2026/04/01 22:53:26 [Profile] ✅ Загружен pinned элемент: UUID=00000045-0000-0000-0000-000000000045, ID=3, title=Енот альбинос Лола
+2026/04/01 22:53:26 [Profile] 📊 ИТОГИ: загружено=3/3, ошибок=0
+2026/04/01 22:53:26 [Profile] 🎉 Все pinned элементы успешно загружены!

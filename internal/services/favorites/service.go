@@ -2,6 +2,7 @@
 package favorites
 
 import (
+	"log"
 	"projectT/internal/storage/database/models"
 	"projectT/internal/storage/database/queries"
 )
@@ -20,10 +21,13 @@ func NewService() *Service {
 
 // AddToFavorites добавляет элемент в избранное
 func (s *Service) AddToFavorites(entityType string, entityUUID string) error {
+	log.Printf("[Favorites] AddToFavorites: entityType=%s, entityUUID=%s", entityType, entityUUID)
 	err := s.favoritesImpl.AddToFavorites(entityType, entityUUID)
 	if err != nil {
+		log.Printf("[Favorites] AddToFavorites error: %v", err)
 		return err
 	}
+	log.Printf("[Favorites] AddToFavorites success")
 
 	// Уведомляем об изменении избранного
 	eventManager := GetEventManager()

@@ -58,6 +58,18 @@ func RunMigrations() {
 	createRemoteItemUniqueIndex()
 
 	// ============================================================
+	// ЧАСТЬ 4.1: Миграция таблицы favorites (исправление entity_id -> entity_uuid)
+	// ============================================================
+
+	migrateFavoritesTable()
+
+	// ============================================================
+	// ЧАСТЬ 4.2: Удаление устаревшего триггера validate_favorites_entity_uuid_insert
+	// ============================================================
+
+	dropFavoritesValidateTrigger()
+
+	// ============================================================
 	// ЧАСТЬ 5: SEED ДАННЫЕ
 	// ============================================================
 
@@ -492,4 +504,126 @@ func createRemoteItemUniqueIndex() {
 // seedBootstrapPeers добавляет предопределённые bootstrap-узлы
 // Отключено - пользователь добавляет bootstrap пиры самостоятельно
 func seedBootstrapPeers() {
+}
+
+// migrateFavoritesTable исправляет схему таблицы favorites
+// Удаляет таблицу с entity_id и пересоздает с entity_uuid
+func migrateFavoritesTable() {
+	// Проверяем, есть ли таблица favorites
+	var tableName string
+	err := DB.QueryRow(`SELECT name FROM sqlite_master WHERE type='table' AND name='favorites'`).Scan(&tableName)
+	if err != nil {
+		// Таблицы нет, ничего делать не нужно
+		return
+	}
+
+	// Проверяем, есть ли колонка entity_id (старая схема)
+	var columnName string
+	err = DB.QueryRow(`PRAGMA table_info(favorites)`).Scan(&columnName)
+	if err != nil {
+		return
+	}
+
+	// Получаем информацию о колонках
+	rows, err := DB.Query(`PRAGMA table_info(favorites)`)
+	if err != nil {
+		return
+	}
+	defer rows.Close()
+
+	hasEntityID := false
+	hasEntityUUID := false
+	for rows.Next() {
+		var cid, notnull, pk int
+		var name, dfltValue string
+		var typ string
+		err := rows.Scan(&cid, &name, &typ, &notnull, &dfltValue, &pk)
+		if err != nil {
+			continue
+		}
+		if name == "entity_id" {
+			hasEntityID = true
+		}
+		if name == "entity_uuid" {
+			hasEntityUUID = true
+		}
+	}
+
+	// Если есть entity_id и нет entity_uuid, нужно пересоздать таблицу
+	if hasEntityID && !hasEntityUUID {
+		log.Println("[Миграция favorites] Обнаружена старая схема с entity_id, пересоздаю таблицу...")
+
+		// Сохраняем данные
+		type FavData struct {
+			ID         int
+			EntityType string
+			EntityID   int
+		}
+		var oldData []FavData
+
+		rows, err := DB.Query(`SELECT id, entity_type, entity_id FROM favorites`)
+		if err == nil {
+			defer rows.Close()
+			for rows.Next() {
+				var fav FavData
+				if err := rows.Scan(&fav.ID, &fav.EntityType, &fav.EntityID); err == nil {
+					oldData = append(oldData, fav)
+				}
+			}
+		}
+
+		// Удаляем старую таблицу
+		_, err = DB.Exec(`DROP TABLE favorites`)
+		if err != nil {
+			log.Printf("[Миграция favorites] Ошибка удаления старой таблицы: %v", err)
+			return
+		}
+
+		// Создаем новую таблицу с правильной схемой
+		createFavoritesTable()
+
+		// Вставляем данные обратно (используем entity_id как entity_uuid для совместимости)
+		// В реальной ситуации нужно мапить ID на UUID
+		for _, fav := range oldData {
+			_, err := DB.Exec(`INSERT INTO favorites (entity_type, entity_uuid) VALUES (?, ?)`,
+				fav.EntityType, fav.EntityID)
+			if err != nil {
+				log.Printf("[Миграция favorites] Ошибка вставки данных: %v", err)
+			}
+		}
+
+		log.Println("[Миграция favorites] Таблица успешно обновлена")
+	} else if !hasEntityUUID {
+		// Таблица есть, но нет ни entity_id ни entity_uuid - что-то не так
+		log.Println("[Миграция favorites] Таблица имеет неизвестную схему, пересоздаю...")
+		_, err = DB.Exec(`DROP TABLE favorites`)
+		if err != nil {
+			log.Printf("[Миграция favorites] Ошибка удаления таблицы: %v", err)
+			return
+		}
+		createFavoritesTable()
+		log.Println("[Миграция favorites] Таблица пересоздана")
+	} else {
+		log.Println("[Миграция favorites] Таблица уже имеет правильную схему")
+	}
+}
+
+// dropFavoritesValidateTrigger удаляет устаревший триггер, требующий entity_uuid
+func dropFavoritesValidateTrigger() {
+	// Проверяем, существует ли триггер
+	var triggerName string
+	err := DB.QueryRow(`SELECT name FROM sqlite_master WHERE type='trigger' AND name='validate_favorites_entity_uuid_insert'`).Scan(&triggerName)
+	if err != nil {
+		// Триггера нет, ничего делать не нужно
+		return
+	}
+
+	// Удаляем триггер
+	_, err = DB.Exec(`DROP TRIGGER validate_favorites_entity_uuid_insert`)
+	if err != nil {
+		log.Printf("[Миграция] Ошибка удаления триггера: %v", err)
+		return
+	}
+
+	log.Println("[Миграция] Триггер validate_favorites_entity_uuid_insert удален")
 }

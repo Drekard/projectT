@@ -73,7 +73,6 @@ type UIProvider interface {
 	ShowChatMenu(chatID int, peerID string, username string, cont fyne.CanvasObject)
 	OnChatDeleted(chatID int, peerID string)
 	OpenLocalChat()
-	ShowContactsPanel()
 }
 
 // New создает новую левую панель
@@ -247,6 +246,13 @@ func (p *Panel) openChatByID(chatID int) {
 	chat, err := queries.GetChat(chatID)
 	if err != nil {
 		log.Printf("Ошибка получения чата %d: %v", chatID, err)
+		return
+	}
+
+	// ✅ ПРОВЕРКА: если это локальный чат - открываем через OpenLocalChat()
+	if chat.PeerID == models.LocalChatPeerID {
+		log.Printf("[Chat] 🏠 Обнаружен локальный чат (Избранное), открываем через OpenLocalChat()")
+		p.chatsUI.OpenLocalChat()
 		return
 	}
 

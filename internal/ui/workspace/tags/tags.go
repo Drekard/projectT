@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"image/color"
+	"log"
 	"projectT/internal/services"
 	"projectT/internal/services/favorites"
 	"projectT/internal/storage/database/models"
@@ -123,35 +124,50 @@ func (t *UI) createTable() *widget.Table {
 				deleteBtn := widget.NewButton("🗑", func() { t.deleteTag(tag.ID) })
 				deleteBtn.Importance = widget.LowImportance
 
-				// Проверяем, является ли тег избранным
-				isFavorite, err := favoritesService.IsFavorite("tag", tag.TagUUID)
+				// Проверяем, является ли тег избранным (используем ID для совместимости с БД)
+				isFavorite, err := favoritesService.IsFavorite("tag", fmt.Sprintf("%d", tag.ID))
 				if err != nil {
 					isFavorite = false
 				}
 
+				// Объявляем переменную заранее для использования в замыкании
 				var favBtn *widget.Button
-				if isFavorite {
-					favBtn = widget.NewButton("✨", func() {
-						err := favoritesService.RemoveFromFavorites("tag", tag.TagUUID)
+				favBtn = widget.NewButton("⭐️", func() {
+					log.Printf("[Tags] Клик по кнопке избранного для тега ID=%d, UUID=%s, текущее состояние: isFavorite=%v", tag.ID, tag.TagUUID, isFavorite)
+
+					if isFavorite {
+						err := favoritesService.RemoveFromFavorites("tag", fmt.Sprintf("%d", tag.ID))
 						if err != nil {
+							log.Printf("[Tags] Ошибка удаления из избранного: %v", err)
 							return
 						}
-
-						// Обновляем таблицу для отражения нового состояния
-						t.Refresh()
-					})
-				} else {
-					favBtn = widget.NewButton("⭐️", func() {
-						err := favoritesService.AddToFavorites("tag", tag.TagUUID)
+						log.Printf("[Tags] Тег ID=%d удален из избранного", tag.ID)
+					} else {
+						err := favoritesService.AddToFavorites("tag", fmt.Sprintf("%d", tag.ID))
 						if err != nil {
+							log.Printf("[Tags] Ошибка добавления в избранное: %v", err)
 							return
 						}
+						log.Printf("[Tags] Тег ID=%d добавлен в избранное", tag.ID)
+					}
 
-						// Обновляем таблицу для отражения нового состояния
-						t.Refresh()
-					})
-				}
+					// Обновляем текст кнопки в зависимости от нового состояния
+					newIsFavorite, _ := favoritesService.IsFavorite("tag", fmt.Sprintf("%d", tag.ID))
+					if newIsFavorite {
+						favBtn.SetText("✨")
+					} else {
+						favBtn.SetText("⭐️")
+					}
+
+					// Обновляем таблицу для отражения нового состояния
+					t.Refresh()
+				})
 				favBtn.Importance = widget.LowImportance
+
+				// Устанавливаем начальный текст кнопки
+				if isFavorite {
+					favBtn.SetText("✨")
+				}
 
 				cellContainer.Add(favBtn)
 				cellContainer.Add(editBtn)

@@ -433,6 +433,17 @@ func (gm *GridManager) SetCurrentParentID(parentID int) {
 	gm.currentParentID = parentID
 }
 
+// SetColumnCount устанавливает количество колонок в сетке
+func (gm *GridManager) SetColumnCount(count int) {
+	// Обновляем количество колонок в SizeManager
+	// Поскольку SizeManager не имеет публичного метода для установки columnCount,
+	// создадим новый SizeManager с нужным количеством колонок
+	gm.sizeManager = sizing.NewSizeManagerWithColumnCount(count)
+
+	// Обновляем LayoutEngine с новым количеством колонок
+	gm.layoutEngine.UpdateColumnCount(count)
+}
+
 // SetSortOptions устанавливает настройки сортировки
 func (gm *GridManager) SetSortOptions(options *services.FilterOptions) {
 	gm.sortOptions = options

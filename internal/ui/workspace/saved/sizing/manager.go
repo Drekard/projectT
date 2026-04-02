@@ -36,6 +36,24 @@ func NewSizeManager() *SizeManager {
 	}
 }
 
+// NewSizeManagerWithColumnCount создает менеджер размеров с указанным количеством колонок
+func NewSizeManagerWithColumnCount(columnCount int) *SizeManager {
+	fixedWidth := utils.FixedCardWidth
+	minHeight := utils.DefaultMinHeight
+	gapSize := utils.GapSize
+
+	// Общая ширина = ширина N карточек + (N-1) промежутков между ними
+	totalWidth := fixedWidth*float32(columnCount) + gapSize*float32(columnCount-1)
+
+	return &SizeManager{
+		fixedWidth:         fixedWidth,
+		minHeight:          minHeight,
+		gapSize:            gapSize,
+		defaultColumnCount: columnCount,
+		totalWidth:         totalWidth,
+	}
+}
+
 // CalculatePixelSize вычисляет размер в пикселях
 func (sm *SizeManager) CalculatePixelSize(widthCells, heightCells int) (float32, float32) {
 	// Для новой системы мы используем фиксированную ширину и переменную высоту

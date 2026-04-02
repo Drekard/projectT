@@ -96,8 +96,8 @@ func (bm *BreadcrumbManager) AddItem(title string, folderID int) {
 
 	// Создаем кнопку для элемента
 	button := widget.NewButton(title, func() {
+		// Навигация к папке (onNavigate сам переключит вкладку на "Сохраненное")
 		if bm.onNavigate != nil {
-			// Переходим к выбранной папке
 			bm.onNavigate(folderID)
 		}
 	})

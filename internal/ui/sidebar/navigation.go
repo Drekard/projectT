@@ -17,10 +17,10 @@ type NavigationHandler interface {
 
 // CreateNavigation создает навигационные кнопки
 func CreateNavigation(handler NavigationHandler) *fyne.Container {
-	var profileButton, savedButton, previewButton, tagsButton, chatsButton *widget.Button
+	var profileButton, savedButton, previewButton, tagsButton, chatsButton, contactsButton, p2pButton *widget.Button
 
 	updateButtonState := func(clickedButton *widget.Button, contentType string) {
-		buttons := []*widget.Button{profileButton, savedButton, previewButton, tagsButton, chatsButton}
+		buttons := []*widget.Button{profileButton, savedButton, previewButton, tagsButton, chatsButton, contactsButton, p2pButton}
 		for _, btn := range buttons {
 			btn.Importance = widget.LowImportance
 			btn.Refresh()
@@ -50,8 +50,16 @@ func CreateNavigation(handler NavigationHandler) *fyne.Container {
 		updateButtonState(tagsButton, "tags")
 	})
 
-	chatsButton = createCustomNavButton("Чаты", theme.StorageIcon(), func() {
+	chatsButton = createCustomNavButton("Чаты", theme.MailComposeIcon(), func() {
 		updateButtonState(chatsButton, "chats")
+	})
+
+	contactsButton = createCustomNavButton("Контакты", theme.AccountIcon(), func() {
+		updateButtonState(contactsButton, "contacts")
+	})
+
+	p2pButton = createCustomNavButton("P2P", theme.ComputerIcon(), func() {
+		updateButtonState(p2pButton, "p2p")
 	})
 
 	// Устанавливаем начальное состояние
@@ -65,6 +73,8 @@ func CreateNavigation(handler NavigationHandler) *fyne.Container {
 		previewButton,
 		tagsButton,
 		chatsButton,
+		contactsButton,
+		p2pButton,
 		separator,
 	)
 }

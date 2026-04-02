@@ -7,6 +7,8 @@ import (
 	"projectT/internal/storage/database/models"
 	"projectT/internal/storage/database/queries"
 	"projectT/internal/ui/workspace/chats"
+	"projectT/internal/ui/workspace/contacts"
+	"projectT/internal/ui/workspace/p2p"
 	"projectT/internal/ui/workspace/profile"
 	"projectT/internal/ui/workspace/saved"
 	"projectT/internal/ui/workspace/saved/sorting"
@@ -27,11 +29,13 @@ var itemsService = services.NewItemsService()
 type ContentType string
 
 const (
-	ContentTypeSaved   ContentType = "saved"
-	ContentTypePreview ContentType = "preview"
-	ContentTypeProfile ContentType = "profile"
-	ContentTypeTags    ContentType = "tags"
-	ContentTypeChats   ContentType = "chats"
+	ContentTypeSaved    ContentType = "saved"
+	ContentTypePreview  ContentType = "preview"
+	ContentTypeProfile  ContentType = "profile"
+	ContentTypeTags     ContentType = "tags"
+	ContentTypeChats    ContentType = "chats"
+	ContentTypeContacts ContentType = "contacts"
+	ContentTypeP2P      ContentType = "p2p"
 )
 
 // PreviewMode определяет режим отображения элементов
@@ -62,11 +66,15 @@ type Workspace struct {
 	profileUI          *profile.UI
 	tagsUI             *tags.UI
 	chatsUI            *chats.UI
+	contactsUI         *contacts.UI
+	p2pUI              *p2p.UI
 	window             fyne.Window
 	p2pNetwork         *p2p_network.P2PNetwork // P2P сеть
 	// Флаги для отслеживания, были ли UI-компоненты инициализированы
-	tagsInitialized  bool
-	chatsInitialized bool
+	tagsInitialized     bool
+	chatsInitialized    bool
+	contactsInitialized bool
+	p2pInitialized      bool
 	// Фоновое изображение
 	background     *ScaledBackground // кастомный фон с масштабированием
 	backgroundRect *canvas.Rectangle // прямоугольник фона по умолчанию
@@ -127,21 +135,68 @@ func (ws *Workspace) UpdateContent(contentType string, param ...interface{}) {
 		extraParam = param[0]
 	}
 
-	// Если тип контента - "tags", то мы должны обновить данные независимо от кэша
-	if ct == ContentTypeTags && ws.tagsInitialized {
-		// Обновляем данные тегов без проверки кэша
-		ws.initializeTagsUI() // Убедимся, что UI инициализирован
+	// Для вкладок tags и chats всегда инициализируем и обновляем данные
+	if ct == ContentTypeTags {
+		ws.initializeTagsUI()
 		ws.tagsUI.Refresh()
-		// Обновляем кэш для этой вкладки
 		ws.contentCache[ct] = ws.createTagsContent()
-	} else if ct == ContentTypeChats && ws.chatsInitialized {
-		// Обновляем данные чатов без проверки кэша
-		ws.initializeChatsUI() // Убедимся, что UI инициализирован
+		ws.container.Objects = []fyne.CanvasObject{ws.contentCache[ct]}
+		ws.container.Refresh()
+		return
+	} else if ct == ContentTypeChats {
+		ws.initializeChatsUI()
 		ws.chatsUI.Refresh()
-		// Обновляем кэш для этой вкладки
 		ws.contentCache[ct] = ws.createChatsContent()
+		ws.container.Objects = []fyne.CanvasObject{ws.contentCache[ct]}
+		ws.container.Refresh()
+		return
+	} else if ct == ContentTypeContacts {
+		// Для вкладки "Контакты" всегда инициализируем и обновляем данные
+		ws.initializeContactsUI()
+		ws.contactsUI.Refresh()
+		ws.contentCache[ct] = ws.createContactsContent()
+		ws.container.Objects = []fyne.CanvasObject{ws.contentCache[ct]}
+		ws.container.Refresh()
+		return
+	} else if ct == ContentTypeP2P {
+		// Для вкладки "P2P" всегда инициализируем и обновляем данные
+		ws.initializeP2PUI()
+		ws.p2pUI.Refresh()
+		ws.contentCache[ct] = ws.createP2PContent()
+		ws.container.Objects = []fyne.CanvasObject{ws.contentCache[ct]}
+		ws.container.Refresh()
+		return
+	} else if ct == ContentTypeSaved || ct == ContentTypePreview {
+		// Для вкладок saved/preview всегда обновляем данные, игнорируя кэш
+		// Это необходимо, т.к. gridManager один на обе вкладки и хранит только последнее состояние
+		var newContent fyne.CanvasObject
+		switch ct {
+		case ContentTypeSaved:
+			ws.currentPreviewMode = PreviewModeSaved
+			if extraParam != nil {
+				// Если передан ID папки, переходим к этой папке
+				if folderID, ok := extraParam.(int); ok {
+					_ = ws.NavigateToFolder(folderID)
+				}
+			}
+			newContent = ws.createSavedContent()
+		case ContentTypePreview:
+			ws.currentPreviewMode = PreviewModePreview
+			if extraParam != nil {
+				// Если передан ID папки, переходим к этой папке
+				if folderID, ok := extraParam.(int); ok {
+					_ = ws.NavigateToPreviewFolder(folderID)
+				}
+			}
+			newContent = ws.createPreviewContent()
+		}
+		// Сохраняем в кэш для консистентности
+		ws.contentCache[ct] = newContent
+		ws.container.Objects = []fyne.CanvasObject{newContent}
+		ws.container.Refresh()
+		return
 	} else {
-		// Проверяем кэш для других типов контента
+		// Проверяем кэш для других типов контента (profile и т.д.)
 		if content, exists := ws.contentCache[ct]; exists && extraParam == nil {
 			ws.container.Objects = []fyne.CanvasObject{content}
 			ws.container.Refresh()
@@ -152,37 +207,8 @@ func (ws *Workspace) UpdateContent(contentType string, param ...interface{}) {
 	// Создаем новый контент
 	var newContent fyne.CanvasObject
 	switch ct {
-	case ContentTypeSaved:
-		ws.currentPreviewMode = PreviewModeSaved
-		if extraParam != nil {
-			// Если передан ID папки, переходим к этой папке
-			if folderID, ok := extraParam.(int); ok {
-				_ = ws.NavigateToFolder(folderID)
-			}
-		}
-		newContent = ws.createSavedContent()
-	case ContentTypePreview:
-		ws.currentPreviewMode = PreviewModePreview
-		if extraParam != nil {
-			// Если передан ID папки, переходим к этой папке
-			if folderID, ok := extraParam.(int); ok {
-				_ = ws.NavigateToPreviewFolder(folderID)
-			}
-		}
-		newContent = ws.createPreviewContent()
 	case ContentTypeProfile:
 		newContent = ws.createProfileContent()
-	case ContentTypeTags:
-		if extraParam != nil {
-			// Если передан ID тега, можно реализовать фильтрацию по тегу
-			if tagID, ok := extraParam.(int); ok {
-				// TODO: реализовать фильтрацию по тегу
-				_ = tagID
-			}
-		}
-		newContent = ws.createTagsContent()
-	case ContentTypeChats:
-		newContent = ws.createChatsContent()
 	default:
 		newContent = ws.createSavedContent()
 	}
@@ -379,6 +405,59 @@ func (ws *Workspace) createChatsContent() fyne.CanvasObject {
 	return ws.chatsUI.CreateView()
 }
 
+// createContactsContent создает контент для вкладки "Контакты"
+func (ws *Workspace) createContactsContent() fyne.CanvasObject {
+	ws.initializeContactsUI()
+	return ws.contactsUI.GetContent()
+}
+
+// createP2PContent создает контент для вкладки "P2P"
+func (ws *Workspace) createP2PContent() fyne.CanvasObject {
+	ws.initializeP2PUI()
+	return ws.p2pUI.GetContent()
+}
+
+// initializeContactsUI инициализирует UI вкладки "Контакты" при первом обращении
+func (ws *Workspace) initializeContactsUI() {
+	if !ws.contactsInitialized {
+		ws.contactsUI = contacts.New(ws.chatsUI)
+		ws.contactsInitialized = true
+
+		// Устанавливаем окно для contacts UI
+		ws.contactsUI.SetWindow(ws.window)
+
+		// Устанавливаем P2P сервис если доступен
+		if ws.p2pNetwork != nil {
+			p2pUI := p2p_ui.NewUIP2P(ws.p2pNetwork)
+			ws.contactsUI.SetP2PService(p2pUI)
+		}
+	}
+}
+
+// initializeP2PUI инициализирует UI вкладки "P2P" при первом обращении
+func (ws *Workspace) initializeP2PUI() {
+	if !ws.p2pInitialized {
+		// Инициализируем chatsUI если еще не инициализирован
+		if ws.chatsUI == nil {
+			ws.initializeChatsUI()
+		}
+		// Передаём обёртку, которая игнорирует дополнительные параметры
+		ws.p2pUI = p2p.New(ws.chatsUI, func(contentType string) {
+			ws.UpdateContent(contentType)
+		})
+		ws.p2pInitialized = true
+
+		// Устанавливаем окно для p2p UI
+		ws.p2pUI.SetWindow(ws.window)
+
+		// Устанавливаем P2P сервис если доступен
+		if ws.p2pNetwork != nil {
+			p2pUI := p2p_ui.NewUIP2P(ws.p2pNetwork)
+			ws.p2pUI.SetP2PService(p2pUI)
+		}
+	}
+}
+
 // initializeTagsUI инициализирует UI тегов при первом обращении
 func (ws *Workspace) initializeTagsUI() {
 	if !ws.tagsInitialized {
@@ -409,6 +488,8 @@ func (ws *Workspace) initializeChatsUI() {
 			// Устанавливаем UI API в profile exchange для уведомлений
 			if ws.p2pNetwork.ProfileExchange() != nil {
 				ws.p2pNetwork.ProfileExchange().SetUIP2P(p2pUI)
+				// Устанавливаем callback для обновления витрины элементов после синхронизации
+				ws.p2pNetwork.ProfileExchange().SetUIProfilePanel(ws.chatsUI)
 			}
 
 			// Устанавливаем глобальный P2P сервис для ChatService

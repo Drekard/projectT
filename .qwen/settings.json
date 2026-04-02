@@ -4,7 +4,9 @@
       "Bash(mkdir *)",
       "Bash(go *)",
       "Bash(rm *)",
-      "Bash(rmdir *)"
+      "Bash(rmdir *)",
+      "Bash(remove-item *)",
+      "Bash(del *)"
     ]
   },
   "$version": 3

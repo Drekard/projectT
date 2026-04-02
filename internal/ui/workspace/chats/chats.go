@@ -10,7 +10,6 @@ import (
 	"projectT/internal/ui/workspace/chats/center"
 	"projectT/internal/ui/workspace/chats/dialogs"
 	"projectT/internal/ui/workspace/chats/left"
-	"projectT/internal/ui/workspace/chats/p2p"
 	"projectT/internal/ui/workspace/chats/right"
 
 	"fyne.io/fyne/v2"
@@ -31,7 +30,6 @@ type UI struct {
 	// Компоненты панелей
 	leftPanel   *left.Panel
 	rightPanel  *right.Panel
-	p2pPanel    *p2p.Panel
 	chatAreaObj *fyne.Container
 
 	// Менеджеры
@@ -103,11 +101,6 @@ func (ui *UI) SetP2PService(p2pUI *network.UIP2P) {
 	// Создаём контроллер чатов
 	ui.chatController = controllers.NewChatController()
 	ui.chatController.SetP2PService(p2pUI)
-
-	// Передаем P2P сервис в p2p панель
-	if ui.p2pPanel != nil {
-		ui.p2pPanel.SetP2PService(p2pUI)
-	}
 
 	// Настраиваем callback-функции контроллера
 	ui.setupControllerCallbacks()
@@ -435,19 +428,6 @@ func (ui *UI) openLocalChatLegacy() {
 	}
 }
 
-// ShowContactsPanel показывает панель управления P2P (реализация для left.UIProvider)
-func (ui *UI) ShowContactsPanel() {
-	// Создаём P2P панель если не существует
-	if ui.p2pPanel == nil {
-		ui.p2pPanel = p2p.New(ui)
-		ui.p2pPanel.SetP2PService(ui.p2pUI)
-	}
-
-	controlPanel := ui.p2pPanel.Container()
-	ui.chatAreaObj.Objects = []fyne.CanvasObject{controlPanel}
-	ui.chatAreaObj.Refresh()
-}
-
 // loadMessagesForChat загружает сообщения для чата по ID
 func (ui *UI) loadMessagesForChat(chatID int) {
 	if ui.chatPanel == nil {
@@ -512,6 +492,14 @@ func (ui *UI) RefreshRightPanel(peerID string) {
 	}
 	if ui.leftPanel != nil {
 		ui.leftPanel.Refresh()
+	}
+}
+
+// RefreshDemoElementsAfterSync обновляет витрину элементов правой панели после синхронизации элементов
+func (ui *UI) RefreshDemoElementsAfterSync(peerID string) {
+	if ui.rightPanel != nil {
+		ui.rightPanel.RefreshDemoElementsAfterSync(peerID)
+		log.Printf("[Profile] 📢 Витрина элементов обновлена через callback для %s", peerID[:8])
 	}
 }
 

@@ -89,16 +89,17 @@ func (p *UI) createView() {
 	// Создаем основные компоненты
 	p.createComponents()
 
-	// Создаем верхнюю часть интерфейса
-	topPart := p.createTopPart()
+	// Создаем левую панель (аватар, имя, титул, кнопки, характеристики)
+	leftPanel := p.createLeftPanel()
 
-	// Создаем нижнюю часть интерфейса
-	bottomPart := p.createBottomPart()
+	// Создаем правую панель (закрепленные элементы)
+	rightPanel := p.createRightPanel()
 
-	// Компоновка верхней и нижней частей с разделителем - вертикальный бокс для размещения элементов друг под другом
-	mainLayout := container.NewVBox(topPart, bottomPart)
+	// Разделяем на левую и правую части с помощью SplitContainer
+	split := container.NewHSplit(leftPanel, rightPanel)
+	split.SetOffset(0.35) // Левая панель занимает 35% ширины
 
-	p.content = mainLayout
+	p.content = split
 }
 
 func (p *UI) createComponents() {
@@ -150,78 +151,63 @@ func (p *UI) createComponents() {
 	})
 }
 
-func (p *UI) createTopPart() fyne.CanvasObject {
-	leftTopPartWrapper := canvas.NewRectangle(color.Transparent)
-	leftTopPartWrapper.SetMinSize(fyne.NewSize(300, 0))
+// createLeftPanel создает левую панель профиля (аватар, имя, титул, кнопки, характеристики)
+func (p *UI) createLeftPanel() fyne.CanvasObject {
+	// Прозрачные прямоугольники для фона полей ввода (ширина 400px)
+	nameBg := canvas.NewRectangle(color.Transparent)
+	nameBg.SetMinSize(fyne.NewSize(250, 40))
+	titleBg := canvas.NewRectangle(color.Transparent)
+	titleBg.SetMinSize(fyne.NewSize(250, 40))
 
-	// Объединяем Label и Entry через Stack для имени
-	entryNameWrapper := canvas.NewRectangle(color.Transparent)
-	entryNameWrapper.SetMinSize(fyne.NewSize(200, 40))
-	nameContainer := container.NewStack(entryNameWrapper, p.userNameEntry)
-
-	// Объединяем Label и Entry через Stack для титула
-	entryTitleWrapper := canvas.NewRectangle(color.Transparent)
-	entryTitleWrapper.SetMinSize(fyne.NewSize(200, 40))
-	titleContainer := container.NewStack(entryTitleWrapper, p.userTitleEntry)
-
-	// Левая часть верхней секции (аватар, имя, титул, кнопки)
-	leftTopPart := container.NewVBox(
-		leftTopPartWrapper,
+	// Аватар, имя, титул, кнопки
+	avatarSection := container.NewVBox(
 		container.NewCenter(p.avatarContainer),
-		container.NewCenter(nameContainer),
-		container.NewCenter(titleContainer),
+		container.NewStack(nameBg, p.userNameEntry),
+		container.NewStack(titleBg, p.userTitleEntry),
 		container.NewCenter(container.NewHBox(p.backgroundButton, p.avatarButton)),
 	)
 
-	// Правая часть верхней секции - прокручиваемый список характеристик
+	// Характеристики
 	p.characteristicsContainer = container.NewVBox()
-
-	// Создаем прокручиваемый контейнер
 	p.characteristicsScroll = container.NewScroll(p.characteristicsContainer)
-	p.characteristicsScroll.SetMinSize(fyne.NewSize(400, 200)) // Устанавливаем минимальный размер
+	p.characteristicsScroll.SetMinSize(fyne.NewSize(0, 200))
 
-	// Кнопка добавления новой характеристики
 	p.addCharacteristicButton = widget.NewButton("+ Добавить характеристику", func() {
 		p.AddCharacteristic()
 	})
 	p.addCharacteristicButton.Importance = widget.LowImportance
 
-	// Правая часть верхней секции
-	rightTopPart := container.NewVBox(
-		widget.NewLabel("Характеристики профиля"),
+	characteristicsSection := container.NewVBox(
+		widget.NewLabel("Характеристики"),
 		p.characteristicsScroll,
 		p.addCharacteristicButton,
 	)
 
-	// Вертикальный разделитель (1 пиксель шириной)
-	verticalSeparator := canvas.NewRectangle(color.Gray{Y: 128}) // Серый цвет
-	verticalSeparator.SetMinSize(fyne.NewSize(1, 100))
+	// Горизонтальный разделитель
+	separator := canvas.NewRectangle(color.Gray{Y: 128})
+	separator.SetMinSize(fyne.NewSize(0, 1))
 
-	// Компоновка верхней части
-	topPart := container.NewHBox(leftTopPart, verticalSeparator, rightTopPart)
-
-	return topPart
-}
-
-func (p *UI) createBottomPart() fyne.CanvasObject {
-
-	horizontalSeparator := canvas.NewRectangle(color.Gray{Y: 128})
-	horizontalSeparator.SetMinSize(fyne.NewSize(100, 2))
-	aSeparator := canvas.NewRectangle(color.Transparent)
-	aSeparator.SetMinSize(fyne.NewSize(1, 13))
-	separatorContainer := container.NewVBox(
-		aSeparator,
-		horizontalSeparator,
+	content := container.NewVBox(
+		avatarSection,
+		separator,
+		characteristicsSection,
 	)
 
+	return container.NewScroll(content)
+}
+
+// createRightPanel создает правую панель профиля (закрепленные элементы)
+func (p *UI) createRightPanel() fyne.CanvasObject {
 	// Используем GridManager для отображения закрепленных элементов
 	pinnedGridManager := saved.NewGridManager()
+
+	// Устанавливаем 2 колонки для вкладки профиля
+	pinnedGridManager.SetColumnCount(2)
 
 	// Загружаем закрепленные элементы
 	p.updatePinnedItems(pinnedGridManager)
 
 	pinnedGridContainer := pinnedGridManager.GetContainer()
-	pinnedGridContainer.SetMinSize(fyne.NewSize(400, 400))
 
 	// Подписываемся на события изменения закрепленных элементов
 	eventChan := pinned.GetEventManager().Subscribe()
@@ -234,12 +220,17 @@ func (p *UI) createBottomPart() fyne.CanvasObject {
 		}
 	}()
 
-	bottomPart := container.NewVBox(
-		container.NewBorder(nil, nil, widget.NewLabel("Витрина"), nil, separatorContainer),
-		pinnedGridContainer,
+	// Используем Border для заполнения доступного пространства без горизонтальной прокрутки
+	// Заголовок сверху, сетка занимает всё оставшееся место
+	content := container.NewBorder(
+		widget.NewLabel("Витрина"), // Top
+		nil,                        // Bottom
+		nil,                        // Left
+		nil,                        // Right
+		pinnedGridContainer,        // Content
 	)
 
-	return bottomPart
+	return content
 }
 
 // updatePinnedItems обновляет отображение закрепленных элементов

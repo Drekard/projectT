@@ -2,6 +2,8 @@ package queries
 
 import (
 	"database/sql"
+	"fmt"
+	"log"
 	"projectT/internal/storage/database"
 	"projectT/internal/storage/database/models"
 )
@@ -16,8 +18,29 @@ func NewFavoritesServiceImpl() *FavoritesServiceImpl {
 
 // AddToFavorites добавляет элемент в избранное
 func (f *FavoritesServiceImpl) AddToFavorites(entityType string, entityUUID string) error {
-	query := `INSERT INTO favorites (entity_type, entity_uuid) VALUES (?, ?)`
-	result, err := database.DB.Exec(query, entityType, entityUUID)
+	log.Printf("[FavoritesImpl] AddToFavorites: entityType=%s, entityUUID=%s", entityType, entityUUID)
+
+	// Пытаемся распарсить entityUUID как int (так как в БД используется entity_id)
+	var entityID int64
+	_, err := fmt.Sscanf(entityUUID, "%d", &entityID)
+	log.Printf("[FavoritesImpl] Sscanf result: entityID=%d, err=%v", entityID, err)
+
+	if err != nil {
+		// Если не удалось распарсить как int, используем entity_uuid
+		log.Printf("[FavoritesImpl] Using entity_uuid: %s", entityUUID)
+		query := `INSERT INTO favorites (entity_type, entity_uuid) VALUES (?, ?)`
+		result, err := database.DB.Exec(query, entityType, entityUUID)
+		if err != nil {
+			return err
+		}
+		_, _ = result.RowsAffected()
+		return nil
+	}
+
+	// Используем entity_id
+	log.Printf("[FavoritesImpl] Using entity_id: %d", entityID)
+	query := `INSERT INTO favorites (entity_type, entity_id) VALUES (?, ?)`
+	result, err := database.DB.Exec(query, entityType, entityID)
 	if err != nil {
 		return err
 	}
@@ -27,8 +50,23 @@ func (f *FavoritesServiceImpl) AddToFavorites(entityType string, entityUUID stri
 
 // RemoveFromFavorites удаляет элемент из избранного
 func (f *FavoritesServiceImpl) RemoveFromFavorites(entityType string, entityUUID string) error {
-	query := `DELETE FROM favorites WHERE entity_type = ? AND entity_uuid = ?`
-	result, err := database.DB.Exec(query, entityType, entityUUID)
+	// Пытаемся распарсить entityUUID как int (так как в БД используется entity_id)
+	var entityID int64
+	_, err := fmt.Sscanf(entityUUID, "%d", &entityID)
+	if err != nil {
+		// Если не удалось распарсить как int, используем entity_uuid
+		query := `DELETE FROM favorites WHERE entity_type = ? AND entity_uuid = ?`
+		result, err := database.DB.Exec(query, entityType, entityUUID)
+		if err != nil {
+			return err
+		}
+		_, _ = result.RowsAffected()
+		return nil
+	}
+
+	// Используем entity_id
+	query := `DELETE FROM favorites WHERE entity_type = ? AND entity_id = ?`
+	result, err := database.DB.Exec(query, entityType, entityID)
 	if err != nil {
 		return err
 	}
@@ -38,9 +76,27 @@ func (f *FavoritesServiceImpl) RemoveFromFavorites(entityType string, entityUUID
 
 // IsFavorite проверяет, является ли элемент избранным
 func (f *FavoritesServiceImpl) IsFavorite(entityType string, entityUUID string) (bool, error) {
-	query := `SELECT 1 FROM favorites WHERE entity_type = ? AND entity_uuid = ?`
+	// Пытаемся распарсить entityUUID как int (так как в БД используется entity_id)
+	var entityID int64
+	_, err := fmt.Sscanf(entityUUID, "%d", &entityID)
+	if err != nil {
+		// Если не удалось распарсить как int, используем entity_uuid
+		query := `SELECT 1 FROM favorites WHERE entity_type = ? AND entity_uuid = ?`
+		var exists int
+		err := database.DB.QueryRow(query, entityType, entityUUID).Scan(&exists)
+		if err != nil {
+			if err == sql.ErrNoRows {
+				return false, nil
+			}
+			return false, err
+		}
+		return true, nil
+	}
+
+	// Используем entity_id
+	query := `SELECT 1 FROM favorites WHERE entity_type = ? AND entity_id = ?`
 	var exists int
-	err := database.DB.QueryRow(query, entityType, entityUUID).Scan(&exists)
+	err = database.DB.QueryRow(query, entityType, entityID).Scan(&exists)
 	if err != nil {
 		if err == sql.ErrNoRows {
 			return false, nil
@@ -55,7 +111,7 @@ func (f *FavoritesServiceImpl) GetFavoriteFolders() ([]*models.Item, error) {
 	query := `
 		SELECT i.id, i.element_uuid, i.hash, i.type, i.title, i.description, i.content_meta, i.parent_id, i.created_at, i.updated_at
 		FROM items i
-		INNER JOIN favorites f ON i.element_uuid = f.entity_uuid
+		INNER JOIN favorites f ON i.id = f.entity_id
 		WHERE f.entity_type = 'folder'
 	`
 	rows, err := database.DB.Query(query)
@@ -86,7 +142,7 @@ func (f *FavoritesServiceImpl) GetFavoriteTags() ([]*models.Tag, error) {
 	query := `
 		SELECT t.id, t.tag_uuid, t.owner_peer_id, t.name, t.color, t.description
 		FROM tags t
-		INNER JOIN favorites f ON t.tag_uuid = f.entity_uuid
+		INNER JOIN favorites f ON t.id = f.entity_id
 		WHERE f.entity_type = 'tag'
 	`
 	rows, err := database.DB.Query(query)

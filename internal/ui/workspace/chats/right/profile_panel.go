@@ -103,30 +103,58 @@ func (p *Panel) UpdateProfile(contact *models.Contact) {
 	}
 
 	// Загружаем demo элементы из профиля пира
+	// ПРИМЕЧАНИЕ: Для remote профилей витрина загружается отдельно после синхронизации элементов
+	// через RefreshDemoElementsAfterSync(), чтобы избежать гонки состояний
 	if contact.PeerID != "" && p.demoElementsContainer != nil {
-		log.Printf("[ProfilePanel] 🔍 Загрузка витрины элементов для peer_id=%s", contact.PeerID[:8])
-		// Загружаем профиль из таблицы profiles по PeerID
-		profile, err := queries.GetProfileByPeerID(contact.PeerID)
-		if err == nil && profile != nil {
-			log.Printf("[ProfilePanel] 📋 Профиль загружен: pinned_uuids=%s", profile.PinnedUUIDs)
-			if profile.PinnedUUIDs != "" && profile.PinnedUUIDs != "[]" {
-				p.loadDemoElements(profile.PinnedUUIDs)
-				log.Printf("[ProfilePanel] ✅ Витрина элементов загружена")
-			} else {
-				log.Printf("[ProfilePanel] ℹ️ Витрина элементов пуста")
-				// Если demo элементов нет, очищаем контейнер
-				p.demoElementsContainer.Objects = nil
-				p.demoElementsContainer.Refresh()
-			}
-		} else {
-			log.Printf("[ProfilePanel] ❌ Ошибка загрузки профиля: %v", err)
-		}
+		log.Printf("[ProfilePanel] ℹ️ Витрина элементов будет загружена после синхронизации элементов")
+		// Очищаем витрину до завершения синхронизации
+		p.demoElementsContainer.Objects = nil
+		p.demoElementsContainer.Refresh()
 	}
 
 	// Обновляем UI
 	if p.container != nil {
 		p.container.Refresh()
 		log.Printf("[ProfilePanel] ✅ UI обновлён")
+	}
+}
+
+// RefreshDemoElementsAfterSync обновляет витрину элементов после завершения синхронизации
+// Этот метод должен вызываться после успешной загрузки pinned элементов через ItemSync
+func (p *Panel) RefreshDemoElementsAfterSync(peerID string) {
+	if p.demoElementsContainer == nil {
+		return
+	}
+
+	log.Printf("[ProfilePanel] 🔄 Обновление витрины элементов после синхронизации: peer_id=%s", peerID[:8])
+
+	// Загружаем профиль из таблицы profiles по PeerID
+	profile, err := queries.GetProfileByPeerID(peerID)
+	if err != nil {
+		log.Printf("[ProfilePanel] ❌ Ошибка загрузки профиля для витрины: %v", err)
+		return
+	}
+
+	if profile == nil {
+		log.Printf("[ProfilePanel] ❌ Профиль не найден")
+		return
+	}
+
+	log.Printf("[ProfilePanel] 📋 Профиль загружен: pinned_uuids=%s", profile.PinnedUUIDs)
+
+	if profile.PinnedUUIDs != "" && profile.PinnedUUIDs != "[]" {
+		p.loadDemoElements(profile.PinnedUUIDs)
+		log.Printf("[ProfilePanel] ✅ Витрина элементов обновлена после синхронизации")
+	} else {
+		log.Printf("[ProfilePanel] ℹ️ Витрина элементов пуста")
+		p.demoElementsContainer.Objects = nil
+		p.demoElementsContainer.Refresh()
+	}
+
+	// Обновляем UI
+	if p.container != nil {
+		p.container.Refresh()
+		log.Printf("[ProfilePanel] ✅ UI витрины обновлён")
 	}
 }
 

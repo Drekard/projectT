@@ -76,6 +76,9 @@ type ExchangeService struct {
 	uiP2P interface {
 		OnProfileUpdated(peerID string)
 	} // UI callback для уведомления об обновлении профиля
+	uiProfilePanel interface {
+		RefreshDemoElementsAfterSync(peerID string)
+	} // UI callback для обновления витрины элементов после синхронизации
 }
 
 // NewExchangeService создаёт сервис обмена профилями
@@ -111,6 +114,13 @@ func (pes *ExchangeService) SetUIP2P(uiP2P interface {
 	OnProfileUpdated(peerID string)
 }) {
 	pes.uiP2P = uiP2P
+}
+
+// SetUIProfilePanel устанавливает UI callback для обновления витрины элементов
+func (pes *ExchangeService) SetUIProfilePanel(uiPanel interface {
+	RefreshDemoElementsAfterSync(peerID string)
+}) {
+	pes.uiProfilePanel = uiPanel
 }
 
 // getTransferService возвращает сервис передачи файлов
@@ -1000,6 +1010,14 @@ func (pes *ExchangeService) downloadPinnedItems(peerID peer.ID, pinnedUUIDs []st
 		log.Printf("[Profile]    4. Элемент будет доставлен через P2P Chat Protocol")
 	} else {
 		log.Printf("[Profile] 🎉 Все pinned элементы успешно загружены!")
+	}
+
+	// Уведомляем UI об обновлении витрины элементов
+	if pes.uiProfilePanel != nil {
+		log.Printf("[Profile] 📢 Уведомление UI об обновлении витрины элементов")
+		pes.uiProfilePanel.RefreshDemoElementsAfterSync(peerID.String())
+	} else {
+		log.Printf("[Profile] ⚠️ UI callback не установлен (uiProfilePanel == nil)")
 	}
 }
 

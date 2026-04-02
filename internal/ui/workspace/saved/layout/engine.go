@@ -85,3 +85,14 @@ func (le *LayoutEngine) UpdateColumnHeights(heights []float32) {
 func (le *LayoutEngine) GetColumnHeights() []float32 {
 	return le.columnHeights
 }
+
+// UpdateColumnCount обновляет количество колонок
+func (le *LayoutEngine) UpdateColumnCount(count int) {
+	if count <= 0 {
+		count = 3
+	}
+	le.columnHeights = make([]float32, count)
+	for i := 0; i < count; i++ {
+		le.columnHeights[i] = 0
+	}
+}
