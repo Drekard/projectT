@@ -15,6 +15,10 @@ import (
 	"projectT/internal/storage/database/queries"
 )
 
+// MaxConcurrentConnections максимальное количество одновременных подключений
+// Ограничивает потребление ресурсов (память, сеть, CPU)
+const MaxConcurrentConnections = 50
+
 // MarkProfilePending отмечает пира как ожидающего обмена профиля
 func (s *Service) MarkProfilePending(peerID peer.ID) {
 	s.mu.Lock()
@@ -56,52 +60,108 @@ func (s *Service) CanRequestProfile(peerID peer.ID) bool {
 
 // initializeConnections инициализирует подключения к известным пирам
 func (s *Service) initializeConnections() {
-	var contacts []*models.Contact
+	// Загружаем ВСЕ активные адреса для подключения (bootstrap + contact + discovered)
+	var addresses []*models.PeerAddress
 	var err error
 
 	func() {
 		defer func() {
 			if r := recover(); r != nil {
-				contacts = nil
+				addresses = nil
 				err = nil
 			}
 		}()
-		contacts, err = queries.GetAllContacts()
+		addresses, err = queries.GetActivePeerAddresses()
 	}()
 
-	if contacts == nil && err == nil {
+	if addresses == nil && err == nil {
 		return
 	}
 
 	if err != nil {
-		log.Printf("Предупреждение: не удалось загрузить контакты: %v", err)
+		log.Printf("Предупреждение: не удалось загрузить адреса пиров: %v", err)
 		return
 	}
 
-	for _, contact := range contacts {
-		if contact.Multiaddr == "" {
-			continue
+	log.Printf("[Connection] Загружено %d адресов для подключения", len(addresses))
+
+	// ✅ Проверяем лимит подключений
+	connectedCount := s.GetConnectedPeersCount()
+	if connectedCount >= MaxConcurrentConnections {
+		log.Printf("[Connection] ⚠️ Достигнут лимит подключений: %d/%d", connectedCount, MaxConcurrentConnections)
+		return
+	}
+
+	// Ограничиваем количество попыток подключения с учётом уже подключённых
+	maxToConnect := MaxConcurrentConnections - connectedCount
+	log.Printf("[Connection] Максимум подключений: %d (уже подключено: %d)", maxToConnect, connectedCount)
+
+	// Счётчик попыток подключения
+	var connectAttempt int
+
+	for _, addr := range addresses {
+		// ✅ Ограничиваем количество подключений
+		if connectAttempt >= maxToConnect {
+			log.Printf("[Connection] ⚠️ Достигнут лимит подключений (%d), остальные адреса в очереди", connectAttempt)
+			break
 		}
 
-		peerID, err := peer.Decode(contact.PeerID)
+		peerID, err := peer.Decode(addr.PeerID)
 		if err != nil {
-			log.Printf("Предупреждение: неверный PeerID контакта %s: %v", contact.PeerID, err)
+			log.Printf("Предупреждение: неверный PeerID %s: %v", addr.PeerID, err)
 			continue
 		}
 
+		// Инициализируем статус пира
 		s.peerStatus[peerID] = &PeerConnectionInfo{
 			Status:  StatusDisconnected,
 			AddedAt: time.Now(),
 		}
 
-		addr, err := multiaddr.NewMultiaddr(contact.Multiaddr)
+		multiaddrStr := addr.Multiaddr
+		ma, err := multiaddr.NewMultiaddr(multiaddrStr)
 		if err != nil {
+			log.Printf("Предупреждение: неверный адрес %s: %v", addr.Multiaddr, err)
 			continue
 		}
-		s.host.Peerstore().AddAddr(peerID, addr, peerstore.PermanentAddrTTL)
+
+		// Добавляем адрес в peerstore
+		s.host.Peerstore().AddAddr(peerID, ma, peerstore.PermanentAddrTTL)
+
+		// Увеличиваем счётчик
+		connectAttempt++
+
+		// ✅ Автоподключение ко ВСЕМ известным пирам (не только контакты!)
+		go func(addr *models.PeerAddress) {
+			ctx, cancel := context.WithTimeout(s.ctx, 15*time.Second)
+			defer cancel()
+
+			peerID, err := peer.Decode(addr.PeerID)
+			if err != nil {
+				return
+			}
+
+			if err := s.host.Connect(ctx, peer.AddrInfo{
+				ID:    peerID,
+				Addrs: []multiaddr.Multiaddr{ma},
+			}); err != nil {
+				log.Printf("❌ Автоподключение к %s (%s): %v", addr.PeerID[:8], addr.AddressType, err)
+
+				// Если это bootstrap или contact — добавляем в очередь переподключения
+				if addr.AddressType == "bootstrap" || addr.AddressType == "contact" {
+					s.addToReconnectQueue(peerID)
+				}
+			} else {
+				log.Printf("✅ Автоподключение к %s (%s) успешно", addr.PeerID[:8], addr.AddressType)
+
+				// Обновляем время подключения в БД
+				_ = queries.UpdatePeerAddressLastConnected(addr.Multiaddr)
+				_ = queries.UpdateProfileLastConnected(addr.PeerID)
+			}
+		}(addr)
 	}
 
-	log.Printf("Инициализировано %d контактов", len(s.peerStatus))
+	log.Printf("[Connection] Инициализировано %d известных пиров", len(addresses))
 }
 
 // monitorConnections отслеживает активные соединения

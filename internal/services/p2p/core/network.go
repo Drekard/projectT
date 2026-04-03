@@ -21,9 +21,12 @@ import (
 
 	"projectT/internal/services"
 	p2p "projectT/internal/services/p2p"
+	"projectT/internal/services/p2p/autodial"
 	"projectT/internal/services/p2p/connection"
 	"projectT/internal/services/p2p/discovery"
 	"projectT/internal/services/p2p/helper"
+	"projectT/internal/services/p2p/peerexchange"
+	"projectT/internal/services/p2p/protocols/avatar"
 	"projectT/internal/services/p2p/protocols/chat"
 	"projectT/internal/services/p2p/protocols/itemsync"
 	"projectT/internal/services/p2p/protocols/profile"
@@ -48,6 +51,9 @@ type P2PNetwork struct {
 	profileExchange *profile.ExchangeService
 	itemSync        *itemsync.Service
 	transfer        *transfer.Service
+	avatar          *avatar.Service               // ✅ Сервис загрузки аватарок
+	autodial        *autodial.DialerManager       // ✅ Менеджер автоподключения
+	peerExchange    *peerexchange.ExchangeService // ✅ Сервис обмена пирами
 	helper          *HelperService
 	config          *p2p.P2PConfig
 	ctx             context.Context
@@ -177,6 +183,11 @@ func (n *P2PNetwork) Start() error {
 		log.Printf("Предупреждение: сервис передачи не инициализирован: %v", err)
 	}
 
+	// ✅ Инициализируем сервис загрузки аватарок
+	if err := n.initAvatar(); err != nil {
+		log.Printf("Предупреждение: сервис аватарок не инициализирован: %v", err)
+	}
+
 	// Инициализируем сервис синхронизации элементов
 	if err := n.initItemSync(); err != nil {
 		log.Printf("Предупреждение: сервис синхронизации не инициализирован: %v", err)
@@ -204,6 +215,16 @@ func (n *P2PNetwork) Start() error {
 	// Инициализируем и запускаем сервис обнаружения
 	if err := n.initDiscovery(); err != nil {
 		log.Printf("Предупреждение: сервис обнаружения не инициализирован: %v", err)
+	}
+
+	// ✅ Инициализируем сервис автоподключения
+	if err := n.initAutodial(); err != nil {
+		log.Printf("Предупреждение: сервис автоподключения не инициализирован: %v", err)
+	}
+
+	// ✅ Инициализируем сервис обмена пирами
+	if err := n.initPeerExchange(); err != nil {
+		log.Printf("Предупреждение: сервис обмена пирами не инициализирован: %v", err)
 	}
 
 	// Инициализируем режим помощника если включён
@@ -296,4 +317,9 @@ func (n *P2PNetwork) Stop() error {
 // Ctx возвращает контекст P2P сети
 func (n *P2PNetwork) Ctx() context.Context {
 	return n.ctx
+}
+
+// Avatar возвращает сервис загрузки аватарок
+func (n *P2PNetwork) Avatar() *avatar.Service {
+	return n.avatar
 }

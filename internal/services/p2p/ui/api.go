@@ -443,10 +443,10 @@ func (api *UIP2P) GetAllContacts() []*PeerInfo {
 }
 
 // GetBootstrapPeers возвращает список bootstrap пиров
-func (api *UIP2P) GetBootstrapPeers() []*models.BootstrapPeer {
+func (api *UIP2P) GetBootstrapPeers() []*models.PeerAddress {
 
 	if api.network.DiscoveryService() == nil {
-		return []*models.BootstrapPeer{}
+		return []*models.PeerAddress{}
 	}
 
 	peers, _ := api.network.DiscoveryService().GetBootstrapPeers()

@@ -183,7 +183,10 @@ func GetChatsWithLastMessages() ([]*models.ChatWithLastMessage, error) {
 			WHERE is_read = 0
 			GROUP BY chat_id
 		) uc ON c.id = uc.chat_id
-		WHERE c.peer_id IS NOT NULL AND c.peer_id != '' AND c.peer_id != '__local__'
+		WHERE c.peer_id IS NOT NULL AND c.peer_id != ''
+		AND c.peer_id NOT IN (
+			SELECT peer_id FROM profiles WHERE owner_type = 'local'
+		)
 		GROUP BY c.id
 	`
 

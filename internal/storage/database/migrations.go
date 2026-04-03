@@ -2,6 +2,7 @@ package database
 
 import (
 	"log"
+	"strings"
 )
 
 // RunMigrations выполняет миграции базы данных
@@ -27,7 +28,7 @@ func RunMigrations() {
 	createContactsTable()
 	createChatsTable()
 	createChatMessagesTable()
-	createBootstrapPeersTable()
+	createPeerAddressesTable()
 
 	// ============================================================
 	// ЧАСТЬ 2: СОЗДАНИЕ ИНДЕКСОВ
@@ -42,7 +43,7 @@ func RunMigrations() {
 	createContactsIndexes()
 	createChatsIndexes()
 	createChatMessagesIndexes()
-	createBootstrapPeersIndexes()
+	createPeerAddressesIndexes()
 
 	// ============================================================
 	// ЧАСТЬ 3: ТРИГГЕРЫ И ОГРАНИЧЕНИЯ
@@ -68,6 +69,12 @@ func RunMigrations() {
 	// ============================================================
 
 	dropFavoritesValidateTrigger()
+
+	// ============================================================
+	// ЧАСТЬ 4.3: Миграция для peer_addresses и profiles
+	// ============================================================
+
+	migratePeerAddressesAndProfiles()
 
 	// ============================================================
 	// ЧАСТЬ 5: SEED ДАННЫЕ
@@ -220,6 +227,11 @@ func createProfilesTable() {
 			content_char    TEXT,
 			pinned_uuids    TEXT DEFAULT '[]',
 			cached_at       DATETIME,
+			
+			-- Поля для отслеживания подключений
+			last_connected  DATETIME,
+			connection_count INTEGER DEFAULT 0,
+			
 			created_at      DATETIME DEFAULT CURRENT_TIMESTAMP,
 			updated_at      DATETIME DEFAULT CURRENT_TIMESTAMP
 		);
@@ -302,19 +314,39 @@ func createChatsTable() {
 	}
 }
 
-func createBootstrapPeersTable() {
+func createPeerAddressesTable() {
 	_, err := DB.Exec(`
-		CREATE TABLE IF NOT EXISTS bootstrap_peers (
-			id             INTEGER PRIMARY KEY AUTOINCREMENT,
-			multiaddr      TEXT UNIQUE NOT NULL,
-			peer_id        TEXT,
-			is_active      BOOLEAN DEFAULT 1,
-			last_connected DATETIME,
-			added_at       DATETIME DEFAULT CURRENT_TIMESTAMP
+		CREATE TABLE IF NOT EXISTS peer_addresses (
+			id              INTEGER PRIMARY KEY AUTOINCREMENT,
+			profile_id      INTEGER NOT NULL REFERENCES profiles(id) ON DELETE CASCADE,
+			
+			-- Адрес
+			multiaddr       TEXT NOT NULL,
+			
+			-- Тип адреса (для приоритета подключения)
+			address_type    TEXT NOT NULL CHECK (address_type IN (
+				'bootstrap',   -- Публичный узел для входа в сеть
+				'contact',     -- Личный контакт пользователя
+				'discovered'   -- Найден через peer exchange / DHT
+			)),
+			
+			-- Статус
+			is_active       BOOLEAN DEFAULT 1,
+			last_connected  DATETIME,
+			last_seen       DATETIME,
+			
+			-- Метаданные подключения
+			priority        INTEGER DEFAULT 0,
+			source          TEXT,
+			
+			created_at      DATETIME DEFAULT CURRENT_TIMESTAMP,
+			updated_at      DATETIME DEFAULT CURRENT_TIMESTAMP,
+			
+			UNIQUE(profile_id, multiaddr)
 		);
 	`)
 	if err != nil {
-		log.Fatal("Ошибка при создании таблицы bootstrap_peers:", err)
+		log.Fatal("Ошибка при создании таблицы peer_addresses:", err)
 	}
 }
 
@@ -422,10 +454,18 @@ func createChatsIndexes() {
 	}
 }
 
-func createBootstrapPeersIndexes() {
-	_, err := DB.Exec(`CREATE INDEX IF NOT EXISTS idx_bootstrap_peers_multiaddr ON bootstrap_peers(multiaddr)`)
-	if err != nil {
-		log.Printf("Ошибка при создании индекса idx_bootstrap_peers_multiaddr: %v", err)
+func createPeerAddressesIndexes() {
+	indexes := []string{
+		`CREATE INDEX IF NOT EXISTS idx_peer_addresses_profile_id ON peer_addresses(profile_id)`,
+		`CREATE INDEX IF NOT EXISTS idx_peer_addresses_address_type ON peer_addresses(address_type)`,
+		`CREATE INDEX IF NOT EXISTS idx_peer_addresses_active ON peer_addresses(is_active)`,
+		`CREATE INDEX IF NOT EXISTS idx_peer_addresses_priority ON peer_addresses(priority DESC)`,
+	}
+
+	for _, sql := range indexes {
+		if _, err := DB.Exec(sql); err != nil {
+			log.Printf("Ошибка при создании индекса: %v", err)
+		}
 	}
 }
 
@@ -502,8 +542,66 @@ func createRemoteItemUniqueIndex() {
 // ============================================================
 
 // seedBootstrapPeers добавляет предопределённые bootstrap-узлы
-// Отключено - пользователь добавляет bootstrap пиры самостоятельно
+// Пользователь может добавить свои bootstrap пиры самостоятельно через UI
+// Начальные bootstrap-узлы добавляются при первом запуске
 func seedBootstrapPeers() {
+	// Добавляем начальные bootstrap-узлы если таблица пустая
+	var count int
+	err := DB.QueryRow(`SELECT COUNT(*) FROM peer_addresses WHERE address_type = 'bootstrap'`).Scan(&count)
+	if err != nil || count > 0 {
+		return // Таблица уже содержит bootstrap-узлы
+	}
+
+	// Пример начальных bootstrap-узлов (заглушки для демонстрации)
+	// В реальности здесь будут адреса публичных узлов проекта ProjectT
+	initialBootstrap := []string{
+		// Формат: multiaddr адреса
+		// "/ip4/bootstrap1.projectt.io/tcp/4001/p2p/QmBootstrap1",
+		// "/ip4/bootstrap2.projectt.io/tcp/4001/p2p/QmBootstrap2",
+	}
+
+	for _, addr := range initialBootstrap {
+		// Сначала создаём профиль для bootstrap пира
+		var profileID int64
+		peerID := extractPeerID(addr) // Извлекаем PeerID из адреса
+
+		err := DB.QueryRow(`
+			INSERT INTO profiles (owner_type, peer_id, username, cached_at)
+			VALUES ('remote', ?, 'Bootstrap Node', CURRENT_TIMESTAMP)
+			ON CONFLICT(peer_id) DO UPDATE SET cached_at = CURRENT_TIMESTAMP
+			RETURNING id
+		`, peerID).Scan(&profileID)
+
+		if err != nil {
+			log.Printf("Предупреждение: не удалось создать профиль для bootstrap %s: %v", peerID, err)
+			continue
+		}
+
+		// Добавляем адрес
+		_, err = DB.Exec(`
+			INSERT INTO peer_addresses (profile_id, multiaddr, address_type, source, priority, is_active)
+			VALUES (?, ?, 'bootstrap', 'hardcoded', 10, 1)
+		`, profileID, addr)
+
+		if err != nil {
+			log.Printf("Предупреждение: не удалось добавить bootstrap адрес %s: %v", addr, err)
+		}
+	}
+
+	if len(initialBootstrap) > 0 {
+		log.Printf("Добавлено %d начальных bootstrap-узлов", len(initialBootstrap))
+	}
+}
+
+// extractPeerID извлекает PeerID из multiaddr строки
+func extractPeerID(multiaddr string) string {
+	// Простая реализация: ищем последнюю часть после /p2p/
+	// В production используйте github.com/multiformats/go-multiaddr
+	parts := strings.Split(multiaddr, "/p2p/")
+	if len(parts) > 1 {
+		return parts[len(parts)-1]
+	}
+	return "unknown_bootstrap_" + multiaddr[len(multiaddr)-8:]
 }
 
 // migrateFavoritesTable исправляет схему таблицы favorites
@@ -626,4 +724,137 @@ func dropFavoritesValidateTrigger() {
 	}
 
 	log.Println("[Миграция] Триггер validate_favorites_entity_uuid_insert удален")
+}
+
+// migratePeerAddressesAndProfiles создаёт таблицу peer_addresses и обновляет profiles
+func migratePeerAddressesAndProfiles() {
+	// Проверяем, существует ли таблица peer_addresses
+	var tableName string
+	err := DB.QueryRow(`SELECT name FROM sqlite_master WHERE type='table' AND name='peer_addresses'`).Scan(&tableName)
+	if err != nil {
+		// Таблицы нет - она будет создана через createPeerAddressesTable()
+		// Эта функция вызывается выше в RunMigrations()
+		log.Println("[Миграция] Таблица peer_addresses будет создана")
+	} else {
+		log.Println("[Миграция] Таблица peer_addresses уже существует")
+	}
+
+	// Проверяем, существует ли таблица bootstrap_peers
+	err = DB.QueryRow(`SELECT name FROM sqlite_master WHERE type='table' AND name='bootstrap_peers'`).Scan(&tableName)
+	if err == nil {
+		// Таблица bootstrap_peers существует - переносим данные и удаляем
+		log.Println("[Миграция] Перенос данных из bootstrap_peers...")
+
+		// Переносим данные из bootstrap_peers в peer_addresses
+		_, err = DB.Exec(`
+			INSERT OR IGNORE INTO peer_addresses (profile_id, multiaddr, address_type, source, priority, is_active)
+			SELECT 
+				COALESCE(
+					(SELECT id FROM profiles WHERE profiles.peer_id = bp.peer_id),
+					(SELECT id FROM profiles WHERE profiles.peer_id = (
+						SELECT peer_id FROM bootstrap_peers WHERE multiaddr = bp.multiaddr LIMIT 1
+					))
+				) as profile_id,
+				bp.multiaddr,
+				'bootstrap',
+				'hardcoded',
+				10,
+				bp.is_active
+			FROM bootstrap_peers bp
+		`)
+		if err != nil {
+			log.Printf("[Миграция] Предупреждение: не удалось перенести bootstrap_peers: %v", err)
+		}
+
+		// Проверяем, есть ли ещё записи в bootstrap_peers
+		var count int
+		row := DB.QueryRow(`SELECT COUNT(*) FROM peer_addresses WHERE address_type = 'bootstrap'`)
+		if err := row.Scan(&count); err != nil {
+			log.Printf("[Миграция] Предупреждение: ошибка подсчёта bootstrap-узлов: %v", err)
+		} else if count > 0 {
+			log.Printf("[Миграция] Перенесено %d bootstrap-узлов", count)
+		}
+
+		// Удаляем старую таблицу
+		_, err = DB.Exec(`DROP TABLE IF EXISTS bootstrap_peers`)
+		if err != nil {
+			log.Printf("[Миграция] Предупреждение: не удалось удалить bootstrap_peers: %v", err)
+		} else {
+			log.Println("[Миграция] Таблица bootstrap_peers удалена")
+		}
+	}
+
+	// Проверяем, существует ли таблица contacts для переноса адресов
+	err = DB.QueryRow(`SELECT name FROM sqlite_master WHERE type='table' AND name='contacts'`).Scan(&tableName)
+	if err == nil {
+		log.Println("[Миграция] Перенос адресов из contacts...")
+
+		// Переносим адреса из contacts в peer_addresses
+		_, err = DB.Exec(`
+			INSERT OR IGNORE INTO peer_addresses (profile_id, multiaddr, address_type, source, priority, is_active)
+			SELECT 
+				p.id,
+				c.multiaddr,
+				'contact',
+				'user_added',
+				10,
+				1
+			FROM contacts c
+			JOIN profiles p ON c.peer_id = p.peer_id
+			WHERE c.multiaddr IS NOT NULL AND c.multiaddr != ''
+		`)
+		if err != nil {
+			log.Printf("[Миграция] Предупреждение: не удалось перенести contacts: %v", err)
+		} else {
+			var count int
+			row := DB.QueryRow(`SELECT COUNT(*) FROM peer_addresses WHERE address_type = 'contact'`)
+			if err := row.Scan(&count); err != nil {
+				log.Printf("[Миграция] Предупреждение: ошибка подсчёта адресов контактов: %v", err)
+			} else if count > 0 {
+				log.Printf("[Миграция] Перенесено %d адресов контактов", count)
+			}
+		}
+	}
+
+	// Проверяем, есть ли уже поля last_connected и connection_count в profiles
+	var hasLastConnected, hasConnectionCount bool
+	rows, err := DB.Query(`PRAGMA table_info(profiles)`)
+	if err == nil {
+		defer rows.Close()
+		for rows.Next() {
+			var cid int
+			var name, typ string
+			var notnull, dfltValue, pk int
+			if err := rows.Scan(&cid, &name, &typ, &notnull, &dfltValue, &pk); err != nil {
+				continue
+			}
+			if name == "last_connected" {
+				hasLastConnected = true
+			}
+			if name == "connection_count" {
+				hasConnectionCount = true
+			}
+		}
+	}
+
+	// Добавляем поля если их нет
+	if !hasLastConnected {
+		_, err = DB.Exec(`ALTER TABLE profiles ADD COLUMN last_connected DATETIME`)
+		if err != nil {
+			log.Printf("[Миграция] Предупреждение: не удалось добавить last_connected: %v", err)
+		} else {
+			log.Println("[Миграция] Добавлено поле last_connected")
+		}
+	}
+
+	if !hasConnectionCount {
+		_, err = DB.Exec(`ALTER TABLE profiles ADD COLUMN connection_count INTEGER DEFAULT 0`)
+		if err != nil {
+			log.Printf("[Миграция] Предупреждение: не удалось добавить connection_count: %v", err)
+		} else {
+			log.Println("[Миграция] Добавлено поле connection_count")
+		}
+	}
+
+	log.Println("[Миграция] Миграция peer_addresses и profiles завершена")
 }

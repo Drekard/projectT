@@ -125,7 +125,7 @@ func (n *P2PNetwork) RemoveBootstrapPeer(multiaddr string) error {
 }
 
 // GetBootstrapPeers возвращает список bootstrap-узлов
-func (n *P2PNetwork) GetBootstrapPeers() ([]*models.BootstrapPeer, error) {
+func (n *P2PNetwork) GetBootstrapPeers() ([]*models.PeerAddress, error) {
 	n.mu.RLock()
 	defer n.mu.RUnlock()
 

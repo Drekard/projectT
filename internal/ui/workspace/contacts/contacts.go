@@ -72,51 +72,51 @@ func (ui *UI) Refresh() {
 
 // createContactsContent создает содержимое вкладки "Контакты"
 func (ui *UI) createContactsContent() *fyne.Container {
-	// Заголовок
-	title := widget.NewLabel("Контакты")
-	title.TextStyle = fyne.TextStyle{Bold: true}
-
-	// Кнопка добавления контакта
-	addButton := widget.NewButtonWithIcon("Добавить контакт", theme.ContentAddIcon(), func() {
-		ui.showAddContactDialog()
-	})
-	addButton.Importance = widget.HighImportance
-
 	// Список контактов
 	ui.contactsList = container.NewVBox()
-
-	// Разделитель
-	sep := widget.NewSeparator()
 
 	// Разделитель для добавления контакта вручную
 	manualLabel := widget.NewLabel("Добавить контакт по адресу")
 	manualLabel.TextStyle = fyne.TextStyle{Italic: true}
 
+	// Поле ввода адреса с ограниченной шириной
 	ui.addressEntry = widget.NewEntry()
 	ui.addressEntry.SetPlaceHolder("projectt:peerid@/ip4/.../tcp/.../p2p/...")
+	ui.addressEntry.MultiLine = false
+	ui.addressEntry.Wrapping = fyne.TextWrapBreak
 
+	// Ограничиваем ширину поля адреса
+	addressWrapper := container.NewGridWithColumns(2, ui.addressEntry)
+
+	// Поле ввода имени с ограниченной шириной
 	ui.usernameEntry = widget.NewEntry()
 	ui.usernameEntry.SetPlaceHolder("Имя контакта (необязательно)")
+	ui.usernameEntry.MultiLine = false
 
+	usernameEntryWrapper := canvas.NewRectangle(color.RGBA{R: 50, G: 50, B: 50, A: 255})
+	usernameEntryWrapper.SetMinSize(fyne.NewSize(300, 30))
+
+	username := container.NewStack(usernameEntryWrapper, ui.usernameEntry)
+
+	// Кнопка добавления (с ограниченной шириной)
 	addManualButton := widget.NewButtonWithIcon("Добавить контакт", theme.ContentAddIcon(), func() {
 		ui.addContactByAddress()
 	})
-	addManualButton.Importance = widget.HighImportance
+
+	// Ограничиваем ширину поля имени
+	usernameWrapper := container.NewGridWithColumns(2, container.NewHBox(username, addManualButton))
 
 	manualSection := container.NewVBox(
 		manualLabel,
-		ui.addressEntry,
-		ui.usernameEntry,
-		addManualButton,
+		addressWrapper,
+		usernameWrapper,
 	)
 
 	content := container.NewVBox(
-		title,
-		addButton,
-		sep,
-		ui.contactsList,
 		widget.NewSeparator(),
 		manualSection,
+		widget.NewSeparator(),
+		ui.contactsList,
 	)
 
 	// Фон
@@ -220,62 +220,6 @@ func (ui *UI) createContactItem(contact *models.Contact) *fyne.Container {
 	)
 
 	return content
-}
-
-// showAddContactDialog показывает диалог добавления контакта
-func (ui *UI) showAddContactDialog() {
-	window := ui.contactsUI.GetWindow()
-	if window == nil {
-		return
-	}
-
-	addressEntry := widget.NewEntry()
-	addressEntry.SetPlaceHolder("projectt:peerid@/ip4/.../tcp/.../p2p/...")
-	addressEntry.MultiLine = true
-	addressEntry.Wrapping = fyne.TextWrapBreak
-
-	usernameEntry := widget.NewEntry()
-	usernameEntry.SetPlaceHolder("Имя контакта (необязательно)")
-
-	content := container.NewVBox(
-		widget.NewLabel("Введите адрес контакта:"),
-		addressEntry,
-		widget.NewLabel("Имя (необязательно):"),
-		usernameEntry,
-	)
-
-	d := dialog.NewCustomConfirm(
-		"Добавить контакт",
-		"Добавить",
-		"Отмена",
-		content,
-		func(confirmed bool) {
-			if !confirmed {
-				return
-			}
-
-			if addressEntry.Text == "" {
-				ui.showErrorDialog("Ошибка", "Введите адрес контакта")
-				return
-			}
-
-			if ui.p2pUI == nil {
-				ui.showErrorDialog("Ошибка", "P2P сервис не инициализирован")
-				return
-			}
-
-			err := ui.p2pUI.AddContactByAddress(addressEntry.Text, usernameEntry.Text)
-			if err != nil {
-				ui.showErrorDialog("Ошибка", fmt.Sprintf("Не удалось добавить контакт: %v", err))
-				return
-			}
-
-			ui.showInfoDialog("Успешно", "Контакт добавлен")
-			ui.loadContactsList()
-		},
-		window,
-	)
-	d.Show()
 }
 
 // openChatWithContact открывает чат с контактом

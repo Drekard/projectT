@@ -3,12 +3,14 @@ package controllers
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"log"
 	"projectT/internal/services"
 	network "projectT/internal/services/p2p/ui"
 	"projectT/internal/storage/database/models"
 	"projectT/internal/storage/database/queries"
+	"time"
 
 	"github.com/libp2p/go-libp2p/core/peer"
 )
@@ -195,13 +197,19 @@ func (cc *ChatController) OpenChat(contact *models.Contact) error {
 		log.Printf("[ChatController] ⚠️ Ошибка загрузки сообщений: %v", err)
 	}
 
-	// Запрашиваем профиль у пира если P2P инициализирован и это не локальный чат
+	// ✅ Загружаем pinned элементы ТОЛЬКО при открытии чата
+	// Это происходит когда пользователь явно начинает общение
 	if cc.p2pUI != nil && !contact.IsLocalChat() {
 		go func() {
+			// Сначала запрашиваем профиль
 			err := cc.p2pUI.RequestProfile(contact.PeerID)
 			if err != nil {
 				log.Printf("[ChatController] ❌ Не удалось запросить профиль у пира: %v", err)
+				return
 			}
+
+			// Затем загружаем pinned элементы из профиля
+			cc.downloadPinnedElements(contact.PeerID)
 		}()
 	}
 
@@ -433,4 +441,84 @@ func (cc *ChatController) RequestItem(ctx context.Context, peerIDStr, elementUUI
 	}
 
 	return item, nil
+}
+
+// downloadPinnedElements загружает pinned элементы из профиля пира
+// Вызывается ТОЛЬКО при открытии чата (не при добавлении контакта!)
+func (cc *ChatController) downloadPinnedElements(peerIDStr string) {
+	if cc.p2pUI == nil {
+		log.Printf("[ChatController] ❌ P2P сервис не инициализирован")
+		return
+	}
+
+	// Получаем профиль пира из БД
+	profile, err := queries.GetProfileByPeerID(peerIDStr)
+	if err != nil || profile == nil {
+		log.Printf("[ChatController] ⚠️ Профиль пира %s не найден в БД", peerIDStr[:8])
+		return
+	}
+
+	// Парсим JSON с pinned UUIDs
+	var pinnedUUIDs []string
+	if err := json.Unmarshal([]byte(profile.PinnedUUIDs), &pinnedUUIDs); err != nil {
+		log.Printf("[ChatController] ⚠️ Ошибка парсинга PinnedUUIDs: %v", err)
+		return
+	}
+
+	if len(pinnedUUIDs) == 0 {
+		log.Printf("[ChatController] ℹ️ У пира %s нет закреплённых элементов", peerIDStr[:8])
+		return
+	}
+
+	log.Printf("[ChatController] 📌 Загрузка %d pinned элементов у пира %s", len(pinnedUUIDs), peerIDStr[:8])
+
+	// Декодируем PeerID
+	peerID, err := peer.Decode(peerIDStr)
+	if err != nil {
+		log.Printf("[ChatController] ❌ Ошибка декодирования PeerID: %v", err)
+		return
+	}
+
+	// Получаем ItemSync сервис
+	p2pNet := cc.p2pUI.GetNetwork()
+	if p2pNet == nil {
+		log.Printf("[ChatController] ❌ P2P сеть не инициализирована")
+		return
+	}
+
+	itemSyncSvc := p2pNet.ItemSync()
+	if itemSyncSvc == nil {
+		log.Printf("[ChatController] ❌ ItemSyncService не инициализирован")
+		return
+	}
+
+	// Загружаем каждый элемент
+	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
+	defer cancel()
+
+	loadedCount := 0
+	for _, uuid := range pinnedUUIDs {
+		// Проверяем, есть ли уже элемент в БД
+		existing, err := queries.GetItemByElementUUID(uuid)
+		if err == nil && existing != nil {
+			log.Printf("[ChatController] ✅ Элемент уже существует: UUID=%s, ID=%d", uuid[:8], existing.ID)
+			loadedCount++
+			continue
+		}
+
+		// Запрашиваем элемент у пира
+		log.Printf("[ChatController] 📥 Запрос элемента: UUID=%s", uuid[:8])
+		item, err := itemSyncSvc.RequestItemByElementUUID(ctx, peerID, uuid)
+		if err != nil {
+			log.Printf("[ChatController] ❌ Ошибка загрузки элемента %s: %v", uuid[:8], err)
+			continue
+		}
+
+		if item != nil {
+			loadedCount++
+			log.Printf("[ChatController] ✅ Элемент загружён: UUID=%s, ID=%d, Title=%q", uuid[:8], item.ID, item.Title)
+		}
+	}
+
+	log.Printf("[ChatController] 📊 Загружено %d из %d pinned элементов", loadedCount, len(pinnedUUIDs))
 }

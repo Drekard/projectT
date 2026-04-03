@@ -3,7 +3,6 @@ package discovery
 
 import (
 	"context"
-	"database/sql"
 	"fmt"
 	"log"
 	"sync"
@@ -42,7 +41,7 @@ type DiscoveryService struct {
 	cancel          context.CancelFunc
 	mu              sync.RWMutex
 	discoveredPeers map[string]time.Time // map[peerID]lastSeen
-	bootstrapPeers  []peer.AddrInfo
+	peerAddresses   []peer.AddrInfo      // Адреса всех известных пиров для подключения
 }
 
 // NewDiscoveryService создаёт сервис обнаружения пиров
@@ -55,7 +54,7 @@ func NewDiscoveryService(host host.Host, dht *routing.RoutingDiscovery, config *
 		ctx:             ctx,
 		cancel:          cancel,
 		discoveredPeers: make(map[string]time.Time),
-		bootstrapPeers:  []peer.AddrInfo{},
+		peerAddresses:   []peer.AddrInfo{},
 	}
 }
 
@@ -64,15 +63,15 @@ func (ds *DiscoveryService) Start() error {
 	ds.mu.Lock()
 	defer ds.mu.Unlock()
 
-	// Загружаем bootstrap-пиры из БД
-	if err := ds.loadBootstrapPeers(); err != nil {
-		log.Printf("Предупреждение: не удалось загрузить bootstrap-пиры: %v", err)
+	// Загружаем все адреса пиров из БД
+	if err := ds.loadPeerAddresses(); err != nil {
+		log.Printf("Предупреждение: не удалось загрузить адреса пиров: %v", err)
 	}
 
-	// НЕ подключаемся к bootstrap-узлам автоматически - только по запросу пользователя
-	// if err := ds.connectToBootstrapPeers(); err != nil {
-	// 	log.Printf("Предупреждение: не удалось подключиться к bootstrap-узлам: %v", err)
-	// }
+	// ✅ АВТОПОДКЛЮЧЕНИЕ: подключаемся ко всем известным пирам
+	if err := ds.connectToKnownPeers(); err != nil {
+		log.Printf("Предупреждение: не удалось подключиться к известным пирам: %v", err)
+	}
 
 	// Запускаем mDNS обнаружение если включено (только локальная сеть)
 	if ds.config.EnableMDNS {
@@ -83,12 +82,13 @@ func (ds *DiscoveryService) Start() error {
 		}
 	}
 
-	// НЕ запускаем DHT обнаружение автоматически - только по запросу пользователя
-	// if ds.config.EnableDHT && ds.dht != nil {
-	// 	ds.startDHTDiscovery()
-	// }
+	// Запускаем DHT обнаружение для глобальной сети
+	if ds.config.EnableDHT && ds.dht != nil {
+		ds.startDHTDiscovery()
+		log.Println("DHT обнаружение запущено")
+	}
 
-	log.Println("Сервис обнаружения запущен (ожидание ручного подключения)")
+	log.Println("Сервис обнаружения запущен")
 	return nil
 }
 
@@ -98,7 +98,7 @@ func (ds *DiscoveryService) StartDiscovery() error {
 	defer ds.mu.Unlock()
 
 	// Подключаемся к bootstrap-узлам
-	if err := ds.connectToBootstrapPeers(); err != nil {
+	if err := ds.connectToKnownPeers(); err != nil {
 		log.Printf("Предупреждение: не удалось подключиться к bootstrap-узлам: %v", err)
 	}
 
@@ -129,58 +129,58 @@ func (ds *DiscoveryService) Stop() error {
 	return nil
 }
 
-// loadBootstrapPeers загружает bootstrap-пиры из базы данных
-func (ds *DiscoveryService) loadBootstrapPeers() error {
+// loadPeerAddresses загружает все адреса пиров из базы данных
+func (ds *DiscoveryService) loadPeerAddresses() error {
 	// Оборачиваем весь вызов в recover для обработки паники при доступе к nil БД
-	var peers []*models.BootstrapPeer
+	var addresses []*models.PeerAddress
 	var err error
 
 	func() {
 		defer func() {
 			if r := recover(); r != nil {
-				// БД не инициализирована - пропускаем загрузку bootstrap пиров
-				peers = nil
+				// БД не инициализирована - пропускаем загрузку
+				addresses = nil
 				err = nil
 			}
 		}()
 
-		peers, err = queries.GetActiveBootstrapPeers()
+		addresses, err = queries.GetActivePeerAddresses()
 	}()
 
-	// Если паника произошла, peers будет nil
-	if peers == nil && err == nil {
-		ds.bootstrapPeers = []peer.AddrInfo{}
+	// Если паника произошла, addresses будет nil
+	if addresses == nil && err == nil {
+		ds.peerAddresses = []peer.AddrInfo{}
 		return nil
 	}
 
 	if err != nil {
-		return fmt.Errorf("ошибка получения bootstrap-пиров: %w", err)
+		return fmt.Errorf("ошибка получения адресов пиров: %w", err)
 	}
 
-	ds.bootstrapPeers = make([]peer.AddrInfo, 0, len(peers))
-	for _, p := range peers {
-		addr, err := multiaddr.NewMultiaddr(p.Multiaddr)
+	ds.peerAddresses = make([]peer.AddrInfo, 0, len(addresses))
+	for _, addr := range addresses {
+		ma, err := multiaddr.NewMultiaddr(addr.Multiaddr)
 		if err != nil {
-			log.Printf("Предупреждение: неверный адрес bootstrap-пира %s: %v", p.Multiaddr, err)
+			log.Printf("Предупреждение: неверный адрес пира %s: %v", addr.Multiaddr, err)
 			continue
 		}
 
-		info, err := peer.AddrInfoFromP2pAddr(addr)
+		info, err := peer.AddrInfoFromP2pAddr(ma)
 		if err != nil {
-			log.Printf("Предупреждение: неверная информация о bootstrap-пире %s: %v", p.Multiaddr, err)
+			log.Printf("Предупреждение: неверная информация о пире %s: %v", addr.Multiaddr, err)
 			continue
 		}
 
-		ds.bootstrapPeers = append(ds.bootstrapPeers, *info)
+		ds.peerAddresses = append(ds.peerAddresses, *info)
 	}
 
-	log.Printf("Загружено %d bootstrap-пиров", len(ds.bootstrapPeers))
+	log.Printf("Загружено %d адресов пиров", len(ds.peerAddresses))
 	return nil
 }
 
-// connectToBootstrapPeers подключается к bootstrap-узлам
-func (ds *DiscoveryService) connectToBootstrapPeers() error {
-	if len(ds.bootstrapPeers) == 0 {
+// connectToKnownPeers подключается ко всем известным пирам
+func (ds *DiscoveryService) connectToKnownPeers() error {
+	if len(ds.peerAddresses) == 0 {
 		return nil
 	}
 
@@ -188,33 +188,28 @@ func (ds *DiscoveryService) connectToBootstrapPeers() error {
 	defer cancel()
 
 	var connected int
-	for _, peerInfo := range ds.bootstrapPeers {
+	for _, peerInfo := range ds.peerAddresses {
 		if err := ds.host.Connect(ctx, peerInfo); err != nil {
-			log.Printf("Предупреждение: не удалось подключиться к bootstrap-пиру %s: %v", peerInfo.ID, err)
+			log.Printf("Предупреждение: не удалось подключиться к пиру %s: %v", peerInfo.ID, err)
 			continue
 		}
 
 		connected++
-		log.Printf("Подключено к bootstrap-пиру: %s", peerInfo.ID)
+		log.Printf("Подключено к пиру: %s", peerInfo.ID)
 
 		// Обновляем время подключения в БД
 		for _, addr := range peerInfo.Addrs {
-			_ = queries.UpdateBootstrapPeerLastConnected(addr.String())
+			_ = queries.UpdatePeerAddressLastConnected(addr.String())
+			_ = queries.UpdateProfileLastConnected(peerInfo.ID.String())
 		}
 	}
 
-	log.Printf("Подключено %d из %d bootstrap-пиров", connected, len(ds.bootstrapPeers))
+	log.Printf("Подключено %d из %d пиров", connected, len(ds.peerAddresses))
 	return nil
 }
 
 // startMDNSDiscovery запускает mDNS обнаружение для локальной сети
-// Примечание: go-libp2p-mdns был заархивирован.
-// В будущих версиях будет использован новый подход через zeroconf или кастомную реализацию.
-// Пока mDNS не доступен, используем только DHT discovery.
 func (ds *DiscoveryService) startMDNSDiscovery() error {
-	// TODO: Реализовать mDNS через zeroconf/v2 или другой доступный механизм
-	// Для локального тестирования используйте DHT discovery или прямое подключение
-
 	log.Println("mDNS временно недоступен - используется только DHT discovery")
 	return nil
 }
@@ -229,7 +224,6 @@ func (ds *DiscoveryService) handleDiscoveredPeer(peerInfo peer.AddrInfo) {
 	// Проверяем, не обрабатывали ли уже этого пира недавно
 	if lastSeen, exists := ds.discoveredPeers[peerID]; exists {
 		if time.Since(lastSeen) < 5*time.Minute {
-			// Уже видели этого пира недавно
 			return
 		}
 	}
@@ -243,7 +237,6 @@ func (ds *DiscoveryService) handleDiscoveredPeer(peerInfo peer.AddrInfo) {
 	// Проверяем, есть ли пир в контактах
 	contact, err := queries.GetContactByPeerID(peerID)
 	if err == nil && contact != nil {
-		// Пир в контактах - пробуем подключиться
 		go ds.connectToDiscoveredPeer(peerInfo, contact.ID)
 	} else {
 		log.Printf("Обнаружен новый пир: %s", peerID)
@@ -258,7 +251,9 @@ func (ds *DiscoveryService) startDHTDiscovery() {
 
 // runDHTDiscovery выполняет периодическое DHT обнаружение
 func (ds *DiscoveryService) runDHTDiscovery() {
-	ticker := time.NewTicker(30 * time.Second)
+	// ✅ Интервал увеличен до 5 минут для снижения сетевого трафика
+	// Было: 30 секунд (избыточно для стабильной сети)
+	ticker := time.NewTicker(5 * time.Minute)
 	defer ticker.Stop()
 
 	for {
@@ -266,7 +261,6 @@ func (ds *DiscoveryService) runDHTDiscovery() {
 		case <-ds.ctx.Done():
 			return
 		case <-ticker.C:
-			// Ищем пиров через DHT
 			peers, err := ds.discoverDHTPeers()
 			if err != nil {
 				log.Printf("Ошибка DHT обнаружения: %v", err)
@@ -285,13 +279,11 @@ func (ds *DiscoveryService) discoverDHTPeers() ([]peer.AddrInfo, error) {
 	ctx, cancel := context.WithTimeout(ds.ctx, 10*time.Second)
 	defer cancel()
 
-	// Рекламируем наш сервис в DHT и ищем других пиров
 	_, err := ds.dht.Advertise(ctx, ProtocolID)
 	if err != nil {
 		return nil, fmt.Errorf("ошибка рекламы в DHT: %w", err)
 	}
 
-	// Ищем другие пиры с нашим protocol ID
 	peersChan, err := ds.dht.FindPeers(ctx, ProtocolID)
 	if err != nil {
 		return nil, fmt.Errorf("ошибка поиска пиров в DHT: %w", err)
@@ -319,7 +311,6 @@ func (ds *DiscoveryService) connectToDiscoveredPeer(peerInfo peer.AddrInfo, cont
 
 	log.Printf("Подключено к пиру из контактов: %s", peerInfo.ID)
 
-	// Обновляем время последней активности контакта
 	now := time.Now()
 	_ = queries.UpdateContactLastSeen(contactID, &now)
 }
@@ -329,38 +320,32 @@ func (ds *DiscoveryService) AddBootstrapPeer(addrStr string) error {
 	ds.mu.Lock()
 	defer ds.mu.Unlock()
 
-	// Проверяем, существует ли уже
-	exists, err := queries.BootstrapPeerExists(addrStr)
+	exists, err := queries.PeerAddressExists(addrStr)
 	if err != nil {
-		return fmt.Errorf("ошибка проверки bootstrap-пира: %w", err)
+		return fmt.Errorf("ошибка проверки адреса: %w", err)
 	}
 	if exists {
-		return fmt.Errorf("bootstrap-пир уже существует")
+		return fmt.Errorf("адрес уже существует")
 	}
 
-	// Парсим адрес для извлечения PeerID
-	var peerID sql.NullString
 	addr, err := multiaddr.NewMultiaddr(addrStr)
-	if err == nil {
-		info, err := peer.AddrInfoFromP2pAddr(addr)
-		if err == nil {
-			peerID = sql.NullString{String: info.ID.String(), Valid: true}
-		}
+	if err != nil {
+		return fmt.Errorf("ошибка парсинга адреса: %w", err)
 	}
 
-	// Создаём запись в БД
-	bootstrapPeer := &models.BootstrapPeer{
-		Multiaddr: addrStr,
-		PeerID:    peerID,
-		IsActive:  true,
+	info, err := peer.AddrInfoFromP2pAddr(addr)
+	if err != nil {
+		return fmt.Errorf("ошибка извлечения PeerID: %w", err)
 	}
 
-	if err := queries.CreateBootstrapPeer(bootstrapPeer); err != nil {
-		return fmt.Errorf("ошибка создания bootstrap-пира: %w", err)
+	peerIDStr := info.ID.String()
+	username := peerIDStr[:8]
+
+	if err := queries.AddPeerAddressWithProfile(peerIDStr, addrStr, "bootstrap", "user_added", username); err != nil {
+		return fmt.Errorf("ошибка добавления адреса: %w", err)
 	}
 
-	// Перезагружаем bootstrap-пиры
-	_ = ds.loadBootstrapPeers()
+	_ = ds.loadPeerAddresses()
 
 	log.Printf("Добавлен bootstrap-пир: %s", addrStr)
 	return nil
@@ -371,23 +356,22 @@ func (ds *DiscoveryService) RemoveBootstrapPeer(addrStr string) error {
 	ds.mu.Lock()
 	defer ds.mu.Unlock()
 
-	if err := queries.DeleteBootstrapPeerByMultiaddr(addrStr); err != nil {
-		return fmt.Errorf("ошибка удаления bootstrap-пира: %w", err)
+	if err := queries.DeletePeerAddress(addrStr); err != nil {
+		return fmt.Errorf("ошибка удаления адреса: %w", err)
 	}
 
-	// Перезагружаем bootstrap-пиры
-	_ = ds.loadBootstrapPeers()
+	_ = ds.loadPeerAddresses()
 
 	log.Printf("Удалён bootstrap-пир: %s", addrStr)
 	return nil
 }
 
 // GetBootstrapPeers возвращает список bootstrap-узлов
-func (ds *DiscoveryService) GetBootstrapPeers() ([]*models.BootstrapPeer, error) {
+func (ds *DiscoveryService) GetBootstrapPeers() ([]*models.PeerAddress, error) {
 	ds.mu.RLock()
 	defer ds.mu.RUnlock()
 
-	return queries.GetAllBootstrapPeers()
+	return queries.GetBootstrapAddresses()
 }
 
 // GetDiscoveredPeers возвращает список обнаруженных пиров

@@ -139,6 +139,8 @@ func (cc *ContactController) requestProfileAfterConnect(peerIDStr string) {
 			log.Printf("[ContactController] Не удалось обновить профиль пира %s: %v", peerIDStr, err)
 		} else {
 			log.Printf("[ContactController] ✅ Профиль пира %s получен и сохранён: %s", peerIDStr, profileWithSig.Profile.Username)
+			// ⚠️ Pinned элементы НЕ загружаются при добавлении контакта
+			// Загрузка происходит ТОЛЬКО при открытии чата (в chat_controller.go)
 		}
 	}
 }

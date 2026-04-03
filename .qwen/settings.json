@@ -6,7 +6,15 @@
       "Bash(rm *)",
       "Bash(rmdir *)",
       "Bash(remove-item *)",
-      "Bash(del *)"
+      "Bash(del *)",
+      "Bash(get-content *)",
+      "Bash(powershell *)",
+      "Bash(select-string *)",
+      "Bash(select-object *)",
+      "Bash(gofmt *)",
+      "Bash(findstr *)",
+      "Bash(move *)",
+      "Bash(golangci-lint *)"
     ]
   },
   "$version": 3

@@ -187,6 +187,18 @@ func CreateRemoteProfile(profile *models.Profile) error {
 	return nil
 }
 
+// UpdateProfileBasic обновляет только базовые поля профиля (username, cached_at)
+// Используется при получении минимального профиля без avatar/pinned_uuids
+func UpdateProfileBasic(profile *models.Profile) error {
+	_, err := database.DB.Exec(`
+		UPDATE profiles
+		SET username = ?, cached_at = CURRENT_TIMESTAMP,
+		    updated_at = CURRENT_TIMESTAMP
+		WHERE peer_id = ?
+	`, profile.Username, profile.PeerID)
+	return err
+}
+
 // UpdateRemoteProfile обновляет чужой профиль
 func UpdateRemoteProfile(profile *models.Profile) error {
 	log.Printf("[DB] 🔄 UpdateRemoteProfile: обновление профиля для peer_id=%s, avatar_path=%q",
