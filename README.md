@@ -12,7 +12,7 @@
 
 **Это гибрид Проводника и Pinterest, где объекты живут как смысловые единицы, а не как разрозненные файлы, и с P2P-обменом, чтобы делиться коллекциями без потери приватности.**
 
-![Лого](assets/screenshots/ProjctT_true.png)
+<img src="assets/screenshots/ProjctT_true.png" alt="Лого" width="30%">
 
 </div>
 
