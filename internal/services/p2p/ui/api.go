@@ -821,6 +821,11 @@ func (api *UIP2P) DeleteContact(id int) error {
 	return queries.DeleteContact(id)
 }
 
+// DeleteProfile удаляет профиль пира по PeerID
+func (api *UIP2P) DeleteProfile(peerID string) error {
+	return queries.DeleteRemoteProfile(peerID)
+}
+
 // min возвращает минимальное из двух чисел
 func min(a, b int) int {
 	if a < b {

@@ -1,6 +1,6 @@
 # Go
-#*.exe
-#*.exe~
+*.exe
+*.exe~
 *.dll
 *.so
 *.dylib
@@ -17,6 +17,7 @@ coverage.html
 
 # IDE
 .vscode/
+.qwen/
 .idea/
 *.swp
 *.swo
@@ -50,6 +51,16 @@ config.local.json
 # Сборки
 #projectT.exe
 #projectT
+
+# Пользовательские данные
+storage/*
+!storage/files/
+storage/files/*
+!storage/files/avatars/
+storage/files/avatars/*
+!storage/files/avatars/local/
+storage/files/avatars/local/*
+!storage/files/avatars/local/ProjctT_true.png
 
 # GoReleaser
 .goreleaser.yml

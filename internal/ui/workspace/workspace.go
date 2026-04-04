@@ -173,6 +173,10 @@ func (ws *Workspace) UpdateContent(contentType string, param ...interface{}) {
 		switch ct {
 		case ContentTypeSaved:
 			ws.currentPreviewMode = PreviewModeSaved
+			// Устанавливаем режим saved для gridManager
+			if ws.gridManager != nil {
+				ws.gridManager.SetItemMode("saved")
+			}
 			if extraParam != nil {
 				// Если передан ID папки, переходим к этой папке
 				if folderID, ok := extraParam.(int); ok {
@@ -182,6 +186,10 @@ func (ws *Workspace) UpdateContent(contentType string, param ...interface{}) {
 			newContent = ws.createSavedContent()
 		case ContentTypePreview:
 			ws.currentPreviewMode = PreviewModePreview
+			// Устанавливаем режим preview для gridManager
+			if ws.gridManager != nil {
+				ws.gridManager.SetItemMode("preview")
+			}
 			if extraParam != nil {
 				// Если передан ID папки, переходим к этой папке
 				if folderID, ok := extraParam.(int); ok {
@@ -221,7 +229,7 @@ func (ws *Workspace) UpdateContent(contentType string, param ...interface{}) {
 
 // loadSavedContent загружает сохраненные элементы
 func (ws *Workspace) loadSavedContent() {
-	items, err := itemsService.GetItemsByParent(0)
+	items, err := itemsService.GetSavedItemsByParent(0)
 	if err != nil {
 		items = []*models.Item{}
 	}

@@ -11,6 +11,7 @@ type ItemLoader struct {
 	currentParentID int
 	itemsService    *services.ItemsService
 	sortingManager  *sorting.SortingManager
+	itemMode        string // "saved", "preview" или "" (все)
 }
 
 // NewItemLoader создает новый загрузчик элементов
@@ -18,12 +19,29 @@ func NewItemLoader() *ItemLoader {
 	return &ItemLoader{
 		itemsService:   services.NewItemsService(),
 		sortingManager: sorting.NewSortingManager(),
+		itemMode:       "", // По умолчанию загружаем все элементы
 	}
+}
+
+// SetItemMode устанавливает режим фильтрации по статусу ("saved", "preview" или "" для всех)
+func (il *ItemLoader) SetItemMode(mode string) {
+	il.itemMode = mode
 }
 
 // LoadItemsByParent загружает элементы по родителю
 func (il *ItemLoader) LoadItemsByParent(parentID int) ([]*models.Item, error) {
-	items, err := il.itemsService.GetItemsByParent(parentID)
+	var items []*models.Item
+	var err error
+
+	switch il.itemMode {
+	case "saved":
+		items, err = il.itemsService.GetSavedItemsByParent(parentID)
+	case "preview":
+		items, err = il.itemsService.GetPreviewItemsByParent(parentID)
+	default:
+		items, err = il.itemsService.GetItemsByParent(parentID)
+	}
+
 	if err == nil {
 		il.currentParentID = parentID
 	}
@@ -32,7 +50,18 @@ func (il *ItemLoader) LoadItemsByParent(parentID int) ([]*models.Item, error) {
 
 // LoadAndSortItemsByParent загружает и сортирует элементы по родителю с учетом настроек фильтрации
 func (il *ItemLoader) LoadAndSortItemsByParent(parentID int, options *services.FilterOptions) ([]*models.Item, error) {
-	items, err := il.itemsService.GetItemsByParent(parentID)
+	var items []*models.Item
+	var err error
+
+	switch il.itemMode {
+	case "saved":
+		items, err = il.itemsService.GetSavedItemsByParent(parentID)
+	case "preview":
+		items, err = il.itemsService.GetPreviewItemsByParent(parentID)
+	default:
+		items, err = il.itemsService.GetItemsByParent(parentID)
+	}
+
 	if err == nil {
 		il.currentParentID = parentID
 		// Сортируем элементы по настройкам

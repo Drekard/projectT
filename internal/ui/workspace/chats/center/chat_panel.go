@@ -317,6 +317,14 @@ func (ml *MessagesList) AddMessage(message *models.ChatMessage, isOutgoing bool)
 	bubbleContainer = bubble.Container()
 	ml.container.Add(bubbleContainer)
 	log.Printf("[Chat] 📭 Сообщение добавлено в контейнер, выполняется прокрутка вниз")
+
+	// Обновляем контейнер сообщений чтобы новое сообщение отобразилось
+	ml.container.Refresh()
+	// Обновляем scroll чтобы он пересчитал размер контента
+	if ml.scroll != nil {
+		ml.scroll.Refresh()
+	}
+
 	ml.scrollToBottom()
 }
 
@@ -345,6 +353,10 @@ func (ml *MessagesList) scrollToBottom() {
 		return
 	}
 
+	// Принудительно обновляем scroll чтобы он пересчитал размер контента
+	ml.scroll.Refresh()
+
+	// Прокручиваем вниз с небольшой задержкой чтобы UI успел обновиться
 	contentHeight := ml.container.MinSize().Height
 	scrollHeight := ml.scroll.Size().Height
 

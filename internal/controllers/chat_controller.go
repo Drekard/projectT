@@ -25,11 +25,12 @@ type ChatController struct {
 	messageChannel <-chan *ChatMessageEvent
 
 	// Callback-функции, устанавливаемые UI
-	onMessageSent       func(message *models.ChatMessage)
-	onMessageReceived   func(event *services.ChatMessageEvent)
-	onChatOpened        func(contact *models.Contact)
-	onChatClosed        func()
-	onContactsRefreshed func()
+	onMessageSent          func(message *models.ChatMessage)
+	onMessageReceived      func(event *services.ChatMessageEvent)
+	onChatOpened           func(contact *models.Contact)
+	onChatClosed           func()
+	onContactsRefreshed    func()
+	onPinnedElementsLoaded func(peerID string)
 
 	// Состояние
 	currentContact *models.Contact
@@ -87,6 +88,11 @@ func (cc *ChatController) SetOnChatClosed(handler func()) {
 // SetOnContactsRefreshed устанавливает callback при обновлении списка контактов
 func (cc *ChatController) SetOnContactsRefreshed(handler func()) {
 	cc.onContactsRefreshed = handler
+}
+
+// SetOnPinnedElementsLoaded устанавливает callback при загрузке закреплённых элементов
+func (cc *ChatController) SetOnPinnedElementsLoaded(handler func(peerID string)) {
+	cc.onPinnedElementsLoaded = handler
 }
 
 // handleMessageEvents обрабатывает события новых сообщений
@@ -521,4 +527,9 @@ func (cc *ChatController) downloadPinnedElements(peerIDStr string) {
 	}
 
 	log.Printf("[ChatController] 📊 Загружено %d из %d pinned элементов", loadedCount, len(pinnedUUIDs))
+
+	// Уведомляем UI о завершении загрузки закреплённых элементов
+	if cc.onPinnedElementsLoaded != nil && loadedCount > 0 {
+		cc.onPinnedElementsLoaded(peerIDStr)
+	}
 }

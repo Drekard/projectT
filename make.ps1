@@ -12,7 +12,7 @@ $VERSION = if ($env:VERSION) { $env:VERSION } else { "dev" }
 
 function Invoke-Build {
     Write-Host "Building $BINARY_NAME..." -ForegroundColor Cyan
-    go build -v -ldflags "-X main.Version=$VERSION" -o "$BINARY_NAME.exe" $CMD_PATH
+    go build -v -ldflags "-H windowsgui -X main.version=$VERSION" -o "$BINARY_NAME.exe" $CMD_PATH
     Write-Host "Build complete: $BINARY_NAME.exe" -ForegroundColor Green
 }
 

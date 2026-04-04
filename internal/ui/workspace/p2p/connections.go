@@ -12,6 +12,7 @@ import (
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/canvas"
 	"fyne.io/fyne/v2/container"
+	"fyne.io/fyne/v2/dialog"
 	"fyne.io/fyne/v2/theme"
 	"fyne.io/fyne/v2/widget"
 )
@@ -253,17 +254,24 @@ func (ui *UI) loadDiscoveredPeers() {
 
 // createDiscoveredPeerItem создает элемент обнаруженного пира
 func (ui *UI) createDiscoveredPeerItem(peerID string, lastSeen time.Time) *fyne.Container {
-	// PeerID (сокращённый)
+	// Имя пира (используем сокращённый PeerID как имя)
 	peerIDShort := peerID
 	if len(peerIDShort) > 8 {
 		peerIDShort = peerIDShort[:8]
 	}
-	peerIDLabel := widget.NewLabel(fmt.Sprintf("ID: %s", peerIDShort))
-	peerIDLabel.TextStyle = fyne.TextStyle{Bold: true}
+	nameLabel := widget.NewLabel(fmt.Sprintf("Пир: %s", peerIDShort))
+	nameLabel.TextStyle = fyne.TextStyle{Bold: true}
+
+	// PeerID полный
+	peerIDLabel := widget.NewLabel(fmt.Sprintf("ID: %s", peerID))
+	peerIDLabel.TextStyle = fyne.TextStyle{Italic: true}
 
 	// Время последнего обнаружения
 	lastSeenLabel := widget.NewLabel(fmt.Sprintf("Обнаружен: %s", lastSeen.Format("15:04:05")))
 	lastSeenLabel.TextStyle = fyne.TextStyle{Italic: true}
+
+	// Индикатор статуса (желтый - не подключен)
+	statusInd := canvas.NewCircle(color.RGBA{R: 255, G: 255, B: 0, A: 255})
 
 	// Кнопка подключения
 	connectBtn := widget.NewButtonWithIcon("Подключиться", theme.FolderIcon(), func() {
@@ -271,9 +279,9 @@ func (ui *UI) createDiscoveredPeerItem(peerID string, lastSeen time.Time) *fyne.
 	})
 
 	content := container.NewBorder(
-		nil, connectBtn,
 		nil, nil,
-		container.NewVBox(peerIDLabel, lastSeenLabel),
+		container.NewHBox(statusInd, container.NewVBox(nameLabel, peerIDLabel)),
+		container.NewHBox(lastSeenLabel, connectBtn),
 		widget.NewSeparator(),
 	)
 
@@ -333,15 +341,23 @@ func (ui *UI) createProfileItem(profile *models.Profile) *fyne.Container {
 		cachedAtLabel.TextStyle = fyne.TextStyle{Italic: true}
 	}
 
+	// Индикатор статуса (синий - кэшированный профиль)
+	statusInd := canvas.NewCircle(color.RGBA{R: 0, G: 150, B: 255, A: 255})
+
 	// Кнопка чата
 	chatBtn := widget.NewButtonWithIcon("Чат", theme.MailComposeIcon(), func() {
 		ui.openPeerChat(profile.PeerID, profile.Username)
 	})
 
+	// Кнопка удаления профиля
+	deleteBtn := widget.NewButtonWithIcon("", theme.DeleteIcon(), func() {
+		ui.deleteProfile(profile.PeerID, profile.Username)
+	})
+
 	content := container.NewBorder(
-		nil, chatBtn,
 		nil, nil,
-		container.NewVBox(usernameLabel, peerIDLabel, cachedAtLabel),
+		container.NewHBox(statusInd, container.NewVBox(usernameLabel, peerIDLabel)),
+		container.NewHBox(cachedAtLabel, chatBtn, deleteBtn),
 		widget.NewSeparator(),
 	)
 
@@ -350,6 +366,12 @@ func (ui *UI) createProfileItem(profile *models.Profile) *fyne.Container {
 
 // openPeerChat открывает чат с пиром
 func (ui *UI) openPeerChat(peerID, username string) {
+	// Сначала переключаемся на вкладку "Чаты"
+	if ui.onNavigate != nil {
+		ui.onNavigate("chats")
+	}
+
+	// Затем открываем чат с пиром
 	if ui.p2pUIProvider != nil {
 		ui.p2pUIProvider.OpenPeerChat(peerID, username)
 	}
@@ -408,4 +430,37 @@ func (ui *UI) connectToDiscoveredPeer(peerID string) {
 	// Получаем адрес пира из discovered
 	// TODO: Получить адрес из peerstore
 	ui.showInfoDialog("Информация", "Подключение к обнаруженному пиру требует реализации")
+}
+
+// deleteProfile удаляет профиль пира из базы данных
+func (ui *UI) deleteProfile(peerID, username string) {
+	if ui.p2pUI == nil {
+		ui.showErrorDialog("Ошибка", "P2P сервис не инициализирован")
+		return
+	}
+
+	// Показываем диалог подтверждения
+	confirmDialog := dialog.NewConfirm(
+		"Подтверждение удаления",
+		fmt.Sprintf("Вы уверены, что хотите удалить профиль '%s' из базы данных?", username),
+		func(confirmed bool) {
+			if !confirmed {
+				return
+			}
+
+			err := ui.p2pUI.DeleteProfile(peerID)
+			if err != nil {
+				ui.showErrorDialog("Ошибка", fmt.Sprintf("Не удалось удалить профиль: %v", err))
+				return
+			}
+
+			ui.showInfoDialog("Успешно", "Профиль удален из базы данных")
+
+			// Обновляем список профилей
+			ui.loadProfiles()
+		},
+		ui.window,
+	)
+	confirmDialog.SetConfirmImportance(widget.DangerImportance)
+	confirmDialog.Show()
 }

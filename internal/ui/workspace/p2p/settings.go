@@ -34,9 +34,8 @@ func (ui *UI) createSettingsTab() fyne.CanvasObject {
 
 // createAddressSection создает секцию управления адресом
 func (ui *UI) createAddressSection() *fyne.Container {
-	ui.myAddressLabel = widget.NewLabel("Твой адрес: ")
-
-	copyButton := widget.NewButtonWithIcon("Копировать", theme.ContentCopyIcon(), func() {
+	label := widget.NewLabel("Твой адрес: ")
+	copyButton := widget.NewButtonWithIcon("Копировать адрес", theme.ContentCopyIcon(), func() {
 		ui.copyMyAddress()
 	})
 
@@ -49,7 +48,7 @@ func (ui *UI) createAddressSection() *fyne.Container {
 		ui.showLocalAddresses()
 	})
 
-	addressRow := container.NewHBox(ui.myAddressLabel, copyButton)
+	addressRow := container.NewHBox(label, copyButton)
 	buttonsRow := container.NewHBox(checkPortButton, showLocalButton)
 
 	return container.NewVBox(addressRow, buttonsRow)
@@ -236,10 +235,16 @@ func (ui *UI) showLocalAddresses() {
 		return
 	}
 
-	// Формируем текст адресов
+	// Формируем текст адресов для отображения
 	addrsText := ""
 	for i, addr := range addrs {
 		addrsText += fmt.Sprintf("%d. %s\n", i+1, addr)
+	}
+
+	// Формируем чистый текст адресов для копирования (без нумерации)
+	addrsTextClean := ""
+	for _, addr := range addrs {
+		addrsTextClean += addr + "\n"
 	}
 
 	// Создаём метку с адресами
@@ -248,9 +253,9 @@ func (ui *UI) showLocalAddresses() {
 
 	// Кнопка копирования
 	copyButton := widget.NewButtonWithIcon("Копировать", theme.ContentCopyIcon(), func() {
-		// Копируем все адреса в буфер обмена
+		// Копируем все адреса в буфер обмена (без нумерации)
 		clipboard := ui.window.Clipboard()
-		clipboard.SetContent(addrsText)
+		clipboard.SetContent(addrsTextClean)
 		ui.showInfoDialog("Успешно", "Локальные адреса скопированы в буфер обмена")
 	})
 

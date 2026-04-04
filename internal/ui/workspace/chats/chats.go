@@ -116,6 +116,10 @@ func (ui *UI) setupControllerCallbacks() {
 	ui.chatController.SetOnChatOpened(func(contact *models.Contact) {
 		log.Printf("[Chat] 🗨️ Чат открыт: %s", contact.Username)
 
+		// Обновляем текущий контакт
+		ui.currentContact = contact
+		ui.currentChatID = contact.ID
+
 		// Создаём панель чата
 		chatPanel := ui.createChatPanel(contact)
 		ui.chatAreaObj.Objects = []fyne.CanvasObject{chatPanel}
@@ -150,7 +154,21 @@ func (ui *UI) setupControllerCallbacks() {
 		log.Printf("[Chat] 📬 Получено сообщение: contactID=%d", event.ContactID)
 
 		// Проверяем, открыт ли чат с этим контактом
-		if ui.currentContact != nil && ui.currentContact.ID == event.ContactID {
+		// Для P2P чатов (contactID=0) сравниваем по PeerID
+		chatIsOpen := false
+		if ui.currentContact != nil {
+			if ui.currentContact.ID == event.ContactID {
+				chatIsOpen = true
+			} else if ui.currentContact.ID == 0 && event.ContactID == 0 {
+				// Для временных контактов сравниваем по PeerID
+				// Сообщение может быть от пира (FromPeerID) или нашему пиру (исходящее)
+				if ui.currentContact.PeerID == event.Message.FromPeerID {
+					chatIsOpen = true
+				}
+			}
+		}
+
+		if chatIsOpen {
 			log.Printf("[Chat] 📭 Чат открыт, добавляем сообщение в UI")
 			if ui.chatPanel != nil {
 				ui.chatPanel.AddMessage(event.Message, event.IsOutgoing)
@@ -160,6 +178,15 @@ func (ui *UI) setupControllerCallbacks() {
 		// Обновляем левую панель
 		if ui.leftPanel != nil {
 			ui.leftPanel.Refresh()
+		}
+	})
+
+	// Callback при загрузке закреплённых элементов пира
+	ui.chatController.SetOnPinnedElementsLoaded(func(peerID string) {
+		log.Printf("[Chat] 📌 Закреплённые элементы загружены для пира: %s", peerID[:8])
+		// Обновляем витрину элементов в правой панели
+		if ui.rightPanel != nil {
+			ui.rightPanel.RefreshDemoElementsAfterSync(peerID)
 		}
 	})
 }

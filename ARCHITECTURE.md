@@ -1,7 +1,7 @@
 # 🏗️ Архитектура ProjectT
 
-**Версия:** 1.0  
-**Дата:** Март 2026  
+**Версия:** 1.1 (актуализировано)
+**Дата:** Март 2026
 **Автор:** Егор Редоран
 
 ---
@@ -75,7 +75,11 @@ ProjectT построен по **трёхслойной архитектуре**
 ```
 projectT/
 ├── cmd/                          # Точки входа приложения
-│   └── main.go                   # Главный исполняемый файл
+│   ├── main.go                   # Главный исполняемый файл
+│   ├── clear_db/                 # Утилита очистки БД
+│   │   └── main.go
+│   └── db_viewer/                # Утилита просмотра БД
+│       └── main.go
 │
 ├── internal/                     # Внутренняя логика (private API)
 │   ├── app/                      # Инициализация приложения
@@ -85,46 +89,85 @@ projectT/
 │   │   └── config.go             # Загрузка YAML конфигов
 │   │
 │   ├── services/                 # Бизнес-логика
-│   │   ├── chat_service.go       # Сервис чата (event dispatcher)
-│   │   ├── content_blocks_service.go  # Обработка контента карточек
-│   │   ├── favorites/            # Избранное
-│   │   ├── pinned/               # Закреплённые элементы
+│   │   ├── items_service.go      # CRUD карточек-элементов
 │   │   ├── tags_service.go       # Управление тегами
+│   │   ├── content_blocks_service.go  # Обработка контента карточек
+│   │   ├── chat_service.go       # Сервис чата (event dispatcher)
+│   │   ├── favorites/            # Избранное
+│   │   │   └── service.go
+│   │   ├── pinned/               # Закреплённые элементы
+│   │   │   └── service.go
+│   │   ├── contacts/             # Управление контактами
+│   │   │   └── contacts_service.go
+│   │   ├── crypto/               # Криптография
+│   │   │   └── crypto.go
 │   │   └── p2p/                  # P2P подсистема
-│   │       ├── chat/             # P2P чат
-│   │       ├── network/          # Сетевая инфраструктура
-│   │       ├── profile/          # Обмен профилями
-│   │       ├── itemsync/         # Синхронизация элементов
-│   │       └── transfer/         # Передача файлов
+│   │       ├── core/             # Ядро P2P сети
+│   │       │   ├── p2p.go
+│   │       │   ├── host.go
+│   │       │   ├── network.go
+│   │       │   └── keys.go
+│   │       ├── discovery/        # Обнаружение пиров
+│   │       │   └── service.go
+│   │       ├── connection/       # Управление подключениями
+│   │       │   ├── manager.go
+│   │       │   └── ping.go
+│   │       ├── autodial/         # Автодозвон
+│   │       │   ├── manager.go
+│   │       │   ├── dialer.go
+│   │       │   └── queue.go
+│   │       ├── peerexchange/     # Обмен адресами пиров
+│   │       │   └── exchange.go
+│   │       ├── helper/           # Режим помощника
+│   │       │   └── service.go
+│   │       └── protocols/        # Протоколы P2P
+│   │           ├── chat/         # P2P чат
+│   │           │   └── chat.go
+│   │           ├── transfer/     # Передача файлов
+│   │           │   └── transfer_service.go
+│   │           ├── profile/      # Обмен профилями
+│   │           │   └── profile_exchange.go
+│   │           ├── itemsync/     # Синхронизация элементов
+│   │           │   └── item_sync.go
+│   │           └── avatar/       # Обмен аватарами
+│   │               └── avatar_service.go
+│   │
+│   ├── controllers/              # Контроллеры
+│   │   ├── chat_controller.go    # Контроллер чата
+│   │   └── contact_controller.go # Контроллер контактов
 │   │
 │   ├── storage/                  # Хранение данных
-│   │   └── database/
-│   │       ├── migrations.go     # Миграции БД
-│   │       ├── models/           # Data models
-│   │       └── queries/          # SQL запросы
+│   │   ├── database/             # База данных
+│   │   │   ├── connection.go     # Подключение к SQLite
+│   │   │   ├── migrations.go     # Миграции схемы БД
+│   │   │   ├── models/           # Модели данных
+│   │   │   └── queries/          # SQL запросы
+│   │   └── filesystem/           # Файловое хранилище
+│   │       └── (content-addressable storage)
 │   │
 │   └── ui/                       # Пользовательский интерфейс
+│       ├── ui.go                 # Главный UI-класс
 │       ├── workspace/            # Рабочая область
 │       │   ├── chats/            # P2P чаты
 │       │   └── elements/         # Сетка элементов
 │       ├── sidebar/              # Боковая панель
 │       ├── header/               # Верхняя панель
-│       └── cards/                # Карточки элементов
+│       ├── cards/                # Карточки элементов
+│       └── theme/                # Кастомная тема оформления
 │
 ├── storage/                      # Пользовательские данные
-│   ├── files/                    # Файловое хранилище
+│   ├── files/                    # Файловое хранилище (SHA-256)
 │   └── projectT.db               # SQLite база данных
 │
 ├── assets/                       # Ресурсы приложения
 │   ├── icons/                    # Иконки
 │   └── screenshots/              # Скриншоты для документации
 │
-├── scripts/                      # Вспомогательные скрипты
 ├── .github/                      # GitHub Actions CI/CD
 ├── .vscode/                      # Настройки IDE
 │
 ├── go.mod                        # Go модуль зависимости
-├── go.sum                        # Хеш-суммы зависимостей
+├── go.sum                        # Хеш-суммы зависимостей (~130 зависимостей)
 ├── config.yaml                   # Конфигурация приложения
 ├── config.example.yaml           # Пример конфигурации
 ├── Makefile                      # Make команды
@@ -262,14 +305,17 @@ func (ui *UI) handleMessageEvents() {
 
 | Сервис | Файл | Протокол | Ответственность |
 |--------|------|----------|-----------------|
-| **P2PNetwork** | `p2p/network/network.go` | - | Оркестрация всех P2P компонентов |
-| **DiscoveryService** | `p2p/discovery.go` | DHT, mDNS | Обнаружение пиров |
-| **ConnectionService** | `p2p/connections.go` | Ping (кастомный) | Мониторинг подключений, keep-alive |
-| **ChatService** | `p2p/chat/chat.go` | `/projectt/chat/1.0.0` | Обмен сообщениями |
-| **TransferService** | `p2p/transfer/transfer_service.go` | `/projectt/transfer/1.0.0` | Передача файлов |
-| **ProfileExchange** | `p2p/profile/profile_exchange.go` | `/projectt/profile/1.0.0` | Обмен профилями |
-| **ItemSyncService** | `p2p/itemsync/item_sync.go` | `/projectt/itemsync/1.0.0` | Синхронизация элементов |
-| **HelperService** | `p2p/network/helper.go` | `/projectt/helper/1.0.0` | Режим помощника (хранение адресов) |
+| **P2PCore** | `p2p/core/p2p.go` | - | Ядро P2P сети (хост, ключи, сеть) |
+| **DiscoveryService** | `p2p/discovery/service.go` | DHT, mDNS | Обнаружение пиров |
+| **ConnectionManager** | `p2p/connection/manager.go` | Ping (кастомный) | Мониторинг подключений, keep-alive |
+| **AutoDial** | `p2p/autodial/manager.go` | - | Автодозвон к известным пирам |
+| **PeerExchange** | `p2p/peerexchange/exchange.go` | - | Обмен адресами пиров |
+| **ChatService** | `p2p/protocols/chat/chat.go` | `/projectt/chat/1.0.0` | Обмен сообщениями |
+| **TransferService** | `p2p/protocols/transfer/transfer_service.go` | `/projectt/transfer/1.0.0` | Передача файлов |
+| **ProfileExchange** | `p2p/protocols/profile/profile_exchange.go` | `/projectt/profile/1.0.0` | Обмен профилями |
+| **ItemSyncService** | `p2p/protocols/itemsync/item_sync.go` | `/projectt/itemsync/1.0.0` | Синхронизация элементов |
+| **AvatarService** | `p2p/protocols/avatar/avatar_service.go` | `/projectt/avatar/1.0.0` | Обмен аватарами |
+| **HelperService** | `p2p/helper/service.go` | `/projectt/helper/1.0.0` | Режим помощника (хранение адресов) |
 
 ### 4.3. Взаимодействие сервисов
 
@@ -284,15 +330,19 @@ func (ui *UI) handleMessageEvents() {
 ┌──────────────────────────────────────────────────────────────┐
 │  P2P Network (оркестратор)                                   │
 │  ┌──────────────────────────────────────────────────────┐   │
-│  │  P2PNetwork {                                        │   │
+│  │  P2PCore {                                           │   │
 │  │    host            host.Host                         │   │
 │  │    dht             *dht.IpfsDHT                      │   │
+│  │    discovery       *discovery.Service                │   │
+│  │    connection      *connection.Manager               │   │
+│  │    autodial        *autodial.Manager                 │   │
+│  │    peerExchange    *peerexchange.Exchange            │   │
 │  │    chat            *chat.Service                     │   │
 │  │    transfer        *transfer.Service                 │   │
 │  │    profileExchange *profile.ExchangeService          │   │
 │  │    itemSync        *itemsync.Service                 │   │
-│  │    discovery       *DiscoveryService                 │   │
-│  │    connections     *ConnectionService                │   │
+│  │    avatar          *avatar.Service                   │   │
+│  │    helper          *helper.Service                   │   │
 │  │  }                                                     │   │
 │  └──────────────────────────────────────────────────────┘   │
 └──────────────────────────────────────────────────────────────┘
@@ -300,10 +350,13 @@ func (ui *UI) handleMessageEvents() {
                           ▼
 ┌──────────────────────────────────────────────────────────────┐
 │  Domain Services                                             │
+│  • ItemsService                                              │
 │  • TagsService                                               │
 │  • ContentBlocksService                                      │
 │  • FavoritesService                                          │
 │  • PinnedService                                             │
+│  • ContactsService                                           │
+│  • ChatService (event dispatcher)                            │
 └──────────────────────────────────────────────────────────────┘
 ```
 
@@ -605,48 +658,63 @@ type ChatMessage struct {
 
 | Категория | Технология | Версия | Назначение |
 |-----------|------------|--------|------------|
-| **Язык программирования** | Go | 1.25.0 | Основной язык разработки |
-| **UI фреймворк** | Fyne | v2.x | Кроссплатформенный GUI |
+| **Язык программирования** | Go | 1.26 | Основной язык разработки |
+| **UI фреймворк** | Fyne | v2.4.4 | Кроссплатформенный GUI |
 | **База данных** | SQLite | 3.x | Локальное хранение метаданных |
-| **P2P библиотека** | libp2p | v0.30+ | Сетевое взаимодействие |
-| **DHT** | go-libp2p-kad-dht | v0.20+ | Распределённая хеш-таблица |
-| **PubSub** | go-libp2p-pubsub | v0.9+ | Широкосещательная рассылка |
+| **SQLite драйвер** | mattn/go-sqlite3 | v1.14.32 | CGO SQLite драйвер |
+| **P2P библиотека** | libp2p | v0.32.0 | Сетевое взаимодействие |
+| **DHT** | go-libp2p-kad-dht | v0.25.0 | Распределённая хеш-таблица |
+| **PubSub** | go-libp2p-pubsub | v0.10.0 | Широкосещательная рассылка |
 
 ### 8.2. Зависимости (go.mod)
 
 ```go
 require (
     // UI
-    fyne.io/fyne/v2 v2.x.x
-    
-    // P2P
-    github.com/libp2p/go-libp2p v0.30.x
-    github.com/libp2p/go-libp2p-kad-dht v0.20.x
-    github.com/libp2p/go-libp2p-pubsub v0.9.x
-    github.com/multiformats/go-multiaddr v0.9.x
-    
+    fyne.io/fyne/v2 v2.4.4
+
     // База данных
-    modernc.org/sqlite v1.x.x
-    
+    github.com/mattn/go-sqlite3 v1.14.32
+
+    // P2P
+    github.com/libp2p/go-libp2p v0.32.0
+    github.com/libp2p/go-libp2p-kad-dht v0.25.0
+    github.com/libp2p/go-libp2p-pubsub v0.10.0
+    github.com/multiformats/go-multiaddr v0.12.0
+
+    // Криптография
+    golang.org/x/crypto v0.48.0
+
     // Утилиты
-    gopkg.in/yaml.v3 v3.x.x        // YAML конфиги
-    github.com/google/uuid v1.x.x  // UUID генерация
-    golang.org/x/crypto v0.x.x     // Криптография
+    gopkg.in/yaml.v3 v3.0.1             // YAML конфиги
+    github.com/stretchr/testify v1.10.0  // Тестирование
+    golang.org/x/text v0.34.0            // Локализация
 )
 ```
+
+**Общее количество зависимостей:** ~130 (прямые + транзитивные)
 
 ### 8.3. Инструменты разработки
 
 | Инструмент | Назначение |
 |------------|------------|
 | **Go Modules** | Управление зависимостями |
-| **Makefile** | Автоматизация сборки |
+| **Makefile / make.ps1** | Автоматизация сборки (кроссплатформенная) |
 | **pre-commit** | Хуки для форматирования кода |
 | **GitHub Actions** | CI/CD пайплайны |
 | **VS Code** | Основная IDE |
 | **go test** | Тестирование |
 | **go fmt** | Форматирование кода |
 | **go vet** | Статический анализ |
+
+### 8.4. Скомпилированные артефакты
+
+| Файл | Назначение |
+|------|------------|
+| `projectT.exe` | Основной исполняемый файл приложения |
+| `clear_chats.exe` | Утилита очистки чатов |
+| `autodial.test.exe` | Тесты автодозвон-подсистемы P2P |
+| `peerexchange.test.exe` | Тесты peer exchange подсистемы P2P |
 
 ---
 

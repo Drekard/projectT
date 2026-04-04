@@ -77,6 +77,12 @@ func RunMigrations() {
 	migratePeerAddressesAndProfiles()
 
 	// ============================================================
+	// ЧАСТЬ 4.4: Установка стандартного avatar_path для существующих профилей
+	// ============================================================
+
+	migrateDefaultAvatarPath()
+
+	// ============================================================
 	// ЧАСТЬ 5: SEED ДАННЫЕ
 	// ============================================================
 
@@ -222,16 +228,16 @@ func createProfilesTable() {
 			peer_id         TEXT UNIQUE NOT NULL,
 			username        TEXT NOT NULL,
 			title           TEXT,
-			avatar_path     TEXT,
+			avatar_path     TEXT DEFAULT 'storage/files/avatars/local/ProjctT_true.png',
 			background_path TEXT DEFAULT '',
 			content_char    TEXT,
 			pinned_uuids    TEXT DEFAULT '[]',
 			cached_at       DATETIME,
-			
+
 			-- Поля для отслеживания подключений
 			last_connected  DATETIME,
 			connection_count INTEGER DEFAULT 0,
-			
+
 			created_at      DATETIME DEFAULT CURRENT_TIMESTAMP,
 			updated_at      DATETIME DEFAULT CURRENT_TIMESTAMP
 		);
@@ -857,4 +863,38 @@ func migratePeerAddressesAndProfiles() {
 	}
 
 	log.Println("[Миграция] Миграция peer_addresses и profiles завершена")
+}
+
+// migrateDefaultAvatarPath устанавливает стандартный avatar_path для профилей с NULL значением
+func migrateDefaultAvatarPath() {
+	// Проверяем, есть ли профили с NULL или пустым avatar_path
+	var count int
+	err := DB.QueryRow(`
+		SELECT COUNT(*) FROM profiles 
+		WHERE owner_type = 'local' AND (avatar_path IS NULL OR avatar_path = '')
+	`).Scan(&count)
+
+	if err != nil {
+		log.Printf("[Миграция avatar_path] Ошибка проверки профилей: %v", err)
+		return
+	}
+
+	if count == 0 {
+		log.Println("[Миграция avatar_path] Все локальные профили имеют avatar_path")
+		return
+	}
+
+	// Обновляем профили с NULL avatar_path
+	_, err = DB.Exec(`
+		UPDATE profiles 
+		SET avatar_path = 'storage/files/avatars/local/ProjctT_true.png'
+		WHERE owner_type = 'local' AND (avatar_path IS NULL OR avatar_path = '')
+	`)
+
+	if err != nil {
+		log.Printf("[Миграция avatar_path] Ошибка обновления: %v", err)
+		return
+	}
+
+	log.Printf("[Миграция avatar_path] Обновлено %d профилей со стандартным avatar_path", count)
 }

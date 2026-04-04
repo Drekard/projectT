@@ -14,7 +14,11 @@
       "Bash(gofmt *)",
       "Bash(findstr *)",
       "Bash(move *)",
-      "Bash(golangci-lint *)"
+      "Bash(golangci-lint *)",
+      "Bash(copy *)",
+      "Bash(dir *)",
+      "Bash(git rm *)",
+      "Bash(git add *)"
     ]
   },
   "$version": 3

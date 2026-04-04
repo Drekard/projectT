@@ -236,12 +236,13 @@ func (pes *ExchangeService) handleProfileRequest(stream network.Stream) {
 
 	log.Printf("[Profile] ✅ Профиль инициатора %s сохранён (username: %s)", response.PeerID[:8], response.Username)
 
-	// ✅ Загружаем аватарку через отдельный сервис если есть AvatarHash
-	if response.AvatarHash != "" {
-		go pes.downloadAvatarSeparately(remotePeer, response.AvatarHash)
-	} else if len(response.AvatarData) > 0 {
-		// ⚠️ Устаревший способ: загружаем из данных в профиле (для совместимости)
+	// ✅ Загружаем аватарку
+	if len(response.AvatarData) > 0 {
+		// Приоритет: если данные аватара уже есть в профиле, сохраняем напрямую
 		go pes.saveAvatarFromProfileData(remotePeer, response.AvatarData)
+	} else if response.AvatarHash != "" {
+		// Fallback: если данных нет, пробуем загрузить через AvatarService
+		go pes.downloadAvatarSeparately(remotePeer, response.AvatarHash)
 	}
 
 	// ⚠️ Pinned элементы НЕ загружаются автоматически при обмене профилями
@@ -829,7 +830,8 @@ func (pes *ExchangeService) downloadAvatarSeparately(remotePeer peer.ID, avatarH
 	// Получаем Avatar сервис
 	avatarSvc := pes.getAvatarService()
 	if avatarSvc == nil {
-		log.Printf("[Profile] ❌ Avatar сервис не инициализирован")
+		log.Printf("[Profile] ❌ Avatar сервис не инициализирован, невозможно загрузить аватар по хэшу %s", avatarHash)
+		log.Printf("[Profile] 💡 Совет: убедитесь что SetAvatarService вызван до начала обмена профилями")
 		return
 	}
 

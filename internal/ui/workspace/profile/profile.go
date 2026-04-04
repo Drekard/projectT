@@ -110,7 +110,7 @@ func (p *UI) createComponents() {
 	if p.avatarPath != "" {
 		avatarImagePath = p.avatarPath
 	} else {
-		avatarImagePath = "assets/icons/icon.png" // временный путь
+		avatarImagePath = "storage/files/avatars/local/ProjctT_true.png"
 	}
 
 	p.avatarImage = canvas.NewImageFromFile(avatarImagePath)

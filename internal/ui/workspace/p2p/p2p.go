@@ -21,7 +21,6 @@ type UI struct {
 	onNavigate    func(contentType string)
 
 	// Элементы UI для настроек
-	myAddressLabel  *widget.Label
 	portEntry       *widget.Entry
 	stunServerEntry *widget.Entry
 	natPortMapCheck *widget.Check

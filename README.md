@@ -4,7 +4,8 @@
 
 ### 🗂️ Гибрид Проводника и Pinterest на стероидах
 
-[![Go](https://img.shields.io/badge/Go-1.25.0-00ADD8?style=flat-square&logo=go&logoColor=white)](https://go.dev/)
+[![Go](https://img.shields.io/badge/Go-1.26-00ADD8?style=flat-square&logo=go&logoColor=white)](https://go.dev/)
+[![Version](https://img.shields.io/badge/Version-0.1.0-blue?style=flat-square)](CHANGELOG.md)
 [![Fyne](https://img.shields.io/badge/UI-Fyne-blue?style=flat-square&logo=go&logoColor=white)](https://fyne.io/)
 [![SQLite](https://img.shields.io/badge/SQLite-003B57?style=flat-square&logo=sqlite&logoColor=white)](https://www.sqlite.org/)
 [![libp2p](https://img.shields.io/badge/P2P-libp2p-ff69b4?style=flat-square&logo=go&logoColor=white)](https://libp2p.io/)
@@ -12,6 +13,8 @@
 **Это гибрид Проводника и Pinterest, где объекты живут как смысловые единицы, а не как разрозненные файлы, и с P2P-обменом, чтобы делиться коллекциями без потери приватности.**
 
 </div>
+
+![Лого](assets/screenshots/ProjctT_true.png)
 
 ---
 
@@ -45,10 +48,31 @@
 
 ---
 
+## 🟢 Текущее состояние (v0.1.0)
+
+> **Бета-релиз.** Приложение работает, но есть ограничения.
+
+**Уже работает:**
+- ✅ Карточки, теги, папки, поиск
+- ✅ P2P чат 1-на-1, передача файлов, обмен профилями
+- ✅ Обнаружение пиров в одной сети
+
+**Известные проблемы:**
+- 🔧 Переходы между вкладками тормозят
+- 🔧 Подключение только в одной WiFi-сети
+- 🔧 Нет системных уведомлений
+
+**Планы:** стабилизация → групповые чаты → глобальный поиск → каналы → лента
+
+- [Подробная дорожная карта](ROADMAP.md)
+
+---
+
 ## 📸 Скриншоты
 
-![Главный экран](assets/screenshots/main.png)
-![Редактор карточки](assets/screenshots/edit.png)
+![Главный экран](assets/screenshots/scrin1.png)
+![Редактор элемента](assets/screenshots/scrin2.png)
+![Чат](assets/screenshots/scrin3.png)
 
 ---
 
@@ -156,6 +180,7 @@ $env:PROJECTT_DB_PATH=node2.db
 
 - [Полный список возможностей](FEATURES.md)
 - [Архитектура проекта](ARCHITECTURE.md)
+- [Возможности этой версии](CHANGELOG.md)
 
 ---
 

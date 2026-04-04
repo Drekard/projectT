@@ -454,6 +454,11 @@ func (gm *GridManager) GetSortOptions() *services.FilterOptions {
 	return gm.sortOptions
 }
 
+// SetItemMode устанавливает режим фильтрации элементов (saved/preview)
+func (gm *GridManager) SetItemMode(mode string) {
+	gm.itemLoader.SetItemMode(mode)
+}
+
 // LoadItemsByParentWithSort загружает элементы по родительскому ID с учетом настроек сортировки
 func (gm *GridManager) LoadItemsByParentWithSort(parentID int) error {
 	items, err := gm.itemLoader.LoadAndSortItemsByParent(parentID, gm.sortOptions)

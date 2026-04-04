@@ -184,13 +184,14 @@ func GetChatsWithLastMessages() ([]*models.ChatWithLastMessage, error) {
 			GROUP BY chat_id
 		) uc ON c.id = uc.chat_id
 		WHERE c.peer_id IS NOT NULL AND c.peer_id != ''
+		AND c.peer_id != ?
 		AND c.peer_id NOT IN (
 			SELECT peer_id FROM profiles WHERE owner_type = 'local'
 		)
 		GROUP BY c.id
 	`
 
-	rows, err := database.DB.Query(query)
+	rows, err := database.DB.Query(query, models.LocalChatPeerID)
 	if err != nil {
 		log.Printf("[Chat] ❌ SQL ошибка GetChatsWithLastMessages: %v", err)
 		return nil, err
