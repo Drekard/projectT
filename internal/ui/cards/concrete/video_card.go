@@ -65,7 +65,7 @@ func NewVideoCardWithCallback(item *models.Item, clickCallback func(), noButtons
 
 	// Если нет видеофайлов, показываем заглушку
 	if len(videoCard.videoFiles) == 0 {
-		placeholder := widget.NewLabel("Видеофайлы не найдены")
+		placeholder := widget.NewLabel("No video files found")
 		placeholder.Alignment = fyne.TextAlignCenter
 		videoCard.Container = container.NewCenter(placeholder)
 		return videoCard

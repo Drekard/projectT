@@ -1,95 +1,95 @@
-# 🗺️ Направления развития ProjectT
+# 🗺️ ProjectT Development Roadmap
 
-**Текущая версия:** v0.1.0 (бета)
-
----
-
-## 🎯 Видение
-
-ProjectT должен стать местом, где люди:
-- хранят и организуют коллекции (карточки, теги, папки)
-- делятся ими в P2P-сети без посредников
-- общаются и находят единомышленников
+**Current version:** v0.1.0 (beta)
 
 ---
 
-## 🔥 Что уже работает (v0.1)
+## 🎯 Vision
 
-- ✅ Карточки с любым контентом (файлы, ссылки, текст, картинки)
-- ✅ Теги (цветные, с автодополнением)
-- ✅ Локальное хранилище без облаков
-- ✅ P2P чат 1-на-1 с шифрованием
-- ✅ Передача файлов между пирами
-- ✅ Обмен профилями
-- ✅ Обнаружение пиров (mDNS, DHT, bootstrap)
+ProjectT should become a place where people:
+- store and organize collections (cards, tags, folders)
+- share them in a P2P network without intermediaries
+- communicate and find like-minded people
 
 ---
 
-## 🚀 Крупные направления (порядок не важен)
+## 🔥 What Already Works (v0.1)
 
-### 🔐 Приватность и доступ
-Контроль того, кто видит твои элементы:
-- приватные / общие / публичные карточки
-- запрос доступа к элементу
-
-### 🌍 Поиск по сети
-Находить элементы у других пиров:
-- поиск по названию и тегам
-- агрегация результатов от нескольких пиров
-
-### 👥 Групповые чаты
-Обсуждение коллекций в mesh-сети:
-- создание групповых чатов
-- приглашение участников по PeerID
-- синхронизация истории
-
-### 📢 Каналы
-Односторонняя рассылка элементов:
-- создание каналов
-- подписка на чужие каналы
-- публикация элементов в канал
-
-### 📰 Лента
-Единый поток новых элементов:
-- подписка на ленту пира
-- уведомления о новом
-- фильтрация по тегам и источникам
-
-### 👤 Социальные элементы
-Профили и категории пользователей:
-- публичный профиль с витриной
-- категории / интересы
-- рекомендации по общим тегам
+- ✅ Cards with any content (files, links, text, images)
+- ✅ Tags (colored, with autocomplete)
+- ✅ Local storage without clouds
+- ✅ P2P 1-on-1 chat with encryption
+- ✅ File transfer between peers
+- ✅ Profile exchange
+- ✅ Peer discovery (mDNS, DHT, bootstrap)
 
 ---
 
-## 📍 Текущий фокус (v0.2)
+## 🚀 Major Development Areas (order not important)
 
-Ближайшие недели — **стабилизация и доводка**:
+### 🔐 Privacy and Access
+Control over who sees your items:
+- private / shared / public cards
+- access requests to items
 
-- Файловое логирование вместо `fmt.Println`
-- Системные уведомления о сообщениях
-- Исправление подключения из разных сетей
-- CI/CD (автосборка релизов)
-- Unit-тесты для P2P протоколов
+### 🌍 Network Search
+Find items from other peers:
+- search by title and tags
+- result aggregation from multiple peers
 
-Параллельно — правка багов по мере нахождения.
+### 👥 Group Chats
+Discuss collections in mesh network:
+- create group chats
+- invite participants by PeerID
+- history synchronization
+
+### 📢 Channels
+One-way item broadcasting:
+- create channels
+- subscribe to other people's channels
+- publish items to channels
+
+### 📰 Feed
+Unified stream of new items:
+- subscribe to peer's feed
+- notifications about new content
+- filtering by tags and sources
+
+### 👤 Social Elements
+User profiles and categories:
+- public profile with showcase
+- categories / interests
+- recommendations based on shared tags
 
 ---
 
-## 🔮 Что дальше?
+## 📍 Current Focus (v0.2)
 
-Порядок будет определяться:
-- что больше хочется сделать
-- что проще реализовать
-- что даст наибольший эффект
+Coming weeks — **stabilization and polishing**:
 
-Грубых планов нет. Есть вектор.
+- File logging instead of `fmt.Println`
+- System notifications for messages
+- Fix connection across different networks
+- CI/CD (automatic release builds)
+- Unit tests for P2P protocols
+
+In parallel — bug fixes as they are found.
+
+---
+
+## 🔮 What's Next?
+
+Order will be determined by:
+- what I feel like building most
+- what's easier to implement
+- what will have the greatest impact
+
+No rigid plans. There's a direction.
 
 ---
 
 <div align="center">
 
-**Проект живёт и меняется. ROADMAP обновляется по факту.**
+**The project lives and evolves. ROADMAP is updated based on progress.**
 
 </div>

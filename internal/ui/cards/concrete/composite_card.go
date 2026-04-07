@@ -34,7 +34,7 @@ func NewCompositeCard(item *models.Item, noButtons ...bool) interfaces.CardRende
 	if err != nil && item.Description == "" {
 		// Если ошибка парсинга, проверяем наличие описания
 		// Если нет описания, создаем карточку с сообщением об ошибке
-		errorLabel := widget.NewLabel("Ошибка парсинга содержимого")
+		errorLabel := widget.NewLabel("Error parsing content")
 		errorLabel.Alignment = fyne.TextAlignCenter
 
 		contentContainer := container.NewPadded(container.NewCenter(errorLabel))

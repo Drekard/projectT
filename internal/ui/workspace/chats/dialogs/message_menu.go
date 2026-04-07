@@ -45,7 +45,7 @@ func (mmm *MessageMenuManager) ShowMessageMenu(message *models.ChatMessage, cont
 	var children []fyne.CanvasObject
 
 	// Заголовок с информацией о сообщении
-	headerText := fmt.Sprintf("**Сообщение** от %s", message.SentAt.Format("02.01.2006 15:04"))
+	headerText := fmt.Sprintf("**Message** from %s", message.SentAt.Format("02.01.2006 15:04"))
 	children = append(children,
 		widget.NewRichTextFromMarkdown(headerText),
 	)
@@ -55,14 +55,14 @@ func (mmm *MessageMenuManager) ShowMessageMenu(message *models.ChatMessage, cont
 
 	// Кнопка редактирования (только для исходящих сообщений)
 	if isOutgoing {
-		editButton := widget.NewButton("✏️ Редактировать", func() {
+		editButton := widget.NewButton("✏️ Edit", func() {
 			mmm.showEditMessageDialog(message, popup)
 		})
 		buttons = append(buttons, editButton)
 	}
 
 	// Кнопка удаления (для всех сообщений)
-	deleteButton := widget.NewButton("🗑 Удалить", func() {
+	deleteButton := widget.NewButton("🗑 Delete", func() {
 		mmm.showDeleteConfirmation(message, popup)
 	})
 	buttons = append(buttons, deleteButton)
@@ -115,15 +115,15 @@ func (mmm *MessageMenuManager) showEditMessageDialog(message *models.ChatMessage
 	editEntry.Wrapping = fyne.TextWrapBreak
 
 	content := container.NewVBox(
-		widget.NewLabel("Редактировать сообщение:"),
+		widget.NewLabel("Edit message:"),
 		editEntry,
 	)
 
-	dialog.ShowCustomConfirm("Редактирование сообщения", "Сохранить", "Отмена", content, func(confirmed bool) {
+	dialog.ShowCustomConfirm("Edit Message", "Save", "Cancel", content, func(confirmed bool) {
 		if confirmed {
 			newContent := editEntry.Text
 			if newContent == "" {
-				dialog.ShowError(fmt.Errorf("Сообщение не может быть пустым"), window)
+				dialog.ShowError(fmt.Errorf("Message cannot be empty"), window)
 				return
 			}
 
@@ -131,7 +131,7 @@ func (mmm *MessageMenuManager) showEditMessageDialog(message *models.ChatMessage
 			message.Content = newContent
 			err := queries.UpdateChatMessage(message)
 			if err != nil {
-				dialog.ShowError(fmt.Errorf("Ошибка обновления сообщения: %v", err), window)
+				dialog.ShowError(fmt.Errorf("Error updating message: %v", err), window)
 				return
 			}
 
@@ -155,13 +155,13 @@ func (mmm *MessageMenuManager) showDeleteConfirmation(message *models.ChatMessag
 		return
 	}
 
-	dialog.ShowConfirm("Подтверждение удаления",
-		"Вы уверены, что хотите удалить это сообщение?",
+	dialog.ShowConfirm("Confirm deletion",
+		"Are you sure you want to delete this message?",
 		func(confirmed bool) {
 			if confirmed {
 				err := queries.DeleteChatMessage(message.ID)
 				if err != nil {
-					dialog.ShowError(fmt.Errorf("Ошибка удаления сообщения: %v", err), window)
+					dialog.ShowError(fmt.Errorf("Error deleting message: %v", err), window)
 					return
 				}
 

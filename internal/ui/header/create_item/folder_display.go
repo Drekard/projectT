@@ -74,7 +74,7 @@ func CreateFolderSelection(breadcrumbManager BreadcrumbManagerInterface) *fyne.C
 	allItems, err := GetSavedItems()
 	if err != nil {
 		// В случае ошибки добавим хотя бы сообщение об этом
-		errorLabel := widget.NewLabel("Ошибка загрузки папок")
+		errorLabel := widget.NewLabel("Error loading folders")
 		folderButtonsContainer.Add(errorLabel)
 	} else {
 		// Сначала добавляем текущую папку в начало списка (если она не root)
@@ -98,7 +98,7 @@ func CreateFolderSelection(breadcrumbManager BreadcrumbManagerInterface) *fyne.C
 				// Устанавливаем текущую папку как выбранную по умолчанию
 				setCurrentFolder(&currentFolder.ID, currentFolder.Title)
 
-				currentFolderTitle := currentFolder.Title + " (текущая)"
+				currentFolderTitle := currentFolder.Title + " (current)"
 				currentFolderButton := CreateCustomFolderButton(currentFolderTitle, func() {
 					ResetButtonImportance(folderButtonsContainer)
 					for _, obj := range folderButtonsContainer.Objects {
@@ -114,16 +114,16 @@ func CreateFolderSelection(breadcrumbManager BreadcrumbManagerInterface) *fyne.C
 				folderButtonsContainer.Add(currentFolderButton)
 			}
 
-			savedButton := CreateCustomFolderButton("Сохраненное", func() {
+			savedButton := CreateCustomFolderButton("Saved", func() {
 				ResetButtonImportance(folderButtonsContainer)
 				for _, obj := range folderButtonsContainer.Objects {
-					if btn, ok := obj.(*widget.Button); ok && btn.Text == "Сохраненное" {
+					if btn, ok := obj.(*widget.Button); ok && btn.Text == "Saved" {
 						btn.Importance = widget.MediumImportance
 						btn.Refresh()
 						break
 					}
 				}
-				setCurrentFolder(nil, "Сохраненное")
+				setCurrentFolder(nil, "Saved")
 			})
 			folderButtonsContainer.Add(savedButton)
 
@@ -151,18 +151,18 @@ func CreateFolderSelection(breadcrumbManager BreadcrumbManagerInterface) *fyne.C
 				folderButtonsContainer.Add(folderButton)
 			}
 		} else {
-			// Если текущая папка - root (ID = 0), просто добавляем "Сохраненное" и остальные папки
-			// Кнопка "Сохраненное" с ID = NULL
-			savedButton := CreateCustomFolderButton("Сохраненное", func() {
+			// Если текущая папка - root (ID = 0), просто добавляем "Saved" и остальные папки
+			// Кнопка "Saved" с ID = NULL
+			savedButton := CreateCustomFolderButton("Saved", func() {
 				ResetButtonImportance(folderButtonsContainer)
 				for _, obj := range folderButtonsContainer.Objects {
-					if btn, ok := obj.(*widget.Button); ok && btn.Text == "Сохраненное" {
+					if btn, ok := obj.(*widget.Button); ok && btn.Text == "Saved" {
 						btn.Importance = widget.MediumImportance
 						btn.Refresh()
 						break
 					}
 				}
-				setCurrentFolder(nil, "Сохраненное")
+				setCurrentFolder(nil, "Saved")
 			})
 			savedButton.Importance = widget.MediumImportance // Устанавливаем как выбранную по умолчанию
 			folderButtonsContainer.Add(savedButton)

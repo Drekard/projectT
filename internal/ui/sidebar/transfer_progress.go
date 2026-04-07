@@ -47,7 +47,7 @@ func NewTransferProgressWidget(transferSvc *transfer.Service) *TransferProgressW
 	tpw.icon.Hide()
 
 	// Кнопка отмены
-	tpw.cancelButton = widget.NewButtonWithIcon("Отмена", theme.CancelIcon(), func() {
+	tpw.cancelButton = widget.NewButtonWithIcon("Cancel", theme.CancelIcon(), func() {
 		if tpw.currentTransfer != nil && tpw.currentTransfer.TransferID != "" {
 			if tpw.transferSvc != nil {
 				_ = tpw.transferSvc.CancelTransfer(tpw.currentTransfer.TransferID)
@@ -128,7 +128,7 @@ func (tpw *TransferProgressWidget) updateUI(progress *transfer.TransferProgress)
 		tpw.cancelButton.Show()
 		tpw.progressBar.SetValue(progress.Percent / 100.0)
 
-		statusText := fmt.Sprintf("Передача: %s (%.1f%%)", progress.FileName, progress.Percent)
+		statusText := fmt.Sprintf("Transferring: %s (%.1f%%)", progress.FileName, progress.Percent)
 		tpw.statusLabel.SetText(statusText)
 
 	case transfer.TransferStatusCompleted:
@@ -136,40 +136,40 @@ func (tpw *TransferProgressWidget) updateUI(progress *transfer.TransferProgress)
 		tpw.cancelButton.Hide()
 		tpw.progressBar.SetValue(1.0)
 
-		statusText := fmt.Sprintf("✓ Завершено: %s", progress.FileName)
+		statusText := fmt.Sprintf("✓ Completed: %s", progress.FileName)
 		tpw.statusLabel.SetText(statusText)
 
-		// Скрыть через 3 секунды
+		// Hide after 3 seconds
 		tpw.scheduleHide()
 
 	case transfer.TransferStatusFailed:
 		tpw.icon.SetResource(theme.ErrorIcon())
 		tpw.cancelButton.Hide()
 
-		statusText := fmt.Sprintf("✗ Ошибка: %s", progress.FileName)
+		statusText := fmt.Sprintf("✗ Error: %s", progress.FileName)
 		if progress.Error != "" {
 			statusText += fmt.Sprintf(" (%s)", progress.Error)
 		}
 		tpw.statusLabel.SetText(statusText)
 
-		// Скрыть через 5 секунд
+		// Hide after 5 seconds
 		tpw.scheduleHide()
 
 	case transfer.TransferStatusCancelled:
 		tpw.icon.SetResource(theme.CancelIcon())
 		tpw.cancelButton.Hide()
 
-		statusText := fmt.Sprintf("✗ Отменено: %s", progress.FileName)
+		statusText := fmt.Sprintf("✗ Cancelled: %s", progress.FileName)
 		tpw.statusLabel.SetText(statusText)
 
-		// Скрыть через 3 секунды
+		// Hide after 3 seconds
 		tpw.scheduleHide()
 
 	case transfer.TransferStatusPending:
 		tpw.icon.SetResource(theme.DownloadIcon())
 		tpw.cancelButton.Show()
 
-		statusText := fmt.Sprintf("Ожидание: %s", progress.FileName)
+		statusText := fmt.Sprintf("Pending: %s", progress.FileName)
 		tpw.statusLabel.SetText(statusText)
 	}
 

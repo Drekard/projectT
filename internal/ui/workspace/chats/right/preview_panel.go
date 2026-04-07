@@ -1,4 +1,4 @@
-// Package right предоставляет компоненты правой панели чатов
+// Package right provides right panel components for chats
 package right
 
 import (
@@ -15,14 +15,14 @@ import (
 	"fyne.io/fyne/v2/widget"
 )
 
-// PreviewPanel представляет панель для просмотра элементов со статусом 'preview'
+// PreviewPanel represents a panel for viewing elements with 'preview' status
 type PreviewPanel struct {
 	container *fyne.Container
 	window    fyne.Window
 	itemsSvc  *services.ItemsService
 }
 
-// NewPreviewPanel создаёт новую панель preview элементов
+// NewPreviewPanel creates a new preview elements panel
 func NewPreviewPanel(window fyne.Window) *PreviewPanel {
 	p := &PreviewPanel{
 		window:   window,
@@ -32,54 +32,54 @@ func NewPreviewPanel(window fyne.Window) *PreviewPanel {
 	return p
 }
 
-// Container возвращает контейнер панели
+// Container returns the panel container
 func (p *PreviewPanel) Container() fyne.CanvasObject {
 	return p.container
 }
 
-// createContainer создаёт контейнер панели
+// createContainer creates the panel container
 func (p *PreviewPanel) createContainer() *fyne.Container {
-	// Заголовок
-	title := widget.NewLabel("Просмотр элементов")
+	// Title
+	title := widget.NewLabel("Element Preview")
 	title.TextStyle = fyne.TextStyle{Bold: true}
 
-	// Подзаголовок
-	subtitle := widget.NewLabel("Элементы, загруженные из чатов для просмотра")
+	// Subtitle
+	subtitle := widget.NewLabel("Elements loaded from chats for viewing")
 	subtitle.TextStyle = fyne.TextStyle{Italic: true}
 	subtitle.Alignment = fyne.TextAlignCenter
 
-	// Контейнер для preview элементов
+	// Container for preview elements
 	previewContainer := container.NewVBox()
 
-	// Загружаем preview элементы
+	// Load preview elements
 	previewItems, err := p.itemsSvc.GetPreviewItemsWithoutParentFilter()
 	if err != nil {
-		log.Printf("Ошибка загрузки preview элементов: %v", err)
-		errorLabel := widget.NewLabel("Ошибка загрузки элементов")
+		log.Printf("Error loading preview elements: %v", err)
+		errorLabel := widget.NewLabel("Error loading elements")
 		errorLabel.Importance = widget.DangerImportance
 		previewContainer.Add(errorLabel)
 	} else if len(previewItems) == 0 {
-		emptyLabel := widget.NewLabel("Нет элементов для просмотра")
+		emptyLabel := widget.NewLabel("No elements to view")
 		emptyLabel.TextStyle = fyne.TextStyle{Italic: true}
 		emptyLabel.Alignment = fyne.TextAlignCenter
 		previewContainer.Add(emptyLabel)
 	} else {
-		// Создаём карточки для каждого preview элемента
+		// Create cards for each preview element
 		for _, item := range previewItems {
 			card := p.createPreviewCard(item)
 			previewContainer.Add(card)
 		}
 	}
 
-	// Кнопка обновления
-	refreshButton := widget.NewButton("Обновить", func() {
+	// Refresh button
+	refreshButton := widget.NewButton("Refresh", func() {
 		p.Refresh()
 	})
 
-	// Разделитель
+	// Separator
 	separator := widget.NewSeparator()
 
-	// Основная компоновка
+	// Main layout
 	content := container.NewVBox(
 		title,
 		subtitle,
@@ -91,36 +91,36 @@ func (p *PreviewPanel) createContainer() *fyne.Container {
 	return container.NewPadded(content)
 }
 
-// createPreviewCard создаёт карточку preview элемента с кнопками действий
+// createPreviewCard creates a preview element card with action buttons
 func (p *PreviewPanel) createPreviewCard(item *models.Item) fyne.CanvasObject {
-	// Заголовок элемента
+	// Element title
 	titleLabel := widget.NewLabel(item.Title)
 	titleLabel.TextStyle = fyne.TextStyle{Bold: true}
 
-	// Описание элемента
+	// Element description
 	descLabel := widget.NewLabel(item.Description)
 	descLabel.Wrapping = fyne.TextWrapWord
 
-	// Тип элемента
-	typeLabel := widget.NewLabel(fmt.Sprintf("Тип: %s", item.Type))
+	// Element type
+	typeLabel := widget.NewLabel(fmt.Sprintf("Type: %s", item.Type))
 	typeLabel.TextStyle = fyne.TextStyle{Italic: true}
 
-	// Кнопка "Сохранить"
-	saveButton := widget.NewButton("Сохранить в коллекцию", func() {
+	// "Save" button
+	saveButton := widget.NewButton("Save to collection", func() {
 		p.saveItem(item)
 	})
 	saveButton.Importance = widget.HighImportance
 
-	// Кнопка "Удалить"
-	deleteButton := widget.NewButton("Удалить", func() {
+	// "Delete" button
+	deleteButton := widget.NewButton("Delete", func() {
 		p.deleteItem(item)
 	})
 	deleteButton.Importance = widget.DangerImportance
 
-	// Кнопки действий
+	// Action buttons
 	buttons := container.NewHBox(saveButton, deleteButton)
 
-	// Создаём карточку элемента используя concrete
+	// Create element card using concrete
 	var cardRenderer fyne.CanvasObject
 	switch item.Type {
 	case models.ItemTypeFolder:
@@ -131,7 +131,7 @@ func (p *PreviewPanel) createPreviewCard(item *models.Item) fyne.CanvasObject {
 		cardRenderer = concrete.NewCompositeCard(item, true).GetContainer()
 	}
 
-	// Компоновка карточки
+	// Card layout
 	card := container.NewVBox(
 		cardRenderer,
 		titleLabel,
@@ -144,44 +144,44 @@ func (p *PreviewPanel) createPreviewCard(item *models.Item) fyne.CanvasObject {
 	return card
 }
 
-// saveItem сохраняет элемент в коллекцию (меняет статус с 'preview' на 'saved')
+// saveItem saves element to collection (changes status from 'preview' to 'saved')
 func (p *PreviewPanel) saveItem(item *models.Item) {
-	log.Printf("[Preview] Сохранение элемента: ID=%d, title=%s", item.ID, item.Title)
+	log.Printf("[Preview] Saving element: ID=%d, title=%s", item.ID, item.Title)
 
 	err := p.itemsSvc.SavePreviewItem(item.ID)
 	if err != nil {
-		log.Printf("Ошибка сохранения элемента: %v", err)
-		dialog.ShowError(fmt.Errorf("ошибка сохранения элемента: %w", err), p.window)
+		log.Printf("Error saving element: %v", err)
+		dialog.ShowError(fmt.Errorf("error saving element: %w", err), p.window)
 		return
 	}
 
-	log.Printf("[Preview] ✅ Элемент сохранён: ID=%d", item.ID)
+	log.Printf("[Preview] ✅ Element saved: ID=%d", item.ID)
 
-	// Показываем уведомление
-	dialog.ShowInformation("Успех", fmt.Sprintf("Элемент '%s' сохранён в коллекцию", item.Title), p.window)
+	// Show notification
+	dialog.ShowInformation("Success", fmt.Sprintf("Element '%s' saved to collection", item.Title), p.window)
 
-	// Обновляем панель
+	// Refresh panel
 	p.Refresh()
 }
 
-// deleteItem удаляет preview элемент
+// deleteItem deletes preview element
 func (p *PreviewPanel) deleteItem(item *models.Item) {
-	// Подтверждение удаления
+	// Delete confirmation
 	confirmDialog := dialog.NewConfirm(
-		"Удаление элемента",
-		fmt.Sprintf("Вы уверены, что хотите удалить элемент '%s'?", item.Title),
+		"Delete element",
+		fmt.Sprintf("Are you sure you want to delete element '%s'?", item.Title),
 		func(confirmed bool) {
 			if !confirmed {
 				return
 			}
 
-			log.Printf("[Preview] Удаление элемента: ID=%d, title=%s", item.ID, item.Title)
+			log.Printf("[Preview] Deleting element: ID=%d, title=%s", item.ID, item.Title)
 
-			// TODO: Вызвать функцию удаления элемента
-			// Пока просто логируем
-			log.Printf("[Preview] ⚠️ Удаление элементов ещё не реализовано")
+			// TODO: Call element deletion function
+			// For now just log
+			log.Printf("[Preview] ⚠️ Element deletion not yet implemented")
 
-			// Обновляем панель
+			// Refresh panel
 			p.Refresh()
 		},
 		p.window,
@@ -190,7 +190,7 @@ func (p *PreviewPanel) deleteItem(item *models.Item) {
 	confirmDialog.Show()
 }
 
-// Refresh обновляет панель
+// Refresh updates the panel
 func (p *PreviewPanel) Refresh() {
 	if p.container != nil {
 		newContainer := p.createContainer()

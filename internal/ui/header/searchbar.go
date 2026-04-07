@@ -21,7 +21,7 @@ func CreateSearchBar(workspace SearchHandler) (*fyne.Container, *widget.Entry) {
 	searchIcon.FillMode = canvas.ImageFillContain
 
 	searchEntry := widget.NewEntry()
-	searchEntry.SetPlaceHolder("Поиск...")
+	searchEntry.SetPlaceHolder("Search...")
 
 	// Обработчик поиска с задержкой
 	var searchTimer *time.Timer

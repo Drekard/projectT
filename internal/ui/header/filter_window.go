@@ -82,19 +82,19 @@ func (fwm *FilterWindowManager) createFilterWindowContent() *fyne.Container {
 
 // createFilterForm создает форму фильтров с 4 колонками и кнопкой "Применить"
 func (fwm *FilterWindowManager) createFilterForm() fyne.CanvasObject {
-	// Колонка 1: Типы элементов
-	itemTypeGroup := widget.NewRadioGroup([]string{"Все", "Папки", "Картинки", "Файлы", "Ссылки", "Текст"}, func(value string) {
-		// Преобразуем отображаемое значение в внутреннее представление
+	// Column 1: Item types
+	itemTypeGroup := widget.NewRadioGroup([]string{"All", "Folders", "Images", "Files", "Links", "Text"}, func(value string) {
+		// Convert display value to internal representation
 		switch value {
-		case "Папки":
+		case "Folders":
 			fwm.currentOpts.ItemType = "folders"
-		case "Картинки":
+		case "Images":
 			fwm.currentOpts.ItemType = "images"
-		case "Файлы":
+		case "Files":
 			fwm.currentOpts.ItemType = "files"
-		case "Ссылки":
+		case "Links":
 			fwm.currentOpts.ItemType = "links"
-		case "Текст":
+		case "Text":
 			fwm.currentOpts.ItemType = "text"
 		default:
 			fwm.currentOpts.ItemType = "all"
@@ -103,40 +103,40 @@ func (fwm *FilterWindowManager) createFilterForm() fyne.CanvasObject {
 		// Изменения будут применены только при нажатии кнопки "Применить"
 	})
 
-	// Устанавливаем начальное значение
+	// Set initial value
 	switch fwm.currentOpts.ItemType {
 	case "folders":
-		itemTypeGroup.SetSelected("Папки")
+		itemTypeGroup.SetSelected("Folders")
 	case "images":
-		itemTypeGroup.SetSelected("Картинки")
+		itemTypeGroup.SetSelected("Images")
 	case "files":
-		itemTypeGroup.SetSelected("Файлы")
+		itemTypeGroup.SetSelected("Files")
 	case "links":
-		itemTypeGroup.SetSelected("Ссылки")
+		itemTypeGroup.SetSelected("Links")
 	case "text":
-		itemTypeGroup.SetSelected("Текст")
+		itemTypeGroup.SetSelected("Text")
 	default:
-		itemTypeGroup.SetSelected("Все")
+		itemTypeGroup.SetSelected("All")
 	}
 
 	itemTypeColumn := container.NewVBox(
-		widget.NewLabel("Только..."),
+		widget.NewLabel("Only..."),
 		itemTypeGroup,
 	)
 
-	// Колонка 2: Приоритет
-	priorityGroup := widget.NewRadioGroup([]string{"Нет", "Сначала папки", "Сначала картинки", "Сначала файлы", "Сначала ссылки", "Сначала текст"}, func(value string) {
-		// Преобразуем отображаемое значение в внутреннее представление
+	// Column 2: Priority
+	priorityGroup := widget.NewRadioGroup([]string{"None", "Folders first", "Images first", "Files first", "Links first", "Text first"}, func(value string) {
+		// Convert display value to internal representation
 		switch value {
-		case "Сначала папки":
+		case "Folders first":
 			fwm.currentOpts.Priority = "folders_first"
-		case "Сначала картинки":
+		case "Images first":
 			fwm.currentOpts.Priority = "images_first"
-		case "Сначала файлы":
+		case "Files first":
 			fwm.currentOpts.Priority = "files_first"
-		case "Сначала ссылки":
+		case "Links first":
 			fwm.currentOpts.Priority = "links_first"
-		case "Сначала текст":
+		case "Text first":
 			fwm.currentOpts.Priority = "text_first"
 		default:
 			fwm.currentOpts.Priority = "none"
@@ -145,142 +145,142 @@ func (fwm *FilterWindowManager) createFilterForm() fyne.CanvasObject {
 		// Изменения будут применены только при нажатии кнопки "Применить"
 	})
 
-	// Устанавливаем начальное значение
+	// Set initial value
 	switch fwm.currentOpts.Priority {
 	case "folders_first":
-		priorityGroup.SetSelected("Сначала папки")
+		priorityGroup.SetSelected("Folders first")
 	case "images_first":
-		priorityGroup.SetSelected("Сначала картинки")
+		priorityGroup.SetSelected("Images first")
 	case "files_first":
-		priorityGroup.SetSelected("Сначала файлы")
+		priorityGroup.SetSelected("Files first")
 	case "links_first":
-		priorityGroup.SetSelected("Сначала ссылки")
+		priorityGroup.SetSelected("Links first")
 	case "text_first":
-		priorityGroup.SetSelected("Сначала текст")
+		priorityGroup.SetSelected("Text first")
 	default:
-		priorityGroup.SetSelected("Нет")
+		priorityGroup.SetSelected("None")
 	}
 
 	priorityColumn := container.NewVBox(
-		widget.NewLabel("Приоритет:"),
+		widget.NewLabel("Priority:"),
 		priorityGroup,
 	)
 
-	// Колонка 3: Сортировка
-	sortByGroup := widget.NewRadioGroup([]string{"По имени", "По дате создания", "По дате изменения", "По объему ContentMeta"}, func(value string) {
-		// Преобразуем отображаемое значение в внутреннее представление
+	// Column 3: Sort by
+	sortByGroup := widget.NewRadioGroup([]string{"By name", "By creation date", "By modification date", "By ContentMeta size"}, func(value string) {
+		// Convert display value to internal representation
 		switch value {
-		case "По имени":
+		case "By name":
 			fwm.currentOpts.SortBy = "name"
-		case "По дате создания":
+		case "By creation date":
 			fwm.currentOpts.SortBy = "created_date"
-		case "По дате изменения":
+		case "By modification date":
 			fwm.currentOpts.SortBy = "modified_date"
-		case "По объему ContentMeta":
+		case "By ContentMeta size":
 			fwm.currentOpts.SortBy = "content_size"
 		}
 		// Обновляем настройки в глобальном сервисе, но НЕ вызываем onChange
 		// Изменения будут применены только при нажатии кнопки "Применить"
 	})
 
-	// Устанавливаем начальное значение
+	// Set initial value
 	switch fwm.currentOpts.SortBy {
 	case "name":
-		sortByGroup.SetSelected("По имени")
+		sortByGroup.SetSelected("By name")
 	case "created_date":
-		sortByGroup.SetSelected("По дате создания")
+		sortByGroup.SetSelected("By creation date")
 	case "modified_date":
-		sortByGroup.SetSelected("По дате изменения")
+		sortByGroup.SetSelected("By modification date")
 	case "content_size":
-		sortByGroup.SetSelected("По объему ContentMeta")
+		sortByGroup.SetSelected("By ContentMeta size")
 	default:
-		sortByGroup.SetSelected("По имени")
+		sortByGroup.SetSelected("By name")
 	}
 
 	sortByColumn := container.NewVBox(
-		widget.NewLabel("Сортировать:"),
+		widget.NewLabel("Sort by:"),
 		sortByGroup,
 	)
 
-	// Колонка 4: Порядок
-	orderGroup := widget.NewRadioGroup([]string{"По возрастанию", "По убыванию"}, func(value string) {
-		// Преобразуем отображаемое значение в внутреннее представление
+	// Column 4: Order
+	orderGroup := widget.NewRadioGroup([]string{"Ascending", "Descending"}, func(value string) {
+		// Convert display value to internal representation
 		switch value {
-		case "По возрастанию":
+		case "Ascending":
 			fwm.currentOpts.SortOrder = "asc"
-		case "По убыванию":
+		case "Descending":
 			fwm.currentOpts.SortOrder = "desc"
 		}
 		// Обновляем настройки в глобальном сервисе, но НЕ вызываем onChange
 		// Изменения будут применены только при нажатии кнопки "Применить"
 	})
 
-	// Устанавливаем начальное значение
+	// Set initial value
 	switch fwm.currentOpts.SortOrder {
 	case "desc":
-		orderGroup.SetSelected("По убыванию")
+		orderGroup.SetSelected("Descending")
 	default:
-		orderGroup.SetSelected("По возрастанию")
+		orderGroup.SetSelected("Ascending")
 	}
 
 	orderColumn := container.NewVBox(
-		widget.NewLabel("Порядок:"),
+		widget.NewLabel("Order:"),
 		orderGroup,
 	)
 
-	// Комбинируем колонки в сетку
+	// Combine columns into grid
 	columnsContainer := container.NewGridWithColumns(4, itemTypeColumn, priorityColumn, sortByColumn, orderColumn)
 
-	// Создаем контент для вкладки "Эта папка" - те же поля, но с другим значением TabMode
+	// Create content for "This folder" tab - same fields but with different TabMode value
 	thisFolderContent := container.NewVBox(columnsContainer)
-	thisFolderTab := container.NewTabItem("Эта папка", thisFolderContent)
+	thisFolderTab := container.NewTabItem("This Folder", thisFolderContent)
 
-	// Создаем контент для вкладки "Все элементы" - те же поля, но с другим значением TabMode
+	// Create content for "All items" tab - same fields but with different TabMode value
 	allItemsContent := container.NewVBox(columnsContainer)
-	allItemsTab := container.NewTabItem("Все элементы", allItemsContent)
+	allItemsTab := container.NewTabItem("All Items", allItemsContent)
 
-	// Обработчик смены вкладки
+	// Tab change handler
 	filterTabs := container.NewAppTabs(thisFolderTab, allItemsTab)
 	filterTabs.SetTabLocation(container.TabLocationTop)
 	filterTabs.OnSelected = func(tab *container.TabItem) {
-		if tab.Text == "Эта папка" {
+		if tab.Text == "This Folder" {
 			fwm.currentOpts.TabMode = "current_folder"
-		} else if tab.Text == "Все элементы" {
+		} else if tab.Text == "All Items" {
 			fwm.currentOpts.TabMode = "all_items"
 		}
 	}
 
-	// Создаем кнопку "Применить"
-	applyButton := widget.NewButton("Применить", func() {
-		// Сохраняем изменения в глобальный сервис
+	// Create "Apply" button
+	applyButton := widget.NewButton("Apply", func() {
+		// Save changes to global service
 		services.GlobalSortSettingsService.SetFilterOptions(fwm.currentOpts)
 
-		// Вызываем callback применения фильтров
+		// Call filter apply callback
 		if fwm.applyCallback != nil {
 			fwm.applyCallback(*fwm.currentOpts)
 		}
 
-		// Закрываем окно после применения
+		// Close window after applying
 		if fwm.popup != nil {
 			fwm.popup.Hide()
 		}
 	})
 
-	// Создаем контейнер для кнопки
+	// Create button container
 	buttonContainer := container.NewHBox(container.NewPadded(applyButton))
 
-	// Создаем вертикальный контейнер для всей формы
+	// Create vertical container for entire form
 	formContainer := container.NewVBox(
 		filterTabs,
-		buttonContainer, // Перемещаем кнопку на один уровень с вкладками
+		buttonContainer, // Move button to same level as tabs
 	)
 
-	// Оборачиваем в контейнер с отступами и фоном
-	bgRect := canvas.NewRectangle(color.RGBA{R: 44, G: 44, B: 44, A: 255}) // Серый фон
+	// Wrap in container with padding and background
+	bgRect := canvas.NewRectangle(color.RGBA{R: 44, G: 44, B: 44, A: 255}) // Gray background
 	bgRect.CornerRadius = 8
-	bgRect.StrokeColor = color.RGBA{R: 80, G: 80, B: 80, A: 255} // Темно-серая обводка
+	bgRect.StrokeColor = color.RGBA{R: 80, G: 80, B: 80, A: 255} // Dark gray border
 	bgRect.StrokeWidth = 1
-	bgRect.SetMinSize(fyne.NewSize(600, 320)) // Увеличили размер для размещения вкладок и кнопки
+	bgRect.SetMinSize(fyne.NewSize(600, 320)) // Increased size for tabs and button
 
 	outerContainer := container.NewStack(bgRect, container.NewPadded(formContainer))
 

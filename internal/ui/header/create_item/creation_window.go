@@ -29,7 +29,7 @@ const (
 var selectedType ItemType = ItemTypeElement
 
 // Global переменная для хранения выбранной папки
-var selectedFolder *SelectedFolder = &SelectedFolder{ID: nil, Name: "Сохраненное"}
+var selectedFolder *SelectedFolder = &SelectedFolder{ID: nil, Name: "Saved"}
 
 // setCurrentFolder устанавливает текущую выбранную папку
 func setCurrentFolder(id *int, name string) {
@@ -118,15 +118,15 @@ func createNewRectangleContent(breadcrumbManager BreadcrumbManagerInterface, onC
 // createInputForm создает форму с полями ввода
 func createInputForm(breadcrumbManager BreadcrumbManagerInterface, onClose func()) fyne.CanvasObject {
 	titleEntry := widget.NewEntry()
-	titleEntry.PlaceHolder = "Название"
+	titleEntry.PlaceHolder = "Title"
 	titleEntry.Resize(fyne.NewSize(300, 30)) // Устанавливаем размер для стабильности
 
 	descriptionEntry := widget.NewMultiLineEntry()
-	descriptionEntry.PlaceHolder = "Описание или ссылки"
+	descriptionEntry.PlaceHolder = "Description or links"
 	descriptionEntry.Resize(fyne.NewSize(300, 60)) // Устанавливаем размер для стабильности
 
 	tagsEntry := widget.NewEntry()
-	tagsEntry.PlaceHolder = "Теги( через запятую )"
+	tagsEntry.PlaceHolder = "Tags (comma separated)"
 	tagsEntry.Resize(fyne.NewSize(300, 30)) // Устанавливаем размер для стабильности
 
 	// Создаем состояние для файла
@@ -139,7 +139,7 @@ func createInputForm(breadcrumbManager BreadcrumbManagerInterface, onClose func(
 	fileSelectorContainer := CreateFileSelector(fileState)
 
 	// Кнопка создания
-	createButton := widget.NewButton("Создать", func() {
+	createButton := widget.NewButton("Create", func() {
 		// Логика сохранения элемента
 		err := saveNewItemExtended(titleEntry.Text, descriptionEntry.Text, tagsEntry.Text, fileState.SelectedFiles, []string{}, nil)
 		if err == nil {
@@ -158,21 +158,21 @@ func createInputForm(breadcrumbManager BreadcrumbManagerInterface, onClose func(
 
 	// Создаем вкладки для переключения типа элемента
 	tabs := container.NewAppTabs(
-		container.NewTabItem("Элемент", createElementForm(titleEntry, descriptionEntry, tagsEntry, fileSelectorContainer)),
-		container.NewTabItem("Папка", createFolderForm(titleEntry, descriptionEntry, tagsEntry, fileSelectorContainer)),
+		container.NewTabItem("Element", createElementForm(titleEntry, descriptionEntry, tagsEntry, fileSelectorContainer)),
+		container.NewTabItem("Folder", createFolderForm(titleEntry, descriptionEntry, tagsEntry, fileSelectorContainer)),
 	)
 	tabs.SetTabLocation(container.TabLocationTop)
 
 	// Обработчик смены вкладки для определения типа элемента
 	tabs.OnSelected = func(tab *container.TabItem) {
-		if tab.Text == "Элемент" {
+		if tab.Text == "Element" {
 			selectedType = ItemTypeElement
-		} else if tab.Text == "Папка" {
+		} else if tab.Text == "Folder" {
 			selectedType = ItemTypeFolder
 		}
 	}
 
-	// Устанавливаем начальный тип элемента в соответствии с активной вкладкой (по умолчанию "Элемент")
+	// Устанавливаем начальный тип элемента в соответствии с активной вкладкой (по умолчанию "Element")
 	selectedType = ItemTypeElement
 
 	// Создаем контейнер для выбора папки
@@ -182,7 +182,7 @@ func createInputForm(breadcrumbManager BreadcrumbManagerInterface, onClose func(
 	formContainer := container.NewVBox(
 		tabs,
 		createButton,
-		widget.NewLabel("Создать в . . ."),
+		widget.NewLabel("Save in . . ."),
 		folderSelectionContainer,
 	)
 
@@ -242,7 +242,7 @@ func saveNewItemExtended(title, description, tags string, selectedFiles *[]strin
 	}
 
 	// Use the selected folder ID from the global variable
-	// If it's nil (meaning "Сохраненное"), we use the current folder from breadcrumbs
+	// If it's nil (meaning "Saved"), we use the current folder from breadcrumbs
 	parentID := selectedFolder.ID
 
 	// Determine the item type based on the selected tab

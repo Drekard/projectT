@@ -58,12 +58,12 @@ func ShowSendToChatDialog(item *models.Item, onSend func(chat *models.ChatWithLa
 
 	// Создаём контент диалога
 	content := container.NewVBox(
-		widget.NewLabel("Выберите чат для отправки:"),
+		widget.NewLabel("Select a chat to send:"),
 		scrollContainer,
 	)
 
 	// Показываем диалог
-	dialog.ShowCustom("Отправить элемент", "Отмена", content, window)
+	dialog.ShowCustom("Send item", "Cancel", content, window)
 }
 
 // createChatRow создаёт строку чата для диалога отправки
@@ -115,8 +115,8 @@ func createChatRow(
 	itemLabel.TextStyle = fyne.TextStyle{Italic: true}
 
 	// Кнопка отправки
-	sendButton := widget.NewButton("Отправить", func() {
-		log.Printf("[SendDialog] 🚀 Нажата кнопка отправки в чат: peer_id=%s, username=%q, element_uuid=%s",
+	sendButton := widget.NewButton("Send", func() {
+		log.Printf("[SendDialog] 🚀 Send button pressed for chat: peer_id=%s, username=%q, element_uuid=%s",
 			chat.PeerID[:min(10, len(chat.PeerID))], chat.Username, item.ElementUUID)
 		if onSend != nil {
 			onSend(chat)
@@ -147,7 +147,7 @@ func createLocalChatRow(
 		log.Printf("[SendDialog] ❌ Ошибка получения локального профиля: %v", err)
 		// Если ошибка - используем заглушку
 		localProfile = &models.Profile{
-			Username:   "Локальный чат",
+			Username:   "Local chat",
 			AvatarPath: "",
 		}
 	} else {
@@ -183,7 +183,7 @@ func createLocalChatRow(
 	}
 
 	// Имя локального чата
-	nameLabel := widget.NewLabel("📝 Локальный чат")
+	nameLabel := widget.NewLabel("📝 Local chat")
 	nameLabel.TextStyle = fyne.TextStyle{Bold: true}
 
 	// Название элемента
@@ -191,8 +191,8 @@ func createLocalChatRow(
 	itemLabel.TextStyle = fyne.TextStyle{Italic: true}
 
 	// Кнопка отправки
-	sendButton := widget.NewButton("Отправить", func() {
-		log.Printf("[SendDialog] 🚀 Нажата кнопка отправки в локальный чат: element_uuid=%s", item.ElementUUID)
+	sendButton := widget.NewButton("Send", func() {
+		log.Printf("[SendDialog] 🚀 Send button pressed for local chat: element_uuid=%s", item.ElementUUID)
 		if onSend != nil {
 			// Создаём заглушку локального чата для отправки
 			localChat := &models.ChatWithLastMessage{

@@ -73,9 +73,9 @@ func CreateMainLayout(window fyne.Window, p2pNetwork *p2p_network.P2PNetwork) *f
 	ml.workspace.GetNavigationManager().SetBreadcrumbUpdateCallback(breadcrumbManager.UpdateBreadcrumbs)
 
 	breadcrumbManager.SetNavigationCallback(func(folderID int) {
-		// Сначала переключаем вкладку на "Сохраненное"
+		// First switch tab to "Saved"
 		ml.workspace.UpdateContent("saved")
-		// Затем навигация к папке
+		// Then navigate to folder
 		_ = ml.workspace.NavigateToFolder(folderID)
 	})
 

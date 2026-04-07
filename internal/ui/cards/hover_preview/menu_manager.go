@@ -94,14 +94,14 @@ func (mm *MenuManager) ShowSimpleMenu(item *models.Item, cont fyne.CanvasObject,
 	}
 
 	children = append(children,
-		widget.NewLabel("Создан: "+item.CreatedAt.Format("02.01.2006 15:04")),
-		widget.NewLabel("Изменен: "+item.UpdatedAt.Format("02.01.2006 15:04")),
+		widget.NewLabel("Created: "+item.CreatedAt.Format("02.01.2006 15:04")),
+		widget.NewLabel("Modified: "+item.UpdatedAt.Format("02.01.2006 15:04")),
 	)
 
 	// Добавляем информацию о владельце только для remote элементов
 	// Для local элементов строка "Владелец" не отображается
 	if item.IsRemote() && item.SourcePeerID != nil {
-		ownerLabel := widget.NewLabel("Владелец: " + formatPeerID(*item.SourcePeerID))
+		ownerLabel := widget.NewLabel("Owner: " + formatPeerID(*item.SourcePeerID))
 		ownerLabel.TextStyle = fyne.TextStyle{Italic: true}
 		children = append(children, ownerLabel)
 	}
@@ -119,7 +119,7 @@ func (mm *MenuManager) ShowSimpleMenu(item *models.Item, cont fyne.CanvasObject,
 				if item.IsPreview() {
 					// Показываем кнопку, если это не noButtonsMode или если это remote элемент
 					if !hideButtons || item.IsRemote() {
-						saveButton := widget.NewButton("💾 Сохранить в коллекцию", func() {
+						saveButton := widget.NewButton("Save to collection", func() {
 							if err := mm.saveItemToCollection(item); err != nil {
 								appWindow := fyne.CurrentApp().Driver().AllWindows()[0]
 								dialog.ShowError(fmt.Errorf("Ошибка сохранения: %v", err), appWindow)
@@ -141,10 +141,10 @@ func (mm *MenuManager) ShowSimpleMenu(item *models.Item, cont fyne.CanvasObject,
 				if item.IsSaved() {
 					// Показываем кнопку, если это не noButtonsMode или если это remote элемент
 					if !hideButtons || item.IsRemote() {
-						removeButton := widget.NewButton("📤 Удалить из коллекции", func() {
+						removeButton := widget.NewButton("Remove from collection", func() {
 							appWindow := fyne.CurrentApp().Driver().AllWindows()[0]
-							dialog.ShowConfirm("Удалить из коллекции",
-								fmt.Sprintf("Элемент \"%s\" будет возвращён в чат (статус изменится на 'preview'). Продолжить?", item.Title),
+							dialog.ShowConfirm("Remove from collection",
+								fmt.Sprintf("Element \"%s\" will be returned to chat (status will change to 'preview'). Continue?", item.Title),
 								func(confirmed bool) {
 									if confirmed {
 										if err := mm.removeItemFromCollection(item); err != nil {
@@ -168,7 +168,7 @@ func (mm *MenuManager) ShowSimpleMenu(item *models.Item, cont fyne.CanvasObject,
 					// Кнопка "Редактировать" скрыта для remote элементов
 					if item.IsLocal() {
 						buttons = append(buttons,
-							widget.NewButton("✏️ Редактировать", func() {
+							widget.NewButton("Edit", func() {
 								appWindows := fyne.CurrentApp().Driver().AllWindows()
 								if len(appWindows) > 0 {
 									edit_item.ShowCreateItemModalForEdit(appWindows[0], item.ID)
@@ -178,10 +178,10 @@ func (mm *MenuManager) ShowSimpleMenu(item *models.Item, cont fyne.CanvasObject,
 					}
 
 					buttons = append(buttons,
-						widget.NewButton("🗑 Удалить", func() {
+						widget.NewButton("Delete", func() {
 							appWindow := fyne.CurrentApp().Driver().AllWindows()[0]
-							dialog.ShowConfirm("Подтверждение удаления",
-								fmt.Sprintf("Вы уверены, что хотите удалить элемент \"%s\"?", item.Title),
+							dialog.ShowConfirm("Confirm deletion",
+								fmt.Sprintf("Are you sure you want to delete element \"%s\"?", item.Title),
 								func(confirmed bool) {
 									if confirmed {
 										if err := mm.deleteItem(item); err != nil {
@@ -252,7 +252,7 @@ func (mm *MenuManager) ShowSimpleMenu(item *models.Item, cont fyne.CanvasObject,
 					}
 
 					// Добавляем кнопку отправки для всех типов элементов
-					sendButton := widget.NewButton("📤 Отправить", func() {
+					sendButton := widget.NewButton("Send", func() {
 						// Показываем диалог выбора чата
 						dialogs.ShowSendToChatDialog(item, func(chat *models.ChatWithLastMessage) {
 							// Закрываем попап
@@ -268,7 +268,7 @@ func (mm *MenuManager) ShowSimpleMenu(item *models.Item, cont fyne.CanvasObject,
 					buttons = append([]fyne.CanvasObject{sendButton}, buttons...)
 
 					// Добавляем кнопку перемещения для всех типов элементов
-					moveButton := widget.NewButton("📁 Переместить", func() {
+					moveButton := widget.NewButton("Move", func() {
 						// Показываем список папок для перемещения
 						showMoveFolderSelection(popup, item)
 					})
@@ -477,20 +477,20 @@ func (mm *MenuManager) SetSearchQuery(query string) {
 		return
 	}
 
-	fmt.Printf("Попытка установить поисковый запрос '%s', но поисковая строка не инициализирована\n", query)
+	fmt.Printf("Attempting to set search query '%s', but search bar is not initialized\n", query)
 }
 
 // getDescriptionForItem возвращает описание элемента или сообщение, если описание отсутствует
 func getDescriptionForItem(item *models.Item) string {
 	if item.Description == "" {
-		return "--описание отсутствует--"
+		return "--description not available--"
 	}
 	return item.Description
 }
 
 func getTitleForItem(item *models.Item) string {
 	if item.Title == "" {
-		return "--заголовок отсутствует--"
+		return "--title not available--"
 	}
 	return "**" + item.Title + "**"
 }
@@ -758,11 +758,11 @@ func showMoveFolderSelection(parentPopup *widget.PopUp, item *models.Item) {
 	allItems, err := queries.GetSavedItems()
 	if err != nil {
 		// В случае ошибки добавим хотя бы сообщение об этом
-		errorLabel := widget.NewLabel("Ошибка загрузки папок")
+		errorLabel := widget.NewLabel("Error loading folders")
 		folderButtonsContainer.Add(errorLabel)
 	} else {
 		// Добавляем "Сохраненное" (корневая папка) как вариант с ID = nil
-		savedButton := widget.NewButton("Сохраненное", func() {
+		savedButton := widget.NewButton("Saved", func() {
 			// Перемещаем элемент в корень (сохраненное)
 			menuManager := &MenuManager{}
 			err := menuManager.MoveItemToFolder(item.ID, nil)
@@ -811,12 +811,12 @@ func showMoveFolderSelection(parentPopup *widget.PopUp, item *models.Item) {
 
 	// Создаем контент для диалога
 	content := container.NewVBox(
-		widget.NewLabel("Выберите папку для перемещения:"),
+		widget.NewLabel("Select a folder to move to:"),
 		scrollContainer,
 	)
 
 	// Показываем диалог
-	dialog.ShowCustom("Перемещение в папку", "Отмена", content, window)
+	dialog.ShowCustom("Move to folder", "Cancel", content, window)
 }
 
 // sendItemToChat отправляет элемент в выбранный чат
@@ -849,7 +849,7 @@ func sendItemToChat(chat *models.ChatWithLastMessage, item *models.Item, window 
 		return
 	}
 
-	dialog.ShowInformation("Успех", "Элемент отправлен в чат", window)
+	dialog.ShowInformation("Success", "Element sent to chat", window)
 }
 
 // min возвращает минимальное из двух чисел

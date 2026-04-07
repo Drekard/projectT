@@ -16,14 +16,14 @@ import (
 
 // ContentCharacteristicItem represents a single characteristic item with title and value
 type ContentCharacteristicItem struct {
-	ElementUUID string `json:"element_uuid"` // Глобальный UUID элемента для P2P
+	ElementUUID string `json:"element_uuid"` // Global element UUID for P2P
 	Title       string `json:"title"`
 	Value       string `json:"value"`
 }
 
-// fieldRow представляет собой строку с пользовательским полем
+// fieldRow represents a row with a custom field
 type fieldRow struct {
-	elementUUID  string // ElementUUID элемента (для P2P)
+	elementUUID  string // ElementUUID of the element (for P2P)
 	titleLabel   *widget.Label
 	titleEntry   *widget.Entry
 	valueEntry   *widget.Entry
@@ -57,55 +57,55 @@ type UI struct {
 func New() *UI {
 	ui := &UI{}
 
-	// Загружаем профиль из базы данных
+	// Load profile from database
 	profile, err := queries.GetLocalProfile()
 	if err == nil {
-		// Устанавливаем пути из базы данных
+		// Set paths from database
 		ui.avatarPath = profile.AvatarPath
 		ui.backgroundPath = profile.BackgroundPath
 
-		// Сохраняем JSON характеристик для последующей загрузки
+		// Save characteristics JSON for later loading
 		ui.loadCharacteristicsJSON = profile.ContentChar
 	} else {
-		_ = err //nolint:staticcheck // Игнорируем ошибку загрузки профиля
+		_ = err //nolint:staticcheck // Ignore profile loading error
 	}
 
-	// Инициализируем gridManager до создания представления
+	// Initialize gridManager before creating the view
 	ui.gridManager = saved.NewGridManager()
 
 	ui.createView()
 
-	// После создания компонентов загружаем характеристики
+	// Load characteristics after components are created
 	ui.LoadCharacteristicsFromJSON(ui.loadCharacteristicsJSON)
 
-	// nextID больше не нужен, так как используем ElementUUID вместо ID
-	// Оставляем для обратной совместимости
+	// nextID is no longer needed since we use ElementUUID instead of ID
+	// Kept for backward compatibility
 	ui.nextID = 1
 
 	return ui
 }
 
 func (p *UI) createView() {
-	// Создаем основные компоненты
+	// Create main components
 	p.createComponents()
 
-	// Создаем левую панель (аватар, имя, титул, кнопки, характеристики)
+	// Create left panel (avatar, name, title, buttons, characteristics)
 	leftPanel := p.createLeftPanel()
 
-	// Создаем правую панель (закрепленные элементы)
+	// Create right panel (pinned items)
 	rightPanel := p.createRightPanel()
 
-	// Разделяем на левую и правую части с помощью SplitContainer
+	// Split into left and right parts using SplitContainer
 	split := container.NewHSplit(leftPanel, rightPanel)
-	split.SetOffset(0.35) // Левая панель занимает 35% ширины
+	split.SetOffset(0.35) // Left panel takes 35% of width
 
 	p.content = split
 }
 
 func (p *UI) createComponents() {
-	// Создание компонентов для профиля
+	// Create components for profile
 
-	// Аватар
+	// Avatar
 	var avatarImagePath string
 	if p.avatarPath != "" {
 		avatarImagePath = p.avatarPath
@@ -117,49 +117,49 @@ func (p *UI) createComponents() {
 	p.avatarImage.FillMode = canvas.ImageFillContain
 	p.avatarImage.SetMinSize(fyne.NewSize(100, 100))
 
-	// Оборачиваем изображение в кликабельный виджет
+	// Wrap image in clickable widget
 	avatarClickable := NewAvatarClickableImage(p.avatarImage, nil)
 
-	// Контейнер для аватара
+	// Avatar container
 	p.avatarContainer = container.NewCenter(avatarClickable)
 
 	p.userNameEntry = widget.NewEntry()
-	p.userNameEntry.SetPlaceHolder("Логин")
+	p.userNameEntry.SetPlaceHolder("Login")
 	p.userNameEntry.OnChanged = func(text string) {
 		p.scheduleProfileAutoSave()
 	}
 
 	p.userTitleEntry = widget.NewEntry()
-	p.userTitleEntry.SetPlaceHolder("Титул")
+	p.userTitleEntry.SetPlaceHolder("Title")
 	p.userTitleEntry.OnChanged = func(text string) {
 		p.scheduleProfileAutoSave()
 	}
 
-	// Загружаем данные из профиля
+	// Load data from profile
 	profile, err := queries.GetLocalProfile()
 	if err == nil {
 		p.userNameEntry.SetText(profile.Username)
 		p.userTitleEntry.SetText(profile.Title)
 	}
 
-	p.backgroundButton = widget.NewButton("Фон", func() {
+	p.backgroundButton = widget.NewButton("Background", func() {
 		p.showBackgroundDialog()
 	})
 
-	p.avatarButton = widget.NewButton("Аватар", func() {
+	p.avatarButton = widget.NewButton("Avatar", func() {
 		p.showAvatarDialog()
 	})
 }
 
-// createLeftPanel создает левую панель профиля (аватар, имя, титул, кнопки, характеристики)
+// createLeftPanel creates the left profile panel (avatar, name, title, buttons, characteristics)
 func (p *UI) createLeftPanel() fyne.CanvasObject {
-	// Прозрачные прямоугольники для фона полей ввода (ширина 400px)
+	// Transparent rectangles for input field backgrounds (400px width)
 	nameBg := canvas.NewRectangle(color.Transparent)
 	nameBg.SetMinSize(fyne.NewSize(250, 40))
 	titleBg := canvas.NewRectangle(color.Transparent)
 	titleBg.SetMinSize(fyne.NewSize(250, 40))
 
-	// Аватар, имя, титул, кнопки
+	// Avatar, name, title, buttons
 	avatarSection := container.NewVBox(
 		container.NewCenter(p.avatarContainer),
 		container.NewStack(nameBg, p.userNameEntry),
@@ -167,23 +167,23 @@ func (p *UI) createLeftPanel() fyne.CanvasObject {
 		container.NewCenter(container.NewHBox(p.backgroundButton, p.avatarButton)),
 	)
 
-	// Характеристики
+	// Characteristics
 	p.characteristicsContainer = container.NewVBox()
 	p.characteristicsScroll = container.NewScroll(p.characteristicsContainer)
 	p.characteristicsScroll.SetMinSize(fyne.NewSize(0, 200))
 
-	p.addCharacteristicButton = widget.NewButton("+ Добавить характеристику", func() {
+	p.addCharacteristicButton = widget.NewButton("+ Add characteristic", func() {
 		p.AddCharacteristic()
 	})
 	p.addCharacteristicButton.Importance = widget.LowImportance
 
 	characteristicsSection := container.NewVBox(
-		widget.NewLabel("Характеристики"),
+		widget.NewLabel("Characteristics"),
 		p.characteristicsScroll,
 		p.addCharacteristicButton,
 	)
 
-	// Горизонтальный разделитель
+	// Horizontal separator
 	separator := canvas.NewRectangle(color.Gray{Y: 128})
 	separator.SetMinSize(fyne.NewSize(0, 1))
 
@@ -196,51 +196,51 @@ func (p *UI) createLeftPanel() fyne.CanvasObject {
 	return container.NewScroll(content)
 }
 
-// createRightPanel создает правую панель профиля (закрепленные элементы)
+// createRightPanel creates the right profile panel (pinned items)
 func (p *UI) createRightPanel() fyne.CanvasObject {
-	// Используем GridManager для отображения закрепленных элементов
+	// Use GridManager to display pinned items
 	pinnedGridManager := saved.NewGridManager()
 
-	// Устанавливаем 2 колонки для вкладки профиля
+	// Set 2 columns for profile tab
 	pinnedGridManager.SetColumnCount(2)
 
-	// Загружаем закрепленные элементы
+	// Load pinned items
 	p.updatePinnedItems(pinnedGridManager)
 
 	pinnedGridContainer := pinnedGridManager.GetContainer()
 
-	// Подписываемся на события изменения закрепленных элементов
+	// Subscribe to pinned items change events
 	eventChan := pinned.GetEventManager().Subscribe()
 	go func() {
 		for eventType := range eventChan {
 			if eventType == "pinned_items_changed" {
-				// Обновляем закрепленные элементы
+				// Update pinned items
 				p.updatePinnedItems(pinnedGridManager)
 			}
 		}
 	}()
 
-	// Используем Border для заполнения доступного пространства без горизонтальной прокрутки
-	// Заголовок сверху, сетка занимает всё оставшееся место
+	// Use Border layout to fill available space without horizontal scrolling
+	// Title at top, grid takes all remaining space
 	content := container.NewBorder(
-		widget.NewLabel("Витрина"), // Top
-		nil,                        // Bottom
-		nil,                        // Left
-		nil,                        // Right
-		pinnedGridContainer,        // Content
+		widget.NewLabel("Showcase"), // Top
+		nil,                         // Bottom
+		nil,                         // Left
+		nil,                         // Right
+		pinnedGridContainer,         // Content
 	)
 
 	return content
 }
 
-// updatePinnedItems обновляет отображение закрепленных элементов
+// updatePinnedItems updates the display of pinned items
 func (p *UI) updatePinnedItems(gridManager *saved.GridManager) {
-	// Загружаем закрепленные элементы
+	// Load pinned items
 	pinnedItems, err := queries.GetPinnedItems()
 	if err != nil {
-		pinnedItems = []*models.Item{} // Инициализируем пустым списком в случае ошибки
+		pinnedItems = []*models.Item{} // Initialize with empty list on error
 	}
 
-	// Обновляем элементы в GridManager
+	// Update items in GridManager
 	gridManager.LoadItemsWithoutCreateElement(pinnedItems)
 }

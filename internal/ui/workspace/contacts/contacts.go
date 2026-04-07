@@ -1,4 +1,4 @@
-// Package contacts содержит компонент вкладки "Контакты"
+// Package contacts contains the "Contacts" tab component
 package contacts
 
 import (
@@ -17,7 +17,7 @@ import (
 	"fyne.io/fyne/v2/widget"
 )
 
-// UI представляет интерфейс вкладки "Контакты"
+// UI represents the "Contacts" tab interface
 type UI struct {
 	content      *fyne.Container
 	window       fyne.Window
@@ -25,19 +25,19 @@ type UI struct {
 	contactsUI   UIProvider
 	contactsList *fyne.Container
 
-	// Элементы для добавления контакта
+	// Elements for adding a contact
 	addressEntry  *widget.Entry
 	usernameEntry *widget.Entry
 }
 
-// UIProvider интерфейс для доступа к функциям UI
+// UIProvider interface for accessing UI functions
 type UIProvider interface {
 	OpenPeerChat(peerID, username string)
 	OpenLocalChat()
 	GetWindow() fyne.Window
 }
 
-// New создает новый UI вкладки "Контакты"
+// New creates a new "Contacts" tab UI
 func New(contactsUI UIProvider) *UI {
 	ui := &UI{
 		contactsUI: contactsUI,
@@ -46,23 +46,23 @@ func New(contactsUI UIProvider) *UI {
 	return ui
 }
 
-// SetWindow устанавливает окно
+// SetWindow sets the window
 func (ui *UI) SetWindow(window fyne.Window) {
 	ui.window = window
 }
 
-// SetP2PService устанавливает P2P сервис
+// SetP2PService sets the P2P service
 func (ui *UI) SetP2PService(p2pUI *network.UIP2P) {
 	ui.p2pUI = p2pUI
 	ui.loadContactsList()
 }
 
-// GetContent возвращает контент вкладки
+// GetContent returns the tab content
 func (ui *UI) GetContent() fyne.CanvasObject {
 	return ui.content
 }
 
-// Refresh обновляет UI
+// Refresh refreshes the UI
 func (ui *UI) Refresh() {
 	ui.loadContactsList()
 	if ui.content != nil {
@@ -70,27 +70,27 @@ func (ui *UI) Refresh() {
 	}
 }
 
-// createContactsContent создает содержимое вкладки "Контакты"
+// createContactsContent creates the "Contacts" tab content
 func (ui *UI) createContactsContent() *fyne.Container {
-	// Список контактов
+	// Contacts list
 	ui.contactsList = container.NewVBox()
 
-	// Разделитель для добавления контакта вручную
-	manualLabel := widget.NewLabel("Добавить контакт по адресу")
+	// Divider for manual contact addition
+	manualLabel := widget.NewLabel("Add contact by address")
 	manualLabel.TextStyle = fyne.TextStyle{Italic: true}
 
-	// Поле ввода адреса с ограниченной шириной
+	// Address input field with limited width
 	ui.addressEntry = widget.NewEntry()
 	ui.addressEntry.SetPlaceHolder("projectt:peerid@/ip4/.../tcp/.../p2p/...")
 	ui.addressEntry.MultiLine = false
 	ui.addressEntry.Wrapping = fyne.TextWrapBreak
 
-	// Ограничиваем ширину поля адреса
+	// Limit address field width
 	addressWrapper := container.NewGridWithColumns(2, ui.addressEntry)
 
-	// Поле ввода имени с ограниченной шириной
+	// Name input field with limited width
 	ui.usernameEntry = widget.NewEntry()
-	ui.usernameEntry.SetPlaceHolder("Имя контакта (необязательно)")
+	ui.usernameEntry.SetPlaceHolder("Contact name (optional)")
 	ui.usernameEntry.MultiLine = false
 
 	usernameEntryWrapper := canvas.NewRectangle(color.RGBA{R: 50, G: 50, B: 50, A: 255})
@@ -98,12 +98,12 @@ func (ui *UI) createContactsContent() *fyne.Container {
 
 	username := container.NewStack(usernameEntryWrapper, ui.usernameEntry)
 
-	// Кнопка добавления (с ограниченной шириной)
-	addManualButton := widget.NewButtonWithIcon("Добавить контакт", theme.ContentAddIcon(), func() {
+	// Add button (with limited width)
+	addManualButton := widget.NewButtonWithIcon("Add Contact", theme.ContentAddIcon(), func() {
 		ui.addContactByAddress()
 	})
 
-	// Ограничиваем ширину поля имени
+	// Limit name field width
 	usernameWrapper := container.NewGridWithColumns(2, container.NewHBox(username, addManualButton))
 
 	manualSection := container.NewVBox(
@@ -119,13 +119,13 @@ func (ui *UI) createContactsContent() *fyne.Container {
 		ui.contactsList,
 	)
 
-	// Фон
+	// Background
 	bg := canvas.NewRectangle(color.RGBA{R: 30, G: 30, B: 30, A: 0})
 
 	return container.NewStack(bg, container.NewScroll(content))
 }
 
-// loadContactsList загружает список контактов из базы данных
+// loadContactsList loads the contacts list from the database
 func (ui *UI) loadContactsList() {
 	if ui.contactsList == nil {
 		return
@@ -134,17 +134,17 @@ func (ui *UI) loadContactsList() {
 	ui.contactsList.Objects = nil
 
 	if ui.p2pUI == nil {
-		emptyLabel := widget.NewLabel("P2P сервис не инициализирован")
+		emptyLabel := widget.NewLabel("P2P service not initialized")
 		emptyLabel.TextStyle = fyne.TextStyle{Italic: true}
 		ui.contactsList.Add(emptyLabel)
 		ui.contactsList.Refresh()
 		return
 	}
 
-	// Получаем контакты из базы данных
+	// Get contacts from database
 	contacts, err := ui.p2pUI.GetContacts()
 	if err != nil {
-		emptyLabel := widget.NewLabel(fmt.Sprintf("Ошибка загрузки контактов: %v", err))
+		emptyLabel := widget.NewLabel(fmt.Sprintf("Error loading contacts: %v", err))
 		emptyLabel.TextStyle = fyne.TextStyle{Italic: true}
 		ui.contactsList.Add(emptyLabel)
 		ui.contactsList.Refresh()
@@ -152,7 +152,7 @@ func (ui *UI) loadContactsList() {
 	}
 
 	if len(contacts) == 0 {
-		emptyLabel := widget.NewLabel("Список контактов пуст")
+		emptyLabel := widget.NewLabel("Contacts list is empty")
 		emptyLabel.TextStyle = fyne.TextStyle{Italic: true}
 		ui.contactsList.Add(emptyLabel)
 	} else {
@@ -165,12 +165,12 @@ func (ui *UI) loadContactsList() {
 	ui.contactsList.Refresh()
 }
 
-// createContactItem создает элемент контакта
+// createContactItem creates a contact item
 func (ui *UI) createContactItem(contact *models.Contact) *fyne.Container {
-	// Индикатор статуса (зеленый если онлайн)
+	// Status indicator (green if online)
 	statusInd := canvas.NewCircle(color.RGBA{R: 128, G: 128, B: 128, A: 255})
 
-	// Проверяем, подключен ли контакт
+	// Check if contact is connected
 	if ui.p2pUI != nil && contact.PeerID != "" {
 		connectedPeers := ui.p2pUI.GetConnectedPeers()
 		for _, peer := range connectedPeers {
@@ -181,12 +181,12 @@ func (ui *UI) createContactItem(contact *models.Contact) *fyne.Container {
 		}
 	}
 
-	// Имя контакта
+	// Contact name
 	nameLabel := widget.NewLabel(contact.Username)
 	nameLabel.TextStyle = fyne.TextStyle{Bold: true}
 
-	// PeerID (сокращенный)
-	peerIDText := "нет ID"
+	// PeerID (shortened)
+	peerIDText := "no ID"
 	if contact.PeerID != "" {
 		peerIDText = contact.PeerID
 		if len(peerIDText) > 16 {
@@ -196,17 +196,17 @@ func (ui *UI) createContactItem(contact *models.Contact) *fyne.Container {
 	peerIDLabel := widget.NewLabel(peerIDText)
 	peerIDLabel.TextStyle = fyne.TextStyle{Italic: true}
 
-	// Кнопка начала чата
+	// Chat button
 	chatBtn := widget.NewButtonWithIcon("", theme.MailComposeIcon(), func() {
 		ui.openChatWithContact(contact)
 	})
 
-	// Кнопка подключения
+	// Connect button
 	connectBtn := widget.NewButtonWithIcon("", theme.FolderIcon(), func() {
 		ui.connectToContactByContact(contact)
 	})
 
-	// Кнопка удаления
+	// Delete button
 	deleteBtn := widget.NewButtonWithIcon("", theme.DeleteIcon(), func() {
 		ui.deleteContact(contact)
 	})
@@ -222,11 +222,11 @@ func (ui *UI) createContactItem(contact *models.Contact) *fyne.Container {
 	return content
 }
 
-// openChatWithContact открывает чат с контактом
+// openChatWithContact opens a chat with a contact
 func (ui *UI) openChatWithContact(contact *models.Contact) {
-	// ✅ ПРОВЕРКА: если это локальный чат - открываем через OpenLocalChat()
+	// CHECK: if this is a local chat - open via OpenLocalChat()
 	if contact.IsLocalChat() {
-		log.Printf("[Contact] 🏠 Обнаружен локальный чат, открываем через OpenLocalChat()")
+		log.Printf("[Contact] Local chat detected, opening via OpenLocalChat()")
 		ui.contactsUI.OpenLocalChat()
 		return
 	}
@@ -234,25 +234,25 @@ func (ui *UI) openChatWithContact(contact *models.Contact) {
 	if contact.PeerID != "" {
 		ui.contactsUI.OpenPeerChat(contact.PeerID, contact.Username)
 	} else {
-		ui.showErrorDialog("Ошибка", "У контакта нет PeerID")
+		ui.showErrorDialog("Error", "Contact has no PeerID")
 	}
 }
 
-// connectToContactByContact подключается к контакту
+// connectToContactByContact connects to a contact
 func (ui *UI) connectToContactByContact(contact *models.Contact) {
 	if ui.p2pUI == nil {
-		ui.showErrorDialog("Ошибка", "P2P сервис не инициализирован")
+		ui.showErrorDialog("Error", "P2P service not initialized")
 		return
 	}
 
 	if contact.PeerID == "" {
-		ui.showErrorDialog("Ошибка", "У контакта нет PeerID")
+		ui.showErrorDialog("Error", "Contact has no PeerID")
 		return
 	}
 
 	multiaddr := contact.Multiaddr
 	if multiaddr == "" {
-		ui.showErrorDialog("Ошибка", "У контакта нет адреса")
+		ui.showErrorDialog("Error", "Contact has no address")
 		return
 	}
 
@@ -260,14 +260,14 @@ func (ui *UI) connectToContactByContact(contact *models.Contact) {
 
 	err := ui.p2pUI.ConnectToContact(addrStr)
 	if err != nil {
-		ui.showErrorDialog("Ошибка", fmt.Sprintf("Не удалось подключиться: %v", err))
+		ui.showErrorDialog("Error", fmt.Sprintf("Failed to connect: %v", err))
 		return
 	}
 
-	ui.showInfoDialog("Подключение", "Попытка подключения к контакту...")
+	ui.showInfoDialog("Connection", "Attempting to connect to contact...")
 }
 
-// deleteContact удаляет контакт
+// deleteContact deletes a contact
 func (ui *UI) deleteContact(contact *models.Contact) {
 	window := ui.contactsUI.GetWindow()
 	if window == nil {
@@ -275,21 +275,21 @@ func (ui *UI) deleteContact(contact *models.Contact) {
 	}
 
 	dialog.ShowConfirm(
-		"Удаление контакта",
-		fmt.Sprintf("Вы действительно хотите удалить контакт \"%s\"?", contact.Username),
+		"Delete Contact",
+		fmt.Sprintf("Are you sure you want to delete the contact \"%s\"?", contact.Username),
 		func(confirmed bool) {
 			if !confirmed {
 				return
 			}
 
 			if ui.p2pUI == nil {
-				ui.showErrorDialog("Ошибка", "P2P сервис не инициализирован")
+				ui.showErrorDialog("Error", "P2P service not initialized")
 				return
 			}
 
 			err := ui.p2pUI.DeleteContact(contact.ID)
 			if err != nil {
-				ui.showErrorDialog("Ошибка", fmt.Sprintf("Не удалось удалить контакт: %v", err))
+				ui.showErrorDialog("Error", fmt.Sprintf("Failed to delete contact: %v", err))
 				return
 			}
 
@@ -299,16 +299,16 @@ func (ui *UI) deleteContact(contact *models.Contact) {
 	)
 }
 
-// addContactByAddress добавляет контакт по адресу
+// addContactByAddress adds a contact by address
 func (ui *UI) addContactByAddress() {
 	if ui.p2pUI == nil {
-		ui.showErrorDialog("Ошибка", "P2P сервис не инициализирован")
+		ui.showErrorDialog("Error", "P2P service not initialized")
 		return
 	}
 
 	addrStr := ui.addressEntry.Text
 	if addrStr == "" {
-		ui.showErrorDialog("Ошибка", "Введите адрес контакта")
+		ui.showErrorDialog("Error", "Enter contact address")
 		return
 	}
 
@@ -316,17 +316,17 @@ func (ui *UI) addContactByAddress() {
 
 	err := ui.p2pUI.AddContactByAddress(addrStr, username)
 	if err != nil {
-		ui.showErrorDialog("Ошибка", fmt.Sprintf("Не удалось добавить контакт: %v", err))
+		ui.showErrorDialog("Error", fmt.Sprintf("Failed to add contact: %v", err))
 		return
 	}
 
-	ui.showInfoDialog("Успешно", "Контакт добавлен")
+	ui.showInfoDialog("Success", "Contact added")
 	ui.addressEntry.SetText("")
 	ui.usernameEntry.SetText("")
 	ui.loadContactsList()
 }
 
-// showErrorDialog показывает диалог ошибки
+// showErrorDialog shows an error dialog
 func (ui *UI) showErrorDialog(title, message string) {
 	window := ui.contactsUI.GetWindow()
 	if window == nil {
@@ -336,7 +336,7 @@ func (ui *UI) showErrorDialog(title, message string) {
 	dialog.ShowError(fmt.Errorf("%s", message), window)
 }
 
-// showInfoDialog показывает информационный диалог
+// showInfoDialog shows an information dialog
 func (ui *UI) showInfoDialog(title, message string) {
 	window := ui.contactsUI.GetWindow()
 	if window == nil {

@@ -46,7 +46,7 @@ func openWindowsFileDialog(filter []string, multiSelect bool) ([]string, error) 
 		[Console]::OutputEncoding = [System.Text.Encoding]::UTF8
 		Add-Type -AssemblyName System.Windows.Forms
 		$dialog = New-Object System.Windows.Forms.OpenFileDialog
-		$dialog.Title = "Выберите файлы"
+		$dialog.Title = "Select files"
 		$dialog.Multiselect = $true
 		`
 
@@ -118,7 +118,7 @@ if ($result -eq [System.Windows.Forms.DialogResult]::OK) {
 		if exitErr, ok := err.(*exec.ExitError); ok && exitErr.ExitCode() == 0 {
 			return []string{}, nil
 		}
-		return nil, fmt.Errorf("ошибка открытия диалога: %v\nstderr: %s", err, stderr.String())
+		return nil, fmt.Errorf("dialog error: %v\nstderr: %s", err, stderr.String())
 	}
 
 	// Преобразуем вывод с учетом кодировки
@@ -200,10 +200,10 @@ func CreateFileUploadArea(config FileUploadConfig, state *FileUploadState, paren
 		selectedFiles, err := openWindowsFileDialog(config.Filter, true)
 		if err != nil {
 			// В случае ошибки показываем сообщение
-			errorLabel := widget.NewLabel(fmt.Sprintf("Ошибка при выборе файлов:\n%v", err))
+			errorLabel := widget.NewLabel(fmt.Sprintf("Error selecting files:\n%v", err))
 			errorLabel.Wrapping = fyne.TextWrapWord
 
-			closeButton := widget.NewButton("Закрыть", nil)
+			closeButton := widget.NewButton("Close", nil)
 
 			popupContent := container.NewVBox(
 				errorLabel,

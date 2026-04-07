@@ -68,8 +68,8 @@ func CreateBreadcrumbs() (*fyne.Container, *BreadcrumbManager) {
 	buttons.Add(refreshButton)
 	buttons.Add(folderButton)
 
-	// Добавляем начальный элемент "Сохраненное"
-	bm.AddItem("Сохраненное", 0)
+	// Добавляем начальный элемент "Saved"
+	bm.AddItem("Saved", 0)
 
 	// Оборачиваем все в Stack: фон + контент с отступами
 	padded := container.NewHBox(
@@ -118,7 +118,7 @@ func (bm *BreadcrumbManager) UpdateBreadcrumbs(path []*models.Item) {
 	bm.Clear()
 
 	// Добавляем корневой элемент
-	bm.AddItem("Сохраненное", 0)
+	bm.AddItem("Saved", 0)
 
 	// Добавляем остальные элементы пути
 	for _, item := range path {

@@ -57,7 +57,7 @@ func (cmm *ChatMenuManager) ShowChatMenu(chatID int, peerID string, username str
 	buttons := []fyne.CanvasObject{}
 
 	// Кнопка удаления чата
-	deleteButton := widget.NewButton("🗑 Удалить чат", func() {
+	deleteButton := widget.NewButton("🗑 Delete chat", func() {
 		cmm.showDeleteConfirmation(chatID, peerID, popup)
 	})
 	buttons = append(buttons, deleteButton)
@@ -95,21 +95,21 @@ func (cmm *ChatMenuManager) showDeleteConfirmation(chatID int, peerID string, pa
 		return
 	}
 
-	dialog.ShowConfirm("Подтверждение удаления",
-		fmt.Sprintf("Вы уверены, что хотите удалить чат с %s?\n\nЭто действие нельзя отменить.", peerID[:8]),
+	dialog.ShowConfirm("Confirm deletion",
+		fmt.Sprintf("Are you sure you want to delete the chat with %s?\n\nThis action cannot be undone.", peerID[:8]),
 		func(confirmed bool) {
 			if confirmed {
 				// Удаляем сообщения чата
 				err := queries.DeleteMessagesForChat(chatID)
 				if err != nil {
-					dialog.ShowError(fmt.Errorf("Ошибка удаления сообщений: %v", err), window)
+					dialog.ShowError(fmt.Errorf("Error deleting messages: %v", err), window)
 					return
 				}
 
 				// Удаляем чат
 				err = queries.DeleteChat(chatID)
 				if err != nil {
-					dialog.ShowError(fmt.Errorf("Ошибка удаления чата: %v", err), window)
+					dialog.ShowError(fmt.Errorf("Error deleting chat: %v", err), window)
 					return
 				}
 

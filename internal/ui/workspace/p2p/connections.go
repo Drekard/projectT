@@ -1,4 +1,4 @@
-// Package p2p содержит компонент вкладки "Подключение"
+// Package p2p contains the connection tab component
 package p2p
 
 import (
@@ -17,17 +17,17 @@ import (
 	"fyne.io/fyne/v2/widget"
 )
 
-// createProfilesTab создает вкладку с подключениями и профилями
+// createProfilesTab creates the tab with connections and profiles
 func (ui *UI) createProfilesTab() fyne.CanvasObject {
 	createConnectSection := ui.createConnectByAddressSection()
 
-	// === Подключённые пиры ===
+	// === Connected Peers ===
 	connectedSection := ui.createConnectedPeersSection()
 
-	// === Обнаруженные пиры ===
+	// === Discovered Peers ===
 	discoveredSection := ui.createDiscoveredPeersSection()
 
-	// === Профили (из таблицы profiles) ===
+	// === Profiles (from profiles table) ===
 	profilesSection := ui.createProfilesSection()
 
 	content := container.NewVBox(
@@ -44,13 +44,13 @@ func (ui *UI) createProfilesTab() fyne.CanvasObject {
 	return container.NewScroll(content)
 }
 
-// createConnectedPeersSection создает секцию подключённых пиров
+// createConnectedPeersSection creates the connected peers section
 func (ui *UI) createConnectedPeersSection() *fyne.Container {
-	sectionTitle := widget.NewLabel("Подключённые пиры")
+	sectionTitle := widget.NewLabel("Connected Peers")
 	sectionTitle.TextStyle = fyne.TextStyle{Bold: true}
 
-	// Кнопка обновления
-	refreshBtn := widget.NewButtonWithIcon("Обновить", theme.ViewRefreshIcon(), func() {
+	// Refresh button
+	refreshBtn := widget.NewButtonWithIcon("Refresh", theme.ViewRefreshIcon(), func() {
 		ui.loadConnectedPeers()
 	})
 
@@ -61,13 +61,13 @@ func (ui *UI) createConnectedPeersSection() *fyne.Container {
 	return container.NewVBox(headerRow, ui.connectedPeersList)
 }
 
-// createDiscoveredPeersSection создает секцию обнаруженных пиров
+// createDiscoveredPeersSection creates the discovered peers section
 func (ui *UI) createDiscoveredPeersSection() *fyne.Container {
-	sectionTitle := widget.NewLabel("Обнаруженные пиры (DHT/mDNS)")
+	sectionTitle := widget.NewLabel("Discovered Peers (DHT/mDNS)")
 	sectionTitle.TextStyle = fyne.TextStyle{Bold: true}
 
-	// Кнопка обновления
-	refreshBtn := widget.NewButtonWithIcon("Обновить", theme.ViewRefreshIcon(), func() {
+	// Refresh button
+	refreshBtn := widget.NewButtonWithIcon("Refresh", theme.ViewRefreshIcon(), func() {
 		ui.loadDiscoveredPeers()
 	})
 
@@ -78,13 +78,13 @@ func (ui *UI) createDiscoveredPeersSection() *fyne.Container {
 	return container.NewVBox(headerRow, ui.discoveredPeersList)
 }
 
-// createProfilesSection создает секцию профилей
+// createProfilesSection creates the profiles section
 func (ui *UI) createProfilesSection() *fyne.Container {
-	sectionTitle := widget.NewLabel("Профили пиров")
+	sectionTitle := widget.NewLabel("Peer Profiles")
 	sectionTitle.TextStyle = fyne.TextStyle{Bold: true}
 
-	// Кнопка обновления
-	refreshBtn := widget.NewButtonWithIcon("Обновить", theme.ViewRefreshIcon(), func() {
+	// Refresh button
+	refreshBtn := widget.NewButtonWithIcon("Refresh", theme.ViewRefreshIcon(), func() {
 		ui.loadProfiles()
 	})
 
@@ -95,39 +95,39 @@ func (ui *UI) createProfilesSection() *fyne.Container {
 	return container.NewVBox(headerRow, ui.profilesList)
 }
 
-// createConnectByAddressSection создает секцию подключения по адресу
+// createConnectByAddressSection creates the connect by address section
 func (ui *UI) createConnectByAddressSection() *fyne.Container {
-	sectionTitle := widget.NewLabel("Подключение по адресу")
+	sectionTitle := widget.NewLabel("Connect by Address")
 	sectionTitle.TextStyle = fyne.TextStyle{Bold: true}
 
-	// Поле ввода адреса
+	// Address input field
 	connectAddressEntry := widget.NewEntry()
 	connectAddressEntry.SetPlaceHolder("projectt:peerid@/ip4/.../tcp/.../p2p/...")
 	connectAddressEntry.MultiLine = false
 
-	// Кнопка подключения
-	connectButton := widget.NewButtonWithIcon("Подключиться", theme.FolderIcon(), func() {
+	// Connect button
+	connectButton := widget.NewButtonWithIcon("Connect", theme.FolderIcon(), func() {
 		addrStr := connectAddressEntry.Text
 		if addrStr == "" {
-			ui.showErrorDialog("Ошибка", "Введите адрес пира")
+			ui.showErrorDialog("Error", "Enter peer address")
 			return
 		}
 
 		if ui.p2pUI == nil {
-			ui.showErrorDialog("Ошибка", "P2P сервис не инициализирован")
+			ui.showErrorDialog("Error", "P2P service not initialized")
 			return
 		}
 
 		err := ui.p2pUI.ConnectToContact(addrStr)
 		if err != nil {
-			ui.showErrorDialog("Ошибка", fmt.Sprintf("Не удалось подключиться: %v", err))
+			ui.showErrorDialog("Error", fmt.Sprintf("Failed to connect: %v", err))
 			return
 		}
 
-		ui.showInfoDialog("Подключение", "Попытка подключения к пиру...")
+		ui.showInfoDialog("Connection", "Attempting to connect to peer...")
 		connectAddressEntry.SetText("")
 
-		// Обновляем список подключённых пиров через пару секунд
+		// Update connected peers list after a few seconds
 		time.AfterFunc(3*time.Second, func() {
 			ui.loadConnectedPeers()
 		})
@@ -142,7 +142,7 @@ func (ui *UI) createConnectByAddressSection() *fyne.Container {
 	)
 }
 
-// loadConnectedPeers загружает список подключённых пиров
+// loadConnectedPeers loads the list of connected peers
 func (ui *UI) loadConnectedPeers() {
 	if ui.connectedPeersList == nil {
 		return
@@ -151,7 +151,7 @@ func (ui *UI) loadConnectedPeers() {
 	ui.connectedPeersList.Objects = nil
 
 	if ui.p2pUI == nil {
-		emptyLabel := widget.NewLabel("P2P сервис не инициализирован")
+		emptyLabel := widget.NewLabel("P2P service not initialized")
 		emptyLabel.TextStyle = fyne.TextStyle{Italic: true}
 		ui.connectedPeersList.Add(emptyLabel)
 		ui.connectedPeersList.Refresh()
@@ -161,7 +161,7 @@ func (ui *UI) loadConnectedPeers() {
 	peers := ui.p2pUI.GetConnectedPeers()
 
 	if len(peers) == 0 {
-		emptyLabel := widget.NewLabel("Нет подключённых пиров")
+		emptyLabel := widget.NewLabel("No connected peers")
 		emptyLabel.TextStyle = fyne.TextStyle{Italic: true}
 		ui.connectedPeersList.Add(emptyLabel)
 	} else {
@@ -174,13 +174,13 @@ func (ui *UI) loadConnectedPeers() {
 	ui.connectedPeersList.Refresh()
 }
 
-// createConnectedPeerItem создает элемент подключённого пира
+// createConnectedPeerItem creates a connected peer item
 func (ui *UI) createConnectedPeerItem(peer *network.PeerInfo) *fyne.Container {
-	// Имя пира
+	// Peer name
 	nameLabel := widget.NewLabel(peer.Username)
 	nameLabel.TextStyle = fyne.TextStyle{Bold: true}
 
-	// PeerID (сокращённый)
+	// PeerID (shortened)
 	peerIDShort := peer.PeerID
 	if len(peerIDShort) > 8 {
 		peerIDShort = peerIDShort[:8]
@@ -188,24 +188,24 @@ func (ui *UI) createConnectedPeerItem(peer *network.PeerInfo) *fyne.Container {
 	peerIDLabel := widget.NewLabel(fmt.Sprintf("ID: %s", peerIDShort))
 	peerIDLabel.TextStyle = fyne.TextStyle{Italic: true}
 
-	// Задержка (latency)
+	// Latency
 	latencyLabel := widget.NewLabel(fmt.Sprintf("Ping: %d ms", peer.LatencyMs))
 	latencyLabel.TextStyle = fyne.TextStyle{Italic: true}
 
-	// Индикатор статуса
+	// Status indicator
 	statusInd := canvas.NewCircle(color.RGBA{R: 0, G: 255, B: 0, A: 255})
 
-	// Кнопка чата
-	chatBtn := widget.NewButtonWithIcon("Чат", theme.MailComposeIcon(), func() {
+	// Chat button
+	chatBtn := widget.NewButtonWithIcon("Chat", theme.MailComposeIcon(), func() {
 		ui.openPeerChat(peer.PeerID, peer.Username)
 	})
 
-	// Кнопка добавления в контакты
+	// Add to contacts button
 	addContactBtn := widget.NewButtonWithIcon("", theme.ContentAddIcon(), func() {
 		ui.addConnectedPeerToContacts(peer.PeerID)
 	})
 
-	// Кнопка отключения
+	// Disconnect button
 	disconnectBtn := widget.NewButtonWithIcon("", theme.CancelIcon(), func() {
 		ui.disconnectFromPeer(peer.PeerID)
 	})
@@ -220,7 +220,7 @@ func (ui *UI) createConnectedPeerItem(peer *network.PeerInfo) *fyne.Container {
 	return content
 }
 
-// loadDiscoveredPeers загружает список обнаруженных пиров
+// loadDiscoveredPeers loads the list of discovered peers
 func (ui *UI) loadDiscoveredPeers() {
 	if ui.discoveredPeersList == nil {
 		return
@@ -229,7 +229,7 @@ func (ui *UI) loadDiscoveredPeers() {
 	ui.discoveredPeersList.Objects = nil
 
 	if ui.p2pUI == nil {
-		emptyLabel := widget.NewLabel("P2P сервис не инициализирован")
+		emptyLabel := widget.NewLabel("P2P service not initialized")
 		emptyLabel.TextStyle = fyne.TextStyle{Italic: true}
 		ui.discoveredPeersList.Add(emptyLabel)
 		ui.discoveredPeersList.Refresh()
@@ -239,7 +239,7 @@ func (ui *UI) loadDiscoveredPeers() {
 	discovered := ui.p2pUI.GetDiscoveredPeers()
 
 	if len(discovered) == 0 {
-		emptyLabel := widget.NewLabel("Нет обнаруженных пиров")
+		emptyLabel := widget.NewLabel("No discovered peers")
 		emptyLabel.TextStyle = fyne.TextStyle{Italic: true}
 		ui.discoveredPeersList.Add(emptyLabel)
 	} else {
@@ -252,29 +252,29 @@ func (ui *UI) loadDiscoveredPeers() {
 	ui.discoveredPeersList.Refresh()
 }
 
-// createDiscoveredPeerItem создает элемент обнаруженного пира
+// createDiscoveredPeerItem creates a discovered peer item
 func (ui *UI) createDiscoveredPeerItem(peerID string, lastSeen time.Time) *fyne.Container {
-	// Имя пира (используем сокращённый PeerID как имя)
+	// Peer name (use shortened PeerID as name)
 	peerIDShort := peerID
 	if len(peerIDShort) > 8 {
 		peerIDShort = peerIDShort[:8]
 	}
-	nameLabel := widget.NewLabel(fmt.Sprintf("Пир: %s", peerIDShort))
+	nameLabel := widget.NewLabel(fmt.Sprintf("Peer: %s", peerIDShort))
 	nameLabel.TextStyle = fyne.TextStyle{Bold: true}
 
-	// PeerID полный
+	// Full PeerID
 	peerIDLabel := widget.NewLabel(fmt.Sprintf("ID: %s", peerID))
 	peerIDLabel.TextStyle = fyne.TextStyle{Italic: true}
 
-	// Время последнего обнаружения
-	lastSeenLabel := widget.NewLabel(fmt.Sprintf("Обнаружен: %s", lastSeen.Format("15:04:05")))
+	// Last seen time
+	lastSeenLabel := widget.NewLabel(fmt.Sprintf("Seen: %s", lastSeen.Format("15:04:05")))
 	lastSeenLabel.TextStyle = fyne.TextStyle{Italic: true}
 
-	// Индикатор статуса (желтый - не подключен)
+	// Status indicator (yellow - not connected)
 	statusInd := canvas.NewCircle(color.RGBA{R: 255, G: 255, B: 0, A: 255})
 
-	// Кнопка подключения
-	connectBtn := widget.NewButtonWithIcon("Подключиться", theme.FolderIcon(), func() {
+	// Connect button
+	connectBtn := widget.NewButtonWithIcon("Connect", theme.FolderIcon(), func() {
 		ui.connectToDiscoveredPeer(peerID)
 	})
 
@@ -288,7 +288,7 @@ func (ui *UI) createDiscoveredPeerItem(peerID string, lastSeen time.Time) *fyne.
 	return content
 }
 
-// loadProfiles загружает список профилей
+// loadProfiles loads the list of profiles
 func (ui *UI) loadProfiles() {
 	if ui.profilesList == nil {
 		return
@@ -297,7 +297,7 @@ func (ui *UI) loadProfiles() {
 	ui.profilesList.Objects = nil
 
 	if ui.p2pUI == nil {
-		emptyLabel := widget.NewLabel("P2P сервис не инициализирован")
+		emptyLabel := widget.NewLabel("P2P service not initialized")
 		emptyLabel.TextStyle = fyne.TextStyle{Italic: true}
 		ui.profilesList.Add(emptyLabel)
 		ui.profilesList.Refresh()
@@ -307,7 +307,7 @@ func (ui *UI) loadProfiles() {
 	profiles, _ := ui.p2pUI.GetProfiles()
 
 	if len(profiles) == 0 {
-		emptyLabel := widget.NewLabel("Нет профилей")
+		emptyLabel := widget.NewLabel("No profiles")
 		emptyLabel.TextStyle = fyne.TextStyle{Italic: true}
 		ui.profilesList.Add(emptyLabel)
 	} else {
@@ -320,13 +320,13 @@ func (ui *UI) loadProfiles() {
 	ui.profilesList.Refresh()
 }
 
-// createProfileItem создает элемент профиля
+// createProfileItem creates a profile item
 func (ui *UI) createProfileItem(profile *models.Profile) *fyne.Container {
-	// Имя пользователя
+	// Username
 	usernameLabel := widget.NewLabel(profile.Username)
 	usernameLabel.TextStyle = fyne.TextStyle{Bold: true}
 
-	// PeerID (сокращённый)
+	// PeerID (shortened)
 	peerIDShort := profile.PeerID
 	if len(peerIDShort) > 8 {
 		peerIDShort = peerIDShort[:8]
@@ -334,22 +334,22 @@ func (ui *UI) createProfileItem(profile *models.Profile) *fyne.Container {
 	peerIDLabel := widget.NewLabel(fmt.Sprintf("ID: %s", peerIDShort))
 	peerIDLabel.TextStyle = fyne.TextStyle{Italic: true}
 
-	// Время кэширования
+	// Cache time
 	cachedAtLabel := widget.NewLabel("")
 	if profile.CachedAt != nil {
-		cachedAtLabel.SetText(fmt.Sprintf("Обновлён: %s", profile.CachedAt.Format("15:04:05")))
+		cachedAtLabel.SetText(fmt.Sprintf("Updated: %s", profile.CachedAt.Format("15:04:05")))
 		cachedAtLabel.TextStyle = fyne.TextStyle{Italic: true}
 	}
 
-	// Индикатор статуса (синий - кэшированный профиль)
+	// Status indicator (blue - cached profile)
 	statusInd := canvas.NewCircle(color.RGBA{R: 0, G: 150, B: 255, A: 255})
 
-	// Кнопка чата
-	chatBtn := widget.NewButtonWithIcon("Чат", theme.MailComposeIcon(), func() {
+	// Chat button
+	chatBtn := widget.NewButtonWithIcon("Chat", theme.MailComposeIcon(), func() {
 		ui.openPeerChat(profile.PeerID, profile.Username)
 	})
 
-	// Кнопка удаления профиля
+	// Delete profile button
 	deleteBtn := widget.NewButtonWithIcon("", theme.DeleteIcon(), func() {
 		ui.deleteProfile(profile.PeerID, profile.Username)
 	})
@@ -364,85 +364,85 @@ func (ui *UI) createProfileItem(profile *models.Profile) *fyne.Container {
 	return content
 }
 
-// openPeerChat открывает чат с пиром
+// openPeerChat opens a chat with a peer
 func (ui *UI) openPeerChat(peerID, username string) {
-	// Сначала переключаемся на вкладку "Чаты"
+	// First switch to the "Chats" tab
 	if ui.onNavigate != nil {
 		ui.onNavigate("chats")
 	}
 
-	// Затем открываем чат с пиром
+	// Then open chat with peer
 	if ui.p2pUIProvider != nil {
 		ui.p2pUIProvider.OpenPeerChat(peerID, username)
 	}
 }
 
-// addConnectedPeerToContacts добавляет подключённого пира в контакты
+// addConnectedPeerToContacts adds a connected peer to contacts
 func (ui *UI) addConnectedPeerToContacts(peerID string) {
 	if ui.p2pUI == nil {
-		ui.showErrorDialog("Ошибка", "P2P сервис не инициализирован")
+		ui.showErrorDialog("Error", "P2P service not initialized")
 		return
 	}
 
-	// Получаем адрес пира
+	// Get peer address
 	addrs := ui.p2pUI.GetPeerAddresses(peerID)
 	if len(addrs) == 0 {
-		ui.showErrorDialog("Ошибка", "Адрес пира не найден")
+		ui.showErrorDialog("Error", "Peer address not found")
 		return
 	}
 
-	// Добавляем в контакты
+	// Add to contacts
 	err := ui.p2pUI.AddContactByAddress(addrs[0], "")
 	if err != nil {
-		ui.showErrorDialog("Ошибка", fmt.Sprintf("Не удалось добавить в контакты: %v", err))
+		ui.showErrorDialog("Error", fmt.Sprintf("Failed to add to contacts: %v", err))
 		return
 	}
 
-	ui.showInfoDialog("Успешно", "Пир добавлен в контакты")
+	ui.showInfoDialog("Success", "Peer added to contacts")
 }
 
-// disconnectFromPeer отключается от пира
+// disconnectFromPeer disconnects from a peer
 func (ui *UI) disconnectFromPeer(peerID string) {
 	if ui.p2pUI == nil {
-		ui.showErrorDialog("Ошибка", "P2P сервис не инициализирован")
+		ui.showErrorDialog("Error", "P2P service not initialized")
 		return
 	}
 
 	err := ui.p2pUI.DisconnectPeer(peerID)
 	if err != nil {
-		ui.showErrorDialog("Ошибка", fmt.Sprintf("Не удалось отключиться: %v", err))
+		ui.showErrorDialog("Error", fmt.Sprintf("Failed to disconnect: %v", err))
 		return
 	}
 
-	// Обновляем список через пару секунд
+	// Update list after a few seconds
 	time.AfterFunc(2*time.Second, func() {
 		ui.loadConnectedPeers()
 	})
 }
 
-// connectToDiscoveredPeer подключается к обнаруженному пиру
+// connectToDiscoveredPeer connects to a discovered peer
 func (ui *UI) connectToDiscoveredPeer(peerID string) {
 	if ui.p2pUI == nil {
-		ui.showErrorDialog("Ошибка", "P2P сервис не инициализирован")
+		ui.showErrorDialog("Error", "P2P service not initialized")
 		return
 	}
 
-	// Получаем адрес пира из discovered
-	// TODO: Получить адрес из peerstore
-	ui.showInfoDialog("Информация", "Подключение к обнаруженному пиру требует реализации")
+	// Get peer address from discovered
+	// TODO: Get address from peerstore
+	ui.showInfoDialog("Information", "Connecting to discovered peer requires implementation")
 }
 
-// deleteProfile удаляет профиль пира из базы данных
+// deleteProfile deletes a peer profile from the database
 func (ui *UI) deleteProfile(peerID, username string) {
 	if ui.p2pUI == nil {
-		ui.showErrorDialog("Ошибка", "P2P сервис не инициализирован")
+		ui.showErrorDialog("Error", "P2P service not initialized")
 		return
 	}
 
-	// Показываем диалог подтверждения
+	// Show confirmation dialog
 	confirmDialog := dialog.NewConfirm(
-		"Подтверждение удаления",
-		fmt.Sprintf("Вы уверены, что хотите удалить профиль '%s' из базы данных?", username),
+		"Confirm Deletion",
+		fmt.Sprintf("Are you sure you want to delete the profile '%s' from the database?", username),
 		func(confirmed bool) {
 			if !confirmed {
 				return
@@ -450,13 +450,13 @@ func (ui *UI) deleteProfile(peerID, username string) {
 
 			err := ui.p2pUI.DeleteProfile(peerID)
 			if err != nil {
-				ui.showErrorDialog("Ошибка", fmt.Sprintf("Не удалось удалить профиль: %v", err))
+				ui.showErrorDialog("Error", fmt.Sprintf("Failed to delete profile: %v", err))
 				return
 			}
 
-			ui.showInfoDialog("Успешно", "Профиль удален из базы данных")
+			ui.showInfoDialog("Success", "Profile deleted from database")
 
-			// Обновляем список профилей
+			// Update profiles list
 			ui.loadProfiles()
 		},
 		ui.window,

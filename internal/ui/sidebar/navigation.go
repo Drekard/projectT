@@ -34,27 +34,27 @@ func CreateNavigation(handler NavigationHandler) *fyne.Container {
 		}
 	}
 
-	profileButton = createCustomNavButton("Профиль", theme.AccountIcon(), func() {
+	profileButton = createCustomNavButton("Profile", theme.AccountIcon(), func() {
 		updateButtonState(profileButton, "profile")
 	})
 
-	savedButton = createCustomNavButton("Сохраненное", theme.HomeIcon(), func() {
+	savedButton = createCustomNavButton("Saved", theme.HomeIcon(), func() {
 		updateButtonState(savedButton, "saved")
 	})
 
-	previewButton = createCustomNavButton("Загруженное", theme.DownloadIcon(), func() {
+	previewButton = createCustomNavButton("Downloads", theme.DownloadIcon(), func() {
 		updateButtonState(previewButton, "preview")
 	})
 
-	tagsButton = createCustomNavButton("Мои теги", theme.SettingsIcon(), func() {
+	tagsButton = createCustomNavButton("My Tags", theme.SettingsIcon(), func() {
 		updateButtonState(tagsButton, "tags")
 	})
 
-	chatsButton = createCustomNavButton("Чаты", theme.MailComposeIcon(), func() {
+	chatsButton = createCustomNavButton("Chats", theme.MailComposeIcon(), func() {
 		updateButtonState(chatsButton, "chats")
 	})
 
-	contactsButton = createCustomNavButton("Контакты", theme.AccountIcon(), func() {
+	contactsButton = createCustomNavButton("Contacts", theme.AccountIcon(), func() {
 		updateButtonState(contactsButton, "contacts")
 	})
 

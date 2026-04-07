@@ -1,4 +1,4 @@
-// Package right содержит компоненты правой панели (профиль)
+// Package right contains right panel components (profile)
 package right
 
 import (
@@ -10,14 +10,14 @@ import (
 	"fyne.io/fyne/v2/widget"
 )
 
-// ContentCharacteristicItem представляет элемент характеристики
+// ContentCharacteristicItem represents a characteristic element
 type ContentCharacteristicItem struct {
 	ID    int    `json:"id"`
 	Title string `json:"title"`
 	Value string `json:"value"`
 }
 
-// loadCharacteristics загружает характеристики из JSON
+// loadCharacteristics loads characteristics from JSON
 func (p *Panel) loadCharacteristics(jsonStr string) {
 	if p.characteristicsContainer == nil {
 		return
@@ -34,7 +34,7 @@ func (p *Panel) loadCharacteristics(jsonStr string) {
 	}
 
 	if len(characteristics) == 0 {
-		emptyLabel := widget.NewLabel("Нет характеристик")
+		emptyLabel := widget.NewLabel("No characteristics")
 		emptyLabel.TextStyle = fyne.TextStyle{Italic: true}
 		p.characteristicsContainer.Add(emptyLabel)
 	} else {
@@ -47,9 +47,9 @@ func (p *Panel) loadCharacteristics(jsonStr string) {
 	p.characteristicsContainer.Refresh()
 }
 
-// createCharacteristicItem создает элемент характеристики (название: значение в одну строку)
+// createCharacteristicItem creates a characteristic item (name: value on one line)
 func (p *Panel) createCharacteristicItem(title, value string) *fyne.Container {
-	// Форматируем как "Название: Значение"
+	// Format as "Name: Value"
 	text := fmt.Sprintf("%s: %s", title, value)
 	label := widget.NewLabel(text)
 	label.Wrapping = fyne.TextWrapWord

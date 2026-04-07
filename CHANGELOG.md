@@ -1,65 +1,65 @@
 # Changelog
 
-Все значимые изменения проекта ProjectT.
+All notable changes to ProjectT.
 
-Формат основан на [Keep a Changelog](https://keepachangelog.com/ru/1.1.0/),
-версионирование по [Semantic Versioning](https://semver.org/lang/ru/).
+The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
+and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ---
 
 ## [0.1.0] — 2026-04-04
 
-Первый публичный релиз ProjectT — гибрида файлового менеджера, визуальной доски и P2P-мессенджера.
+Initial public release of ProjectT — a hybrid of a file manager, visual board, and P2P messenger.
 
-### Добавлено
+### Added
 
-**Ядро приложения:**
-- Карточки-контейнеры с поддержкой текста, файлов, изображений и ссылок
-- Система тегов с цветовой маркировкой, автодополнением и фильтрацией
-- Избранные и закреплённые элементы для быстрого доступа
-- Визуальная сетка в стиле Pinterest с адаптивным размером карточек
-- Редактор карточек с drag-and-drop файлов
-- Поиск и сортировка по названию, тегам, дате, типу
-- Тёмная тема с кастомным оформлением
+**Application Core:**
+- Card containers with support for text, files, images, and links
+- Tag system with color coding, autocomplete, and filtering
+- Favorite and pinned items for quick access
+- Pinterest-style visual grid with adaptive card sizing
+- Card editor with drag-and-drop file support
+- Search and sorting by title, tags, date, type
+- Dark theme with custom styling
 
-**P2P подсистема:**
-- Децентрализованная сеть на базе libp2p (DHT, mDNS, relay, STUN)
-- P2P чат с текстовыми сообщениями и шифрованием Ed25519
-- Передача файлов напрямую между пирами
-- Обмен профилями с аватарами при подключении
-- Обнаружение пиров через DHT (глобально) и mDNS (локально)
-- Автоподключение к известным пирам при запуске
-- Очередь сообщений для оффлайн-режима
-- Криптографическая подпись сообщений (Ed25519)
-- Мастер-пароль для защиты приватного ключа
+**P2P Subsystem:**
+- Decentralized network based on libp2p (DHT, mDNS, relay, STUN)
+- P2P chat with text messages and Ed25519 encryption
+- Direct file transfer between peers
+- Profile exchange with avatars on connection
+- Peer discovery via DHT (globally) and mDNS (locally)
+- Auto-connect to known peers on startup
+- Offline message queue
+- Cryptographic message signing (Ed25519)
+- Master password for private key protection
 
-**Хранение данных:**
-- SQLite для метаданных (элементы, теги, чаты, контакты, профили)
-- Файловое хранилище с Content-Addressable Storage (SHA-256)
-- Автоматическая дедупликация файлов
-- YAML-конфигурация с поддержкой переменных окружения
+**Data Storage:**
+- SQLite for metadata (items, tags, chats, contacts, profiles)
+- File storage with Content-Addressable Storage (SHA-256)
+- Automatic file deduplication
+- YAML configuration with environment variable support
 
-**Интерфейс:**
-- Трёхпанельный интерфейс чатов (контакты, чат, профиль)
-- Боковая панель с тегами, избранным и настройками
-- Контекстные меню для карточек и элементов
-- Hover-предпросмотр карточек
-- Панель настроек P2P с управлением подключениями
+**Interface:**
+- Three-panel chat interface (contacts, chat, profile)
+- Sidebar with tags, favorites, and settings
+- Context menus for cards and items
+- Hover preview for cards
+- P2P settings panel with connection management
 
-### Известные проблемы
+### Known Issues
 
-- **DHT discovery** при первом запуске может занимать до 1 минуты — это нормально, сеть прогревается
-- **P2P за строгим NAT** может не работать без relay-сервера — добавьте relay-пиры в bootstrap
-- **Два узла на одном ПК** требуют разные базы данных (уникальный PeerID) — используйте `--db-path`
-- **Консольное окно** при запуске на Windows — будет исправлено в следующей версии
+- **DHT discovery** may take up to 1 minute on first launch — this is normal, the network is warming up
+- **P2P behind strict NAT** may not work without a relay server — add relay peers to bootstrap
+- **Two nodes on the same PC** require different databases (unique PeerID) — use `--db-path`
+- **Console window** on Windows launch — will be fixed in the next version
 
-### Технологии
+### Technologies
 
 - Go 1.26
 - Fyne v2.4.4 (UI)
 - SQLite (mattn/go-sqlite3 v1.14.32)
-- libp2p v0.32.0 (P2P сеть)
-- Ed25519, SHA-256 (криптография)
+- libp2p v0.32.0 (P2P network)
+- Ed25519, SHA-256 (cryptography)
 
 ---
 

@@ -83,18 +83,18 @@ func NewFilePopup(fileItems []FileItem, trigger fyne.CanvasObject) *FilePopup {
 		fileObjects = append(fileObjects, fileButton)
 	}
 
-	// Создаем контент для всплывающего окна
+	// Create content for the popup
 	var content fyne.CanvasObject
 	if len(fileItems) <= 5 {
-		// Если файлов 5 или меньше, показываем без прокрутки
+		// If 5 or fewer files, show without scrolling
 		content = container.NewVBox(
-			widget.NewLabel("Все файлы:"),
+			widget.NewLabel("All files:"),
 			container.NewVBox(fileObjects...),
 		)
 	} else {
-		// Если больше 5 файлов, добавляем прокрутку
+		// If more than 5 files, add scrolling
 		content = container.NewVBox(
-			widget.NewLabel("Все файлы:"),
+			widget.NewLabel("All files:"),
 			container.NewVScroll(container.NewVBox(fileObjects...)),
 		)
 	}
@@ -103,34 +103,34 @@ func NewFilePopup(fileItems []FileItem, trigger fyne.CanvasObject) *FilePopup {
 	canvas := fyne.CurrentApp().Driver().CanvasForObject(trigger)
 	fp.popup = widget.NewPopUp(content, canvas)
 
-	// Устанавливаем размер окна в зависимости от количества файлов
-	maxHeight := float32(400)   // Максимальная высота окна
-	itemHeight := float32(40)   // Приблизительная высота одной кнопки файла
-	headerHeight := float32(80) // Высота заголовка и других элементов
+	// Set window size based on number of files
+	maxHeight := float32(400)   // Maximum window height
+	itemHeight := float32(40)   // Approximate height of one file button
+	headerHeight := float32(80) // Height of header and other elements
 
 	calculatedHeight := headerHeight + float32(len(fileItems))*itemHeight
 	if calculatedHeight > maxHeight {
-		// Если расчетная высота больше максимальной, используем максимальную и добавляем прокрутку
+		// If calculated height exceeds maximum, use maximum and add scrolling
 		fp.popup.Resize(fyne.NewSize(400, maxHeight))
 	} else {
-		// Иначе используем расчетную высоту
+		// Otherwise use calculated height
 		fp.popup.Resize(fyne.NewSize(400, calculatedHeight))
 	}
 
 	return fp
 }
 
-// Show показывает всплывающее окно с файлами
+// Show displays the file popup
 func (fp *FilePopup) Show(pos fyne.Position) {
 	fp.popup.ShowAtPosition(pos)
 }
 
-// Hide скрывает всплывающее окно
+// Hide hides the popup
 func (fp *FilePopup) Hide() {
 	fp.popup.Hide()
 }
 
-// IsVisible возвращает видимость всплывающего окна
+// IsVisible returns the visibility state of the popup
 func (fp *FilePopup) IsVisible() bool {
 	return fp.popup.Visible()
 }

@@ -1,4 +1,4 @@
-// Package right содержит компоненты правой панели (профиль)
+// Package right contains right panel components (profile)
 package right
 
 import (
@@ -16,7 +16,7 @@ import (
 	"fyne.io/fyne/v2/widget"
 )
 
-// Panel представляет правую панель с профилем
+// Panel represents the right panel with profile
 type Panel struct {
 	container                *fyne.Container
 	profileAvatar            *canvas.Image
@@ -27,12 +27,12 @@ type Panel struct {
 	chatsUI                  UIProvider
 }
 
-// UIProvider интерфейс для доступа к функциям UI чатов
+// UIProvider interface for accessing chat UI functions
 type UIProvider interface {
 	GetP2PService() *network.UIP2P
 }
 
-// New создает новую правую панель
+// New creates a new right panel
 func New(chatsUI UIProvider) *Panel {
 	p := &Panel{
 		chatsUI: chatsUI,
@@ -41,202 +41,202 @@ func New(chatsUI UIProvider) *Panel {
 	return p
 }
 
-// Container возвращает контейнер панели
+// Container returns the panel container
 func (p *Panel) Container() *fyne.Container {
 	return p.container
 }
 
-// Refresh обновляет панель
+// Refresh updates the panel
 func (p *Panel) Refresh() {
 	if p.container != nil {
 		p.container.Refresh()
 	}
 }
 
-// UpdateProfile обновляет профиль собеседника
+// UpdateProfile updates the conversation partner's profile
 func (p *Panel) UpdateProfile(contact *models.Contact) {
-	log.Printf("[ProfilePanel] 🔄 Обновление профиля: username=%q, peer_id=%s, avatar_path=%q, title=%q",
+	log.Printf("[ProfilePanel] 🔄 Updating profile: username=%q, peer_id=%s, avatar_path=%q, title=%q",
 		contact.Username, contact.PeerID[:min(10, len(contact.PeerID))], contact.AvatarPath, contact.Title)
 
-	// Проверяем, локальный ли это чат
+	// Check if this is a local chat
 	if contact.IsLocalChat() {
-		log.Printf("[ProfilePanel] 📝 Локальный чат, показываем профиль пользователя")
-		// Для локального чата показываем профиль текущего пользователя
+		log.Printf("[ProfilePanel] 📝 Local chat, showing user profile")
+		// For local chat show current user's profile
 		p.showUserProfile()
 		return
 	}
 
-	// Обновляем имя
+	// Update name
 	if p.profileName != nil {
 		p.profileName.SetText(contact.Username)
-		log.Printf("[ProfilePanel] ✅ Имя установлено: %q", contact.Username)
+		log.Printf("[ProfilePanel] ✅ Name set: %q", contact.Username)
 	}
 
-	// Обновляем статус (текстовый, из профиля)
+	// Update status (text, from profile)
 	if p.profileStatus != nil {
 		p.profileStatus.SetText(contact.Title)
-		log.Printf("[ProfilePanel] ✅ Статус установлен: %q", contact.Title)
+		log.Printf("[ProfilePanel] ✅ Status set: %q", contact.Title)
 	}
 
-	// Загружаем аватар
+	// Load avatar
 	p.loadAvatar(contact.AvatarPath)
 
-	// Загружаем характеристики из профиля пира
+	// Load characteristics from peer profile
 	if contact.PeerID != "" && p.characteristicsContainer != nil {
-		log.Printf("[ProfilePanel] 🔍 Загрузка характеристик для peer_id=%s", contact.PeerID[:8])
-		// Загружаем профиль из таблицы profiles по PeerID
+		log.Printf("[ProfilePanel] 🔍 Loading characteristics for peer_id=%s", contact.PeerID[:8])
+		// Load profile from profiles table by PeerID
 		profile, err := queries.GetProfileByPeerID(contact.PeerID)
 		if err == nil && profile != nil {
-			log.Printf("[ProfilePanel] 📋 Профиль загружен: content_char=%q", profile.ContentChar)
+			log.Printf("[ProfilePanel] 📋 Profile loaded: content_char=%q", profile.ContentChar)
 			if profile.ContentChar != "" {
 				p.loadCharacteristics(profile.ContentChar)
-				log.Printf("[ProfilePanel] ✅ Характеристики загружены")
+				log.Printf("[ProfilePanel] ✅ Characteristics loaded")
 			} else {
-				log.Printf("[ProfilePanel] ℹ️ Характеристики пусты")
-				// Если характеристик нет, очищаем контейнер
+				log.Printf("[ProfilePanel] ℹ️ Characteristics empty")
+				// If no characteristics, clear container
 				p.characteristicsContainer.Objects = nil
 				p.characteristicsContainer.Refresh()
 			}
 		} else {
-			log.Printf("[ProfilePanel] ❌ Ошибка загрузки профиля: %v", err)
+			log.Printf("[ProfilePanel] ❌ Error loading profile: %v", err)
 		}
 	}
 
-	// Загружаем demo элементы из профиля пира
-	// ПРИМЕЧАНИЕ: Для remote профилей витрина загружается отдельно после синхронизации элементов
-	// через RefreshDemoElementsAfterSync(), чтобы избежать гонки состояний
+	// Load demo elements from peer profile
+	// NOTE: For remote profiles showcase is loaded separately after element sync
+	// via RefreshDemoElementsAfterSync() to avoid race conditions
 	if contact.PeerID != "" && p.demoElementsContainer != nil {
-		log.Printf("[ProfilePanel] ℹ️ Витрина элементов будет загружена после синхронизации элементов")
-		// Очищаем витрину до завершения синхронизации
+		log.Printf("[ProfilePanel] ℹ️ Element showcase will be loaded after element sync")
+		// Clear showcase until sync completes
 		p.demoElementsContainer.Objects = nil
 		p.demoElementsContainer.Refresh()
 	}
 
-	// Обновляем UI
+	// Update UI
 	if p.container != nil {
 		p.container.Refresh()
-		log.Printf("[ProfilePanel] ✅ UI обновлён")
+		log.Printf("[ProfilePanel] ✅ UI updated")
 	}
 }
 
-// RefreshDemoElementsAfterSync обновляет витрину элементов после завершения синхронизации
-// Этот метод должен вызываться после успешной загрузки pinned элементов через ItemSync
+// RefreshDemoElementsAfterSync updates the element showcase after sync completion
+// This method should be called after successful pinned element loading via ItemSync
 func (p *Panel) RefreshDemoElementsAfterSync(peerID string) {
 	if p.demoElementsContainer == nil {
 		return
 	}
 
-	log.Printf("[ProfilePanel] 🔄 Обновление витрины элементов после синхронизации: peer_id=%s", peerID[:8])
+	log.Printf("[ProfilePanel] 🔄 Updating element showcase after sync: peer_id=%s", peerID[:8])
 
-	// Загружаем профиль из таблицы profiles по PeerID
+	// Load profile from profiles table by PeerID
 	profile, err := queries.GetProfileByPeerID(peerID)
 	if err != nil {
-		log.Printf("[ProfilePanel] ❌ Ошибка загрузки профиля для витрины: %v", err)
+		log.Printf("[ProfilePanel] ❌ Error loading profile for showcase: %v", err)
 		return
 	}
 
 	if profile == nil {
-		log.Printf("[ProfilePanel] ❌ Профиль не найден")
+		log.Printf("[ProfilePanel] ❌ Profile not found")
 		return
 	}
 
-	log.Printf("[ProfilePanel] 📋 Профиль загружен: pinned_uuids=%s", profile.PinnedUUIDs)
+	log.Printf("[ProfilePanel] 📋 Profile loaded: pinned_uuids=%s", profile.PinnedUUIDs)
 
 	if profile.PinnedUUIDs != "" && profile.PinnedUUIDs != "[]" {
 		p.loadDemoElements(profile.PinnedUUIDs)
-		log.Printf("[ProfilePanel] ✅ Витрина элементов обновлена после синхронизации")
+		log.Printf("[ProfilePanel] ✅ Element showcase updated after sync")
 	} else {
-		log.Printf("[ProfilePanel] ℹ️ Витрина элементов пуста")
+		log.Printf("[ProfilePanel] ℹ️ Element showcase empty")
 		p.demoElementsContainer.Objects = nil
 		p.demoElementsContainer.Refresh()
 	}
 
-	// Обновляем UI
+	// Update UI
 	if p.container != nil {
 		p.container.Refresh()
-		log.Printf("[ProfilePanel] ✅ UI витрины обновлён")
+		log.Printf("[ProfilePanel] ✅ Showcase UI updated")
 	}
 }
 
-// showUserProfile показывает профиль текущего пользователя в правой панели
+// showUserProfile shows the current user's profile in the right panel
 func (p *Panel) showUserProfile() {
-	// Загружаем локальный профиль
+	// Load local profile
 	localProfile, err := queries.GetLocalProfile()
 	if err != nil {
 		return
 	}
 
-	// Создаём временный контакт с данными профиля
+	// Create temporary contact with profile data
 	tempContact := &models.Contact{
 		Username:   localProfile.Username,
-		Title:      localProfile.Title, // Титул из профиля
+		Title:      localProfile.Title, // Title from profile
 		AvatarPath: localProfile.AvatarPath,
 		PeerID:     localProfile.PeerID,
 	}
 
-	// Обновляем правую панель с профилем пользователя
+	// Update right panel with user profile
 	p.UpdateProfile(tempContact)
 
-	// Загружаем характеристики из профиля
+	// Load characteristics from profile
 	if localProfile.ContentChar != "" && p.characteristicsContainer != nil {
 		p.loadCharacteristics(localProfile.ContentChar)
 	}
 
-	// Загружаем избранные элементы из pinned_uuids
+	// Load pinned elements from pinned_uuids
 	if localProfile.PinnedUUIDs != "" && p.demoElementsContainer != nil {
 		p.loadDemoElements(localProfile.PinnedUUIDs)
 	}
 }
 
-// createProfileArea создает правую панель с профилем собеседника
+// createProfileArea creates the right panel with conversation partner's profile
 func (p *Panel) createProfileArea() *fyne.Container {
-	// Аватар - изображение 100x100
+	// Avatar - 100x100 image
 	p.profileAvatar = canvas.NewImageFromResource(nil)
 	p.profileAvatar.FillMode = canvas.ImageFillContain
 
-	// Черный фон 100x100 под аватарку
+	// Black background 100x100 for avatar
 	avatarBg := canvas.NewRectangle(color.RGBA{R: 0, G: 0, B: 0, A: 255})
 	avatarBg.SetMinSize(fyne.NewSize(100, 100))
 
-	// Аватарка поверх фона через Stack
+	// Avatar on top of background via Stack
 	avatarStack := container.NewStack(avatarBg, p.profileAvatar)
 
-	// Имя
+	// Name
 	p.profileName = widget.NewLabel("")
 	p.profileName.TextStyle = fyne.TextStyle{Bold: true}
 	p.profileName.Alignment = fyne.TextAlignCenter
 
-	// Текстовый статус пользователя (устанавливается вручную)
+	// User text status (set manually)
 	p.profileStatus = widget.NewLabel("")
 	p.profileStatus.TextStyle = fyne.TextStyle{Italic: true}
 	p.profileStatus.Alignment = fyne.TextAlignCenter
 
-	// Контейнер для аватара и имени
+	// Container for avatar and name
 	headerContainer := container.NewVBox(
 		container.NewCenter(avatarStack),
 		p.profileName,
 		p.profileStatus,
 	)
 
-	// Разделитель
+	// Separator
 	separator1 := canvas.NewRectangle(color.RGBA{R: 64, G: 64, B: 64, A: 255})
 	separator1.SetMinSize(fyne.NewSize(200, 1))
 
-	// Заголовок характеристик
-	characteristicsTitle := widget.NewLabel("Характеристики")
+	// Characteristics title
+	characteristicsTitle := widget.NewLabel("Characteristics")
 	characteristicsTitle.TextStyle = fyne.TextStyle{Bold: true}
 
-	// Контейнер для характеристик
+	// Container for characteristics
 	p.characteristicsContainer = container.NewVBox()
 
-	// Заголовок витрины элементов
-	demoElementsTitle := widget.NewLabel("Витрина элементов")
+	// Element showcase title
+	demoElementsTitle := widget.NewLabel("Element Showcase")
 	demoElementsTitle.TextStyle = fyne.TextStyle{Bold: true}
 
-	// Контейнер для demo элементов
+	// Container for demo elements
 	p.demoElementsContainer = container.NewVBox()
 
-	// Основная информация (без внутренних прокруток)
+	// Main info (no internal scrolling)
 	infoContainer := container.NewVBox(
 		headerContainer,
 		separator1,
@@ -245,59 +245,59 @@ func (p *Panel) createProfileArea() *fyne.Container {
 		container.NewPadded(container.NewVBox(demoElementsTitle, p.demoElementsContainer)),
 	)
 
-	// Оборачиваем всю панель в прокрутку
+	// Wrap entire panel in scroll
 	scrollContainer := container.NewScroll(infoContainer)
 
-	// Фон
+	// Background
 	bg := canvas.NewRectangle(color.RGBA{R: 0, G: 0, B: 0, A: 255})
 	bg.SetMinSize(fyne.NewSize(330, 1))
 
 	p.container = container.NewStack(bg, scrollContainer)
 
-	// Загружаем профиль текущего пользователя при инициализации
+	// Load current user's profile on initialization
 	p.showUserProfile()
 
 	return p.container
 }
 
-// loadAvatar загружает аватар из локального хранилища
+// loadAvatar loads avatar from local storage
 func (p *Panel) loadAvatar(avatarPath string) {
 	if p.profileAvatar == nil {
 		return
 	}
 
-	log.Printf("[ProfilePanel] 🖼️ Загрузка аватара: path=%q", avatarPath)
+	log.Printf("[ProfilePanel] 🖼️ Loading avatar: path=%q", avatarPath)
 
 	if avatarPath == "" {
-		log.Printf("[ProfilePanel] ℹ️ AvatarPath пустой, скрываем изображение")
-		// Пустой аватар - скрываем изображение
+		log.Printf("[ProfilePanel] ℹ️ AvatarPath empty, hiding image")
+		// Empty avatar - hide image
 		p.profileAvatar.Resource = nil
 		p.profileAvatar.Refresh()
 		return
 	}
 
-	// Проверяем существование файла
+	// Check file existence
 	if _, err := os.Stat(avatarPath); os.IsNotExist(err) {
-		log.Printf("[ProfilePanel] ❌ Файл аватара не найден: %s", avatarPath)
+		log.Printf("[ProfilePanel] ❌ Avatar file not found: %s", avatarPath)
 		p.profileAvatar.Resource = nil
 		p.profileAvatar.Refresh()
 		return
 	}
 
-	// Загружаем изображение
+	// Load image
 	avatarImg, err := fyne.LoadResourceFromPath(avatarPath)
 	if err != nil {
-		log.Printf("[ProfilePanel] ❌ Ошибка загрузки аватара из %q: %v", avatarPath, err)
+		log.Printf("[ProfilePanel] ❌ Error loading avatar from %q: %v", avatarPath, err)
 		p.profileAvatar.Resource = nil
 		p.profileAvatar.Refresh()
 		return
 	}
 
-	log.Printf("[ProfilePanel] ✅ Аватар успешно загружен: %q (%d байт)", avatarPath, len(avatarImg.Content()))
+	log.Printf("[ProfilePanel] ✅ Avatar loaded successfully: %q (%d bytes)", avatarPath, len(avatarImg.Content()))
 
-	// Устанавливаем изображение
+	// Set image
 	p.profileAvatar.Resource = avatarImg
 	p.profileAvatar.FillMode = canvas.ImageFillContain
 	p.profileAvatar.Refresh()
-	log.Printf("[ProfilePanel] 🖼️ Аватар установлен в UI")
+	log.Printf("[ProfilePanel] 🖼️ Avatar set in UI")
 }

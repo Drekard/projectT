@@ -150,7 +150,7 @@ func NewImageCardWithCallback(item *models.Item, clickCallback func(), noButtons
 		imageCard.isContentInitialized = true
 	} else {
 		// Если изображение не найдено
-		placeholder := widget.NewLabel("Изображение не найдено")
+		placeholder := widget.NewLabel("Image not found")
 		placeholder.Alignment = fyne.TextAlignCenter
 
 		// Контейнер без фона, рамки и отступов, так как будет использоваться внутри другой карточки

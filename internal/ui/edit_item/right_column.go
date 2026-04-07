@@ -33,24 +33,24 @@ func CreateRightColumn(viewModel *CreateItemViewModel) (*fyne.Container, *FormWi
 
 	// Создаем поля ввода
 	widgets.TitleEntry = widget.NewEntry()
-	widgets.TitleEntry.PlaceHolder = "Введите название"
+	widgets.TitleEntry.PlaceHolder = "Enter title"
 	// Устанавливаем начальное значение из ViewModel
 	widgets.TitleEntry.SetText(viewModel.Title)
 
 	widgets.DescriptionEntry = widget.NewMultiLineEntry()
-	widgets.DescriptionEntry.PlaceHolder = "Введите описание"
+	widgets.DescriptionEntry.PlaceHolder = "Enter description"
 	// Устанавливаем начальное значение из ViewModel
 	widgets.DescriptionEntry.SetText(viewModel.Description)
 
 	widgets.TagsEntry = widget.NewEntry()
-	widgets.TagsEntry.PlaceHolder = "Введите теги (через запятую)"
+	widgets.TagsEntry.PlaceHolder = "Enter tags (comma separated)"
 	// Устанавливаем начальное значение из ViewModel
 	widgets.TagsEntry.SetText(viewModel.Tags)
 
 	// Создаем контейнер для ссылок
 	widgets.LinksContainer = container.NewVBox()
 	widgets.LinksContainer.Objects = []fyne.CanvasObject{
-		widget.NewLabel("Ссылки:"),
+		widget.NewLabel("Links:"),
 	}
 
 	// Добавляем существующие ссылки из ViewModel
@@ -66,7 +66,7 @@ func CreateRightColumn(viewModel *CreateItemViewModel) (*fyne.Container, *FormWi
 	}
 
 	// Кнопка добавления ссылки
-	widgets.AddLinkButton = widget.NewButton("+ Добавить ссылку", func() {
+	widgets.AddLinkButton = widget.NewButton("+ Add link", func() {
 		addLinkEntry(widgets)
 	})
 	widgets.AddLinkButton.Importance = widget.LowImportance
@@ -86,14 +86,14 @@ func CreateRightColumn(viewModel *CreateItemViewModel) (*fyne.Container, *FormWi
 
 	// Создаем вкладки
 	widgets.Tabs = container.NewAppTabs(
-		container.NewTabItem("Элемент", createElementForm(widgets)),
-		container.NewTabItem("Папка", createFolderForm(widgets)),
+		container.NewTabItem("Element", createElementForm(widgets)),
+		container.NewTabItem("Folder", createFolderForm(widgets)),
 	)
 	widgets.Tabs.SetTabLocation(container.TabLocationTop)
 
 	// Обработчик смены вкладки
 	widgets.Tabs.OnSelected = func(tab *container.TabItem) {
-		if tab.Text == "Элемент" {
+		if tab.Text == "Element" {
 			viewModel.ItemType = models.ItemTypeElement
 		} else {
 			viewModel.ItemType = models.ItemTypeFolder
@@ -105,10 +105,10 @@ func CreateRightColumn(viewModel *CreateItemViewModel) (*fyne.Container, *FormWi
 
 	// Если это режим редактирования папки, выбираем соответствующую вкладку
 	if viewModel.EditMode && viewModel.ItemType == models.ItemTypeFolder {
-		widgets.Tabs.SelectIndex(1) // Выбираем вкладку "Папка" (индекс 1)
+		widgets.Tabs.SelectIndex(1) // Select "Folder" tab (index 1)
 	} else {
 		// Для элемента или при создании выбираем вкладку "Элемент"
-		widgets.Tabs.SelectIndex(0) // Выбираем вкладку "Элемент" (индекс 0)
+		widgets.Tabs.SelectIndex(0) // Select "Element" tab (index 0)
 	}
 
 	// Обновляем видимость элементов формы в зависимости от типа элемента
@@ -120,9 +120,9 @@ func CreateRightColumn(viewModel *CreateItemViewModel) (*fyne.Container, *FormWi
 func createElementForm(widgets *FormWidgets) *fyne.Container {
 	form := &widget.Form{
 		Items: []*widget.FormItem{
-			{Text: "Название", Widget: widgets.TitleEntry},
-			{Text: "Описание", Widget: widgets.DescriptionEntry},
-			{Text: "Теги", Widget: widgets.TagsEntry},
+			{Text: "Title", Widget: widgets.TitleEntry},
+			{Text: "Description", Widget: widgets.DescriptionEntry},
+			{Text: "Tags", Widget: widgets.TagsEntry},
 		},
 	}
 	return container.NewPadded(container.NewVBox(form, widgets.LinksContainer, widgets.AddLinkButton))
@@ -132,9 +132,9 @@ func createFolderForm(widgets *FormWidgets) *fyne.Container {
 	// Для папки используем те же поля ввода, но скрываем поля для ссылок
 	form := &widget.Form{
 		Items: []*widget.FormItem{
-			{Text: "Название", Widget: widgets.TitleEntry},
-			{Text: "Описание", Widget: widgets.DescriptionEntry},
-			{Text: "Теги", Widget: widgets.TagsEntry},
+			{Text: "Title", Widget: widgets.TitleEntry},
+			{Text: "Description", Widget: widgets.DescriptionEntry},
+			{Text: "Tags", Widget: widgets.TagsEntry},
 		},
 	}
 
@@ -186,7 +186,7 @@ func UpdateFormVisibility(widgets *FormWidgets, itemType models.ItemType) {
 
 func addLinkEntry(widgets *FormWidgets) {
 	entry := widget.NewEntry()
-	entry.PlaceHolder = "Введите ссылку..."
+	entry.PlaceHolder = "Enter link..."
 
 	// Отключить перенос текста для лучшего растяжения
 	entry.Wrapping = fyne.TextWrapOff

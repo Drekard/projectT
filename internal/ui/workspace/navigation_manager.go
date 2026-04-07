@@ -34,7 +34,7 @@ func (nm *NavigationManager) GoToFolder(folderID int) error {
 	}
 
 	if folder.Type != models.ItemTypeFolder {
-		return fmt.Errorf("элемент с ID %d не является папкой", folderID)
+		return fmt.Errorf("item with ID %d is not a folder", folderID)
 	}
 
 	if nm.currentFolderID != 0 {
@@ -81,7 +81,7 @@ func (nm *NavigationManager) GoToFolderInPath(folderID int) error {
 		}
 
 		if folder.Type != models.ItemTypeFolder {
-			return fmt.Errorf("элемент с ID %d не является папкой", folderID)
+			return fmt.Errorf("item with ID %d is not a folder", folderID)
 		}
 
 		if nm.currentFolderID != 0 {

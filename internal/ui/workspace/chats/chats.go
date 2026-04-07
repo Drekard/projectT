@@ -283,12 +283,12 @@ func (ui *UI) createEmptyPanel() *fyne.Container {
 	icon := fyne.CurrentApp().Icon()
 
 	// Заголовок
-	title := widget.NewLabel("Чаты")
+	title := widget.NewLabel("Chats")
 	title.TextStyle = fyne.TextStyle{Bold: true}
 	title.Alignment = fyne.TextAlignCenter
 
 	// Подзаголовок
-	subtitle := widget.NewLabel("Выберите чат в левой панели")
+	subtitle := widget.NewLabel("Select a chat from the left panel")
 	subtitle.Alignment = fyne.TextAlignCenter
 	subtitle.TextStyle = fyne.TextStyle{Italic: true}
 

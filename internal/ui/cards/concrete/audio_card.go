@@ -85,9 +85,9 @@ func NewAudioCardWithCallback(item *models.Item, clickCallback func(), noButtons
 		}
 	}
 
-	// Если нет аудиофайлов, показываем заглушку
+	// If no audio files found, show placeholder
 	if len(audioCard.audioFiles) == 0 {
-		placeholder := widget.NewLabel("Аудиофайлы не найдены")
+		placeholder := widget.NewLabel("No audio files found")
 		placeholder.Alignment = fyne.TextAlignCenter
 		audioCard.Container = container.NewCenter(placeholder)
 		return audioCard
@@ -252,17 +252,17 @@ func (ac *AudioCard) loadAudioInfo(block *cards.Block) {
 	case ".ogg":
 		streamer, format, err = vorbis.Decode(file)
 	default:
-		err = fmt.Errorf("неподдерживаемый формат: %s", ext)
+		err = fmt.Errorf("unsupported format: %s", ext)
 	}
 
 	if err != nil {
-		fmt.Printf("[WARN] Ошибка декодирования аудио: %v\n", err)
+		fmt.Printf("[WARN] Audio decoding error: %v\n", err)
 		ac.durationLabel.SetText("--:--")
 		return
 	}
 
-	// Вычисляем длительность (приблизительно)
-	// Для простоты показываем заглушку - реальная длительность требует чтения метаданных
+	// Calculate duration (approximate)
+	// For simplicity, show a placeholder - actual duration requires reading metadata
 	_ = format
 	ac.durationLabel.SetText("--:--")
 
@@ -315,11 +315,11 @@ func (ac *AudioCard) play(filePath string) {
 	case ".ogg":
 		streamer, format, err = vorbis.Decode(file)
 	default:
-		err = fmt.Errorf("неподдерживаемый формат: %s", ext)
+		err = fmt.Errorf("unsupported format: %s", ext)
 	}
 
 	if err != nil {
-		fmt.Printf("[ERROR] Ошибка декодирования: %v\n", err)
+		fmt.Printf("[ERROR] Decoding error: %v\n", err)
 		file.Close()
 		return
 	}

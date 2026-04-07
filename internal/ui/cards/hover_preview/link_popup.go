@@ -25,18 +25,18 @@ func NewLinkPopup(links []string, trigger fyne.CanvasObject) *LinkPopup {
 		linkObjects = append(linkObjects, linkWidget)
 	}
 
-	// Создаем контент для всплывающего окна
+	// Create content for the popup
 	var content fyne.CanvasObject
 	if len(links) <= 5 {
-		// Если ссылок 5 или меньше, показываем без прокрутки
+		// If 5 or fewer links, show without scrolling
 		content = container.NewVBox(
-			widget.NewLabel("Все ссылки:"),
+			widget.NewLabel("All links:"),
 			container.NewVBox(linkObjects...),
 		)
 	} else {
-		// Если больше 5 ссылок, добавляем прокрутку
+		// If more than 5 links, add scrolling
 		content = container.NewVBox(
-			widget.NewLabel("Все ссылки:"),
+			widget.NewLabel("All links:"),
 			container.NewVScroll(container.NewVBox(linkObjects...)),
 		)
 	}
@@ -45,48 +45,48 @@ func NewLinkPopup(links []string, trigger fyne.CanvasObject) *LinkPopup {
 	canvas := fyne.CurrentApp().Driver().CanvasForObject(trigger)
 	lp.popup = widget.NewPopUp(content, canvas)
 
-	// Устанавливаем размер окна в зависимости от количества ссылок
-	maxHeight := float32(400)   // Максимальная высота окна
-	itemHeight := float32(30)   // Приблизительная высота одной ссылки
-	headerHeight := float32(80) // Высота заголовка и других элементов
+	// Set window size based on number of links
+	maxHeight := float32(400)   // Maximum window height
+	itemHeight := float32(30)   // Approximate height of one link
+	headerHeight := float32(80) // Height of header and other elements
 
 	calculatedHeight := headerHeight + float32(len(links))*itemHeight
 	if calculatedHeight > maxHeight {
-		// Если расчетная высота больше максимальной, используем максимальную и добавляем прокрутку
+		// If calculated height exceeds maximum, use maximum and add scrolling
 		lp.popup.Resize(fyne.NewSize(400, maxHeight))
 	} else {
-		// Иначе используем расчетную высоту
+		// Otherwise use calculated height
 		lp.popup.Resize(fyne.NewSize(400, calculatedHeight))
 	}
 
 	return lp
 }
 
-// Show показывает всплывающее окно с ссылками
+// Show displays the link popup
 func (lp *LinkPopup) Show(pos fyne.Position) {
 	lp.popup.ShowAtPosition(pos)
 }
 
-// Hide скрывает всплывающее окно
+// Hide hides the popup
 func (lp *LinkPopup) Hide() {
 	lp.popup.Hide()
 }
 
-// IsVisible возвращает видимость всплывающего окна
+// IsVisible returns the visibility state of the popup
 func (lp *LinkPopup) IsVisible() bool {
 	return lp.popup.Visible()
 }
 
-// Вспомогательная функция для парсинга URL
+// Helper function for parsing URLs
 func ParseURL(urlStr string) *url.URL {
-	// Добавляем протокол, если его нет
+	// Add protocol if missing
 	if !strings.HasPrefix(urlStr, "http://") && !strings.HasPrefix(urlStr, "https://") {
 		urlStr = "https://" + urlStr
 	}
 
 	parsedURL, err := url.Parse(urlStr)
 	if err != nil {
-		// Возвращаем пустой URL в случае ошибки
+		// Return empty URL on error
 		return &url.URL{}
 	}
 

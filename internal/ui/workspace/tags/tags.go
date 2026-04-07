@@ -16,10 +16,10 @@ import (
 	"fyne.io/fyne/v2/widget"
 )
 
-// favoritesService - глобальный экземпляр сервиса избранного
+// favoritesService - global favorite service instance
 var favoritesService = favorites.NewService()
 
-// tagsService - глобальный экземпляр сервиса тегов
+// tagsService - global tags service instance
 var tagsService = services.NewTagsService()
 
 type UI struct {
@@ -36,27 +36,27 @@ func New() *UI {
 }
 
 func (t *UI) createView() fyne.CanvasObject {
-	// Получаем все теги из базы данных
+	// Get all tags from database
 	var err error
 	t.tags, err = tagsService.GetAllTags(context.Background())
 	if err != nil {
 		return container.NewVBox(
-			widget.NewLabel("Ошибка загрузки тегов: " + err.Error()),
+			widget.NewLabel("Error loading tags: " + err.Error()),
 		)
 	}
 
-	// Создаем поле поиска
+	// Create search field
 	t.searchBar = widget.NewEntry()
-	t.searchBar.SetPlaceHolder("Поиск по тегам...")
+	t.searchBar.SetPlaceHolder("Search tags...")
 	t.searchBar.OnChanged = func(text string) {
 		t.filterTags(text)
 	}
 	searchContainer := container.NewGridWithColumns(2, t.searchBar)
 
-	// Создаем таблицу
+	// Create table
 	t.table = t.createTable()
 
-	// Создаем контейнер с поиском и таблицей
+	// Create container with search and table
 	return container.NewBorder(
 		searchContainer,
 		nil, nil, nil,
@@ -65,14 +65,14 @@ func (t *UI) createView() fyne.CanvasObject {
 }
 
 func (t *UI) createTable() *widget.Table {
-	// Создаем таблицу с двумя разными типами ячеек
+	// Create table with two different cell types
 	table := widget.NewTable(
 		func() (int, int) {
 			rows := len(t.tags)
 			return rows, 6
 		},
 		func() fyne.CanvasObject {
-			// Создаем базовый контейнер, который может содержать разные типы объектов
+			// Create base container that can contain different object types
 			return container.New(layout.NewHBoxLayout(), widget.NewLabel("placeholder"))
 		},
 		func(id widget.TableCellID, cell fyne.CanvasObject) {
@@ -83,75 +83,75 @@ func (t *UI) createTable() *widget.Table {
 			tag := t.tags[id.Row]
 			cellContainer := cell.(*fyne.Container)
 
-			// Очищаем контейнер
+			// Clear container
 			cellContainer.Objects = nil
 
 			switch id.Col {
 			case 0: // ID
 				cellContainer.Add(widget.NewLabel(fmt.Sprintf("%d", tag.ID)))
-			case 1: // Цвет
+			case 1: // Color
 				circle := canvas.NewRectangle(parseHexColor(tag.Color))
 				circle.CornerRadius = 17
 				circle.SetMinSize(fyne.NewSize(35, 35))
 				circle.StrokeColor = parseHexColor(tag.Color)
 
-				// Оборачиваем круг в контейнер с кнопкой для обработки кликов
+				// Wrap circle in container with button for click handling
 				clickBtn := widget.NewButton("", func() {
 					t.changeTagColor(tag.ID)
 				})
 				clickBtn.Importance = widget.LowImportance
 				clickBtn.Resize(fyne.NewSize(20, 20))
-				clickBtn.Hide() // Скрываем кнопку, но она остается кликабельной
+				clickBtn.Hide() // Hide button but it remains clickable
 
-				// Создаем контейнер, в котором круг и кнопка будут находиться в одном месте
-				// Используем container.New с StackLayout из пакета container
+				// Create container where circle and button are in the same place
+				// Use container.New with StackLayout from container package
 				stackContainer := container.New(layout.NewStackLayout(), circle, clickBtn)
 				cellContainer.Add(stackContainer)
-			case 2: // Имя
+			case 2: // Name
 				cellContainer.Add(widget.NewLabel(tag.Name))
-			case 3: // Количество
+			case 3: // Count
 				cellContainer.Add(widget.NewLabel(fmt.Sprintf("%d", tag.ItemCount)))
-			case 4: // Описание
+			case 4: // Description
 				desc := tag.Description
 				if desc == "" {
-					desc = "— описание отсутствует —"
+					desc = "— no description —"
 				}
 				cellContainer.Add(widget.NewLabel(desc))
-			case 5: // Кнопки действий
+			case 5: // Action buttons
 				editBtn := widget.NewButton("✏️", func() { t.editTag(tag.ID) })
 				editBtn.Importance = widget.LowImportance
 
 				deleteBtn := widget.NewButton("🗑", func() { t.deleteTag(tag.ID) })
 				deleteBtn.Importance = widget.LowImportance
 
-				// Проверяем, является ли тег избранным (используем ID для совместимости с БД)
+				// Check if tag is favorite (use ID for DB compatibility)
 				isFavorite, err := favoritesService.IsFavorite("tag", fmt.Sprintf("%d", tag.ID))
 				if err != nil {
 					isFavorite = false
 				}
 
-				// Объявляем переменную заранее для использования в замыкании
+				// Declare variable in advance for use in closure
 				var favBtn *widget.Button
 				favBtn = widget.NewButton("⭐️", func() {
-					log.Printf("[Tags] Клик по кнопке избранного для тега ID=%d, UUID=%s, текущее состояние: isFavorite=%v", tag.ID, tag.TagUUID, isFavorite)
+					log.Printf("[Tags] Click on favorite button for tag ID=%d, UUID=%s, current state: isFavorite=%v", tag.ID, tag.TagUUID, isFavorite)
 
 					if isFavorite {
 						err := favoritesService.RemoveFromFavorites("tag", fmt.Sprintf("%d", tag.ID))
 						if err != nil {
-							log.Printf("[Tags] Ошибка удаления из избранного: %v", err)
+							log.Printf("[Tags] Error removing from favorites: %v", err)
 							return
 						}
-						log.Printf("[Tags] Тег ID=%d удален из избранного", tag.ID)
+						log.Printf("[Tags] Tag ID=%d removed from favorites", tag.ID)
 					} else {
 						err := favoritesService.AddToFavorites("tag", fmt.Sprintf("%d", tag.ID))
 						if err != nil {
-							log.Printf("[Tags] Ошибка добавления в избранное: %v", err)
+							log.Printf("[Tags] Error adding to favorites: %v", err)
 							return
 						}
-						log.Printf("[Tags] Тег ID=%d добавлен в избранное", tag.ID)
+						log.Printf("[Tags] Tag ID=%d added to favorites", tag.ID)
 					}
 
-					// Обновляем текст кнопки в зависимости от нового состояния
+					// Update button text based on new state
 					newIsFavorite, _ := favoritesService.IsFavorite("tag", fmt.Sprintf("%d", tag.ID))
 					if newIsFavorite {
 						favBtn.SetText("✨")
@@ -159,12 +159,12 @@ func (t *UI) createTable() *widget.Table {
 						favBtn.SetText("⭐️")
 					}
 
-					// Обновляем таблицу для отражения нового состояния
+					// Refresh table to reflect new state
 					t.Refresh()
 				})
 				favBtn.Importance = widget.LowImportance
 
-				// Устанавливаем начальный текст кнопки
+				// Set initial button text
 				if isFavorite {
 					favBtn.SetText("✨")
 				}
@@ -176,13 +176,13 @@ func (t *UI) createTable() *widget.Table {
 		},
 	)
 
-	// Устанавливаем ширину столбцов
+	// Set column widths
 	table.SetColumnWidth(0, 50)  // ID
-	table.SetColumnWidth(1, 50)  // Цвет
-	table.SetColumnWidth(2, 200) // Имя
-	table.SetColumnWidth(3, 100) // Количество
-	table.SetColumnWidth(4, 250) // Описание
-	table.SetColumnWidth(5, 100) // Действия
+	table.SetColumnWidth(1, 50)  // Color
+	table.SetColumnWidth(2, 200) // Name
+	table.SetColumnWidth(3, 100) // Count
+	table.SetColumnWidth(4, 250) // Description
+	table.SetColumnWidth(5, 100) // Actions
 
 	return table
 }
@@ -198,7 +198,7 @@ func (t *UI) filterTags(searchText string) {
 	}
 
 	if err != nil {
-		// В реальном приложении здесь должна быть обработка ошибок
+		// In real application, error handling should be here
 		return
 	}
 
@@ -207,54 +207,54 @@ func (t *UI) filterTags(searchText string) {
 }
 
 func (t *UI) editTag(tagID int) {
-	// Получаем информацию о теге для редактирования
+	// Get tag information for editing
 	tag, err := tagsService.GetTagByID(context.Background(), tagID)
 	if err != nil {
-		// В случае ошибки можно показать сообщение пользователю
+		// In case of error, can show message to user
 		return
 	}
 
-	// Создаем диалоговое окно для редактирования тега
+	// Create dialog for editing tag
 	w := fyne.CurrentApp().Driver().AllWindows()[0]
 	var dialog *widget.PopUp
 
-	// Поля для редактирования
+	// Fields for editing
 	nameEntry := widget.NewEntry()
 	nameEntry.SetText(tag.Name)
 	descEntry := widget.NewEntry()
 	descEntry.SetText(tag.Description)
 
-	// Поле для редактирования цвета
+	// Field for editing color
 	colorEntry := widget.NewEntry()
 	colorEntry.SetText(tag.Color)
 
 	content := container.NewVBox(
-		widget.NewLabel("Редактирование тега"),
-		widget.NewLabel("Название:"),
+		widget.NewLabel("Edit Tag"),
+		widget.NewLabel("Name:"),
 		nameEntry,
-		widget.NewLabel("Описание:"),
+		widget.NewLabel("Description:"),
 		descEntry,
-		widget.NewLabel("Цвет (в формате HEX, например #FF0000):"),
+		widget.NewLabel("Color (in HEX format, e.g. #FF0000):"),
 		colorEntry,
 		container.NewHBox(
-			widget.NewButton("Отмена", func() {
+			widget.NewButton("Cancel", func() {
 				dialog.Hide()
 			}),
-			widget.NewButton("Сохранить", func() {
-				// Обновляем тег в базе данных
+			widget.NewButton("Save", func() {
+				// Update tag in database
 				tag.Name = nameEntry.Text
 				tag.Description = descEntry.Text
 				tag.Color = colorEntry.Text
 
-				// Обновляем тег в базе данных через UpdateTag
+				// Update tag in database via UpdateTag
 				err := tagsService.UpdateTag(context.Background(), tag)
 				if err != nil {
-					// Обработка ошибки
+					// Error handling
 					dialog.Hide()
 					return
 				}
 
-				// Обновляем список тегов
+				// Refresh tag list
 				t.filterTags(t.searchBar.Text)
 				dialog.Hide()
 			}),
@@ -266,25 +266,25 @@ func (t *UI) editTag(tagID int) {
 }
 
 func (t *UI) deleteTag(tagID int) {
-	// Подтверждение удаления
+	// Confirmation dialog
 	w := fyne.CurrentApp().Driver().AllWindows()[0]
 	var dialog *widget.PopUp
 	content := container.NewVBox(
-		widget.NewLabel("Удаление тега"),
-		widget.NewLabel("Вы уверены, что хотите удалить этот тег?"),
+		widget.NewLabel("Delete Tag"),
+		widget.NewLabel("Are you sure you want to delete this tag?"),
 		container.NewHBox(
-			widget.NewButton("Отмена", func() {
+			widget.NewButton("Cancel", func() {
 				dialog.Hide()
 			}),
-			widget.NewButton("Удалить", func() {
+			widget.NewButton("Delete", func() {
 				err := tagsService.DeleteTag(context.Background(), tagID)
 				if err != nil {
-					// Обработка ошибки
+					// Error handling
 					dialog.Hide()
 					return
 				}
 
-				// Обновляем список тегов
+				// Refresh tag list
 				t.filterTags(t.searchBar.Text)
 				dialog.Hide()
 			}),
@@ -294,13 +294,13 @@ func (t *UI) deleteTag(tagID int) {
 	dialog.Show()
 }
 
-// parseHexColor - остаётся без изменений
+// parseHexColor - remains unchanged
 func parseHexColor(hex string) color.RGBA {
 	if len(hex) == 0 {
 		return color.RGBA{R: 255, G: 187, B: 0, A: 255}
 	}
 
-	hex = hex[1:] // Убираем #
+	hex = hex[1:] // Remove #
 
 	var r, g, b uint8
 	if len(hex) == 6 {
@@ -332,55 +332,55 @@ func (t *UI) GetContent() fyne.CanvasObject {
 	return t.content
 }
 
-// Refresh обновляет данные тегов
+// Refresh updates tags data
 func (t *UI) Refresh() {
-	// Загружаем свежие данные из базы данных
+	// Load fresh data from database
 	var err error
 	tags, err := tagsService.GetAllTags(context.Background())
 	if err != nil {
-		// В случае ошибки можно обновить с пустым списком или показать сообщение об ошибке
+		// In case of error, can update with empty list or show error message
 		tags = []*models.Tag{}
 	}
 
-	// Обновляем внутренний список тегов
+	// Update internal tags list
 	t.tags = tags
 
-	// Обновляем таблицу
+	// Update table
 	t.table.Refresh()
 }
 
-// changeTagColor открывает диалог для изменения цвета тега и обновляет цвет тега в базе данных
+// changeTagColor opens a dialog to change tag color and updates the tag color in the database
 func (t *UI) changeTagColor(tagID int) {
-	// Получаем информацию о теге
+	// Get tag information
 	tag, err := tagsService.GetTagByID(context.Background(), tagID)
 	if err != nil {
 		return
 	}
 
-	// Создаем диалог для ввода нового цвета
+	// Create a dialog for entering new color
 	w := fyne.CurrentApp().Driver().AllWindows()[0]
 
-	// Объявляем переменную для диалога до её использования
+	// Declare variable for dialog before using it
 	var popUp *widget.PopUp
 
-	// Поле ввода для цвета в формате HEX
+	// Input field for color in HEX format
 	colorInput := widget.NewEntry()
 	colorInput.SetText(tag.Color)
 
-	// Контейнер для диалога
+	// Container for dialog
 	content := container.NewVBox(
-		widget.NewLabel("Введите новый цвет в формате HEX (например, #FF0000):"),
+		widget.NewLabel("Enter new color in HEX format (e.g., #FF0000):"),
 		colorInput,
 		container.NewHBox(
-			widget.NewButton("Отмена", func() {
-				// Закрываем диалог
+			widget.NewButton("Cancel", func() {
+				// Close dialog
 				popUp.Hide()
 			}),
-			widget.NewButton("Сохранить", func() {
+			widget.NewButton("Save", func() {
 				newColor := colorInput.Text
-				// Проверяем формат цвета (упрощенная проверка)
+				// Check color format (simplified check)
 				if len(newColor) >= 4 && len(newColor) <= 7 && newColor[0] == '#' {
-					// Обновляем цвет в базе данных через UpdateTag
+					// Update color in database via UpdateTag
 					tagToUpdate, err := tagsService.GetTagByID(context.Background(), tagID)
 					if err != nil {
 						return
@@ -391,14 +391,14 @@ func (t *UI) changeTagColor(tagID int) {
 						return
 					}
 
-					// Обновляем список тегов
+					// Refresh tag list
 					t.Refresh()
 				} else {
-					// Показываем сообщение об ошибке
+					// Show error message
 					var errorDlg *widget.PopUp
 					errorDlg = widget.NewModalPopUp(
 						container.NewVBox(
-							widget.NewLabel("Неверный формат цвета. Используйте формат #RRGGBB"),
+							widget.NewLabel("Invalid color format. Use format #RRGGBB"),
 							widget.NewButton("OK", func() {
 								errorDlg.Hide()
 							}),
@@ -408,13 +408,13 @@ func (t *UI) changeTagColor(tagID int) {
 					errorDlg.Show()
 				}
 
-				// Закрываем диалог
+				// Close dialog
 				popUp.Hide()
 			}),
 		),
 	)
 
-	// Создаем и показываем диалог
+	// Create and show dialog
 	popUp = widget.NewModalPopUp(content, w.Canvas())
 	popUp.Show()
 }

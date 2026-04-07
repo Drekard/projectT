@@ -1,220 +1,220 @@
-# 📖 Возможности ProjectT
+# 📖 ProjectT Features
 
-**Последнее обновление:** Март 2026 (актуализировано)
+**Last updated:** March 2026 (updated)
 
-**ProjectT** — это гибридное приложение, объединяющее файловый менеджер, визуальную доску (как Pinterest) и P2P-мессенджер для обмена коллекциями.
-
----
-
-## 🎯 Основное назначение
-
-ProjectT решает проблему разрозненности данных:
-- В обычном проводнике файлы, ссылки, текст и изображения хранятся отдельно
-- В Pinterest нельзя добавить документ или произвольный файл
-- В мессенджерах сложно организовать долгосрочное хранение с тегами и поиском
-
-**ProjectT** объединяет всё в единые карточки-контейнеры с гибкой системой тегов и возможностью P2P-обмена.
+**ProjectT** is a hybrid application combining a file manager, a visual board (like Pinterest), and a P2P messenger for sharing collections.
 
 ---
 
-## ✨ Ключевые возможности
+## 🎯 Main Purpose
 
-### 📦 1. Карточки-контейнеры (Items)
+ProjectT solves the problem of data fragmentation:
+- In a regular file explorer, files, links, text, and images are stored separately
+- In Pinterest, you can't add a document or arbitrary file
+- In messengers, it's difficult to organize long-term storage with tags and search
 
-Каждая карточка — это самодостаточный объект, который может содержать:
+**ProjectT** combines everything into unified card containers with a flexible tag system and P2P sharing capabilities.
 
-| Тип контента | Описание |
+---
+
+## ✨ Key Features
+
+### 📦 1. Card Containers (Items)
+
+Each card is a self-contained object that can include:
+
+| Content Type | Description |
 |--------------|----------|
-| 📝 **Текст** | Заметки, описания, стихи, код |
-| 🖼️ **Изображения** | Картинки с превью и предпросмотром |
-| 📎 **Файлы** | Любые файлы: документы, архивы, исполняемые файлы |
-| 🔗 **Ссылки** | URL с автогенерацией превью |
-| 🎬 **Медиа** | Аудио и видео файлы (в разработке) |
+| 📝 **Text** | Notes, descriptions, poetry, code |
+| 🖼️ **Images** | Pictures with thumbnails and preview |
+| 📎 **Files** | Any files: documents, archives, executables |
+| 🔗 **Links** | URLs with auto-generated preview |
+| 🎬 **Media** | Audio and video files (in development) |
 
-**Преимущества:**
-- Всё связано в одной карточке — не нужно искать файлы по разным папкам
-- У карточки есть тип: `element`, `folder`, `link`
-- Поддержка drag-and-drop для добавления файлов
-- Автосохранение при редактировании
+**Advantages:**
+- Everything linked in one card — no need to search for files across folders
+- Cards have types: `element`, `folder`, `link`
+- Drag-and-drop support for adding files
+- Auto-save on edit
 
 ---
 
-### 🏷️ 2. Система тегов
+### 🏷️ 2. Tag System
 
-Теги заменяют папки и обеспечивают гибкую группировку:
+Tags replace folders and provide flexible grouping:
 
-| Возможность | Описание |
+| Feature | Description |
 |-------------|----------|
-| 🎨 **Цветные теги** | Визуальное различие категорий |
-| 🔄 **Автодополнение** | Умный поиск существующих тегов при вводе |
-| 📊 **Фильтрация** | Отображение элементов по одному или нескольким тегам |
-| 🔍 **Поиск по тегам** | Быстрый поиск через боковую панель |
-| ⭐ **Избранные теги** | Закрепление часто используемых тегов |
+| 🎨 **Colored Tags** | Visual category distinction |
+| 🔄 **Autocomplete** | Smart search of existing tags on input |
+| 📊 **Filtering** | Display items by one or multiple tags |
+| 🔍 **Tag Search** | Quick search via sidebar |
+| ⭐ **Favorite Tags** | Pin frequently used tags |
 
-**Пример использования:**
+**Example usage:**
 ```
-Карточка "Дипломный проект" может иметь теги:
-- 📚 Учеба (синий)
-- 💻 Программирование (зелёный)
-- ⏰ Срочно (красный)
+A "Diploma Project" card might have tags:
+- 📚 Study (blue)
+- 💻 Programming (green)
+- ⏰ Urgent (red)
 ```
 
 ---
 
-### 📚 3. Коллекции и папки
+### 📚 3. Collections and Folders
 
-Организация пространства:
+Space organization:
 
-| Функция | Описание |
+| Function | Description |
 |---------|----------|
-| 📁 **Папки** | Иерархическая структура для группировки карточек |
-| 📌 **Закреплённые элементы** | Быстрый доступ к важным карточкам |
-| ⭐ **Избранное** | Отдельный список любимых элементов |
-| 🎯 **Витрина элементов** | Визуальное отображение закреплённого в профиле |
+| 📁 **Folders** | Hierarchical structure for grouping cards |
+| 📌 **Pinned Items** | Quick access to important cards |
+| ⭐ **Favorites** | Separate list of beloved items |
+| 🎯 **Item Showcase** | Visual display of pinned items in profile |
 
 ---
 
-### 🔍 4. Поиск и фильтрация
+### 🔍 4. Search and Filtering
 
-Мощные инструменты для нахождения нужного:
+Powerful tools for finding what you need:
 
-| Тип поиска | Описание |
+| Search Type | Description |
 |------------|----------|
-| 🔎 **Поиск по названию** | Поиск по заголовку карточки |
-| 🏷️ **Поиск по тегам** | Фильтрация по одному или нескольким тегам |
-| 📅 **Поиск по дате** | Сортировка по дате создания/изменения |
-| 📝 **Поиск по типу** | Фильтр по типу элемента (файл, ссылка, текст) |
-| 🎨 **Поиск по цвету тега** | Визуальный поиск |
+| 🔎 **Search by Title** | Search by card title |
+| 🏷️ **Search by Tags** | Filter by one or multiple tags |
+| 📅 **Search by Date** | Sort by creation/modification date |
+| 📝 **Search by Type** | Filter by item type (file, link, text) |
+| 🎨 **Search by Tag Color** | Visual search |
 
-**Настройки отображения:**
-- Сортировка: по дате, названию, типу
-- Порядок: возрастание/убывание
-- Размер сетки: адаптивный с настройкой плотности
+**Display Settings:**
+- Sorting: by date, title, type
+- Order: ascending/descending
+- Grid size: adaptive with density adjustment
 
 ---
 
-### 🖼️ 5. Визуальная сетка (Pinterest-style)
+### 🖼️ 5. Visual Grid (Pinterest-style)
 
-Отображение контента:
+Content display:
 
-| Особенность | Описание |
+| Feature | Description |
 |-------------|----------|
-| 📱 **Адаптивная сетка** | Автоматическая подстройка под размер окна |
-| 🎚️ **Настройка размера** | Изменение плотности карточек |
-| 🎨 **Кастомные карточки** | Разный дизайн для разных типов контента |
-| 👁️ **Предпросмотр** | Hover-эффект с быстрым просмотром |
-| 🖱️ **Контекстное меню** | Правый клик для действий с карточкой |
+| 📱 **Adaptive Grid** | Automatic adjustment to window size |
+| 🎚️ **Size Adjustment** | Change card density |
+| 🎨 **Custom Cards** | Different design for different content types |
+| 👁️ **Preview** | Hover effect with quick view |
+| 🖱️ **Context Menu** | Right-click for card actions |
 
 ---
 
-### 💬 6. P2P Чат и обмен
+### 💬 6. P2P Chat and Exchange
 
-**Полноценный P2P-мессенджер для обмена сообщениями и файлами:**
+**A full-featured P2P messenger for exchanging messages and files:**
 
-#### 🔗 Подключение
+#### 🔗 Connection
 
-| Способ | Описание |
+| Method | Description |
 |--------|----------|
-| 📍 **Прямое подключение** | По адресу пира (`projectt:peerid@/ip4/...`) |
-| 🌐 **DHT обнаружение** | Глобальный поиск пиров через интернет |
-| 🏠 **mDNS обнаружение** | Локальная сеть (автоматическое обнаружение) |
-| 🤝 **Bootstrap пиры** | Статические узлы для начального подключения |
-| 🔄 **Relay через посредника** | Обход NAT через промежуточные узлы |
-| 📡 **STUN клиент** | Определение внешнего адреса для подключения |
+| 📍 **Direct Connection** | By peer address (`projectt:peerid@/ip4/...`) |
+| 🌐 **DHT Discovery** | Global peer search via internet |
+| 🏠 **mDNS Discovery** | Local network (automatic discovery) |
+| 🤝 **Bootstrap Peers** | Static nodes for initial connection |
+| 🔄 **Relay via Intermediary** | NAT traversal through intermediate nodes |
+| 📡 **STUN Client** | External address determination for connection |
 
-#### 💬 Обмен сообщениями
+#### 💬 Messaging
 
-| Функция | Описание |
+| Feature | Description |
 |---------|----------|
-| ✉️ **Текстовые сообщения** | Мгновенная отправка с шифрованием |
-| 📎 **Передача файлов** | Отправка файлов любого размера |
-| 🖼️ **Отправка изображений** | С предпросмотром в чате |
-| 📤 **Передача аватаров** | Обмен изображениями профиля |
-| ⏸️ **Оффлайн режим** | Сообщения сохраняются в очереди и отправляются при подключении |
-| ✅ **Подтверждение доставки** | Гарантия получения сообщения |
-| 🔒 **Шифрование** | XOR с симметричным ключом + Ed25519 подпись |
+| ✉️ **Text Messages** | Instant sending with encryption |
+| 📎 **File Transfer** | Send files of any size |
+| 🖼️ **Image Sending** | With preview in chat |
+| 📤 **Avatar Transfer** | Profile image exchange |
+| ⏸️ **Offline Mode** | Messages queued and sent on connection |
+| ✅ **Delivery Confirmation** | Guaranteed message receipt |
+| 🔒 **Encryption** | XOR with symmetric key + Ed25519 signature |
 
-#### 👤 Профили
+#### 👤 Profiles
 
-| Возможность | Описание |
+| Feature | Description |
 |-------------|----------|
-| 🆔 **Уникальный PeerID** | Идентификатор на основе криптографических ключей |
-| 🎭 **Аватар профиля** | Изображение, отображаемое в чате |
-| 📝 **Характеристики** | Произвольные поля в профиле (контекст, описание) |
-| 🔄 **Автообмен профилями** | При подключении пиры обмениваются профилями |
-| 🔐 **Подпись профиля** | Криптографическая верификация подлинности |
+| 🆔 **Unique PeerID** | Identifier based on cryptographic keys |
+| 🎭 **Profile Avatar** | Image displayed in chat |
+| 📝 **Characteristics** | Arbitrary profile fields (context, description) |
+| 🔄 **Auto Profile Exchange** | Peers exchange profiles on connection |
+| 🔐 **Profile Signature** | Cryptographic verification of authenticity |
 
-#### 📦 Синхронизация элементов
+#### 📦 Item Synchronization
 
-| Функция | Описание |
+| Feature | Description |
 |---------|----------|
-| 🔄 **Обмен элементами** | Передача карточек между пирами |
-| 📤 **Экспорт коллекций** | Отправка подборки элементов |
-| 📥 **Импорт элементов** | Получение элементов от других пользователей |
+| 🔄 **Item Exchange** | Transfer cards between peers |
+| 📤 **Collection Export** | Send item selections |
+| 📥 **Item Import** | Receive items from other users |
 
 ---
 
-### 🔐 7. Безопасность и приватность
+### 🔐 7. Security and Privacy
 
-| Мера | Описание |
+| Measure | Description |
 |------|----------|
-| 🔑 **Криптографические ключи** | Ed25519 для подписи сообщений и профилей |
-| 🔒 **Шифрование сообщений** | Симметричное шифрование с nonce |
-| 🔐 **Мастер-пароль** | Шифрование приватного ключа доступа |
-| ✅ **Верификация подписи** | Проверка подлинности отправителя |
-| 🚫 **Чёрный список** | Блокировка нежелательных пиров |
-| 📍 **Контроль адресов** | Ручное добавление контактов |
+| 🔑 **Cryptographic Keys** | Ed25519 for signing messages and profiles |
+| 🔒 **Message Encryption** | Symmetric encryption with nonce |
+| 🔐 **Master Password** | Private key encryption |
+| ✅ **Signature Verification** | Sender authenticity check |
+| 🚫 **Blacklist** | Block unwanted peers |
+| 📍 **Address Control** | Manual contact addition |
 
 ---
 
-### 🗄️ 8. Хранение данных
+### 🗄️ 8. Data Storage
 
-| Компонент | Описание |
+| Component | Description |
 |-----------|----------|
-| 💾 **SQLite** | Метаданные: элементы, теги, связи, чаты, контакты |
-| 📁 **Файловая система** | Файлы хранятся в `storage/files/` |
-| 🔐 **Хеширование SHA-256** | Файлы сохраняются под именем хэша |
-| ♻️ **Дедупликация** | Одинаковые файлы не дублируются |
-| 📊 **Целостность** | Проверка хэша при чтении файла |
+| 💾 **SQLite** | Metadata: items, tags, relationships, chats, contacts |
+| 📁 **File System** | Files stored in `storage/files/` |
+| 🔐 **SHA-256 Hashing** | Files saved under hash name |
+| ♻️ **Deduplication** | Identical files are not duplicated |
+| 📊 **Integrity** | Hash verification on file read |
 
-**Структура базы данных:**
-- `items` — элементы (карточки)
-- `tags` — теги
-- `item_tags` — связь элементов и тегов
-- `favorites` — избранные элементы
-- `pinned_elements` — закреплённые элементы
-- `chat_messages` — сообщения чата
-- `contacts` — контакты/P2P пиры
-- `profiles` — профили пользователей
-- `bootstrap_peers` — bootstrap узлы для P2P
+**Database structure:**
+- `items` — items (cards)
+- `tags` — tags
+- `item_tags` — item-tag relationships
+- `favorites` — favorite items
+- `pinned_elements` — pinned items
+- `chat_messages` — chat messages
+- `contacts` — contacts/P2P peers
+- `profiles` — user profiles
+- `bootstrap_peers` — bootstrap nodes for P2P
 
 ---
 
-### 🎨 9. Интерфейс и UX
+### 🎨 9. Interface and UX
 
-| Компонент | Описание |
+| Component | Description |
 |-----------|----------|
-| 🪟 **Оконный интерфейс** | Fyne GUI с нативной поддержкой Windows/Linux/macOS |
-| 🎨 **Тёмная тема** | Стильный дизайн с кастомными цветами |
-| 📱 **Адаптивность** | Подстройка под размер окна |
-| 🖱️ **Контекстные меню** | Правый клик для действий |
-| ⌨️ **Горячие клавиши** | Быстрые действия (в разработке) |
-| 📊 **Панель фильтров** | Боковая панель с тегами и поиском |
-| 💬 **Панель чатов** | Трёхпанельный интерфейс чатов |
+| 🪟 **Window Interface** | Fyne GUI with native Windows/Linux/macOS support |
+| 🎨 **Dark Theme** | Stylish design with custom colors |
+| 📱 **Responsiveness** | Window size adaptation |
+| 🖱️ **Context Menus** | Right-click for actions |
+| ⌨️ **Hotkeys** | Quick actions (in development) |
+| 📊 **Filter Panel** | Sidebar with tags and search |
+| 💬 **Chat Panel** | Three-panel chat interface |
 
 ---
 
-## 🛠️ Технические детали
+## 🛠️ Technical Details
 
-### Архитектура
+### Architecture
 
 ```
 ┌─────────────────────────────────────────────────────────┐
 │                    UI Layer (Fyne)                      │
 │  ┌───────────┐  ┌───────────┐  ┌─────────────────────┐ │
 │  │ Sidebar   │  │ Workspace │  │ Header/Filters      │ │
-│  │ - Теги    │  │ - Сетка   │  │ - Поиск             │ │
-│  │ - Избран. │  │ - Чаты    │  │ - Сортировка        │ │
+│  │ - Tags    │  │ - Grid    │  │ - Search            │ │
+│  │ - Fav.    │  │ - Chats   │  │ - Sorting           │ │
 │  └───────────┘  └───────────┘  └─────────────────────┘ │
 └─────────────────────────────────────────────────────────┘
                             ▼
@@ -237,76 +237,76 @@ ProjectT решает проблему разрозненности данных
 └─────────────────────────────────────────────────────────┘
 ```
 
-### Стек технологий
+### Technology Stack
 
-| Компонент | Технология |
+| Component | Technology |
 |-----------|------------|
-| **Язык** | Go 1.26 |
+| **Language** | Go 1.26 |
 | **UI** | Fyne v2.4.4 |
-| **БД** | SQLite (mattn/go-sqlite3 v1.14.32) |
+| **Database** | SQLite (mattn/go-sqlite3 v1.14.32) |
 | **P2P** | libp2p v0.32.0 (DHT, pubsub, discovery) |
-| **Криптография** | Ed25519, SHA-256 (golang.org/x/crypto v0.48.0) |
-| **Конфигурация** | YAML (gopkg.in/yaml.v3 v3.0.1) |
-| **Тестирование** | testify v1.10.0 |
+| **Cryptography** | Ed25519, SHA-256 (golang.org/x/crypto v0.48.0) |
+| **Configuration** | YAML (gopkg.in/yaml.v3 v3.0.1) |
+| **Testing** | testify v1.10.0 |
 
 ---
 
-## 📊 Сравнение с аналогами
+## 📊 Comparison with Alternatives
 
-| Функция | ProjectT | Проводник | Pinterest | Мессенджеры |
+| Feature | ProjectT | File Explorer | Pinterest | Messengers |
 |---------|----------|-----------|-----------|-------------|
-| Карточки-контейнеры | ✅ | ❌ | ❌ | ❌ |
-| Теги вместо папок | ✅ | ❌ | ⚠️ | ❌ |
-| P2P обмен | ✅ | ❌ | ❌ | ⚠️ |
-| Локальное хранение | ✅ | ✅ | ❌ | ⚠️ |
-| Визуальная сетка | ✅ | ❌ | ✅ | ❌ |
-| Передача файлов | ✅ | ⚠️ | ❌ | ✅ |
-| Приватность | ✅ | ✅ | ❌ | ⚠️ |
+| Card Containers | ✅ | ❌ | ❌ | ❌ |
+| Tags Instead of Folders | ✅ | ❌ | ⚠️ | ❌ |
+| P2P Sharing | ✅ | ❌ | ❌ | ⚠️ |
+| Local Storage | ✅ | ✅ | ❌ | ⚠️ |
+| Visual Grid | ✅ | ❌ | ✅ | ❌ |
+| File Transfer | ✅ | ⚠️ | ❌ | ✅ |
+| Privacy | ✅ | ✅ | ❌ | ⚠️ |
 
 ---
 
-## 🚀 Сценарии использования
+## 🚀 Use Cases
 
-### 📚 Для студентов
-- Конспекты лекций с тегами по предметам
-- Коллекции ссылок на литературу
-- Обмен материалами с одногруппниками через P2P
+### 📚 For Students
+- Lecture notes with subject tags
+- Literature link collections
+- Material sharing with classmates via P2P
 
-### 🎨 Для дизайнеров
-- Визуальная доска вдохновения
-- Коллекции референсов с тегами
-- Быстрый обмен подборками с коллегами
+### 🎨 For Designers
+- Visual inspiration board
+- Reference collections with tags
+- Quick sharing of selections with colleagues
 
-### 🔬 Для исследователей
-- Организация научных статей
-- Связывание данных с публикациями
-- Приватный обмен данными с коллегами
+### 🔬 For Researchers
+- Organization of scientific papers
+- Linking data with publications
+- Private data exchange with colleagues
 
-### 💼 Для проектных команд
-- Централизованное хранение ресурсов проекта
-- Быстрый обмен файлами без облаков
-- Чат с историей и поиском
-
----
-
-## 🔮 Планы развития
-
-### В разработке
-- [ ] Аудио/видео карточки с плеером
-- [ ] Синхронизация между устройствами
-- [ ] Групповые чаты (mesh network)
-- [ ] Расширенное шифрование (AES-256)
-- [ ] Плагины для расширения функциональности
-
-### В планах
-- [ ] Мобильная версия (iOS/Android)
-- [ ] Веб-интерфейс для доступа из браузера
-- [ ] Интеграция с облачными хранилищами
-- [ ] Автоматические бэкапы
+### 💼 For Project Teams
+- Centralized project resource storage
+- Quick file sharing without clouds
+- Chat with history and search
 
 ---
 
-## 📞 Контакты
+## 🔮 Future Plans
+
+### In Development
+- [ ] Audio/video cards with player
+- [ ] Cross-device synchronization
+- [ ] Group chats (mesh network)
+- [ ] Advanced encryption (AES-256)
+- [ ] Plugins for extensibility
+
+### Planned
+- [ ] Mobile version (iOS/Android)
+- [ ] Web interface for browser access
+- [ ] Cloud storage integration
+- [ ] Automatic backups
+
+---
+
+## 📞 Contact
 
 **Telegram:** [@Redoranar](https://t.me/Redoranar)
 
@@ -318,7 +318,7 @@ ProjectT решает проблему разрозненности данных
 
 <div align="center">
 
-**ProjectT — это не просто файловый менеджер. Это новое пространство для ваших идей.**
+**ProjectT — not just a file manager. A new space for your ideas.**
 
 Made with ❤️ by Egor Redoran
 

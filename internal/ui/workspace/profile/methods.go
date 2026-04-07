@@ -26,12 +26,12 @@ func (p *UI) GetContent() fyne.CanvasObject {
 	return p.content
 }
 
-// GetAvatarPath возвращает текущий путь к аватару
+// GetAvatarPath returns the current avatar path
 func (p *UI) GetAvatarPath() string {
 	return p.avatarPath
 }
 
-// SetWindow устанавливает окно для UI
+// SetWindow sets the window for UI
 func (p *UI) SetWindow(window fyne.Window) {
 	p.window = window
 }
@@ -43,44 +43,44 @@ func (p *UI) SetCustomField(index int, title, value string) {
 	}
 }
 
-// AddCharacteristic добавляет новую характеристику в интерфейс
+// AddCharacteristic adds a new characteristic to the interface
 func (p *UI) AddCharacteristic() {
 	row := &fieldRow{}
 
-	// Присваиваем уникальный UUID (будет установлен при загрузке или сохранении)
+	// Assign unique UUID (will be set on load or save)
 	row.elementUUID = ""
-	p.nextID++ // увеличиваем счетчик для следующего элемента
+	p.nextID++ // increment counter for next element
 
 	row.titleLabel = widget.NewLabel(":")
 	row.titleLabel.TextStyle = fyne.TextStyle{Bold: true}
 
 	row.titleEntry = widget.NewEntry()
-	row.titleEntry.PlaceHolder = "Название"
+	row.titleEntry.PlaceHolder = "Name"
 
-	// Добавляем обработчик изменения текста для автосохранения
+	// Add text change handler for auto-save
 	row.titleEntry.OnChanged = func(text string) {
 		p.scheduleAutoSave(row)
 	}
 
 	entryWrapper := canvas.NewRectangle(color.Transparent)
-	entryWrapper.SetMinSize(fyne.NewSize(140, 40)) // 165 + ширина кнопки
+	entryWrapper.SetMinSize(fyne.NewSize(140, 40)) // 165 + button width
 	entryContainer := container.NewStack(entryWrapper, row.titleEntry)
 
 	row.valueEntry = widget.NewEntry()
-	row.valueEntry.PlaceHolder = "Значение"
+	row.valueEntry.PlaceHolder = "Value"
 
-	// Добавляем обработчик изменения текста для автосохранения
+	// Add text change handler for auto-save
 	row.valueEntry.OnChanged = func(text string) {
 		p.scheduleAutoSave(row)
 	}
 
-	// Кнопка удаления
+	// Delete button
 	row.removeButton = widget.NewButton("❌", func() {
 		p.RemoveCharacteristic(row)
 	})
 	row.removeButton.Importance = widget.LowImportance
 
-	// Создаем контейнер с растягивающимися элементами
+	// Create container with stretchable elements
 	row.container = container.NewBorder(
 		nil,
 		nil,
@@ -91,26 +91,26 @@ func (p *UI) AddCharacteristic() {
 
 	p.characteristicsContainer.Add(row.container)
 
-	// Добавляем в список полей для последующего сохранения
+	// Add to field list for later saving
 	p.customFields = append(p.customFields, row)
 }
 
-// scheduleAutoSave планирует автосохранение поля через 2 секунды
+// scheduleAutoSave schedules field auto-save after 2 seconds
 func (p *UI) scheduleAutoSave(row *fieldRow) {
-	// Отменяем предыдущий таймер, если он существует
+	// Cancel previous timer if it exists
 	if row.timer != nil {
 		row.timer.Stop()
 	}
 
-	// Создаем новый таймер на 2 секунды
+	// Create new 2-second timer
 	row.timer = time.AfterFunc(2*time.Second, func() {
 		p.autoSaveField(row)
 	})
 }
 
-// scheduleProfileAutoSave планирует автосохранение профиля (имя и титул) через 2 секунды
+// scheduleProfileAutoSave schedules profile auto-save (name and title) after 2 seconds
 func (p *UI) scheduleProfileAutoSave() {
-	// Отменяем предыдущие таймеры, если они существуют
+	// Cancel previous timers if they exist
 	if p.userNameTimer != nil {
 		p.userNameTimer.Stop()
 	}
@@ -118,60 +118,60 @@ func (p *UI) scheduleProfileAutoSave() {
 		p.userTitleTimer.Stop()
 	}
 
-	// Создаем новый таймер на 2 секунды
+	// Create new 2-second timer
 	p.userNameTimer = time.AfterFunc(2*time.Second, func() {
 		p.autoSaveProfile()
 	})
 	p.userTitleTimer = p.userNameTimer
 }
 
-// autoSaveProfile сохраняет имя и статус профиля в базу данных
+// autoSaveProfile saves profile name and status to database
 func (p *UI) autoSaveProfile() {
 	p.saveCharacteristicsToDB()
 }
 
-// autoSaveField сохраняет поле в базу данных
+// autoSaveField saves field to database
 func (p *UI) autoSaveField(row *fieldRow) {
 	p.saveCharacteristicsToDB()
 }
 
-// saveCharacteristicsToDB сохраняет все характеристики в базу данных
+// saveCharacteristicsToDB saves all characteristics to database
 func (p *UI) saveCharacteristicsToDB() {
-	// Получаем текущий профиль
+	// Get current profile
 	profile, err := queries.GetLocalProfile()
 	if err != nil {
 		return
 	}
 
-	// Обновляем основные поля профиля
+	// Update main profile fields
 	profile.Username = p.userNameEntry.Text
 	profile.Title = p.userTitleEntry.Text
 
-	// Обновляем характеристики в JSON-формате
+	// Update characteristics in JSON format
 	characteristicsJSON, err := p.SaveCharacteristicsToJSON()
 	if err != nil {
 		return
 	}
 	profile.ContentChar = characteristicsJSON
 
-	// Сохраняем изменения в базу данных
+	// Save changes to database
 	err = queries.UpdateLocalProfile(profile)
 	if err != nil {
 		return
 	}
 }
 
-// RemoveCharacteristic удаляет характеристику из интерфейса
+// RemoveCharacteristic removes a characteristic from the interface
 func (p *UI) RemoveCharacteristic(row *fieldRow) {
 
-	// Отменяем таймер, если он существует
+	// Cancel timer if it exists
 	if row.timer != nil {
 		row.timer.Stop()
 	}
 
 	p.characteristicsContainer.Remove(row.container)
 
-	// Удаляем из списка, если нужно сохранить ссылки
+	// Remove from list if needed to save references
 	for i, r := range p.customFields {
 		if r == row {
 			p.customFields = append(p.customFields[:i], p.customFields[i+1:]...)
@@ -179,54 +179,54 @@ func (p *UI) RemoveCharacteristic(row *fieldRow) {
 		}
 	}
 
-	// Сохраняем изменения в базу данных
+	// Save changes to database
 	p.saveCharacteristicsToDB()
 }
 
-// LoadCharacteristicsFromJSON загружает характеристики из JSON-строки
+// LoadCharacteristicsFromJSON loads characteristics from JSON string
 func (p *UI) LoadCharacteristicsFromJSON(jsonStr string) {
 	var characteristics []ContentCharacteristicItem
 	if jsonStr != "" {
 		err := json.Unmarshal([]byte(jsonStr), &characteristics)
 		if err != nil {
-			// В случае ошибки, просто выходим
+			// On error, just exit
 			return
 		}
 	}
 
-	// Очищаем текущий контейнер
+	// Clear current container
 	p.characteristicsContainer.Objects = nil
 	p.characteristicsContainer.Refresh()
 
-	// Добавляем характеристики в интерфейс
+	// Add characteristics to interface
 	for _, item := range characteristics {
 		p.AddCharacteristic()
-		// Устанавливаем значения для последнего добавленного элемента
+		// Set values for the last added element
 		if len(p.customFields) > 0 {
 			lastRow := p.customFields[len(p.customFields)-1]
-			lastRow.elementUUID = item.ElementUUID // ✅ Сохраняем ElementUUID
+			lastRow.elementUUID = item.ElementUUID // ✅ Save ElementUUID
 			lastRow.titleEntry.SetText(item.Title)
 			lastRow.valueEntry.SetText(item.Value)
-			// Обновляем метку названия тоже для режима просмотра
+			// Update title label too for view mode
 			lastRow.titleLabel.SetText(":")
 		}
 	}
 }
 
-// SaveCharacteristicsToJSON сохраняет характеристики в JSON-строку
+// SaveCharacteristicsToJSON saves characteristics to JSON string
 func (p *UI) SaveCharacteristicsToJSON() (string, error) {
 	var characteristics []ContentCharacteristicItem
 
-	// Собираем все характеристики из интерфейса
+	// Collect all characteristics from interface
 	for _, row := range p.customFields {
-		// Получаем название из поля ввода
+		// Get title from input field
 		title := row.titleEntry.Text
 
-		// Получаем значение из поля ввода
+		// Get value from input field
 		value := row.valueEntry.Text
 
 		characteristics = append(characteristics, ContentCharacteristicItem{
-			ElementUUID: row.elementUUID, // ✅ Сохраняем ElementUUID
+			ElementUUID: row.elementUUID, // ✅ Save ElementUUID
 			Title:       title,
 			Value:       value,
 		})
@@ -242,13 +242,13 @@ func (p *UI) SaveCharacteristicsToJSON() (string, error) {
 	return jsonStr, nil
 }
 
-// showBackgroundDialog показывает диалоговое окно для управления фоновым изображением
+// showBackgroundDialog shows a dialog for managing background image
 func (p *UI) showBackgroundDialog() {
-	p.showImageDialog("Фон", "storage/files/background", "Нет сохраненных фонов", "Загрузить фон", "Удалить фон", func(imagePath string) error {
+	p.showImageDialog("Background", "storage/files/background", "No saved backgrounds", "Upload background", "Delete background", func(imagePath string) error {
 		backgroundService := background.NewService()
 		err := backgroundService.SetBackground(imagePath)
 		if err != nil {
-			return fmt.Errorf("ошибка установки фона: %v", err)
+			return fmt.Errorf("error setting background: %v", err)
 		}
 		p.backgroundPath = imagePath
 		return nil
@@ -259,9 +259,9 @@ func (p *UI) showBackgroundDialog() {
 	})
 }
 
-// showAvatarDialog показывает диалоговое окно для управления аватаром
+// showAvatarDialog shows a dialog for managing avatar
 func (p *UI) showAvatarDialog() {
-	p.showImageDialog("Аватар", "storage/files/avatars/local", "Нет сохраненных аватаров", "Загрузить аватар", "", func(imagePath string) error {
+	p.showImageDialog("Avatar", "storage/files/avatars/local", "No saved avatars", "Upload avatar", "", func(imagePath string) error {
 		p.avatarPath = imagePath
 		return nil
 	}, func() {
@@ -269,7 +269,7 @@ func (p *UI) showAvatarDialog() {
 	})
 }
 
-// showImageDialog показывает диалоговое окно для выбора изображения
+// showImageDialog shows an image selection dialog
 func (p *UI) showImageDialog(
 	title string,
 	assetsDir string,
@@ -279,16 +279,16 @@ func (p *UI) showImageDialog(
 	onSelect func(imagePath string) error,
 	onDelete func(),
 ) {
-	// Создаем контейнер для миниатюр
+	// Create container for thumbnails
 	thumbnailsContainer := container.NewVBox()
 
-	// Получаем список файлов из директории
+	// Get list of files from directory
 	files, err := os.ReadDir(assetsDir)
 	if err != nil {
-		// Если директория не существует или произошла ошибка, создаем пустой контейнер
+		// If directory doesn't exist or an error occurs, create empty container
 		thumbnailsContainer.Add(widget.NewLabel(noImagesLabel))
 	} else {
-		// Фильтруем только файлы изображений
+		// Filter only image files
 		imageExtensions := map[string]bool{
 			".jpg":  true,
 			".jpeg": true,
@@ -304,18 +304,18 @@ func (p *UI) showImageDialog(
 				if imageExtensions[ext] {
 					imagePath := filepath.Join(assetsDir, file.Name())
 
-					// Создаем миниатюру изображения
+					// Create image thumbnail
 					imageThumb := canvas.NewImageFromFile(imagePath)
 					imageThumb.FillMode = canvas.ImageFillContain
 					imageThumb.SetMinSize(fyne.NewSize(100, 100))
 
-					// Создаем контейнер для миниатюры с именем файла
+					// Create container for thumbnail with file name
 					fileLabel := widget.NewLabel(file.Name())
 					fileLabel.Alignment = fyne.TextAlignCenter
 
 					thumbContainer := container.NewVBox(imageThumb, fileLabel)
 
-					// Добавляем возможность выбора по двойному клику
+					// Add double-click selection capability
 					clickableThumb := NewThumbnailClickable(thumbContainer, func() {
 						err := onSelect(imagePath)
 						if err != nil {
@@ -323,14 +323,14 @@ func (p *UI) showImageDialog(
 							return
 						}
 
-						// Сохраняем в БД
+						// Save to DB
 						p.saveToDatabase()
 
-						// Обновляем UI профиля
+						// Update profile UI
 						p.createView()
 
-						// Закрываем диалог и показываем уведомление
-						dialog.ShowInformation("Успех", fmt.Sprintf("%s успешно установлен", strings.ToLower(title)), p.window)
+						// Close dialog and show notification
+						dialog.ShowInformation("Success", fmt.Sprintf("%s successfully set", strings.ToLower(title)), p.window)
 					})
 
 					thumbnailsContainer.Add(clickableThumb)
@@ -344,23 +344,23 @@ func (p *UI) showImageDialog(
 		}
 	}
 
-	// Создаем кнопки
+	// Create buttons
 	loadButton := widget.NewButton(loadButtonLabel, func() {
-		if title == "Фон" {
+		if title == "Background" {
 			p.selectBackgroundImage()
 		} else {
 			p.selectAvatarImage()
 		}
 	})
 
-	// Создаем контейнер для кнопок
+	// Create container for buttons
 	var buttonsContainer fyne.CanvasObject
 	if deleteButtonLabel != "" {
 		deleteButton := widget.NewButton(deleteButtonLabel, func() {
 			onDelete()
 			p.saveToDatabase()
 
-			// Обновляем UI профиля
+			// Update profile UI
 			p.createView()
 		})
 		buttonsContainer = container.NewHBox(loadButton, deleteButton)
@@ -368,13 +368,13 @@ func (p *UI) showImageDialog(
 		buttonsContainer = container.NewHBox(loadButton)
 	}
 
-	// Создаем основной контейнер для диалога
+	// Create main dialog container
 	dialogContent := container.NewVBox(
-		widget.NewLabel(fmt.Sprintf("Выберите %s:", strings.ToLower(title))),
+		widget.NewLabel(fmt.Sprintf("Select %s:", strings.ToLower(title))),
 		thumbnailsContainer,
 		container.NewCenter(buttonsContainer),
 	)
 
-	// Показываем диалог
-	dialog.ShowCustom(title, "Закрыть", dialogContent, p.window)
+	// Show dialog
+	dialog.ShowCustom(title, "Close", dialogContent, p.window)
 }

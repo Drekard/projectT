@@ -126,7 +126,7 @@ func (p *Panel) loadChatsList() {
 	if err != nil {
 		log.Printf("[Chat] ❌ Ошибка загрузки чатов: %v", err)
 		// Показываем сообщение об ошибке
-		emptyLabel := widget.NewLabel("Ошибка загрузки чатов")
+		emptyLabel := widget.NewLabel("Error loading chats")
 		emptyLabel.TextStyle = fyne.TextStyle{Italic: true}
 		p.chatsList.Add(emptyLabel)
 		p.chatsList.Refresh()
@@ -140,7 +140,7 @@ func (p *Panel) loadChatsList() {
 	}
 
 	if len(chatsData) == 0 {
-		emptyLabel := widget.NewLabel("Нет чатов")
+		emptyLabel := widget.NewLabel("No chats")
 		emptyLabel.TextStyle = fyne.TextStyle{Italic: true}
 		p.chatsList.Add(emptyLabel)
 	} else {
