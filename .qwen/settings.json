@@ -18,7 +18,12 @@
       "Bash(copy *)",
       "Bash(dir *)",
       "Bash(git rm *)",
-      "Bash(git add *)"
+      "Bash(git add *)",
+      "Bash(docker *)",
+      "Bash(choco *)",
+      "Bash(set *)",
+      "Bash($env:goos=\"linux\")",
+      "Bash($env:goarch=\"amd64\")"
     ]
   },
   "$version": 3

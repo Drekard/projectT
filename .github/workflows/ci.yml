@@ -27,7 +27,7 @@ jobs:
       - name: Run golangci-lint
         uses: golangci/golangci-lint-action@v6
         with:
-          version: latest
+          version: v2.11.4
 
   test:
     name: Test
@@ -46,10 +46,14 @@ jobs:
       - name: Install dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y libgl1-mesa-dev xorg-dev libxcursor-dev libxinerama-dev libxi-dev libxxf86vm-dev
+          sudo apt-get install -y \
+            libgl1-mesa-dev xorg-dev \
+            libxcursor-dev libxinerama-dev libxi-dev libxxf86vm-dev \
+            libasound2-dev libpulse-dev \
+            xvfb
 
       - name: Run tests
-        run: go test -v -race -coverprofile=coverage.out ./...
+        run: xvfb-run go test -v -race -coverprofile=coverage.out ./...
 
       - name: Upload coverage
         uses: actions/upload-artifact@v4
@@ -74,7 +78,11 @@ jobs:
       - name: Install dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y libgl1-mesa-dev xorg-dev libxcursor-dev libxinerama-dev libxi-dev libxxf86vm-dev
+          sudo apt-get install -y \
+            libgl1-mesa-dev xorg-dev \
+            libxcursor-dev libxinerama-dev libxi-dev libxxf86vm-dev \
+            libasound2-dev libpulse-dev \
+            xvfb
 
       - name: Build
         run: go build -v ./...
