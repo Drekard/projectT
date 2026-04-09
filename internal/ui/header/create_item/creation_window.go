@@ -165,9 +165,10 @@ func createInputForm(breadcrumbManager BreadcrumbManagerInterface, onClose func(
 
 	// Обработчик смены вкладки для определения типа элемента
 	tabs.OnSelected = func(tab *container.TabItem) {
-		if tab.Text == "Element" {
+		switch tab.Text {
+		case "Element":
 			selectedType = ItemTypeElement
-		} else if tab.Text == "Folder" {
+		case "Folder":
 			selectedType = ItemTypeFolder
 		}
 	}

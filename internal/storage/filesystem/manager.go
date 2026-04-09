@@ -145,7 +145,7 @@ func GetFileInfo(hash string) (*FileData, error) {
 	if err != nil {
 		return nil, fmt.Errorf("ошибка открытия файла: %w", err)
 	}
-	defer file.Close()
+	defer func() { _ = file.Close() }()
 
 	buffer := make([]byte, 512)
 	_, err = file.Read(buffer)

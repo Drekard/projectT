@@ -70,7 +70,7 @@ func SaveItem(viewModel *CreateItemViewModel, formWidgets *FormWidgets, parentWi
 
 	// 2. Проверяем заголовок только при создании элемента, не при редактировании
 	if viewModel.Title == "" && !viewModel.EditMode {
-		dialog.ShowError(errors.New("Введите заголовок"), parentWindow)
+		dialog.ShowError(errors.New("введите заголовок"), parentWindow)
 		return
 	}
 
@@ -84,7 +84,7 @@ func SaveItem(viewModel *CreateItemViewModel, formWidgets *FormWidgets, parentWi
 		var err error
 		svcOldBlocks, err := contentService.JSONToBlocks(viewModel.ContentMeta)
 		if err != nil {
-			dialog.ShowError(fmt.Errorf("Ошибка разбора старого контента: %v", err), parentWindow)
+			dialog.ShowError(fmt.Errorf("ошибка разбора старого контента: %v", err), parentWindow)
 			return
 		}
 		// Преобразуем блоки из сервиса в локальный тип

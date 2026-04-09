@@ -136,21 +136,22 @@ func (ws *Workspace) UpdateContent(contentType string, param ...interface{}) {
 	}
 
 	// Для вкладок tags и chats всегда инициализируем и обновляем данные
-	if ct == ContentTypeTags {
+	switch ct {
+	case ContentTypeTags:
 		ws.initializeTagsUI()
 		ws.tagsUI.Refresh()
 		ws.contentCache[ct] = ws.createTagsContent()
 		ws.container.Objects = []fyne.CanvasObject{ws.contentCache[ct]}
 		ws.container.Refresh()
 		return
-	} else if ct == ContentTypeChats {
+	case ContentTypeChats:
 		ws.initializeChatsUI()
 		ws.chatsUI.Refresh()
 		ws.contentCache[ct] = ws.createChatsContent()
 		ws.container.Objects = []fyne.CanvasObject{ws.contentCache[ct]}
 		ws.container.Refresh()
 		return
-	} else if ct == ContentTypeContacts {
+	case ContentTypeContacts:
 		// Для вкладки "Контакты" всегда инициализируем и обновляем данные
 		ws.initializeContactsUI()
 		ws.contactsUI.Refresh()
@@ -158,7 +159,7 @@ func (ws *Workspace) UpdateContent(contentType string, param ...interface{}) {
 		ws.container.Objects = []fyne.CanvasObject{ws.contentCache[ct]}
 		ws.container.Refresh()
 		return
-	} else if ct == ContentTypeP2P {
+	case ContentTypeP2P:
 		// Для вкладки "P2P" всегда инициализируем и обновляем данные
 		ws.initializeP2PUI()
 		ws.p2pUI.Refresh()
@@ -166,7 +167,7 @@ func (ws *Workspace) UpdateContent(contentType string, param ...interface{}) {
 		ws.container.Objects = []fyne.CanvasObject{ws.contentCache[ct]}
 		ws.container.Refresh()
 		return
-	} else if ct == ContentTypeSaved || ct == ContentTypePreview {
+	case ContentTypeSaved, ContentTypePreview:
 		// Для вкладок saved/preview всегда обновляем данные, игнорируя кэш
 		// Это необходимо, т.к. gridManager один на обе вкладки и хранит только последнее состояние
 		var newContent fyne.CanvasObject
@@ -203,7 +204,7 @@ func (ws *Workspace) UpdateContent(contentType string, param ...interface{}) {
 		ws.container.Objects = []fyne.CanvasObject{newContent}
 		ws.container.Refresh()
 		return
-	} else {
+	default:
 		// Проверяем кэш для других типов контента (profile и т.д.)
 		if content, exists := ws.contentCache[ct]; exists && extraParam == nil {
 			ws.container.Objects = []fyne.CanvasObject{content}

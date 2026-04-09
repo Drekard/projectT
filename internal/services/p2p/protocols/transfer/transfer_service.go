@@ -194,7 +194,7 @@ func (ts *Service) SendFile(ctx context.Context, peerID peer.ID, filePath, fileN
 	if err != nil {
 		return "", fmt.Errorf("ошибка создания стрима: %w", err)
 	}
-	defer stream.Close()
+	defer func() { _ = stream.Close() }()
 
 	// Отправляем запрос
 	writer := bufio.NewWriter(stream)
@@ -285,7 +285,7 @@ func (ts *Service) sendFileChunks(stream network.Stream, transferID string, file
 
 // handleTransferRequest обрабатывает входящий запрос передачи
 func (ts *Service) handleTransferRequest(stream network.Stream) {
-	defer stream.Close()
+	defer func() { _ = stream.Close() }()
 
 	remotePeer := stream.Conn().RemotePeer()
 	log.Printf("Получен запрос передачи файла от: %s", remotePeer.String())
@@ -300,7 +300,7 @@ func (ts *Service) handleTransferRequest(stream network.Stream) {
 	if err := decoder.Decode(&request); err != nil {
 		log.Printf("Ошибка чтения запроса: %v", err)
 		_ = encoder.Encode(&TransferAck{Success: false, Error: err.Error()})
-		writer.Flush()
+		_ = writer.Flush()
 		return
 	}
 
@@ -324,7 +324,7 @@ func (ts *Service) handleTransferRequest(stream network.Stream) {
 
 	// Отправляем подтверждение готовности
 	_ = encoder.Encode(&TransferAck{Success: true, Received: 0})
-	writer.Flush()
+	_ = writer.Flush()
 
 	// Получаем путь для сохранения файла
 	destPath, err := ts.getDestinationPath(&request)
@@ -332,7 +332,7 @@ func (ts *Service) handleTransferRequest(stream network.Stream) {
 		log.Printf("Ошибка получения пути: %v", err)
 		transfer.UpdateProgress(0, TransferStatusFailed, err.Error())
 		_ = encoder.Encode(&TransferAck{Success: false, Error: err.Error()})
-		writer.Flush()
+		_ = writer.Flush()
 		return
 	}
 

@@ -113,7 +113,7 @@ func GetChatsWithLastMessages() ([]*models.ChatWithLastMessage, error) {
 	debugQuery := `SELECT id, contact_id, peer_id, is_temporary FROM chats`
 	debugRows, err := database.DB.Query(debugQuery)
 	if err == nil {
-		defer debugRows.Close()
+		defer func() { _ = debugRows.Close() }()
 		for debugRows.Next() {
 			var id int
 			var contactID sql.NullInt64
@@ -134,7 +134,7 @@ func GetChatsWithLastMessages() ([]*models.ChatWithLastMessage, error) {
 	`
 	debugProfilesRows, err := database.DB.Query(debugProfilesQuery)
 	if err == nil {
-		defer debugProfilesRows.Close()
+		defer func() { _ = debugProfilesRows.Close() }()
 		for debugProfilesRows.Next() {
 			var peerID, ownerType, username, avatarPath string
 			_ = debugProfilesRows.Scan(&peerID, &ownerType, &username, &avatarPath)

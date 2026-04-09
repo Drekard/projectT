@@ -113,6 +113,6 @@ func Open(dbPath string) (*sql.DB, error) {
 // CloseDB закрывает соединение с базой данных
 func CloseDB() {
 	if DB != nil {
-		DB.Close()
+		_ = DB.Close()
 	}
 }

@@ -633,7 +633,7 @@ func migrateFavoritesTable() {
 	if err != nil {
 		return
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 
 	hasEntityID := false
 	hasEntityUUID := false
@@ -667,7 +667,7 @@ func migrateFavoritesTable() {
 
 		rows, err := DB.Query(`SELECT id, entity_type, entity_id FROM favorites`)
 		if err == nil {
-			defer rows.Close()
+			defer func() { _ = rows.Close() }()
 			for rows.Next() {
 				var fav FavData
 				if err := rows.Scan(&fav.ID, &fav.EntityType, &fav.EntityID); err == nil {

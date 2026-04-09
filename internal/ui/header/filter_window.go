@@ -243,9 +243,10 @@ func (fwm *FilterWindowManager) createFilterForm() fyne.CanvasObject {
 	filterTabs := container.NewAppTabs(thisFolderTab, allItemsTab)
 	filterTabs.SetTabLocation(container.TabLocationTop)
 	filterTabs.OnSelected = func(tab *container.TabItem) {
-		if tab.Text == "This Folder" {
+		switch tab.Text {
+		case "This Folder":
 			fwm.currentOpts.TabMode = "current_folder"
-		} else if tab.Text == "All Items" {
+		case "All Items":
 			fwm.currentOpts.TabMode = "all_items"
 		}
 	}

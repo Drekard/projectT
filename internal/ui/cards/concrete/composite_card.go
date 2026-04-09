@@ -38,7 +38,7 @@ func NewCompositeCard(item *models.Item, noButtons ...bool) interfaces.CardRende
 		errorLabel.Alignment = fyne.TextAlignCenter
 
 		contentContainer := container.NewPadded(container.NewCenter(errorLabel))
-		compositeCard.BaseCard.Container = container.NewStack(compositeCard.Background, contentContainer)
+		compositeCard.Container = container.NewStack(compositeCard.Background, contentContainer)
 
 		return compositeCard
 	}

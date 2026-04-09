@@ -30,7 +30,7 @@ repos:
     hooks:
       - id: golangci-lint
         name: GolangCI-Lint
-        entry: C:/Users/egors/go/bin/golangci-lint.exe run
+        entry: golangci-lint run
         language: system
         types: [go]
         pass_filenames: false

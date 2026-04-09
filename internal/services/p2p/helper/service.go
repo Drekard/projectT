@@ -342,7 +342,7 @@ func (h *Helper) processRequests() {
 
 // handleOutgoingRequest обрабатывает исходящий запрос к другому помощнику
 func (h *Helper) handleOutgoingRequest(req *peerRequestCtx) {
-	defer req.stream.Close()
+	defer func() { _ = req.stream.Close() }()
 
 	// Отправляем запрос
 	if err := json.NewEncoder(req.stream).Encode(req.response); err != nil {

@@ -92,7 +92,7 @@ func (iss *Service) Stop() error {
 
 // handleItemRequest обрабатывает входящий запрос элементов
 func (iss *Service) handleItemRequest(stream network.Stream) {
-	defer stream.Close()
+	defer func() { _ = stream.Close() }()
 
 	remotePeer := stream.Conn().RemotePeer()
 	log.Printf("[ItemSync] 🔔 ===============================================")

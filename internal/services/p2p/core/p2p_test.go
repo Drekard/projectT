@@ -43,7 +43,7 @@ func createTestHost(t *testing.T, port int) host.Host {
 	require.NoError(t, err)
 
 	t.Cleanup(func() {
-		h.Close()
+		_ = h.Close()
 	})
 
 	return h
@@ -65,7 +65,7 @@ func createTestDHT(t *testing.T, h host.Host) (*dht.IpfsDHT, *routing.RoutingDis
 	require.NoError(t, err)
 
 	t.Cleanup(func() {
-		kdht.Close()
+		_ = kdht.Close()
 	})
 
 	// Bootstrap DHT
@@ -260,13 +260,13 @@ func TestP2PNetwork_PeerID(t *testing.T) {
 		h1, err := libp2p.New(libp2p.Identity(privKey1))
 		require.NoError(t, err)
 		id1 := h1.ID()
-		h1.Close()
+		_ = h1.Close()
 
 		// Создаём хост с тем же ключом
 		h2, err := libp2p.New(libp2p.Identity(privKey1))
 		require.NoError(t, err)
 		id2 := h2.ID()
-		h2.Close()
+		_ = h2.Close()
 
 		// PeerID должны совпадать
 		assert.Equal(t, id1, id2)
@@ -529,7 +529,7 @@ func BenchmarkP2PNetwork_HostCreation(b *testing.B) {
 	for i := 0; i < b.N; i++ {
 		privKey, _, _ := crypto.GenerateEd25519Key(rand.Reader)
 		h, _ := libp2p.New(libp2p.Identity(privKey), libp2p.ListenAddrStrings("/ip4/127.0.0.1/tcp/0"))
-		h.Close()
+		_ = h.Close()
 	}
 }
 
@@ -537,12 +537,12 @@ func BenchmarkP2PNetwork_HostCreation(b *testing.B) {
 func BenchmarkP2PNetwork_DHTCreation(b *testing.B) {
 	privKey, _, _ := crypto.GenerateEd25519Key(rand.Reader)
 	h, _ := libp2p.New(libp2p.Identity(privKey), libp2p.ListenAddrStrings("/ip4/127.0.0.1/tcp/0"))
-	defer h.Close()
+	defer func() { _ = h.Close() }()
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		ctx := context.Background()
 		kdht, _ := dht.New(ctx, h, dht.Mode(dht.ModeAuto), dht.ProtocolPrefix("/projectt-test"))
-		kdht.Close()
+		_ = kdht.Close()
 	}
 }

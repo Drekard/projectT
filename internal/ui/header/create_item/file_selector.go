@@ -27,7 +27,7 @@ func openFileDialog(parentWindow fyne.Window, filter []string, multiSelect bool)
 		}
 		if reader != nil {
 			selectedFiles = append(selectedFiles, reader.URI().Path())
-			reader.Close()
+			_ = reader.Close()
 		}
 	}, parentWindow)
 

@@ -106,7 +106,7 @@ func NewFolderCardWithNavigation(item *models.Item, navigationHandler FolderCard
 	})
 
 	// Обновляем контейнер карточки
-	folderCard.BaseCard.Container = container.NewStack(folderCard.Background, clickableCard)
+	folderCard.Container = container.NewStack(folderCard.Background, clickableCard)
 
 	// Асинхронно обновляем счетчик элементов
 	go func() {

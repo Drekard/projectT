@@ -39,7 +39,7 @@ func createTestHost(t *testing.T, port int) host.Host {
 	}
 
 	t.Cleanup(func() {
-		h.Close()
+		_ = h.Close()
 	})
 
 	return h
@@ -192,7 +192,7 @@ func TestSignAndVerifyMessage(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Ошибка создания хоста: %v", err)
 	}
-	defer host.Close()
+	defer func() { _ = host.Close() }()
 
 	chatService := chat.NewService(host, privKey, pubKey, nil)
 

@@ -29,7 +29,7 @@ func main() {
 	if err != nil {
 		log.Fatalf("Ошибка подключения к БД: %v", err)
 	}
-	defer db.Close()
+	defer func() { _ = db.Close() }()
 
 	fmt.Println("=== БАЗА ДАННЫХ:", dbPath, "===")
 
@@ -71,7 +71,7 @@ func main() {
 }
 
 func printRows(rows *sql.Rows, columns []string) {
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 
 	// Печатаем заголовок
 	fmt.Print("|")

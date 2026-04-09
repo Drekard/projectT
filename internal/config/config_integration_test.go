@@ -42,16 +42,16 @@ func TestLoader_Load_FullIntegration(t *testing.T) {
 		os.Args = originalArgs
 		for key, val := range originalEnv {
 			if val == "" {
-				os.Unsetenv(key)
+				_ = os.Unsetenv(key)
 			} else {
-				os.Setenv(key, val)
+				_ = os.Setenv(key, val)
 			}
 		}
 	}()
 
 	// Очищаем env переменные для чистоты теста
 	for key := range originalEnv {
-		os.Unsetenv(key)
+		_ = os.Unsetenv(key)
 	}
 
 	tmpDir := t.TempDir()
@@ -102,9 +102,9 @@ func TestLoader_Load_EnvOverridesFile(t *testing.T) {
 		os.Args = originalArgs
 		for key, val := range originalEnv {
 			if val == "" {
-				os.Unsetenv(key)
+				_ = os.Unsetenv(key)
 			} else {
-				os.Setenv(key, val)
+				_ = os.Setenv(key, val)
 			}
 		}
 	}()
@@ -131,9 +131,9 @@ func TestLoader_Load_EnvOverridesFile(t *testing.T) {
 	require.NoError(t, err)
 
 	// Устанавливаем env переменные
-	os.Setenv("PROJECTT_DB_PATH", normalizePathForOS("/env/db.sqlite"))
-	os.Setenv("PROJECTT_STORAGE_PATH", normalizePathForOS("/env/storage"))
-	os.Setenv("PROJECTT_P2P_PORT", "5000")
+	_ = os.Setenv("PROJECTT_DB_PATH", normalizePathForOS("/env/db.sqlite"))
+	_ = os.Setenv("PROJECTT_STORAGE_PATH", normalizePathForOS("/env/storage"))
+	_ = os.Setenv("PROJECTT_P2P_PORT", "5000")
 
 	// Загружаем конфигурацию
 	os.Args = []string{"projectT", "-config=" + configPath}
@@ -160,17 +160,17 @@ func TestLoader_Load_FlagsOverrideEnv(t *testing.T) {
 		os.Args = originalArgs
 		for key, val := range originalEnv {
 			if val == "" {
-				os.Unsetenv(key)
+				_ = os.Unsetenv(key)
 			} else {
-				os.Setenv(key, val)
+				_ = os.Setenv(key, val)
 			}
 		}
 	}()
 
 	// Устанавливаем env переменные
-	os.Setenv("PROJECTT_DB_PATH", normalizePathForOS("/env/db.sqlite"))
-	os.Setenv("PROJECTT_STORAGE_PATH", normalizePathForOS("/env/storage"))
-	os.Setenv("PROJECTT_P2P_PORT", "5000")
+	_ = os.Setenv("PROJECTT_DB_PATH", normalizePathForOS("/env/db.sqlite"))
+	_ = os.Setenv("PROJECTT_STORAGE_PATH", normalizePathForOS("/env/storage"))
+	_ = os.Setenv("PROJECTT_P2P_PORT", "5000")
 
 	// Загружаем конфигурацию с флагами
 	os.Args = []string{
@@ -208,9 +208,9 @@ func TestLoader_Load_FullPriorityChain(t *testing.T) {
 		os.Args = originalArgs
 		for key, val := range originalEnv {
 			if val == "" {
-				os.Unsetenv(key)
+				_ = os.Unsetenv(key)
 			} else {
-				os.Setenv(key, val)
+				_ = os.Setenv(key, val)
 			}
 		}
 	}()
@@ -244,8 +244,8 @@ func TestLoader_Load_FullPriorityChain(t *testing.T) {
 	require.NoError(t, err)
 
 	// Устанавливаем env переменные (частичное переопределение)
-	os.Setenv("PROJECTT_DB_PATH", normalizePathForOS("/env/db.sqlite"))
-	os.Setenv("PROJECTT_P2P_PORT", "5000")
+	_ = os.Setenv("PROJECTT_DB_PATH", normalizePathForOS("/env/db.sqlite"))
+	_ = os.Setenv("PROJECTT_P2P_PORT", "5000")
 
 	// Загружаем конфигурацию с флагом (точечное переопределение)
 	os.Args = []string{
@@ -286,15 +286,15 @@ func TestLoader_Load_NoConfigFile(t *testing.T) {
 		os.Args = originalArgs
 		for key, val := range originalEnv {
 			if val == "" {
-				os.Unsetenv(key)
+				_ = os.Unsetenv(key)
 			} else {
-				os.Setenv(key, val)
+				_ = os.Setenv(key, val)
 			}
 		}
 	}()
 
 	// Очищаем env
-	os.Unsetenv("PROJECTT_DB_PATH")
+	_ = os.Unsetenv("PROJECTT_DB_PATH")
 
 	// Загружаем без файла и флагов
 	os.Args = []string{"projectT"}

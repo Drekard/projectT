@@ -13,7 +13,7 @@ func ShowCreateItemModalForEdit(parentWindow fyne.Window, itemID int) {
 	// Создаем ViewModel для редактирования
 	viewModel, err := NewCreateItemViewModelForEdit(itemID)
 	if err != nil {
-		dialog.ShowError(fmt.Errorf("Ошибка загрузки элемента для редактирования: %v", err), parentWindow)
+		dialog.ShowError(fmt.Errorf("ошибка загрузки элемента для редактирования: %v", err), parentWindow)
 		return
 	}
 

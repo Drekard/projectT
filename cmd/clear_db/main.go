@@ -21,7 +21,7 @@ func main() {
 	if err != nil {
 		log.Fatalf("Ошибка подключения к БД: %v", err)
 	}
-	defer db.Close()
+	defer func() { _ = db.Close() }()
 
 	fmt.Println("=== ОЧИСТКА БАЗЫ ДАННЫХ ===")
 	fmt.Println("Путь:", dbPath)

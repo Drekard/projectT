@@ -236,7 +236,7 @@ func (ac *AudioCard) loadAudioInfo(block *cards.Block) {
 		ac.durationLabel.SetText("--:--")
 		return
 	}
-	defer file.Close()
+	defer func() { _ = file.Close() }()
 
 	var streamer beep.StreamSeekCloser
 	var format beep.Format
@@ -267,7 +267,7 @@ func (ac *AudioCard) loadAudioInfo(block *cards.Block) {
 	ac.durationLabel.SetText("--:--")
 
 	// Освобождаем ресурсы
-	streamer.Close()
+	_ = streamer.Close()
 }
 
 // togglePlayPause переключает воспроизведение
@@ -320,7 +320,7 @@ func (ac *AudioCard) play(filePath string) {
 
 	if err != nil {
 		fmt.Printf("[ERROR] Decoding error: %v\n", err)
-		file.Close()
+		_ = file.Close()
 		return
 	}
 
