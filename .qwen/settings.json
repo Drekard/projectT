@@ -23,7 +23,8 @@
       "Bash(choco *)",
       "Bash(set *)",
       "Bash($env:goos=\"linux\")",
-      "Bash($env:goarch=\"amd64\")"
+      "Bash($env:goarch=\"amd64\")",
+      "Bash($env:cgo_enabled=\"1\")"
     ]
   },
   "$version": 3

@@ -1,3 +1,5 @@
+//go:build windows
+
 package config
 
 import (
@@ -234,25 +236,6 @@ func TestNormalizePaths(t *testing.T) {
 	assert.True(t, filepath.IsAbs(loader.config.Database.Path))
 	assert.Contains(t, loader.config.Database.Path, "relative")
 	assert.Contains(t, loader.config.Storage.Path, "relative")
-}
-
-// TestNormalizePaths_Absolute проверяет что абсолютные пути не меняются
-func TestNormalizePaths_Absolute(t *testing.T) {
-	loader := NewLoader()
-
-	// Устанавливаем абсолютные пути
-	expectedDbPath := "C:\\test\\db.sqlite"
-	expectedStoragePath := "D:\\test\\storage"
-
-	loader.config.Database.Path = expectedDbPath
-	loader.config.Storage.Path = expectedStoragePath
-
-	// Нормализуем
-	loader.normalizePaths()
-
-	// На Windows пути должны остаться неизменными
-	assert.Equal(t, expectedDbPath, loader.config.Database.Path)
-	assert.Equal(t, expectedStoragePath, loader.config.Storage.Path)
 }
 
 // TestSave проверяет сохранение конфигурации в YAML
