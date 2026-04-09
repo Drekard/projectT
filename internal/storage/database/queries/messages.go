@@ -62,7 +62,7 @@ func GetMessagesForChat(chatID int, limit, offset int) ([]*models.ChatMessage, e
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 
 	var messages []*models.ChatMessage
 	for rows.Next() {

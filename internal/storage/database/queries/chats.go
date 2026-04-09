@@ -196,7 +196,7 @@ func GetChatsWithLastMessages() ([]*models.ChatWithLastMessage, error) {
 		log.Printf("[Chat] ❌ SQL ошибка GetChatsWithLastMessages: %v", err)
 		return nil, err
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 
 	var chats []*models.ChatWithLastMessage
 	rowCount := 0

@@ -158,7 +158,7 @@ func SaveItem(viewModel *CreateItemViewModel, formWidgets *FormWidgets, parentWi
 			imgBlocks, processingErrors := contentService.ProcessFileData(&newImages, []string{})
 			if len(processingErrors) > 0 {
 				// Показываем только первую ошибку
-				dialog.ShowError(fmt.Errorf("Ошибка обработки файлов: %v", processingErrors[0]), parentWindow)
+				dialog.ShowError(fmt.Errorf("ошибка обработки файлов: %v", processingErrors[0]), parentWindow)
 				return
 			}
 			// Преобразуем блоки из сервиса в локальный тип
@@ -187,7 +187,7 @@ func SaveItem(viewModel *CreateItemViewModel, formWidgets *FormWidgets, parentWi
 			fileBlocks, fileErrors := contentService.ProcessFileData(&newFiles, []string{})
 			if len(fileErrors) > 0 {
 				// Показываем только первую ошибку
-				dialog.ShowError(fmt.Errorf("Ошибка обработки файлов: %v", fileErrors[0]), parentWindow)
+				dialog.ShowError(fmt.Errorf("ошибка обработки файлов: %v", fileErrors[0]), parentWindow)
 				return
 			}
 			// Преобразуем блоки из сервиса в локальный тип
@@ -226,7 +226,7 @@ func SaveItem(viewModel *CreateItemViewModel, formWidgets *FormWidgets, parentWi
 			imgBlocks, processingErrors := contentService.ProcessFileData(&viewModel.Images, []string{})
 			if len(processingErrors) > 0 {
 				// Показываем только первую ошибку
-				dialog.ShowError(fmt.Errorf("Ошибка обработки файлов: %v", processingErrors[0]), parentWindow)
+				dialog.ShowError(fmt.Errorf("ошибка обработки файлов: %v", processingErrors[0]), parentWindow)
 				return
 			}
 			// Преобразуем блоки из сервиса в локальный тип
@@ -240,7 +240,7 @@ func SaveItem(viewModel *CreateItemViewModel, formWidgets *FormWidgets, parentWi
 			fileBlocks, fileErrors := contentService.ProcessFileData(&viewModel.Files, []string{})
 			if len(fileErrors) > 0 {
 				// Показываем только первую ошибку
-				dialog.ShowError(fmt.Errorf("Ошибка обработки файлов: %v", fileErrors[0]), parentWindow)
+				dialog.ShowError(fmt.Errorf("ошибка обработки файлов: %v", fileErrors[0]), parentWindow)
 				return
 			}
 			// Преобразуем блоки из сервиса в локальный тип
@@ -272,7 +272,7 @@ func SaveItem(viewModel *CreateItemViewModel, formWidgets *FormWidgets, parentWi
 	// 8. Конвертируем блоки в JSON для сохранения
 	contentMeta, err := contentService.BlocksToJSON(serviceBlocks)
 	if err != nil {
-		dialog.ShowError(fmt.Errorf("Ошибка сериализации контента: %v", err), parentWindow)
+		dialog.ShowError(fmt.Errorf("ошибка сериализации контента: %v", err), parentWindow)
 		return
 	}
 	fmt.Printf("Контент сериализован в JSON, длина: %d символов\n", len(contentMeta))
@@ -289,7 +289,7 @@ func SaveItem(viewModel *CreateItemViewModel, formWidgets *FormWidgets, parentWi
 		updatedItem, reallyOldBlocks, err := contentService.UpdateItemWithTransaction(ctx, viewModel.ID, viewModel.Title, viewModel.Description, itemType, contentMeta, viewModel.ParentID)
 		if err != nil {
 			fmt.Printf("ОШИБКА БД при обновлении: %v\n", err)
-			dialog.ShowError(fmt.Errorf("Ошибка БД: %v", err), parentWindow)
+			dialog.ShowError(fmt.Errorf("ошибка БД: %v", err), parentWindow)
 			return
 		}
 
@@ -297,7 +297,7 @@ func SaveItem(viewModel *CreateItemViewModel, formWidgets *FormWidgets, parentWi
 
 		// Обрабатываем теги
 		if err := contentService.ProcessTags(ctx, updatedItem.ID, viewModel.Tags); err != nil {
-			dialog.ShowError(fmt.Errorf("Ошибка обработки тегов: %v", err), parentWindow)
+			dialog.ShowError(fmt.Errorf("ошибка обработки тегов: %v", err), parentWindow)
 			// Не возвращаем ошибку, так как элемент уже обновлен
 		} else {
 			fmt.Println("Теги успешно обработаны")
@@ -318,7 +318,7 @@ func SaveItem(viewModel *CreateItemViewModel, formWidgets *FormWidgets, parentWi
 		item, err := contentService.CreateItemWithTransaction(ctx, viewModel.Title, viewModel.Description, itemType, contentMeta, viewModel.ParentID)
 		if err != nil {
 			fmt.Printf("ОШИБКА БД при создании: %v\n", err)
-			dialog.ShowError(fmt.Errorf("Ошибка БД: %v", err), parentWindow)
+			dialog.ShowError(fmt.Errorf("ошибка БД: %v", err), parentWindow)
 			return
 		}
 
@@ -327,7 +327,7 @@ func SaveItem(viewModel *CreateItemViewModel, formWidgets *FormWidgets, parentWi
 		// Обрабатываем теги
 		if viewModel.Tags != "" {
 			if err := contentService.ProcessTags(ctx, item.ID, viewModel.Tags); err != nil {
-				dialog.ShowError(fmt.Errorf("Ошибка обработки тегов: %v", err), parentWindow)
+				dialog.ShowError(fmt.Errorf("ошибка обработки тегов: %v", err), parentWindow)
 				// Не возвращаем ошибку, так как элемент уже создан
 			} else {
 				fmt.Println("Теги успешно обработаны")

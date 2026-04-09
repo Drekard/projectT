@@ -349,7 +349,7 @@ func (ts *Service) handleTransferRequest(stream network.Stream) {
 			log.Printf("Ошибка чтения чанка: %v", err)
 			transfer.UpdateProgress(totalReceived, TransferStatusFailed, err.Error())
 			_ = encoder.Encode(&TransferAck{Success: false, Received: totalReceived, Error: err.Error()})
-			writer.Flush()
+			_ = writer.Flush()
 			return
 		}
 
@@ -360,7 +360,7 @@ func (ts *Service) handleTransferRequest(stream network.Stream) {
 
 		// Отправляем подтверждение чанка
 		_ = encoder.Encode(&TransferAck{Success: true, Received: totalReceived})
-		writer.Flush()
+		_ = writer.Flush()
 
 		if chunk.IsLast {
 			break
@@ -373,7 +373,7 @@ func (ts *Service) handleTransferRequest(stream network.Stream) {
 		log.Printf("Хеш не совпадает: ожидался %s, получен %s", request.FileHash, receivedHash)
 		transfer.UpdateProgress(totalReceived, TransferStatusFailed, "хеш не совпадает")
 		_ = encoder.Encode(&TransferAck{Success: false, Error: "хеш не совпадает"})
-		writer.Flush()
+		_ = writer.Flush()
 		return
 	}
 
@@ -383,7 +383,7 @@ func (ts *Service) handleTransferRequest(stream network.Stream) {
 		log.Printf("Ошибка создания директории: %v", err)
 		transfer.UpdateProgress(totalReceived, TransferStatusFailed, err.Error())
 		_ = encoder.Encode(&TransferAck{Success: false, Error: err.Error()})
-		writer.Flush()
+		_ = writer.Flush()
 		return
 	}
 
@@ -391,7 +391,7 @@ func (ts *Service) handleTransferRequest(stream network.Stream) {
 		log.Printf("Ошибка сохранения файла: %v", err)
 		transfer.UpdateProgress(totalReceived, TransferStatusFailed, err.Error())
 		_ = encoder.Encode(&TransferAck{Success: false, Error: err.Error()})
-		writer.Flush()
+		_ = writer.Flush()
 		return
 	}
 
@@ -400,7 +400,7 @@ func (ts *Service) handleTransferRequest(stream network.Stream) {
 
 	// Отправляем финальное подтверждение
 	_ = encoder.Encode(&TransferAck{Success: true, Received: totalReceived})
-	writer.Flush()
+	_ = writer.Flush()
 }
 
 // getDestinationPath возвращает путь для сохранения файла

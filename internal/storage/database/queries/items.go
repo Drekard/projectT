@@ -237,7 +237,7 @@ func GetItemsByParent(parentID int) ([]*models.Item, error) {
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 
 	var items []*models.Item
 	for rows.Next() {
@@ -292,7 +292,7 @@ func GetAllItems() ([]*models.Item, error) {
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 
 	var items []*models.Item
 	for rows.Next() {
@@ -350,7 +350,7 @@ func GetSavedItems() ([]*models.Item, error) {
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 
 	var items []*models.Item
 	for rows.Next() {
@@ -408,7 +408,7 @@ func GetPreviewItems() ([]*models.Item, error) {
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 
 	var items []*models.Item
 	for rows.Next() {
@@ -486,7 +486,7 @@ func GetSavedItemsByParent(parentID int) ([]*models.Item, error) {
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 
 	var items []*models.Item
 	for rows.Next() {
@@ -564,7 +564,7 @@ func GetPreviewItemsByParent(parentID int) ([]*models.Item, error) {
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 
 	var items []*models.Item
 	for rows.Next() {
@@ -645,7 +645,7 @@ func updatePinnedUUIDs() error {
 	if err != nil {
 		return err
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 
 	var uuids []string
 	for rows.Next() {
@@ -730,7 +730,7 @@ func SearchItems(query string) ([]*models.Item, error) {
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 
 	var items []*models.Item
 	for rows.Next() {

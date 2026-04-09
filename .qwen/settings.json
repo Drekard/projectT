@@ -24,7 +24,10 @@
       "Bash(set *)",
       "Bash($env:goos=\"linux\")",
       "Bash($env:goarch=\"amd64\")",
-      "Bash($env:cgo_enabled=\"1\")"
+      "Bash($env:cgo_enabled=\"1\")",
+      "Bash(curl.exe *)",
+      "Bash(sh *)",
+      "Bash(type *)"
     ]
   },
   "$version": 3

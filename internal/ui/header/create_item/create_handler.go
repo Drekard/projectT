@@ -28,14 +28,14 @@ func CreateItem(title, description, tags string, selectedFiles *[]string, linkEn
 	// 5. Обрабатываем файлы и создаем блоки контента
 	blocks, processingErrors := contentService.ProcessFileData(selectedFiles, allLinks)
 	if len(processingErrors) > 0 {
-		dialog.ShowError(fmt.Errorf("Ошибка обработки файлов: %v", processingErrors[0]), modalWindow)
+		dialog.ShowError(fmt.Errorf("ошибка обработки файлов: %v", processingErrors[0]), modalWindow)
 		return fmt.Errorf("ошибка обработки файлов: %v", processingErrors[0])
 	}
 
 	// 6. Конвертируем блоки в JSON для сохранения
 	contentMeta, err := contentService.BlocksToJSON(blocks)
 	if err != nil {
-		dialog.ShowError(fmt.Errorf("Ошибка сериализации контента: %v", err), modalWindow)
+		dialog.ShowError(fmt.Errorf("ошибка сериализации контента: %v", err), modalWindow)
 		return fmt.Errorf("ошибка сериализации контента: %v", err)
 	}
 

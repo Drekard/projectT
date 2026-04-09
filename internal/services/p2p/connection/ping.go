@@ -155,7 +155,7 @@ func (s *Service) pingPeer(peerID peer.ID) {
 		s.handlePingFailure(peerID, fmt.Errorf("не удалось создать стрим: %w", err))
 		return
 	}
-	defer stream.Close()
+	defer func() { _ = stream.Close() }()
 
 	log.Printf("[KeepAlive] Стрим создан для %s за %v", peerID.String()[:8], time.Since(startTime))
 
@@ -238,7 +238,7 @@ func (s *Service) handlePingFailure(peerID peer.ID, err error) {
 
 // handlePing обрабатывает входящий ping
 func (s *Service) handlePing(stream network.Stream) {
-	defer stream.Close()
+	defer func() { _ = stream.Close() }()
 
 	buffer := make([]byte, 4)
 	n, err := stream.Read(buffer)

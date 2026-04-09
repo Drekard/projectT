@@ -57,7 +57,7 @@ func GetAllBootstrapPeers() ([]*models.BootstrapPeer, error) {
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 
 	var peers []*models.BootstrapPeer
 	for rows.Next() {
@@ -101,7 +101,7 @@ func GetActiveBootstrapPeers() ([]*models.BootstrapPeer, error) {
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 
 	var peers []*models.BootstrapPeer
 	for rows.Next() {

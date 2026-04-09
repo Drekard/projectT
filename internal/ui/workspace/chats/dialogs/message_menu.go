@@ -123,7 +123,7 @@ func (mmm *MessageMenuManager) showEditMessageDialog(message *models.ChatMessage
 		if confirmed {
 			newContent := editEntry.Text
 			if newContent == "" {
-				dialog.ShowError(fmt.Errorf("Message cannot be empty"), window)
+				dialog.ShowError(fmt.Errorf("message cannot be empty"), window)
 				return
 			}
 
@@ -131,7 +131,7 @@ func (mmm *MessageMenuManager) showEditMessageDialog(message *models.ChatMessage
 			message.Content = newContent
 			err := queries.UpdateChatMessage(message)
 			if err != nil {
-				dialog.ShowError(fmt.Errorf("Error updating message: %v", err), window)
+				dialog.ShowError(fmt.Errorf("error updating message: %v", err), window)
 				return
 			}
 
@@ -161,7 +161,7 @@ func (mmm *MessageMenuManager) showDeleteConfirmation(message *models.ChatMessag
 			if confirmed {
 				err := queries.DeleteChatMessage(message.ID)
 				if err != nil {
-					dialog.ShowError(fmt.Errorf("Error deleting message: %v", err), window)
+					dialog.ShowError(fmt.Errorf("error deleting message: %v", err), window)
 					return
 				}
 

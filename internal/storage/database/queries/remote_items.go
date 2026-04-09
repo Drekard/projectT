@@ -171,7 +171,7 @@ func GetRemoteItemsByPeer(sourcePeerID string) ([]*models.Item, error) {
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 
 	var items []*models.Item
 	for rows.Next() {

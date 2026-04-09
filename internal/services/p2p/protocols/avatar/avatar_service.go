@@ -60,7 +60,7 @@ func (s *Service) Stop() error {
 
 // handleAvatarRequest обрабатывает входящий запрос аватарки
 func (s *Service) handleAvatarRequest(stream network.Stream) {
-	defer stream.Close()
+	defer func() { _ = stream.Close() }()
 
 	remotePeer := stream.Conn().RemotePeer()
 	log.Printf("[Avatar] 📥 Запрос аватарки от %s", remotePeer.String()[:8])
@@ -122,7 +122,7 @@ func (s *Service) RequestAvatar(ctx context.Context, peerID peer.ID, avatarHash 
 	if err != nil {
 		return nil, fmt.Errorf("ошибка создания стрима: %w", err)
 	}
-	defer stream.Close()
+	defer func() { _ = stream.Close() }()
 
 	// Отправляем запрос
 	req := &AvatarRequest{

@@ -38,7 +38,7 @@ func GetActivePeerAddresses() ([]*models.PeerAddress, error) {
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 
 	var addresses []*models.PeerAddress
 	for rows.Next() {
@@ -111,7 +111,7 @@ func GetPeerAddressesByType(addressType string) ([]*models.PeerAddress, error) {
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 
 	var addresses []*models.PeerAddress
 	for rows.Next() {
@@ -373,7 +373,7 @@ func GetKnownPeersForExchange(excludePeerID string, limit int) ([]*models.PeerAd
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 
 	var addresses []*models.PeerAddress
 	for rows.Next() {

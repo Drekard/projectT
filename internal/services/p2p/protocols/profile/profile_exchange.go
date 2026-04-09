@@ -167,7 +167,7 @@ func (pes *ExchangeService) Stop() error {
 // 2. Отправляем свой профиль
 // 3. Читаем ответ (профиль инициатора)
 func (pes *ExchangeService) handleProfileRequest(stream network.Stream) {
-	defer stream.Close()
+	defer func() { _ = stream.Close() }()
 
 	remotePeer := stream.Conn().RemotePeer()
 	log.Printf("[Profile] === Получен запрос профиля от: %s (Роль 2 - СЕРВЕР) ===", remotePeer.String())
@@ -296,7 +296,7 @@ func (pes *ExchangeService) requestPeerProfileWithRole(ctx context.Context, peer
 		log.Printf("[Profile] Ошибка создания стрима для %s: %v", peerID.String()[:8], err)
 		return nil, fmt.Errorf("ошибка создания стрима: %w", err)
 	}
-	defer stream.Close()
+	defer func() { _ = stream.Close() }()
 	log.Printf("[Profile] Стрим создан для %s за %v", peerID.String()[:8], time.Since(startTime))
 
 	// Отправляем запрос

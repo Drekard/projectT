@@ -104,7 +104,7 @@ func GetFilesByItemID(itemID int) ([]*models.ItemFile, error) {
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 
 	var files []*models.ItemFile
 	for rows.Next() {
@@ -140,7 +140,7 @@ func GetRemoteFilesByPeer(sourcePeerID string) ([]*models.ItemFile, error) {
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 
 	var files []*models.ItemFile
 	for rows.Next() {

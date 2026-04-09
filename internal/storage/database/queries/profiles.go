@@ -133,7 +133,7 @@ func GetAllRemoteProfiles() ([]*models.Profile, error) {
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 
 	var profiles []*models.Profile
 	for rows.Next() {

@@ -40,7 +40,7 @@ func (n *P2PNetwork) onPeerDisconnected(peerID peer.ID) {
 
 // handleChatStream обрабатывает входящий поток чата
 func (n *P2PNetwork) handleChatStream(stream network.Stream) {
-	defer stream.Close()
+	defer func() { _ = stream.Close() }()
 	// Делегируем обработку в ChatService
 	if n.chat != nil {
 		n.chat.HandleChatStream(stream)

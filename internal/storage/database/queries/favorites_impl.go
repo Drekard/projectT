@@ -118,7 +118,7 @@ func (f *FavoritesServiceImpl) GetFavoriteFolders() ([]*models.Item, error) {
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 
 	var items []*models.Item
 	for rows.Next() {
@@ -149,7 +149,7 @@ func (f *FavoritesServiceImpl) GetFavoriteTags() ([]*models.Tag, error) {
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 
 	var tags []*models.Tag
 	for rows.Next() {
@@ -173,7 +173,7 @@ func (f *FavoritesServiceImpl) GetAllFavorites() ([]*models.Favorite, error) {
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 
 	var favorites []*models.Favorite
 	for rows.Next() {

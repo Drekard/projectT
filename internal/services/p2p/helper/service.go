@@ -236,7 +236,7 @@ func (h *Helper) Clear() {
 
 // handleHelperStream обрабатывает входящий запрос от другого пира
 func (h *Helper) handleHelperStream(stream network.Stream) {
-	defer stream.Close()
+	defer func() { _ = stream.Close() }()
 
 	remotePeer := stream.Conn().RemotePeer()
 	log.Printf("📥 [Helper] Запрос от: %s", remotePeer.String())
@@ -419,7 +419,7 @@ func (h *Helper) RegisterOnRemote(ctx context.Context, helperPeerID peer.ID) err
 	if err != nil {
 		return fmt.Errorf("ошибка создания стрима: %w", err)
 	}
-	defer stream.Close()
+	defer func() { _ = stream.Close() }()
 
 	req := &PeerRequest{
 		Command: CmdRegister,
@@ -449,7 +449,7 @@ func (h *Helper) AskFromRemote(ctx context.Context, helperPeerID peer.ID, target
 	if err != nil {
 		return nil, fmt.Errorf("ошибка создания стрима: %w", err)
 	}
-	defer stream.Close()
+	defer func() { _ = stream.Close() }()
 
 	req := &PeerRequest{
 		Command: CmdAsk,
@@ -478,7 +478,7 @@ func (h *Helper) ListFromRemote(ctx context.Context, helperPeerID peer.ID) ([]Pe
 	if err != nil {
 		return nil, fmt.Errorf("ошибка создания стрима: %w", err)
 	}
-	defer stream.Close()
+	defer func() { _ = stream.Close() }()
 
 	req := &PeerRequest{
 		Command: CmdList,

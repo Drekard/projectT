@@ -239,7 +239,7 @@ func (cs *Service) SendMessage(ctx context.Context, peerID peer.ID, content, con
 		return fmt.Errorf("ошибка создания стрима: %w", err)
 	}
 	log.Printf("[Chat] 🔗 Стрим создан для отправки сообщения")
-	defer stream.Close()
+	defer func() { _ = stream.Close() }()
 
 	// Отправляем сообщение
 	writer := bufio.NewWriter(stream)
@@ -296,7 +296,7 @@ func (cs *Service) handleChatStream(stream network.Stream) {
 
 // HandleChatStream обрабатывает входящий поток чата (публичный метод)
 func (cs *Service) HandleChatStream(stream network.Stream) {
-	defer stream.Close()
+	defer func() { _ = stream.Close() }()
 
 	remotePeer := stream.Conn().RemotePeer()
 	log.Printf("[Chat] 📥 Получен поток чата от: %s", remotePeer.String())
@@ -694,7 +694,7 @@ func (cs *Service) sendQueuedMessage(ctx context.Context, peerID peer.ID, msg *Q
 	if err != nil {
 		return err
 	}
-	defer stream.Close()
+	defer func() { _ = stream.Close() }()
 
 	// Отправляем
 	writer := bufio.NewWriter(stream)

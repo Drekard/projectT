@@ -356,22 +356,22 @@ func TestLoadFromEnv(t *testing.T) {
 	defer func() {
 		for key, val := range originalEnv {
 			if val == "" {
-				os.Unsetenv(key)
+				_ = os.Unsetenv(key)
 			} else {
-				os.Setenv(key, val)
+				_ = os.Setenv(key, val)
 			}
 		}
 	}()
 
 	// Устанавливаем тестовые значения
-	os.Setenv("PROJECTT_DB_PATH", "/env/db.sqlite")
-	os.Setenv("PROJECTT_DB_BUSY_TIMEOUT", "45000")
-	os.Setenv("PROJECTT_STORAGE_PATH", "/env/storage")
-	os.Setenv("PROJECTT_STORAGE_FILES_DIR", "env_files")
-	os.Setenv("PROJECTT_P2P_ENABLED", "false")
-	os.Setenv("PROJECTT_P2P_PORT", "6000")
-	os.Setenv("PROJECTT_P2P_RELAY", "false")
-	os.Setenv("PROJECTT_P2P_RELAY_DISCOVERY", "false")
+	_ = os.Setenv("PROJECTT_DB_PATH", "/env/db.sqlite")
+	_ = os.Setenv("PROJECTT_DB_BUSY_TIMEOUT", "45000")
+	_ = os.Setenv("PROJECTT_STORAGE_PATH", "/env/storage")
+	_ = os.Setenv("PROJECTT_STORAGE_FILES_DIR", "env_files")
+	_ = os.Setenv("PROJECTT_P2P_ENABLED", "false")
+	_ = os.Setenv("PROJECTT_P2P_PORT", "6000")
+	_ = os.Setenv("PROJECTT_P2P_RELAY", "false")
+	_ = os.Setenv("PROJECTT_P2P_RELAY_DISCOVERY", "false")
 
 	loader := NewLoader()
 	loader.loadFromEnv()
@@ -397,16 +397,16 @@ func TestLoadFromEnv_InvalidValues(t *testing.T) {
 	defer func() {
 		for key, val := range originalEnv {
 			if val == "" {
-				os.Unsetenv(key)
+				_ = os.Unsetenv(key)
 			} else {
-				os.Setenv(key, val)
+				_ = os.Setenv(key, val)
 			}
 		}
 	}()
 
 	// Устанавливаем невалидные значения
-	os.Setenv("PROJECTT_DB_BUSY_TIMEOUT", "invalid")
-	os.Setenv("PROJECTT_P2P_PORT", "not_a_number")
+	_ = os.Setenv("PROJECTT_DB_BUSY_TIMEOUT", "invalid")
+	_ = os.Setenv("PROJECTT_P2P_PORT", "not_a_number")
 
 	loader := NewLoader()
 	originalTimeout := loader.config.Database.BusyTimeout

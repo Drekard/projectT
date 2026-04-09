@@ -53,7 +53,7 @@ func checkTagTableStructure(ctx context.Context, tx *sql.Tx) (bool, error) {
 	if err != nil {
 		return false, fmt.Errorf("ошибка проверки структуры таблицы тегов: %w", err)
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 
 	hasDescription := false
 	for rows.Next() {
@@ -275,7 +275,7 @@ func GetOrCreateTags(ctx context.Context, tagNames []string) ([]int, error) {
 	if err != nil {
 		return nil, fmt.Errorf("ошибка запроса существующих тегов: %w", err)
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 
 	// Собираем существующие теги
 	existingTags := make(map[string]int)
@@ -364,7 +364,7 @@ func GetAllTags(ctx context.Context) ([]*models.Tag, error) {
 	if err != nil {
 		return nil, fmt.Errorf("ошибка запроса тегов: %w", err)
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 
 	var tags []*models.Tag
 	for rows.Next() {
@@ -430,7 +430,7 @@ func SearchTagsByName(ctx context.Context, name string) ([]*models.Tag, error) {
 	if err != nil {
 		return nil, fmt.Errorf("ошибка поиска тегов: %w", err)
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 
 	var tags []*models.Tag
 	for rows.Next() {
@@ -654,7 +654,7 @@ func GetTagsForItem(ctx context.Context, itemID int) ([]*models.Tag, error) {
 	if err != nil {
 		return nil, fmt.Errorf("ошибка запроса тегов элемента: %w", err)
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 
 	var tags []*models.Tag
 	for rows.Next() {
@@ -694,7 +694,7 @@ func GetItemsForTag(ctx context.Context, tagID int) ([]*models.Item, error) {
 	if err != nil {
 		return nil, fmt.Errorf("ошибка запроса элементов тега: %w", err)
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 
 	var items []*models.Item
 	for rows.Next() {
@@ -729,7 +729,7 @@ func GetTagsUsageCount(ctx context.Context) (map[int]int, error) {
 	if err != nil {
 		return nil, fmt.Errorf("ошибка запроса статистики тегов: %w", err)
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 
 	usageCount := make(map[int]int)
 	for rows.Next() {

@@ -826,7 +826,7 @@ func migratePeerAddressesAndProfiles() {
 	var hasLastConnected, hasConnectionCount bool
 	rows, err := DB.Query(`PRAGMA table_info(profiles)`)
 	if err == nil {
-		defer rows.Close()
+		defer func() { _ = rows.Close() }()
 		for rows.Next() {
 			var cid int
 			var name, typ string

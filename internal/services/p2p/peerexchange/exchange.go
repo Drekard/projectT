@@ -101,7 +101,7 @@ func (s *ExchangeService) Stop() error {
 
 // handleExchange обрабатывает входящий запрос обмена
 func (s *ExchangeService) handleExchange(stream network.Stream) {
-	defer stream.Close()
+	defer func() { _ = stream.Close() }()
 
 	remotePeer := stream.Conn().RemotePeer()
 	log.Printf("[PeerExchange] 📥 Запрос обмена от %s", remotePeer.String()[:8])
@@ -195,7 +195,7 @@ func (s *ExchangeService) ExchangeWithPeer(ctx context.Context, peerID peer.ID) 
 	if err != nil {
 		return fmt.Errorf("ошибка создания стрима: %w", err)
 	}
-	defer stream.Close()
+	defer func() { _ = stream.Close() }()
 
 	// Читаем пиры от удалённого пира
 	reader := bufio.NewReader(stream)

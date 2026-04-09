@@ -368,7 +368,7 @@ func (iss *Service) RequestItems(ctx context.Context, peerID peer.ID, itemIDs []
 	if err != nil {
 		return nil, fmt.Errorf("ошибка создания стрима: %w", err)
 	}
-	defer stream.Close()
+	defer func() { _ = stream.Close() }()
 
 	// Отправляем запрос
 	req := &ItemRequest{ItemIDs: itemIDs}
@@ -427,7 +427,7 @@ func (iss *Service) RequestItemByHash(ctx context.Context, peerID peer.ID, hash 
 	if err != nil {
 		return nil, fmt.Errorf("ошибка создания стрима: %w", err)
 	}
-	defer stream.Close()
+	defer func() { _ = stream.Close() }()
 
 	// Отправляем запрос
 	req := &ItemRequest{Hash: hash}
@@ -468,7 +468,7 @@ func (iss *Service) RequestItemByElementUUID(ctx context.Context, peerID peer.ID
 		log.Printf("[ItemSync] ❌ Ошибка создания стрима: %v", err)
 		return nil, fmt.Errorf("ошибка создания стрима: %w", err)
 	}
-	defer stream.Close()
+	defer func() { _ = stream.Close() }()
 	log.Printf("[ItemSync] ✅ Стрим создан")
 
 	// Отправляем запрос с element_uuid в поле Hash (для совместимости)
@@ -523,7 +523,7 @@ func (iss *Service) RequestAllItems(ctx context.Context, peerID peer.ID) ([]*mod
 	if err != nil {
 		return nil, fmt.Errorf("ошибка создания стрима: %w", err)
 	}
-	defer stream.Close()
+	defer func() { _ = stream.Close() }()
 
 	// Отправляем запрос
 	req := &ItemRequest{All: true}

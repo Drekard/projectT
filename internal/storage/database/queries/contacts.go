@@ -181,7 +181,7 @@ func GetAllContacts() ([]*models.Contact, error) {
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 
 	var contacts []*models.Contact
 	for rows.Next() {
@@ -367,7 +367,7 @@ func SearchContacts(query string) ([]*models.Contact, error) {
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 
 	var contacts []*models.Contact
 	for rows.Next() {

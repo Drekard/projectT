@@ -122,7 +122,7 @@ func (mm *MenuManager) ShowSimpleMenu(item *models.Item, cont fyne.CanvasObject,
 						saveButton := widget.NewButton("Save to collection", func() {
 							if err := mm.saveItemToCollection(item); err != nil {
 								appWindow := fyne.CurrentApp().Driver().AllWindows()[0]
-								dialog.ShowError(fmt.Errorf("Ошибка сохранения: %v", err), appWindow)
+								dialog.ShowError(fmt.Errorf("ошибка сохранения: %v", err), appWindow)
 							} else {
 								popup.Hide()
 								if onClose != nil {
@@ -148,7 +148,7 @@ func (mm *MenuManager) ShowSimpleMenu(item *models.Item, cont fyne.CanvasObject,
 								func(confirmed bool) {
 									if confirmed {
 										if err := mm.removeItemFromCollection(item); err != nil {
-											dialog.ShowError(fmt.Errorf("Ошибка удаления из коллекции: %v", err), appWindow)
+											dialog.ShowError(fmt.Errorf("ошибка удаления из коллекции: %v", err), appWindow)
 										} else {
 											popup.Hide()
 											if onClose != nil {
@@ -185,7 +185,7 @@ func (mm *MenuManager) ShowSimpleMenu(item *models.Item, cont fyne.CanvasObject,
 								func(confirmed bool) {
 									if confirmed {
 										if err := mm.deleteItem(item); err != nil {
-											dialog.ShowError(fmt.Errorf("Ошибка при удалении элемента: %v", err), appWindow)
+											dialog.ShowError(fmt.Errorf("ошибка при удалении элемента: %v", err), appWindow)
 										} else {
 											popup.Hide()
 											if onClose != nil {
@@ -769,7 +769,7 @@ func showMoveFolderSelection(parentPopup *widget.PopUp, item *models.Item) {
 			if err != nil {
 				// Показываем ошибку
 				appWindow := fyne.CurrentApp().Driver().AllWindows()[0]
-				dialog.ShowError(fmt.Errorf("Ошибка перемещения элемента: %v", err), appWindow)
+				dialog.ShowError(fmt.Errorf("ошибка перемещения элемента: %v", err), appWindow)
 			} else {
 				// Закрываем родительский попап
 				parentPopup.Hide()
@@ -792,7 +792,7 @@ func showMoveFolderSelection(parentPopup *widget.PopUp, item *models.Item) {
 						if err != nil {
 							// Показываем ошибку
 							appWindow := fyne.CurrentApp().Driver().AllWindows()[0]
-							dialog.ShowError(fmt.Errorf("Ошибка перемещения элемента: %v", err), appWindow)
+							dialog.ShowError(fmt.Errorf("ошибка перемещения элемента: %v", err), appWindow)
 						} else {
 							// Закрываем родительский попап
 							parentPopup.Hide()
