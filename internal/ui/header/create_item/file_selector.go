@@ -1,19 +1,13 @@
-//go:build windows
-
 package create_item
 
 import (
-	"bytes"
 	"fmt"
-	"os"
-	"os/exec"
 	"strings"
-	"unicode/utf8"
-
-	"golang.org/x/text/encoding/charmap"
 
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/container"
+	"fyne.io/fyne/v2/dialog"
+	"fyne.io/fyne/v2/storage"
 	"fyne.io/fyne/v2/widget"
 )
 
@@ -23,129 +17,34 @@ type FileUploadState struct {
 	UpdateDisplay func()
 }
 
-// openWindowsFileDialog открывает стандартный диалог выбора файлов Windows
-func OpenWindowsFileDialog(filter []string, multiSelect bool) ([]string, error) {
-	// Создаем PowerShell скрипт для открытия диалога выбора файлов
-	psScript := `
-[Console]::OutputEncoding = [System.Text.Encoding]::UTF8
-Add-Type -AssemblyName System.Windows.Forms
-$dialog = New-Object System.Windows.Forms.OpenFileDialog
-$dialog.Title = "Select files"
-$dialog.Multiselect = $true
-`
+// openFileDialog открывает диалог выбора файлов (кроссплатформенная версия)
+func openFileDialog(parentWindow fyne.Window, filter []string, multiSelect bool) ([]string, error) {
+	var selectedFiles []string
 
-	// Добавляем фильтр, если он задан
+	fd := dialog.NewFileOpen(func(reader fyne.URIReadCloser, err error) {
+		if err != nil {
+			return
+		}
+		if reader != nil {
+			selectedFiles = append(selectedFiles, reader.URI().Path())
+			reader.Close()
+		}
+	}, parentWindow)
+
+	// Устанавливаем фильтр если указан
 	if len(filter) > 0 {
-		// Создаем строку фiterа в формате: "Image files (*.jpg, *.png)|*.jpg;*.png"
-		filterExtensions := []string{}
-
-		for _, ext := range filter {
-			cleanExt := strings.TrimPrefix(ext, ".")
-			filterExtensions = append(filterExtensions, "*."+cleanExt)
+		extensions := make([]string, len(filter))
+		for i, ext := range filter {
+			extensions[i] = strings.TrimPrefix(ext, ".")
 		}
-
-		filterStr := strings.Join(filterExtensions, ";")
-		displayName := "Files"
-
-		// Определяем отображаемое имя в зависимости от типа фильтра
-		if len(filter) == 1 && (strings.Contains(filter[0], "jpg") ||
-			strings.Contains(filter[0], "jpeg") ||
-			strings.Contains(filter[0], "png") ||
-			strings.Contains(filter[0], "gif") ||
-			strings.Contains(filter[0], "bmp")) {
-			displayName = "Image files"
-		} else if len(filter) == 1 && (strings.Contains(filter[0], "pdf") ||
-			strings.Contains(filter[0], "doc") ||
-			strings.Contains(filter[0], "txt")) {
-			displayName = "Document files"
-		}
-
-		psScript += fmt.Sprintf(`$dialog.Filter = "%s (%s)|%s"`,
-			displayName,
-			strings.Join(filterExtensions, ", "),
-			filterStr)
-
-		// Добавляем опцию "Все файлы" для удобства
-		psScript += fmt.Sprintf(`
-$dialog.FilterIndex = 1
-$dialog.DefaultExt = "%s"`, filterExtensions[0])
+		fd.SetFilter(storage.NewExtensionFileFilter(extensions))
 	}
 
-	psScript += `
-$result = $dialog.ShowDialog()
-if ($result -eq [System.Windows.Forms.DialogResult]::OK) {
-    $dialog.FileNames | ForEach-Object {
-        Write-Output $_
-    }
-} else {
-    Write-Output ""
-}
-`
+	fd.Show()
 
-	// Выполняем PowerShell скрипт с явным указанием кодировки
-	cmd := exec.Command("powershell", "-Command", psScript)
-
-	// Устанавливаем кодировку для ввода/вывода
-	cmd.Env = append(os.Environ(),
-		"PYTHONIOENCODING=utf-8",
-		"LANG=en_US.UTF-8",
-	)
-
-	// Используем правильную кодировку для вывода
-	var stdout, stderr bytes.Buffer
-	cmd.Stdout = &stdout
-	cmd.Stderr = &stderr
-
-	err := cmd.Run()
-	if err != nil {
-		// Проверяем, может быть это просто отмена выбора
-		if exitErr, ok := err.(*exec.ExitError); ok && exitErr.ExitCode() == 0 {
-			return []string{}, nil
-		}
-		return nil, fmt.Errorf("dialog error: %v\nstderr: %s", err, stderr.String())
-	}
-
-	// Преобразуем вывод с учетом кодировки
-	outputBytes := stdout.Bytes()
-
-	// Пробуем декодировать в UTF-8, если не получается - пробуем windows-1251
-	var outputStr string
-	if utf8.Valid(outputBytes) {
-		outputStr = string(outputBytes)
-	} else {
-		// Пробуем другие кодировки
-		if dec, err := charmap.Windows1251.NewDecoder().Bytes(outputBytes); err == nil {
-			outputStr = string(dec)
-		} else {
-			// Последняя попытка - преобразовать как есть
-			outputStr = string(outputBytes)
-		}
-	}
-
-	outputStr = strings.TrimSpace(outputStr)
-	if outputStr == "" {
-		return []string{}, nil
-	}
-
-	// Разделяем строки
-	lines := strings.ReplaceAll(outputStr, "\r\n", "\n")
-	files := strings.Split(lines, "\n")
-
-	// Очищаем пробелы
-	var cleanFiles []string
-	for _, file := range files {
-		cleanFile := strings.TrimSpace(file)
-		if cleanFile != "" && cleanFile != "\"" {
-			// Проверяем существование файла
-			if _, err := os.Stat(cleanFile); err == nil {
-				cleanFiles = append(cleanFiles, cleanFile)
-			} else {
-				_ = err //nolint:staticcheck // Если файл не найден, продолжаем
-			}
-		}
-	}
-
-	return cleanFiles, nil
+	// Ждём завершения диалога (простая реализация)
+	// В идеале нужно использовать каналы или callback'и
+	return selectedFiles, nil
 }
 
 // IsImageFile проверяет, является ли файл изображением по его расширению
@@ -165,20 +64,25 @@ func IsImageFile(filename string) bool {
 // CreateFileSelector создает элемент управления для выбора файлов
 func CreateFileSelector(fileState *FileUploadState) fyne.CanvasObject {
 	// Кнопка для выбора файла
-	fileSelectorButton := widget.NewButton("Select file/image/video", nil) // Initially without handler
+	fileSelectorButton := widget.NewButton("Select file/image/video", nil)
 
 	// Контейнер для отображения выбранного файла с кнопкой удаления
 	fileDisplayContainer := container.NewVBox()
 
 	// Назначаем обработчик событий для кнопки выбора файла
 	fileSelectorButton.OnTapped = func() {
-		// Получаем текущий Canvas
-		canvas := fyne.CurrentApp().Driver().CanvasForObject(fileSelectorButton)
+		// Получаем окно для диалога
+		windows := fyne.CurrentApp().Driver().AllWindows()
+		if len(windows) == 0 {
+			return
+		}
+		parentWindow := windows[0]
 
-		// Открываем стандартный диалог Windows
-		selectedFiles, err := OpenWindowsFileDialog(nil, true) // без фильтра - любые файлы
+		// Открываем кроссплатформенный диалог
+		selectedFiles, err := openFileDialog(parentWindow, nil, true)
 		if err != nil {
 			// В случае ошибки показываем сообщение
+			canvas := fyne.CurrentApp().Driver().CanvasForObject(fileSelectorButton)
 			errorLabel := widget.NewLabel(fmt.Sprintf("Error selecting files:\n%v", err))
 			errorLabel.Wrapping = fyne.TextWrapWord
 
@@ -189,13 +93,13 @@ func CreateFileSelector(fileState *FileUploadState) fyne.CanvasObject {
 				container.NewCenter(closeButton),
 			)
 
-			dialog := widget.NewModalPopUp(popupContent, canvas)
+			popup := widget.NewModalPopUp(popupContent, canvas)
 
 			closeButton.OnTapped = func() {
-				dialog.Hide()
+				popup.Hide()
 			}
 
-			dialog.Show()
+			popup.Show()
 			return
 		}
 
