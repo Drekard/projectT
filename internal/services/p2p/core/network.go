@@ -15,6 +15,7 @@ import (
 	"github.com/libp2p/go-libp2p/core/network"
 	"github.com/libp2p/go-libp2p/core/peer"
 	"github.com/multiformats/go-multiaddr"
+	"github.com/prometheus/client_golang/prometheus"
 
 	dht "github.com/libp2p/go-libp2p-kad-dht"
 	"github.com/libp2p/go-libp2p/p2p/discovery/routing"
@@ -41,29 +42,30 @@ type HelperService struct {
 
 // P2PNetwork представляет P2P сеть проекта
 type P2PNetwork struct {
-	host            host.Host
-	dht             *dht.IpfsDHT
-	dhtDiscovery    *routing.RoutingDiscovery
-	pubsub          *pubsub.PubSub
-	discovery       *discovery.DiscoveryService
-	connections     *connection.Service
-	chat            *chat.Service
-	profileExchange *profile.ExchangeService
-	itemSync        *itemsync.Service
-	transfer        *transfer.Service
-	avatar          *avatar.Service               // ✅ Сервис загрузки аватарок
-	autodial        *autodial.DialerManager       // ✅ Менеджер автоподключения
-	peerExchange    *peerexchange.ExchangeService // ✅ Сервис обмена пирами
-	helper          *HelperService
-	config          *p2p.P2PConfig
-	ctx             context.Context
-	cancel          context.CancelFunc
-	mu              sync.RWMutex
-	peerAddrs       map[peer.ID]multiaddr.Multiaddr
-	localPrivKey    crypto.PrivKey
-	localPubKey     crypto.PubKey
-	profileMgr      *ProfileManager
-	keyMgr          *KeyManager
+	host               host.Host
+	dht                *dht.IpfsDHT
+	dhtDiscovery       *routing.RoutingDiscovery
+	pubsub             *pubsub.PubSub
+	discovery          *discovery.DiscoveryService
+	connections        *connection.Service
+	chat               *chat.Service
+	profileExchange    *profile.ExchangeService
+	itemSync           *itemsync.Service
+	transfer           *transfer.Service
+	avatar             *avatar.Service               // ✅ Сервис загрузки аватарок
+	autodial           *autodial.DialerManager       // ✅ Менеджер автоподключения
+	peerExchange       *peerexchange.ExchangeService // ✅ Сервис обмена пирами
+	helper             *HelperService
+	config             *p2p.P2PConfig
+	prometheusRegistry prometheus.Registerer // Prometheus registry для libp2p метрик
+	ctx                context.Context
+	cancel             context.CancelFunc
+	mu                 sync.RWMutex
+	peerAddrs          map[peer.ID]multiaddr.Multiaddr
+	localPrivKey       crypto.PrivKey
+	localPubKey        crypto.PubKey
+	profileMgr         *ProfileManager
+	keyMgr             *KeyManager
 }
 
 // NewP2PNetwork создаёт новый экземпляр P2P сети
@@ -77,6 +79,15 @@ func NewP2PNetwork() *P2PNetwork {
 		profileMgr: NewProfileManager(),
 		keyMgr:     NewKeyManager(),
 	}
+}
+
+// SetPrometheusRegistry устанавливает Prometheus registry для libp2p метрик
+func (n *P2PNetwork) SetPrometheusRegistry(registry prometheus.Registerer) {
+	n.mu.Lock()
+	defer n.mu.Unlock()
+	n.prometheusRegistry = registry
+	n.config.EnablePrometheusMetrics = true
+	log.Println("[P2P] Prometheus registry установлен")
 }
 
 // SetPort устанавливает порт для P2P соединений

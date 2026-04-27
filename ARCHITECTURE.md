@@ -962,6 +962,10 @@ User A                  P2P Network          User B
 internal/
 ├── app/              # Application initialization
 ├── config/           # Configuration
+├── metrics/          # Prometheus metrics
+│   ├── metrics.go    # Custom application metrics
+│   ├── server.go     # HTTP metrics server
+│   └── global.go     # Global metrics manager
 ├── services/         # Business logic
 │   ├── favorites/    # Favorites
 │   ├── pinned/       # Pinned items
@@ -981,6 +985,83 @@ internal/
     ├── sidebar/      # Sidebar
     ├── header/       # Header bar
     └── cards/        # Cards
+```
+
+---
+
+## 13. Monitoring & Observability
+
+### 13.1. Prometheus Integration
+
+ProjectT includes built-in support for Prometheus metrics export.
+
+**Architecture:**
+```
+┌──────────────────────────────────────────────────────┐
+│  ProjectT Application                                │
+│  ┌─────────────┐  ┌─────────────┐  ┌─────────────┐ │
+│  │  Items      │  │  P2P        │  │  Chat       │ │
+│  │  Service    │  │  Service    │  │  Service    │ │
+│  └──────┬──────┘  └──────┬──────┘  └──────┬──────┘ │
+│         │                │                │         │
+│         └────────────────┼────────────────┘         │
+│                          ▼                          │
+│              ┌─────────────────────────┐           │
+│              │  Metrics Registry       │           │
+│              │  (prometheus.Registry)  │           │
+│              └───────────┬─────────────┘           │
+│                          ▼                          │
+│              ┌─────────────────────────┐           │
+│              │  HTTP Metrics Server    │           │
+│              │  :9090/metrics          │           │
+│              └─────────────────────────┘           │
+└──────────────────────────────────────────────────────┘
+                          │
+                          ▼ scrape
+┌──────────────────────────────────────────────────────┐
+│  Prometheus Server (:9090)                           │
+│  └─> Storage TSDB                                   │
+└──────────────────────────────────────────────────────┘
+                          │
+                          ▼ query
+┌──────────────────────────────────────────────────────┐
+│  Grafana Dashboard (:3000)                           │
+│  └─> Visualizations & Alerts                        │
+└──────────────────────────────────────────────────────┘
+```
+
+### 13.2. Metrics Categories
+
+| Category | Metrics | Description |
+|----------|---------|-------------|
+| **Items** | `projectt_items_total`, `created`, `deleted` | Card items count |
+| **Tags** | `projectt_tags_total` | Tag count |
+| **Chat** | `messages_total`, `contacts_total`, `active_contacts` | Chat activity |
+| **P2P** | `peers_total`, `connections_total`, `transfer_bytes_total`, `files_transferred_total` | P2P network |
+| **Database** | `query_duration_seconds`, `queries_total`, `errors_total` | DB performance |
+| **Runtime** | `goroutines`, `memory_alloc_bytes`, `gc_pause_seconds_total` | Go runtime |
+| **libp2p** | Built-in libp2p metrics | Network internals |
+
+### 13.3. Configuration
+
+```yaml
+# config.yaml
+prometheus:
+  enabled: true           # Enable metrics export
+  port: 9090             # HTTP server port
+  path: /metrics         # Metrics endpoint path
+  enable_p2p_metrics: true  # Include libp2p metrics
+```
+
+### 13.4. Quick Start Monitoring
+
+```bash
+# Start monitoring stack
+docker-compose -f docker-compose.monitoring.yml up -d
+
+# Access Grafana
+# URL: http://localhost:3000
+# Login: admin / admin
 ```
 
 ---

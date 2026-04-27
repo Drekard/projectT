@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
+	"projectT/internal/metrics"
 	"projectT/internal/storage/database/models"
 	"projectT/internal/storage/database/queries"
 	"sync"
@@ -364,6 +365,11 @@ func (cs *ChatService) NotifyNewMessage(contactID int, contactName string, messa
 		IsOutgoing:  !isIncoming, // isIncoming = true → IsOutgoing = false
 	}:
 		// Успешно отправлено
+		// Обновляем метрики
+		if metrics.IsInitialized() {
+			m := metrics.Get().Metrics
+			m.ChatMessagesTotal.Inc()
+		}
 	default:
 		// Канал переполнен, пропускаем
 	}

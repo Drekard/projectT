@@ -135,6 +135,12 @@ func (n *P2PNetwork) createHost(profile *models.P2PProfile) error {
 	// Дополнительные опции
 	opts = append(opts, libp2p.UserAgent("ProjectT/1.0"))
 
+	// Prometheus метрики libp2p (если включено)
+	if n.config.EnablePrometheusMetrics && n.prometheusRegistry != nil {
+		opts = append(opts, libp2p.PrometheusRegisterer(n.prometheusRegistry))
+		log.Println("Prometheus метрики libp2p включены")
+	}
+
 	// Создаём хост
 	h, err := libp2p.New(opts...)
 	if err != nil {

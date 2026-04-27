@@ -16,6 +16,7 @@ import (
 	"github.com/libp2p/go-libp2p/core/network"
 	"github.com/libp2p/go-libp2p/core/peer"
 
+	"projectT/internal/metrics"
 	"projectT/internal/storage/filesystem"
 )
 
@@ -278,6 +279,13 @@ func (ts *Service) sendFileChunks(stream network.Stream, transferID string, file
 		default:
 			// Канал переполнен - пропускаем
 		}
+	}
+
+	// Обновляем метрики передачи
+	if metrics.IsInitialized() {
+		m := metrics.Get().Metrics
+		m.P2PTransferBytesTotal.Add(float64(totalSize))
+		m.P2PFilesTransferred.Inc()
 	}
 
 	return nil

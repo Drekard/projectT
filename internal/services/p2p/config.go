@@ -73,6 +73,9 @@ type P2PConfig struct {
 
 	// EnableHelperMode включить режим помощника (хранение адресов пиров)
 	EnableHelperMode bool
+
+	// EnablePrometheusMetrics включить встроенные метрики libp2p в Prometheus
+	EnablePrometheusMetrics bool
 }
 
 // DefaultConfig возвращает конфигурацию по умолчанию

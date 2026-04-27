@@ -11,3 +11,8 @@ p2p:
     port: 8079
     enable_relay: true
     enable_relay_discovery: true
+prometheus:
+    enabled: true
+    port: 9090
+    path: /metrics
+    enable_p2p_metrics: true

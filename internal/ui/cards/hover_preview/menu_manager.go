@@ -114,53 +114,45 @@ func (mm *MenuManager) ShowSimpleMenu(item *models.Item, cont fyne.CanvasObject,
 				buttons := []fyne.CanvasObject{}
 
 				// Кнопка "Сохранить в коллекцию" для preview элементов
-				// Отображается только для noButtonsMode + remote элементов
-				// Для local элементов в noButtonsMode кнопка скрыта
-				if item.IsPreview() {
-					// Показываем кнопку, если это не noButtonsMode или если это remote элемент
-					if !hideButtons || item.IsRemote() {
-						saveButton := widget.NewButton("Save to collection", func() {
-							if err := mm.saveItemToCollection(item); err != nil {
-								appWindow := fyne.CurrentApp().Driver().AllWindows()[0]
-								dialog.ShowError(fmt.Errorf("ошибка сохранения: %v", err), appWindow)
-							} else {
-								popup.Hide()
-								if onClose != nil {
-									onClose()
-								}
+				// Отображается только для удаленных (remote) preview-элементов
+				if item.IsPreview() && item.IsRemote() {
+					saveButton := widget.NewButton("Save to collection", func() {
+						if err := mm.saveItemToCollection(item); err != nil {
+							appWindow := fyne.CurrentApp().Driver().AllWindows()[0]
+							dialog.ShowError(fmt.Errorf("ошибка сохранения: %v", err), appWindow)
+						} else {
+							popup.Hide()
+							if onClose != nil {
+								onClose()
 							}
-						})
-						saveButton.Importance = widget.HighImportance
-						buttons = append(buttons, saveButton)
-					}
+						}
+					})
+					saveButton.Importance = widget.HighImportance
+					buttons = append(buttons, saveButton)
 				}
 
 				// Кнопка "Удалить из коллекции" для saved элементов (возвращает в preview)
-				// Отображается только для noButtonsMode + remote элементов
-				// Для local элементов в noButtonsMode кнопка скрыта
-				if item.IsSaved() {
-					// Показываем кнопку, если это не noButtonsMode или если это remote элемент
-					if !hideButtons || item.IsRemote() {
-						removeButton := widget.NewButton("Remove from collection", func() {
-							appWindow := fyne.CurrentApp().Driver().AllWindows()[0]
-							dialog.ShowConfirm("Remove from collection",
-								fmt.Sprintf("Element \"%s\" will be returned to chat (status will change to 'preview'). Continue?", item.Title),
-								func(confirmed bool) {
-									if confirmed {
-										if err := mm.removeItemFromCollection(item); err != nil {
-											dialog.ShowError(fmt.Errorf("ошибка удаления из коллекции: %v", err), appWindow)
-										} else {
-											popup.Hide()
-											if onClose != nil {
-												onClose()
-											}
+				// Отображается только для remote saved-элементов
+				if item.IsSaved() && item.IsRemote() {
+					removeButton := widget.NewButton("Remove from collection", func() {
+						appWindow := fyne.CurrentApp().Driver().AllWindows()[0]
+						dialog.ShowConfirm("Remove from collection",
+							fmt.Sprintf("Element \"%s\" will be returned to chat (status will change to 'preview'). Continue?", item.Title),
+							func(confirmed bool) {
+								if confirmed {
+									if err := mm.removeItemFromCollection(item); err != nil {
+										dialog.ShowError(fmt.Errorf("ошибка удаления из коллекции: %v", err), appWindow)
+									} else {
+										popup.Hide()
+										if onClose != nil {
+											onClose()
 										}
 									}
-								}, appWindow)
-						})
-						removeButton.Importance = widget.DangerImportance
-						buttons = append(buttons, removeButton)
-					}
+								}
+							}, appWindow)
+					})
+					removeButton.Importance = widget.DangerImportance
+					buttons = append(buttons, removeButton)
 				}
 
 				// Остальные кнопки отображаются только если не установлен режим hideButtons

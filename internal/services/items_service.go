@@ -1,6 +1,7 @@
 package services
 
 import (
+	"projectT/internal/metrics"
 	"projectT/internal/storage/database/models"
 	"projectT/internal/storage/database/queries"
 )
@@ -15,7 +16,13 @@ func NewItemsService() *ItemsService {
 
 // CreateItem создает новый элемент
 func (is *ItemsService) CreateItem(item *models.Item) error {
-	return queries.CreateItem(item)
+	err := queries.CreateItem(item)
+	if err == nil && metrics.IsInitialized() {
+		m := metrics.Get().Metrics
+		m.ItemsCreated.Inc()
+		m.ItemsTotal.Inc()
+	}
+	return err
 }
 
 // GetItemByID возвращает элемент по ID
@@ -35,7 +42,13 @@ func (is *ItemsService) UpdateItem(item *models.Item) error {
 
 // DeleteItem удаляет элемент по ID
 func (is *ItemsService) DeleteItem(id int) error {
-	return queries.DeleteItem(id)
+	err := queries.DeleteItem(id)
+	if err == nil && metrics.IsInitialized() {
+		m := metrics.Get().Metrics
+		m.ItemsDeleted.Inc()
+		m.ItemsTotal.Dec()
+	}
+	return err
 }
 
 // SearchItems выполняет поиск элементов по запросу

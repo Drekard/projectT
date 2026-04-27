@@ -11,6 +11,7 @@ import (
 	"github.com/libp2p/go-libp2p/core/peerstore"
 	"github.com/multiformats/go-multiaddr"
 
+	"projectT/internal/metrics"
 	"projectT/internal/storage/database/models"
 	"projectT/internal/storage/database/queries"
 )
@@ -216,6 +217,12 @@ func (s *Service) checkConnections() {
 			}
 		}
 	}
+
+	// Обновляем метрики количества пиров
+	if metrics.IsInitialized() {
+		m := metrics.Get().Metrics
+		m.P2PPeersTotal.Set(float64(len(connectedPeers)))
+	}
 }
 
 // processReconnectQueue обрабатывает очередь переподключения
@@ -298,6 +305,11 @@ func (s *Service) attemptReconnect(peerID peer.ID) {
 			info.Status = StatusConnected
 			info.LastSeen = time.Now()
 			info.ReconnectCount = 0
+
+			// Обновляем метрики
+			if metrics.IsInitialized() {
+				metrics.Get().Metrics.P2PConnectionsTotal.Inc()
+			}
 		}
 	}
 }

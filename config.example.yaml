@@ -31,3 +31,14 @@ p2p:
   enable_relay: true
   # Автообнаружение relay
   enable_relay_discovery: true
+
+# Настройки экспорта метрик Prometheus
+prometheus:
+  # Включён ли экспорт метрик
+  enabled: false
+  # Порт для HTTP сервера метрик
+  port: 9090
+  # Путь для endpoint метрик
+  path: "/metrics"
+  # Включить метрики libp2p
+  enable_p2p_metrics: true

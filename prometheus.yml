@@ -1,0 +1,52 @@
+# Конфигурация Prometheus для мониторинга ProjectT
+
+global:
+  scrape_interval: 15s          # Как часто собирать метрики
+  evaluation_interval: 15s     # Как часто вычислять правила
+  scrape_timeout: 10s          # Таймаут сбора метрик
+
+# Правила оповещений
+# alerting:
+#   alertmanagers:
+#     - static_configs:
+#         - targets:
+#           # - alertmanager:9093
+
+# Правила записи (для агрегации и предрасчёта)
+# rule_files:
+#   # - "first_rules.yml"
+#   # - "second_rules.yml"
+
+# Конфигурация сбора метрик
+scrape_configs:
+  # ProjectT приложение
+  - job_name: 'projectt'
+    static_configs:
+      - targets: ['localhost:9090']
+    metrics_path: '/metrics'
+    scrape_interval: 15s
+    scrape_timeout: 10s
+    
+    # Пример меток для всех метрик этого job
+    # labels:
+    #   app: 'projectt'
+    #   environment: 'development'
+    #   version: 'dev'
+
+  # Prometheus сам по себе (опционально)
+  - job_name: 'prometheus'
+    static_configs:
+      - targets: ['localhost:9090']
+
+  # Node exporter для мониторинга системы (опционально, если установлен)
+  # - job_name: 'node'
+  #   static_configs:
+  #     - targets: ['localhost:9100']
+
+# Удалённое хранилище (опционально)
+# remote_write:
+#   - url: "http://remote-write.example.com/api/v1/write"
+
+# Удалённое чтение (опционально)
+# remote_read:
+#   - url: "http://remote-read.example.com/api/v1/read"

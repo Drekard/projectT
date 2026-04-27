@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"flag"
 	"fmt"
+	"log"
 	"os"
 	"path/filepath"
 
@@ -18,6 +19,8 @@ type Config struct {
 	Storage StorageConfig `yaml:"storage" json:"storage"`
 	// P2P настройки P2P сети
 	P2P P2PConfig `yaml:"p2p" json:"p2p"`
+	// Prometheus настройки экспорта метрик
+	Prometheus PrometheusConfig `yaml:"prometheus" json:"prometheus"`
 }
 
 // DatabaseConfig настройки базы данных
@@ -82,6 +85,18 @@ type P2PConfig struct {
 	EnableRelayDiscovery bool `yaml:"enable_relay_discovery" json:"enable_relay_discovery"`
 }
 
+// PrometheusConfig настройки экспорта метрик Prometheus
+type PrometheusConfig struct {
+	// Enabled включён ли экспорт метрик
+	Enabled bool `yaml:"enabled" json:"enabled"`
+	// Port порт для HTTP сервера метрик
+	Port int `yaml:"port" json:"port"`
+	// Path путь для endpoint метрик
+	Path string `yaml:"path" json:"path"`
+	// EnableP2PMetrics включать ли метрики libp2p
+	EnableP2PMetrics bool `yaml:"enable_p2p_metrics" json:"enable_p2p_metrics"`
+}
+
 // DefaultConfig возвращает конфигурацию со значениями по умолчанию
 func DefaultConfig() *Config {
 	// Пути по умолчанию относительно текущей рабочей директории
@@ -110,6 +125,12 @@ func DefaultConfig() *Config {
 			EnableRelay:          true,
 			EnableRelayDiscovery: true,
 		},
+		Prometheus: PrometheusConfig{
+			Enabled:          false,
+			Port:             9090,
+			Path:             "/metrics",
+			EnableP2PMetrics: true,
+		},
 	}
 }
 
@@ -128,16 +149,26 @@ func NewLoader() *Loader {
 // Load загружает конфигурацию из всех источников в порядке приоритета:
 // 1. Flags (флаги командной строки) - высший приоритет
 // 2. Env variables (переменные окружения)
-// 3. Config file (файл config.yaml)
+// 3. Config file (файл config.yaml или указанный файл)
 // 4. Default values (значения по умолчанию) - низший приоритет
 func (l *Loader) Load() (*Config, error) {
 	// Парсим все флаги сразу, но используем их в правильном порядке
 	flags := l.parseAllFlags()
 
-	// 1. Сначала загружаем из файла конфигурации (если указан)
-	if flags.configFile != "" {
-		if err := l.loadFromYAML(flags.configFile); err != nil {
-			return nil, fmt.Errorf("ошибка загрузки файла конфигурации %s: %w", flags.configFile, err)
+	// 1. Сначала загружаем из файла конфигурации
+	// Если флаг -config указан - используем его, иначе ищем config.yaml в текущей директории
+	configPath := flags.configFile
+	if configPath == "" {
+		// Проверяем наличие config.yaml в текущей рабочей директории
+		if _, err := os.Stat("config.yaml"); err == nil {
+			configPath = "config.yaml"
+			log.Println("[Config] Найден config.yaml в текущей директории - загружаем автоматически")
+		}
+	}
+
+	if configPath != "" {
+		if err := l.loadFromYAML(configPath); err != nil {
+			return nil, fmt.Errorf("ошибка загрузки файла конфигурации %s: %w", configPath, err)
 		}
 	}
 
@@ -164,6 +195,10 @@ type parsedFlags struct {
 	p2pPort         int
 	p2pRelay        bool
 	p2pRelayDisc    bool
+	promEnabled     bool
+	promPort        int
+	promPath        string
+	promP2PMetrics  bool
 }
 
 // parseAllFlags парсит все флаги командной строки
@@ -180,6 +215,10 @@ func (l *Loader) parseAllFlags() *parsedFlags {
 	flagSet.IntVar(&flags.p2pPort, "p2p-port", 0, "Порт для P2P соединений")
 	flagSet.BoolVar(&flags.p2pRelay, "p2p-relay", false, "Использовать relay для обхода NAT")
 	flagSet.BoolVar(&flags.p2pRelayDisc, "p2p-relay-discovery", false, "Автообнаружение relay")
+	flagSet.BoolVar(&flags.promEnabled, "prometheus-enabled", false, "Включить экспорт метрик Prometheus")
+	flagSet.IntVar(&flags.promPort, "prometheus-port", 0, "Порт для HTTP сервера метрик Prometheus")
+	flagSet.StringVar(&flags.promPath, "prometheus-path", "", "Путь для endpoint метрик Prometheus")
+	flagSet.BoolVar(&flags.promP2PMetrics, "prometheus-p2p-metrics", false, "Включить метрики libp2p в Prometheus")
 
 	// Игнорируем ошибку парсинга - флаги могут быть не переданы
 	_ = flagSet.Parse(os.Args[1:])
@@ -213,6 +252,18 @@ func (l *Loader) applyFlags(flags *parsedFlags) {
 	if flags.p2pRelayDisc {
 		l.config.P2P.EnableRelayDiscovery = flags.p2pRelayDisc
 	}
+	if flags.promEnabled {
+		l.config.Prometheus.Enabled = flags.promEnabled
+	}
+	if flags.promPort > 0 {
+		l.config.Prometheus.Port = flags.promPort
+	}
+	if flags.promPath != "" {
+		l.config.Prometheus.Path = flags.promPath
+	}
+	if flags.promP2PMetrics {
+		l.config.Prometheus.EnableP2PMetrics = flags.promP2PMetrics
+	}
 }
 
 // loadFromYAML загружает конфигурацию из указанного YAML файла
@@ -228,6 +279,9 @@ func (l *Loader) loadFromYAML(path string) error {
 		return err
 	}
 
+	// Логируем что загрузили
+	log.Printf("[Config] Загружены секции из YAML: %v", getMapKeys(yamlConfig))
+
 	// Маршалим обратно в структуру Config
 	yamlData, err := yaml.Marshal(yamlConfig)
 	if err != nil {
@@ -238,11 +292,24 @@ func (l *Loader) loadFromYAML(path string) error {
 		return err
 	}
 
+	// Логируем результат
+	log.Printf("[Config] Prometheus после парсинга: enabled=%v, port=%d",
+		l.config.Prometheus.Enabled, l.config.Prometheus.Port)
+
 	// Нормализуем пути из YAML в Unix-стиль
 	l.config.Database.Path = filepath.ToSlash(l.config.Database.Path)
 	l.config.Storage.Path = filepath.ToSlash(l.config.Storage.Path)
 
 	return nil
+}
+
+// getMapKeys возвращает ключи map для отладки
+func getMapKeys(m map[string]interface{}) []string {
+	keys := make([]string, 0, len(m))
+	for k := range m {
+		keys = append(keys, k)
+	}
+	return keys
 }
 
 // LoadFromYAMLOnly загружает конфигурацию ТОЛЬКО из YAML (игнорирует ENV)
@@ -292,6 +359,22 @@ func (l *Loader) loadFromEnv() {
 	}
 	if val := os.Getenv("PROJECTT_P2P_RELAY_DISCOVERY"); val != "" {
 		l.config.P2P.EnableRelayDiscovery = parseBool(val)
+	}
+
+	// Prometheus
+	if val := os.Getenv("PROJECTT_PROMETHEUS_ENABLED"); val != "" {
+		l.config.Prometheus.Enabled = parseBool(val)
+	}
+	if val := os.Getenv("PROJECTT_PROMETHEUS_PORT"); val != "" {
+		if port := parseInt(val); port > 0 {
+			l.config.Prometheus.Port = port
+		}
+	}
+	if val := os.Getenv("PROJECTT_PROMETHEUS_PATH"); val != "" {
+		l.config.Prometheus.Path = val
+	}
+	if val := os.Getenv("PROJECTT_PROMETHEUS_P2P"); val != "" {
+		l.config.Prometheus.EnableP2PMetrics = parseBool(val)
 	}
 }
 

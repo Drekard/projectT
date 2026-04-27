@@ -2,6 +2,7 @@ package services
 
 import (
 	"context"
+	"projectT/internal/metrics"
 	"projectT/internal/storage/database/models"
 	"projectT/internal/storage/database/queries"
 )
@@ -16,7 +17,11 @@ func NewTagsService() *TagsService {
 
 // CreateTag создает новый тег
 func (ts *TagsService) CreateTag(ctx context.Context, tag *models.Tag) error {
-	return queries.CreateTag(ctx, tag)
+	err := queries.CreateTag(ctx, tag)
+	if err == nil && metrics.IsInitialized() {
+		metrics.Get().Metrics.TagsTotal.Inc()
+	}
+	return err
 }
 
 // GetTagByID возвращает тег по ID

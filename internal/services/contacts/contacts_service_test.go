@@ -61,10 +61,7 @@ func TestContactService_Creation(t *testing.T) {
 	// Создаём сервис без P2P сети (для тестов)
 	service := NewContactService(nil)
 
-	if service == nil {
-		t.Fatal("Сервис не создан")
-	}
-
+	// Проверяем, что p2pNetwork действительно nil
 	if service.p2pNetwork != nil {
 		t.Error("Ожидалось p2pNetwork=nil")
 	}

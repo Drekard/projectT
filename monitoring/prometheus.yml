@@ -1,0 +1,22 @@
+# Prometheus конфигурация для ProjectT
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+
+rule_files:
+  # - "first_rules.yml"
+  # - "second_rules.yml"
+
+scrape_configs:
+  # Сбор метрик с ProjectT приложения
+  - job_name: 'projectt'
+    static_configs:
+      - targets: ['host.docker.internal:9090']
+        labels:
+          instance: 'projectt-app'
+          environment: 'local'
+
+  # Сбор метрик самого Prometheus
+  - job_name: 'prometheus'
+    static_configs:
+      - targets: ['localhost:9090']

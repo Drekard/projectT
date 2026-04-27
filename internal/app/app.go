@@ -6,6 +6,7 @@ import (
 	"path/filepath"
 
 	"projectT/internal/config"
+	"projectT/internal/metrics"
 	"projectT/internal/services/p2p/core"
 	"projectT/internal/storage/database"
 	"projectT/internal/storage/filesystem"
@@ -22,6 +23,7 @@ type App struct {
 	UI         *ui.UI
 	config     *config.Config
 	p2pNetwork *core.P2PNetwork
+	metricsMgr *metrics.Manager
 }
 
 func NewApp() *App {
@@ -67,12 +69,32 @@ func NewApp() *App {
 		log.Printf("[App] P2P порт из config: %d", cfg.P2P.Port)
 	}
 
+	// Инициализируем Prometheus метрики
+	metricsMgr := metrics.Init()
+	log.Printf("[App] Prometheus конфиг: enabled=%v, port=%d, path=%s",
+		cfg.Prometheus.Enabled, cfg.Prometheus.Port, cfg.Prometheus.Path)
+
+	if cfg.Prometheus.Enabled {
+		// Устанавливаем Prometheus registry в P2P сеть для libp2p метрик
+		if cfg.Prometheus.EnableP2PMetrics {
+			p2pNetwork.SetPrometheusRegistry(metricsMgr.Registry)
+		}
+
+		// Запускаем HTTP сервер метрик
+		if err := metricsMgr.InitServer(true, cfg.Prometheus.Port, cfg.Prometheus.Path); err != nil {
+			log.Printf("[App] Предупреждение: ошибка запуска Prometheus сервера: %v", err)
+		} else {
+			log.Printf("[App] Prometheus сервер инициализирован на порту %d", cfg.Prometheus.Port)
+		}
+	}
+
 	return &App{
 		fyneApp:    fyneApp,
 		mainWindow: window,
 		UI:         nil,
 		config:     cfg,
 		p2pNetwork: p2pNetwork,
+		metricsMgr: metricsMgr,
 	}
 }
 
@@ -95,6 +117,13 @@ func (a *App) Run() {
 	if a.p2pNetwork != nil {
 		if err := a.p2pNetwork.Stop(); err != nil {
 			log.Printf("Предупреждение: ошибка остановки P2P: %v", err)
+		}
+	}
+
+	// Останавливаем Prometheus сервер при выходе
+	if a.metricsMgr != nil {
+		if err := a.metricsMgr.Stop(); err != nil {
+			log.Printf("[App] Предупреждение: ошибка остановки Prometheus: %v", err)
 		}
 	}
 }
