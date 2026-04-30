@@ -62,11 +62,9 @@ func updateViewModelFromUI(viewModel *CreateItemViewModel, formWidgets *FormWidg
 
 // SaveItem сохраняет элемент (создает или обновляет)
 func SaveItem(viewModel *CreateItemViewModel, formWidgets *FormWidgets, parentWindow fyne.Window) {
-	fmt.Println("=== НАЧАЛО СОХРАНЕНИЯ ===")
 
 	// 1. Обновляем ViewModel из UI
 	updateViewModelFromUI(viewModel, formWidgets)
-	fmt.Println("ViewModel обновлена из UI")
 
 	// 2. Проверяем заголовок только при создании элемента, не при редактировании
 	if viewModel.Title == "" && !viewModel.EditMode {
@@ -76,7 +74,6 @@ func SaveItem(viewModel *CreateItemViewModel, formWidgets *FormWidgets, parentWi
 
 	// 3. Создаем экземпляр сервиса для обработки блоков контента
 	contentService := services.NewContentBlocksService()
-	fmt.Println("Сервис обработки контента инициализирован")
 
 	// 4. Если это режим редактирования, получаем старые блоки
 	var oldBlocks []Block
@@ -89,7 +86,6 @@ func SaveItem(viewModel *CreateItemViewModel, formWidgets *FormWidgets, parentWi
 		}
 		// Преобразуем блоки из сервиса в локальный тип
 		oldBlocks = convertServiceBlocksToLocal(svcOldBlocks)
-		fmt.Printf("Получено %d старых блоков\n", len(oldBlocks))
 	}
 
 	// 5. Обрабатываем файлы и создаем новые блоки
@@ -131,13 +127,10 @@ func SaveItem(viewModel *CreateItemViewModel, formWidgets *FormWidgets, parentWi
 			if shouldInclude {
 				// Добавляем старый блок без изменений
 				allBlocks = append(allBlocks, oldBlock)
-				fmt.Printf("Сохранен старый блок: %s (%s)\n", oldBlock.OriginalName, oldBlock.Type)
-			} else {
-				fmt.Printf("Блок будет удален: %s (%s)\n", oldBlock.OriginalName, oldBlock.Type)
 			}
 		}
 
-		// Теперь обрабатываем новые файлы, которые пользователь добавил
+		// теперь обрабатываем новые файлы, которые пользователь добавил
 		// Обрабатываем новые изображения
 		var newImages []string
 		for _, img := range viewModel.Images {
@@ -152,7 +145,6 @@ func SaveItem(viewModel *CreateItemViewModel, formWidgets *FormWidgets, parentWi
 				newImages = append(newImages, img)
 			}
 		}
-		fmt.Printf("Найдено %d новых изображений для обработки\n", len(newImages))
 
 		if len(newImages) > 0 {
 			imgBlocks, processingErrors := contentService.ProcessFileData(&newImages, []string{})
@@ -164,7 +156,6 @@ func SaveItem(viewModel *CreateItemViewModel, formWidgets *FormWidgets, parentWi
 			// Преобразуем блоки из сервиса в локальный тип
 			localImgBlocks := convertServiceBlocksToLocal(imgBlocks)
 			allBlocks = append(allBlocks, localImgBlocks...)
-			fmt.Printf("Обработано %d новых изображений\n", len(imgBlocks))
 		}
 
 		// Обрабатываем новые файлы (включая audio и video)
@@ -181,7 +172,6 @@ func SaveItem(viewModel *CreateItemViewModel, formWidgets *FormWidgets, parentWi
 				newFiles = append(newFiles, file)
 			}
 		}
-		fmt.Printf("Найдено %d новых файлов для обработки\n", len(newFiles))
 
 		if len(newFiles) > 0 {
 			fileBlocks, fileErrors := contentService.ProcessFileData(&newFiles, []string{})
@@ -193,7 +183,6 @@ func SaveItem(viewModel *CreateItemViewModel, formWidgets *FormWidgets, parentWi
 			// Преобразуем блоки из сервиса в локальный тип
 			localFileBlocks := convertServiceBlocksToLocal(fileBlocks)
 			allBlocks = append(allBlocks, localFileBlocks...)
-			fmt.Printf("Обработано %d новых файлов\n", len(fileBlocks))
 		}
 
 		// Обрабатываем новые ссылки
@@ -210,7 +199,6 @@ func SaveItem(viewModel *CreateItemViewModel, formWidgets *FormWidgets, parentWi
 				newLinks = append(newLinks, link)
 			}
 		}
-		fmt.Printf("Найдено %d новых ссылок для обработки\n", len(newLinks))
 
 		for _, link := range newLinks {
 			allBlocks = append(allBlocks, Block{
@@ -232,7 +220,6 @@ func SaveItem(viewModel *CreateItemViewModel, formWidgets *FormWidgets, parentWi
 			// Преобразуем блоки из сервиса в локальный тип
 			localImgBlocks := convertServiceBlocksToLocal(imgBlocks)
 			allBlocks = append(allBlocks, localImgBlocks...)
-			fmt.Printf("Обработано %d изображений\n", len(localImgBlocks))
 		}
 
 		// Обрабатываем файлы
@@ -246,7 +233,6 @@ func SaveItem(viewModel *CreateItemViewModel, formWidgets *FormWidgets, parentWi
 			// Преобразуем блоки из сервиса в локальный тип
 			localFileBlocks := convertServiceBlocksToLocal(fileBlocks)
 			allBlocks = append(allBlocks, localFileBlocks...)
-			fmt.Printf("Обработано %d файлов\n", len(localFileBlocks))
 		}
 
 		// Обрабатываем ссылки
@@ -256,18 +242,13 @@ func SaveItem(viewModel *CreateItemViewModel, formWidgets *FormWidgets, parentWi
 				Content: link,
 			})
 		}
-		fmt.Printf("Обработано %d ссылок\n", len(viewModel.Links))
 	}
-
-	fmt.Printf("Всего собрано %d блоков\n", len(allBlocks))
 
 	// 6. Преобразуем локальные блоки в блоки сервиса для дальнейшей обработки
 	serviceBlocks := convertLocalBlocksToService(allBlocks)
-	fmt.Println("Блоки преобразованы для обработки сервисом")
 
 	// 7. Используем тип элемента, выбранный пользователем во вкладках
 	itemType := viewModel.ItemType
-	fmt.Printf("Тип элемента из ViewModel: %s\n", itemType)
 
 	// 8. Конвертируем блоки в JSON для сохранения
 	contentMeta, err := contentService.BlocksToJSON(serviceBlocks)
@@ -275,7 +256,6 @@ func SaveItem(viewModel *CreateItemViewModel, formWidgets *FormWidgets, parentWi
 		dialog.ShowError(fmt.Errorf("ошибка сериализации контента: %v", err), parentWindow)
 		return
 	}
-	fmt.Printf("Контент сериализован в JSON, длина: %d символов\n", len(contentMeta))
 
 	// 9. Обработка тегов
 	ctx, cancel := context.WithTimeout(context.Background(), dbTimeout)
@@ -283,24 +263,17 @@ func SaveItem(viewModel *CreateItemViewModel, formWidgets *FormWidgets, parentWi
 
 	if viewModel.EditMode && viewModel.ID != 0 {
 		// Режим редактирования - обновляем существующий элемент
-		fmt.Printf("Режим редактирования, ID элемента: %d\n", viewModel.ID)
 
 		// Обновляем элемент
 		updatedItem, reallyOldBlocks, err := contentService.UpdateItemWithTransaction(ctx, viewModel.ID, viewModel.Title, viewModel.Description, itemType, contentMeta, viewModel.ParentID)
 		if err != nil {
-			fmt.Printf("ОШИБКА БД при обновлении: %v\n", err)
 			dialog.ShowError(fmt.Errorf("ошибка БД: %v", err), parentWindow)
 			return
 		}
 
-		fmt.Printf("Элемент обновлен, ID: %d\n", updatedItem.ID)
-
 		// Обрабатываем теги
 		if err := contentService.ProcessTags(ctx, updatedItem.ID, viewModel.Tags); err != nil {
 			dialog.ShowError(fmt.Errorf("ошибка обработки тегов: %v", err), parentWindow)
-			// Не возвращаем ошибку, так как элемент уже обновлен
-		} else {
-			fmt.Println("Теги успешно обработаны")
 		}
 
 		// Очищаем старые файлы, которые больше не используются
@@ -309,33 +282,23 @@ func SaveItem(viewModel *CreateItemViewModel, formWidgets *FormWidgets, parentWi
 		localReallyOldBlocks := convertServiceBlocksToLocal(reallyOldBlocks)
 		localNewBlocks := convertServiceBlocksToLocal(newServiceBlocks)
 		cleanupOldFiles(localReallyOldBlocks, localNewBlocks)
-		fmt.Println("Старые файлы очищены")
 
 	} else {
 		// Режим создания - создаем новый элемент
-		fmt.Println("Режим создания нового элемента")
 
 		item, err := contentService.CreateItemWithTransaction(ctx, viewModel.Title, viewModel.Description, itemType, contentMeta, viewModel.ParentID)
 		if err != nil {
-			fmt.Printf("ОШИБКА БД при создании: %v\n", err)
 			dialog.ShowError(fmt.Errorf("ошибка БД: %v", err), parentWindow)
 			return
 		}
-
-		fmt.Printf("Элемент создан, ID: %d\n", item.ID)
 
 		// Обрабатываем теги
 		if viewModel.Tags != "" {
 			if err := contentService.ProcessTags(ctx, item.ID, viewModel.Tags); err != nil {
 				dialog.ShowError(fmt.Errorf("ошибка обработки тегов: %v", err), parentWindow)
-				// Не возвращаем ошибку, так как элемент уже создан
-			} else {
-				fmt.Println("Теги успешно обработаны")
 			}
 		}
 	}
-
-	fmt.Println("=== УСПЕШНО СОХРАНЕНО ===")
 
 	// Закрываем диалог, если функция закрытия определена
 	if formWidgets.CloseDialog != nil {

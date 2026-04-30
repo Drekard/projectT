@@ -5,7 +5,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"log"
 	"strings"
 	"sync"
 
@@ -87,7 +86,6 @@ func (n *P2PNetwork) SetPrometheusRegistry(registry prometheus.Registerer) {
 	defer n.mu.Unlock()
 	n.prometheusRegistry = registry
 	n.config.EnablePrometheusMetrics = true
-	log.Println("[P2P] Prometheus registry установлен")
 }
 
 // SetPort устанавливает порт для P2P соединений
@@ -95,7 +93,6 @@ func (n *P2PNetwork) SetPort(port int) {
 	n.mu.Lock()
 	defer n.mu.Unlock()
 	n.config.ListenPort = port
-	log.Printf("[P2P] Порт установлен: %d", port)
 }
 
 // Config возвращает текущую конфигурацию
@@ -168,82 +165,75 @@ func (n *P2PNetwork) Start() error {
 		},
 	})
 
-	log.Printf("P2P хост запущен: %s", n.host.ID().String())
-	log.Printf("Адреса для подключения: %v", n.host.Addrs())
-
 	// Обновляем профиль в БД
 	if err := UpdateProfileAddrs(n.host.ID(), n.host.Addrs()); err != nil {
 		// Игнорируем ошибку, если поле listen_addrs временно недоступно
 		if !strings.Contains(err.Error(), "listen_addrs") {
-			log.Printf("Предупреждение: не удалось обновить адреса в профиле: %v", err)
+			_ = err // Ignore error
 		}
 	}
 
 	// Инициализируем сервис соединений (должен быть до profileExchange)
 	if err := n.initConnections(); err != nil {
-		log.Printf("Предупреждение: сервис соединений не инициализирован: %v", err)
+		_ = err // Ignore error
 	}
 
 	// Инициализируем сервис обмена профилями
 	if err := n.initProfileExchange(); err != nil {
-		log.Printf("Предупреждение: сервис обмена профилями не инициализирован: %v", err)
+		_ = err // Ignore error
 	}
 
 	// Инициализируем сервис передачи файлов
 	if err := n.initTransfer(); err != nil {
-		log.Printf("Предупреждение: сервис передачи не инициализирован: %v", err)
+		_ = err // Ignore error
 	}
 
 	// ✅ Инициализируем сервис загрузки аватарок
 	if err := n.initAvatar(); err != nil {
-		log.Printf("Предупреждение: сервис аватарок не инициализирован: %v", err)
+		_ = err // Ignore error
 	}
 
 	// Инициализируем сервис синхронизации элементов
 	if err := n.initItemSync(); err != nil {
-		log.Printf("Предупреждение: сервис синхронизации не инициализирован: %v", err)
+		_ = err // Ignore error
 	}
 
 	// Инициализируем сервис чата (после transfer для интеграции)
 	if err := n.initChat(); err != nil {
-		log.Printf("Предупреждение: сервис чата не инициализирован: %v", err)
+		_ = err // Ignore error
 	}
 
 	// Связываем сервис чата с сервисом передачи файлов
 	if n.chat != nil && n.transfer != nil {
 		n.chat.SetTransferService(n.transfer)
 		n.chat.SetItemSyncService(n.itemSync)
-		log.Println("[Chat] ✅ Transfer Service и ItemSync сервис связаны с Chat сервисом")
 	}
 
 	// Устанавливаем ItemSync сервис в глобальный ChatService для использования из profile_exchange
 	globalChatSvc := services.GetChatService()
 	if globalChatSvc != nil && n.itemSync != nil {
 		globalChatSvc.SetItemSyncService(n.itemSync)
-		log.Println("[Chat] ✅ ItemSync сервис установлен в глобальный ChatService")
 	}
 
 	// Инициализируем и запускаем сервис обнаружения
 	if err := n.initDiscovery(); err != nil {
-		log.Printf("Предупреждение: сервис обнаружения не инициализирован: %v", err)
+		_ = err // Ignore error
 	}
 
 	// ✅ Инициализируем сервис автоподключения
 	if err := n.initAutodial(); err != nil {
-		log.Printf("Предупреждение: сервис автоподключения не инициализирован: %v", err)
+		_ = err // Ignore error
 	}
 
 	// ✅ Инициализируем сервис обмена пирами
 	if err := n.initPeerExchange(); err != nil {
-		log.Printf("Предупреждение: сервис обмена пирами не инициализирован: %v", err)
+		_ = err // Ignore error
 	}
 
 	// Инициализируем режим помощника если включён
 	if n.config.EnableHelperMode {
 		if err := n.initHelper(); err != nil {
-			log.Printf("Предупреждение: режим помощника не инициализирован: %v", err)
-		} else {
-			log.Println("Режим ПОМОЩНИКА инициализирован")
+			_ = err // Ignore error
 		}
 	}
 

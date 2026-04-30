@@ -80,13 +80,11 @@ func NewService(host host.Host, privKey crypto.PrivKey, pubKey crypto.PubKey) *S
 // Start запускает сервис синхронизации элементов
 func (iss *Service) Start() error {
 	iss.host.SetStreamHandler(ProtocolID, iss.handleItemRequest)
-	log.Println("ItemSyncService запущен")
 	return nil
 }
 
 // Stop останавливает сервис
 func (iss *Service) Stop() error {
-	log.Println("ItemSyncService остановлен")
 	return nil
 }
 

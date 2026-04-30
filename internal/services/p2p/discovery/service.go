@@ -77,18 +77,14 @@ func (ds *DiscoveryService) Start() error {
 	if ds.config.EnableMDNS {
 		if err := ds.startMDNSDiscovery(); err != nil {
 			log.Printf("Предупреждение: mDNS не инициализирован: %v", err)
-		} else {
-			log.Println("mDNS обнаружение запущено")
 		}
 	}
 
 	// Запускаем DHT обнаружение для глобальной сети
 	if ds.config.EnableDHT && ds.dht != nil {
 		ds.startDHTDiscovery()
-		log.Println("DHT обнаружение запущено")
 	}
 
-	log.Println("Сервис обнаружения запущен")
 	return nil
 }
 
@@ -105,7 +101,6 @@ func (ds *DiscoveryService) StartDiscovery() error {
 	// Запускаем DHT обнаружение
 	if ds.config.EnableDHT && ds.dht != nil {
 		ds.startDHTDiscovery()
-		log.Println("DHT обнаружение запущено")
 	}
 
 	return nil
@@ -125,7 +120,6 @@ func (ds *DiscoveryService) Stop() error {
 		}
 	}
 
-	log.Println("Сервис обнаружения остановлен")
 	return nil
 }
 
@@ -210,7 +204,6 @@ func (ds *DiscoveryService) connectToKnownPeers() error {
 
 // startMDNSDiscovery запускает mDNS обнаружение для локальной сети
 func (ds *DiscoveryService) startMDNSDiscovery() error {
-	log.Println("mDNS временно недоступен - используется только DHT discovery")
 	return nil
 }
 
@@ -246,7 +239,6 @@ func (ds *DiscoveryService) handleDiscoveredPeer(peerInfo peer.AddrInfo) {
 // startDHTDiscovery запускает DHT обнаружение для глобальной сети
 func (ds *DiscoveryService) startDHTDiscovery() {
 	go ds.runDHTDiscovery()
-	log.Println("DHT обнаружение запущено")
 }
 
 // runDHTDiscovery выполняет периодическое DHT обнаружение
@@ -263,7 +255,6 @@ func (ds *DiscoveryService) runDHTDiscovery() {
 		case <-ticker.C:
 			peers, err := ds.discoverDHTPeers()
 			if err != nil {
-				log.Printf("Ошибка DHT обнаружения: %v", err)
 				continue
 			}
 

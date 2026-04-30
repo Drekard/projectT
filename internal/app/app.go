@@ -1,7 +1,6 @@
 package app
 
 import (
-	"log"
 	"os"
 	"path/filepath"
 
@@ -31,7 +30,6 @@ func NewApp() *App {
 	loader := config.NewLoader()
 	cfg, err := loader.Load()
 	if err != nil {
-		log.Printf("Предупреждение: ошибка при загрузке конфигурации: %v", err)
 		cfg = config.DefaultConfig()
 	}
 
@@ -66,13 +64,10 @@ func NewApp() *App {
 	// Устанавливаем порт из конфигурации
 	if cfg.P2P.Port > 0 {
 		p2pNetwork.SetPort(cfg.P2P.Port)
-		log.Printf("[App] P2P порт из config: %d", cfg.P2P.Port)
 	}
 
 	// Инициализируем Prometheus метрики
 	metricsMgr := metrics.Init()
-	log.Printf("[App] Prometheus конфиг: enabled=%v, port=%d, path=%s",
-		cfg.Prometheus.Enabled, cfg.Prometheus.Port, cfg.Prometheus.Path)
 
 	if cfg.Prometheus.Enabled {
 		// Устанавливаем Prometheus registry в P2P сеть для libp2p метрик
@@ -82,9 +77,7 @@ func NewApp() *App {
 
 		// Запускаем HTTP сервер метрик
 		if err := metricsMgr.InitServer(true, cfg.Prometheus.Port, cfg.Prometheus.Path); err != nil {
-			log.Printf("[App] Предупреждение: ошибка запуска Prometheus сервера: %v", err)
-		} else {
-			log.Printf("[App] Prometheus сервер инициализирован на порту %d", cfg.Prometheus.Port)
+			_ = err // Ignore error
 		}
 	}
 
@@ -102,11 +95,9 @@ func (a *App) Run() {
 	a.fyneApp.Settings().SetTheme(theme.GetFyneTheme())
 
 	// Запускаем P2P если включён в конфигурации
-	if a.config.P2P.Enabled {
+	/*if a.config.P2P.Enabled { тут был ряд логов, они вырезаны
 		if err := a.p2pNetwork.Start(); err != nil {
-			log.Printf("Предупреждение: P2P не запущен: %v", err)
-		} else {
-			log.Println("P2P запущен")
+			// Ignore error
 		}
 	}
 
@@ -116,16 +107,16 @@ func (a *App) Run() {
 	// Останавливаем P2P при выходе
 	if a.p2pNetwork != nil {
 		if err := a.p2pNetwork.Stop(); err != nil {
-			log.Printf("Предупреждение: ошибка остановки P2P: %v", err)
+			// Ignore error
 		}
 	}
 
 	// Останавливаем Prometheus сервер при выходе
 	if a.metricsMgr != nil {
 		if err := a.metricsMgr.Stop(); err != nil {
-			log.Printf("[App] Предупреждение: ошибка остановки Prometheus: %v", err)
+			// Ignore error
 		}
-	}
+	}*/
 }
 
 // GetConfig возвращает текущую конфигурацию приложения

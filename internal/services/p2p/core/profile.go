@@ -3,7 +3,6 @@ package core
 
 import (
 	"fmt"
-	"log"
 
 	"github.com/libp2p/go-libp2p/core/crypto"
 	"github.com/libp2p/go-libp2p/core/peer"
@@ -44,12 +43,8 @@ func (pm *ProfileManager) LoadOrCreateProfile() (*models.P2PProfile, error) {
 		if err != nil {
 			return nil, fmt.Errorf("ошибка загрузки профиля: %w", err)
 		}
-		log.Printf("Загружен существующий P2P профиль: %s", profile.PeerID)
 		return profile, nil
 	}
-
-	// Создаём новый профиль
-	log.Println("Создание нового P2P профиля...")
 
 	// Генерируем ключи
 	privKey, pubKey, err := GenerateKeyPair()
@@ -82,7 +77,6 @@ func (pm *ProfileManager) LoadOrCreateProfile() (*models.P2PProfile, error) {
 			return nil, fmt.Errorf("ошибка шифрования приватного ключа: %w", err)
 		}
 		isEncrypted = true
-		log.Println("Приватный ключ зашифрован")
 	} else {
 		// Без шифрования (не рекомендуется)
 		privKeyBytes, err = crypto.MarshalPrivateKey(privKey)
@@ -90,7 +84,6 @@ func (pm *ProfileManager) LoadOrCreateProfile() (*models.P2PProfile, error) {
 			return nil, fmt.Errorf("ошибка сериализации приватного ключа: %w", err)
 		}
 		isEncrypted = false
-		log.Println("Предупреждение: приватный ключ сохранён без шифрования")
 	}
 
 	// Получаем имя пользователя из профиля
@@ -117,7 +110,6 @@ func (pm *ProfileManager) LoadOrCreateProfile() (*models.P2PProfile, error) {
 		return nil, fmt.Errorf("ошибка сохранения профиля: %w", err)
 	}
 
-	log.Printf("Создан новый P2P профиль: %s", profile.PeerID)
 	return profile, nil
 }
 

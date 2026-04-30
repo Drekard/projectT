@@ -74,9 +74,7 @@ func NewAudioCardWithCallback(item *models.Item, clickCallback func(), noButtons
 
 	// Извлекаем все аудиофайлы из ContentMeta
 	blocks, err := cards.ParseBlocks(audioCard.Item.ContentMeta)
-	if err != nil {
-		fmt.Printf("[ERROR] Ошибка парсинга ContentMeta: %v\n", err)
-	}
+	_ = err
 
 	// Собираем аудиофайлы
 	for _, block := range blocks {
@@ -256,7 +254,6 @@ func (ac *AudioCard) loadAudioInfo(block *cards.Block) {
 	}
 
 	if err != nil {
-		fmt.Printf("[WARN] Audio decoding error: %v\n", err)
 		ac.durationLabel.SetText("--:--")
 		return
 	}
@@ -299,7 +296,6 @@ func (ac *AudioCard) togglePlayPause() {
 func (ac *AudioCard) play(filePath string) {
 	file, err := os.Open(filePath)
 	if err != nil {
-		fmt.Printf("[ERROR] Ошибка открытия файла: %v\n", err)
 		return
 	}
 
@@ -319,7 +315,6 @@ func (ac *AudioCard) play(filePath string) {
 	}
 
 	if err != nil {
-		fmt.Printf("[ERROR] Decoding error: %v\n", err)
 		_ = file.Close()
 		return
 	}
@@ -503,9 +498,7 @@ func (ac *AudioCard) openCurrentFileWithDefaultApp() {
 
 	// Открываем через explorer.exe
 	cmd := exec.Command("explorer.exe", absPath)
-	if err := cmd.Run(); err != nil {
-		fmt.Printf("[ERROR] Ошибка при открытии файла: %v\n", err)
-	}
+	_ = cmd.Run()
 }
 
 // formatDuration форматирует длительность в MM:SS

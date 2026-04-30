@@ -156,14 +156,12 @@ func NewService(host host.Host) *Service {
 // Start запускает сервис передачи файлов
 func (ts *Service) Start() error {
 	ts.host.SetStreamHandler(ProtocolID, ts.handleTransferRequest)
-	log.Println("TransferService запущен")
 	return nil
 }
 
 // Stop останавливает сервис
 func (ts *Service) Stop() error {
 	ts.cancel()
-	log.Println("TransferService остановлен")
 	return nil
 }
 

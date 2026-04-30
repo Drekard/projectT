@@ -151,13 +151,11 @@ func (pes *ExchangeService) getTransferService() *transfer.Service {
 // Start запускает сервис обмена профилями
 func (pes *ExchangeService) Start() error {
 	pes.host.SetStreamHandler(ProtocolID, pes.handleProfileRequest)
-	log.Println("ProfileExchangeService v2.0 запущен")
 	return nil
 }
 
 // Stop останавливает сервис
 func (pes *ExchangeService) Stop() error {
-	log.Println("ProfileExchangeService остановлен")
 	return nil
 }
 

@@ -4,7 +4,6 @@ package controllers
 import (
 	"context"
 	"fmt"
-	"log"
 	"projectT/internal/services/p2p/address"
 	network "projectT/internal/services/p2p/ui"
 	"projectT/internal/storage/database/models"
@@ -31,8 +30,6 @@ func (cc *ContactController) SetP2PService(p2pUI *network.UIP2P) {
 
 // AddContactByAddress добавляет контакт по адресу
 func (cc *ContactController) AddContactByAddress(addrStr, username string) error {
-	log.Printf("[ContactController] 📝 Добавление контакта: addr=%s, username=%s", addrStr[:min(20, len(addrStr))], username)
-
 	if cc.p2pUI == nil {
 		return fmt.Errorf("P2P сервис не инициализирован")
 	}
@@ -49,29 +46,21 @@ func (cc *ContactController) AddContactByAddress(addrStr, username string) error
 		return fmt.Errorf("ошибка декодирования PeerID: %w", err)
 	}
 
-	log.Printf("[ContactController] === AddContactByAddress ===")
-	log.Printf("[ContactController] PeerID: %s", peerID.String())
-	log.Printf("[ContactController] Адрес: %s", addrStr)
-
 	// Пробуем подключиться к пиру для получения профиля
 	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
 	defer cancel()
 
 	// Подключаемся к пиру
-	log.Printf("[ContactController] Попытка подключения к пиру...")
 	if err := address.ConnectToPeer(ctx, cc.p2pUI.GetNetwork().Host(), addrStr); err != nil {
-		log.Printf("[ContactController] ❌ Не удалось подключиться к пиру %s: %v", peerID.String(), err)
+		// Ignore error
 	} else {
-		log.Printf("[ContactController] ✅ Подключение успешно, запрашиваем профиль...")
 		go cc.requestProfileAfterConnect(peerID.String())
 	}
 
 	// Обновляем multiaddr контакта
 	contact, err := queries.GetContactByPeerID(peerID.String())
 	if err == nil && contact != nil && contact.Multiaddr != "" {
-		if err := queries.UpdateContactByPeerID(peerID.String(), contact.Multiaddr); err != nil {
-			log.Printf("[ContactController] Не удалось обновить multiaddr контакта: %v", err)
-		}
+		_ = queries.UpdateContactByPeerID(peerID.String(), contact.Multiaddr)
 	}
 
 	return nil
@@ -79,8 +68,6 @@ func (cc *ContactController) AddContactByAddress(addrStr, username string) error
 
 // ConnectToContact подключается к контакту по адресу (НЕ создаёт контакт в БД)
 func (cc *ContactController) ConnectToContact(addrStr string) error {
-	log.Printf("[ContactController] 🔌 Подключение к контакту: addr=%s", addrStr[:min(20, len(addrStr))])
-
 	if cc.p2pUI == nil {
 		return fmt.Errorf("P2P сервис не инициализирован")
 	}
@@ -113,14 +100,12 @@ func (cc *ContactController) ConnectToContact(addrStr string) error {
 // requestProfileAfterConnect запрашивает профиль у пира после подключения
 func (cc *ContactController) requestProfileAfterConnect(peerIDStr string) {
 	if cc.p2pUI == nil {
-		log.Printf("[ContactController] ❌ P2P сервис не инициализирован")
 		return
 	}
 
 	// Декодируем PeerID
 	peerID, err := peer.Decode(peerIDStr)
 	if err != nil {
-		log.Printf("[ContactController] ❌ Ошибка декодирования PeerID: %v", err)
 		return
 	}
 
@@ -129,19 +114,12 @@ func (cc *ContactController) requestProfileAfterConnect(peerIDStr string) {
 
 	profileWithSig, err := cc.p2pUI.GetNetwork().ProfileExchange().RequestPeerProfile(profileCtx, peerID)
 	if err != nil {
-		log.Printf("[ContactController] ❌ Не удалось получить профиль у пира %s: %v", peerIDStr, err)
 		return
 	}
 
 	// Обновляем remote профиль в БД
 	if profileWithSig != nil && profileWithSig.Profile != nil {
-		if err := queries.UpdateRemoteProfile(profileWithSig.Profile); err != nil {
-			log.Printf("[ContactController] Не удалось обновить профиль пира %s: %v", peerIDStr, err)
-		} else {
-			log.Printf("[ContactController] ✅ Профиль пира %s получен и сохранён: %s", peerIDStr, profileWithSig.Profile.Username)
-			// ⚠️ Pinned элементы НЕ загружаются при добавлении контакта
-			// Загрузка происходит ТОЛЬКО при открытии чата (в chat_controller.go)
-		}
+		_ = queries.UpdateRemoteProfile(profileWithSig.Profile)
 	}
 }
 
@@ -235,12 +213,4 @@ func (cc *ContactController) RequestAllProfiles() {
 // GetProfiles возвращает все remote профили
 func (cc *ContactController) GetProfiles() ([]*models.Profile, error) {
 	return queries.GetAllRemoteProfiles()
-}
-
-// min возвращает минимальное из двух чисел
-func min(a, b int) int {
-	if a < b {
-		return a
-	}
-	return b
 }

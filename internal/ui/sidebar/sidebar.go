@@ -1,7 +1,6 @@
 package sidebar
 
 import (
-	"fmt"
 	"projectT/internal/services/favorites"
 	"projectT/internal/services/p2p/protocols/transfer"
 	"projectT/internal/storage/database/queries"
@@ -68,7 +67,7 @@ func createFrequentlyUsedSection(handler NavigationHandler) *fyne.Container {
 		// Get favorite folders
 		favoriteFolders, err := queries.GetFavoriteFolders()
 		if err != nil {
-			fmt.Printf("Error loading favorite folders: %v\n", err)
+			// Error loading favorite folders
 		} else {
 			for _, folder := range favoriteFolders {
 				buttonText := "📁 " + folder.Title
@@ -90,7 +89,7 @@ func createFrequentlyUsedSection(handler NavigationHandler) *fyne.Container {
 		// Get favorite tags
 		favoriteTags, err := queries.GetFavoriteTags()
 		if err != nil {
-			fmt.Printf("Error loading favorite tags: %v\n", err)
+			// Error loading favorite tags
 		} else {
 			for _, tag := range favoriteTags {
 				buttonText := "# " + tag.Name
@@ -138,7 +137,7 @@ func createFrequentlyUsedSection(handler NavigationHandler) *fyne.Container {
 			// Get favorite folders
 			favoriteFolders, err := queries.GetFavoriteFolders()
 			if err != nil {
-				fmt.Printf("Error loading favorite folders: %v\n", err)
+				// Error loading favorite folders
 			} else {
 				for _, folder := range favoriteFolders {
 					buttonText := "📁 " + folder.Title
@@ -160,7 +159,7 @@ func createFrequentlyUsedSection(handler NavigationHandler) *fyne.Container {
 			// Get favorite tags
 			favoriteTags, err := queries.GetFavoriteTags()
 			if err != nil {
-				fmt.Printf("Error loading favorite tags: %v\n", err)
+				// Error loading favorite tags
 			} else {
 				for _, tag := range favoriteTags {
 					buttonText := "# " + tag.Name

@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"flag"
 	"fmt"
-	"log"
 	"os"
 	"path/filepath"
 
@@ -162,7 +161,6 @@ func (l *Loader) Load() (*Config, error) {
 		// Проверяем наличие config.yaml в текущей рабочей директории
 		if _, err := os.Stat("config.yaml"); err == nil {
 			configPath = "config.yaml"
-			log.Println("[Config] Найден config.yaml в текущей директории - загружаем автоматически")
 		}
 	}
 
@@ -279,9 +277,6 @@ func (l *Loader) loadFromYAML(path string) error {
 		return err
 	}
 
-	// Логируем что загрузили
-	log.Printf("[Config] Загружены секции из YAML: %v", getMapKeys(yamlConfig))
-
 	// Маршалим обратно в структуру Config
 	yamlData, err := yaml.Marshal(yamlConfig)
 	if err != nil {
@@ -292,24 +287,11 @@ func (l *Loader) loadFromYAML(path string) error {
 		return err
 	}
 
-	// Логируем результат
-	log.Printf("[Config] Prometheus после парсинга: enabled=%v, port=%d",
-		l.config.Prometheus.Enabled, l.config.Prometheus.Port)
-
 	// Нормализуем пути из YAML в Unix-стиль
 	l.config.Database.Path = filepath.ToSlash(l.config.Database.Path)
 	l.config.Storage.Path = filepath.ToSlash(l.config.Storage.Path)
 
 	return nil
-}
-
-// getMapKeys возвращает ключи map для отладки
-func getMapKeys(m map[string]interface{}) []string {
-	keys := make([]string, 0, len(m))
-	for k := range m {
-		keys = append(keys, k)
-	}
-	return keys
 }
 
 // LoadFromYAMLOnly загружает конфигурацию ТОЛЬКО из YAML (игнорирует ENV)

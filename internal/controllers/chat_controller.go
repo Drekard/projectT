@@ -5,7 +5,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"log"
 	"projectT/internal/services"
 	network "projectT/internal/services/p2p/ui"
 	"projectT/internal/storage/database/models"
@@ -98,8 +97,6 @@ func (cc *ChatController) SetOnPinnedElementsLoaded(handler func(peerID string))
 // handleMessageEvents обрабатывает события новых сообщений
 func (cc *ChatController) handleMessageEvents() {
 	for event := range cc.messageChannel {
-		log.Printf("[ChatController] 📬 Получено событие сообщения: contactID=%d", event.ContactID)
-
 		// Вызываем callback UI
 		if cc.onMessageReceived != nil {
 			cc.onMessageReceived(event)
@@ -114,8 +111,6 @@ func (cc *ChatController) handleMessageEvents() {
 
 // SendMessage отправляет текстовое сообщение
 func (cc *ChatController) SendMessage(text string) error {
-	log.Printf("[ChatController] 📤 Отправка сообщения: len=%d", len(text))
-
 	if cc.p2pUI == nil {
 		return fmt.Errorf("P2P сервис не инициализирован")
 	}
@@ -126,7 +121,6 @@ func (cc *ChatController) SendMessage(text string) error {
 
 	// Для локального чата не отправляем через P2P
 	if cc.currentContact.IsLocalChat() {
-		log.Printf("[ChatController] ℹ️ Локальный чат, отправка только в БД")
 		// Отправляем только в ChatService для сохранения в БД
 		chatSvc := services.GetChatService()
 		if chatSvc != nil {
@@ -141,21 +135,16 @@ func (cc *ChatController) SendMessage(text string) error {
 		return fmt.Errorf("ошибка декодирования PeerID: %w", err)
 	}
 
-	log.Printf("[ChatController] 📤 Отправка сообщения пиру %s", peerID[:8])
-
 	// Отправляем через P2P сервис (который сохранит в БД и отправит через сеть)
 	if err := cc.p2pUI.SendMessage(peerID, text); err != nil {
 		return fmt.Errorf("ошибка отправки сообщения: %w", err)
 	}
 
-	log.Printf("[ChatController] ✅ Сообщение отправлено")
 	return nil
 }
 
 // SendElementMessage отправляет элемент в чат
 func (cc *ChatController) SendElementMessage(item *models.Item) error {
-	log.Printf("[ChatController] 📤 Отправка элемента: element_uuid=%s", item.ElementUUID)
-
 	if cc.p2pUI == nil {
 		return fmt.Errorf("P2P сервис не инициализирован")
 	}
@@ -166,7 +155,6 @@ func (cc *ChatController) SendElementMessage(item *models.Item) error {
 
 	// Для локального чата не отправляем через P2P
 	if cc.currentContact.IsLocalChat() {
-		log.Printf("[ChatController] ℹ️ Локальный чат, элемент не отправляется через P2P")
 		return nil
 	}
 
@@ -175,21 +163,16 @@ func (cc *ChatController) SendElementMessage(item *models.Item) error {
 		return fmt.Errorf("ошибка декодирования PeerID: %w", err)
 	}
 
-	log.Printf("[ChatController] 📤 Отправка элемента пиру %s", peerID[:8])
-
 	// Отправляем через P2P сервис
 	if err := cc.p2pUI.SendElementMessage(peerID, item); err != nil {
 		return fmt.Errorf("ошибка отправки элемента: %w", err)
 	}
 
-	log.Printf("[ChatController] ✅ Элемент отправлен")
 	return nil
 }
 
 // OpenChat открывает чат с контактом
 func (cc *ChatController) OpenChat(contact *models.Contact) error {
-	log.Printf("[ChatController] 🗨️ Открытие чата: peerID=%s, username=%s", contact.PeerID[:8], contact.Username)
-
 	cc.currentContact = contact
 	cc.currentChatID = contact.ID
 
@@ -199,9 +182,7 @@ func (cc *ChatController) OpenChat(contact *models.Contact) error {
 	}
 
 	// Загружаем сообщения
-	if _, err := cc.LoadMessages(); err != nil {
-		log.Printf("[ChatController] ⚠️ Ошибка загрузки сообщений: %v", err)
-	}
+	_, _ = cc.LoadMessages()
 
 	// ✅ Загружаем pinned элементы ТОЛЬКО при открытии чата
 	// Это происходит когда пользователь явно начинает общение
@@ -210,7 +191,6 @@ func (cc *ChatController) OpenChat(contact *models.Contact) error {
 			// Сначала запрашиваем профиль
 			err := cc.p2pUI.RequestProfile(contact.PeerID)
 			if err != nil {
-				log.Printf("[ChatController] ❌ Не удалось запросить профиль у пира: %v", err)
 				return
 			}
 
@@ -224,13 +204,8 @@ func (cc *ChatController) OpenChat(contact *models.Contact) error {
 
 // OpenPeerChat открывает чат с пиром (создаёт временный контакт)
 func (cc *ChatController) OpenPeerChat(peerID, username string) error {
-	log.Printf("[ChatController] 🆕 Открытие чата с пиром: %s (%s)", username, peerID[:8])
-
 	// Получаем профиль пира из БД для корректного отображения
-	profile, err := queries.GetProfileByPeerID(peerID)
-	if err == nil && profile != nil {
-		log.Printf("[ChatController] 📋 Профиль пира найден: username=%q", profile.Username)
-	}
+	profile, _ := queries.GetProfileByPeerID(peerID)
 
 	// Создаём временный контакт для чата
 	contactUsername := username
@@ -247,7 +222,7 @@ func (cc *ChatController) OpenPeerChat(peerID, username string) error {
 		Username:   contactUsername,
 		Title:      contactTitle,
 		AvatarPath: contactAvatarPath,
-		ID:         0, // ID = 0 означает, что контакт не в БД
+		ID:         0,
 	}
 
 	return cc.OpenChat(tempContact)
@@ -255,8 +230,6 @@ func (cc *ChatController) OpenPeerChat(peerID, username string) error {
 
 // OpenLocalChat открывает локальный чат с самим собой
 func (cc *ChatController) OpenLocalChat() error {
-	log.Printf("[ChatController] 🗨️ Открытие локального чата (Избранное)")
-
 	// Загружаем локальный профиль
 	localProfile, err := queries.GetLocalProfile()
 	if err != nil {
@@ -281,8 +254,6 @@ func (cc *ChatController) OpenLocalChat() error {
 
 // CloseChat закрывает текущий чат
 func (cc *ChatController) CloseChat() error {
-	log.Printf("[ChatController] 🚪 Закрытие чата")
-
 	cc.currentContact = nil
 	cc.currentChatID = 0
 
@@ -300,15 +271,12 @@ func (cc *ChatController) LoadMessages() ([]*models.ChatMessage, error) {
 		return nil, fmt.Errorf("текущий контакт не выбран")
 	}
 
-	log.Printf("[ChatController] 📥 Загрузка сообщений для контакта: peerID=%s", cc.currentContact.PeerID[:8])
-
 	// Получаем чат по peer_id
 	chat, err := queries.GetChatByPeerID(cc.currentContact.PeerID)
 	if err != nil {
 		return nil, fmt.Errorf("ошибка получения чата: %w", err)
 	}
 	if chat == nil {
-		log.Printf("[ChatController] 📚 Чат не найден, сообщений нет")
 		return []*models.ChatMessage{}, nil
 	}
 
@@ -318,21 +286,17 @@ func (cc *ChatController) LoadMessages() ([]*models.ChatMessage, error) {
 		return nil, fmt.Errorf("ошибка загрузки сообщений: %w", err)
 	}
 
-	log.Printf("[ChatController] 📚 Получено %d сообщений из БД", len(messages))
 	return messages, nil
 }
 
 // LoadMessagesForChat загружает сообщения для чата по ID
 func (cc *ChatController) LoadMessagesForChat(chatID int) ([]*models.ChatMessage, error) {
-	log.Printf("[ChatController] 📥 Загрузка сообщений для чата ID=%d", chatID)
-
 	// Загружаем сообщения по chat_id
 	messages, err := queries.GetMessagesForChat(chatID, 100, 0)
 	if err != nil {
 		return nil, fmt.Errorf("ошибка загрузки сообщений: %w", err)
 	}
 
-	log.Printf("[ChatController] 📚 Получено %d сообщений из БД", len(messages))
 	return messages, nil
 }
 
@@ -358,7 +322,6 @@ func (cc *ChatController) GetContactByPeerID(peerID string) (*models.Contact, er
 
 // RefreshContacts обновляет список контактов
 func (cc *ChatController) RefreshContacts() {
-	log.Printf("[ChatController] 🔄 Обновление списка контактов")
 	if cc.onContactsRefreshed != nil {
 		cc.onContactsRefreshed()
 	}
@@ -366,17 +329,13 @@ func (cc *ChatController) RefreshContacts() {
 
 // DeleteContact удаляет контакт
 func (cc *ChatController) DeleteContact(chatID int, peerID string) error {
-	log.Printf("[ChatController] 🗑️ Удаление контакта: chatID=%d, peerID=%s", chatID, peerID[:8])
-
 	if err := queries.DeleteContact(chatID); err != nil {
 		return fmt.Errorf("ошибка удаления контакта: %w", err)
 	}
 
 	// Если текущий чат был удалён, закрываем его
 	if cc.currentChatID == chatID {
-		if err := cc.CloseChat(); err != nil {
-			log.Printf("[ChatController] ⚠️ Ошибка закрытия чата: %v", err)
-		}
+		_ = cc.CloseChat()
 	}
 
 	// Обновляем список контактов
@@ -453,48 +412,39 @@ func (cc *ChatController) RequestItem(ctx context.Context, peerIDStr, elementUUI
 // Вызывается ТОЛЬКО при открытии чата (не при добавлении контакта!)
 func (cc *ChatController) downloadPinnedElements(peerIDStr string) {
 	if cc.p2pUI == nil {
-		log.Printf("[ChatController] ❌ P2P сервис не инициализирован")
 		return
 	}
 
 	// Получаем профиль пира из БД
 	profile, err := queries.GetProfileByPeerID(peerIDStr)
 	if err != nil || profile == nil {
-		log.Printf("[ChatController] ⚠️ Профиль пира %s не найден в БД", peerIDStr[:8])
 		return
 	}
 
 	// Парсим JSON с pinned UUIDs
 	var pinnedUUIDs []string
 	if err := json.Unmarshal([]byte(profile.PinnedUUIDs), &pinnedUUIDs); err != nil {
-		log.Printf("[ChatController] ⚠️ Ошибка парсинга PinnedUUIDs: %v", err)
 		return
 	}
 
 	if len(pinnedUUIDs) == 0 {
-		log.Printf("[ChatController] ℹ️ У пира %s нет закреплённых элементов", peerIDStr[:8])
 		return
 	}
-
-	log.Printf("[ChatController] 📌 Загрузка %d pinned элементов у пира %s", len(pinnedUUIDs), peerIDStr[:8])
 
 	// Декодируем PeerID
 	peerID, err := peer.Decode(peerIDStr)
 	if err != nil {
-		log.Printf("[ChatController] ❌ Ошибка декодирования PeerID: %v", err)
 		return
 	}
 
 	// Получаем ItemSync сервис
 	p2pNet := cc.p2pUI.GetNetwork()
 	if p2pNet == nil {
-		log.Printf("[ChatController] ❌ P2P сеть не инициализирована")
 		return
 	}
 
 	itemSyncSvc := p2pNet.ItemSync()
 	if itemSyncSvc == nil {
-		log.Printf("[ChatController] ❌ ItemSyncService не инициализирован")
 		return
 	}
 
@@ -507,26 +457,20 @@ func (cc *ChatController) downloadPinnedElements(peerIDStr string) {
 		// Проверяем, есть ли уже элемент в БД
 		existing, err := queries.GetItemByElementUUID(uuid)
 		if err == nil && existing != nil {
-			log.Printf("[ChatController] ✅ Элемент уже существует: UUID=%s, ID=%d", uuid[:8], existing.ID)
 			loadedCount++
 			continue
 		}
 
 		// Запрашиваем элемент у пира
-		log.Printf("[ChatController] 📥 Запрос элемента: UUID=%s", uuid[:8])
 		item, err := itemSyncSvc.RequestItemByElementUUID(ctx, peerID, uuid)
 		if err != nil {
-			log.Printf("[ChatController] ❌ Ошибка загрузки элемента %s: %v", uuid[:8], err)
 			continue
 		}
 
 		if item != nil {
 			loadedCount++
-			log.Printf("[ChatController] ✅ Элемент загружён: UUID=%s, ID=%d, Title=%q", uuid[:8], item.ID, item.Title)
 		}
 	}
-
-	log.Printf("[ChatController] 📊 Загружено %d из %d pinned элементов", loadedCount, len(pinnedUUIDs))
 
 	// Уведомляем UI о завершении загрузки закреплённых элементов
 	if cc.onPinnedElementsLoaded != nil && loadedCount > 0 {

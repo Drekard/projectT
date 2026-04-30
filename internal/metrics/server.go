@@ -2,7 +2,6 @@ package metrics
 
 import (
 	"context"
-	"log"
 	"net/http"
 	"time"
 
@@ -71,16 +70,12 @@ func NewServer(address, path string, metrics *Metrics, registry *prometheus.Regi
 
 // Start запускает HTTP сервер метрик в фоновом режиме
 func (s *Server) Start() error {
-	log.Printf("[Prometheus] Сервер метрик запущен на http://%s", s.server.Addr)
-
 	// Запускаем сбор runtime метрик
 	go s.collectRuntime()
 
 	// Запускаем HTTP сервер
 	go func() {
-		if err := s.server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
-			log.Printf("[Prometheus] Ошибка HTTP сервера метрик: %v", err)
-		}
+		_ = s.server.ListenAndServe()
 	}()
 
 	return nil
@@ -88,8 +83,6 @@ func (s *Server) Start() error {
 
 // Stop останавливает HTTP сервер метрик
 func (s *Server) Stop() error {
-	log.Println("[Prometheus] Остановка сервера метрик...")
-
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 

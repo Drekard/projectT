@@ -69,14 +69,12 @@ func NewDialer(h host.Host, config *Config) *Dialer {
 
 // Start запускает автоподключение
 func (d *Dialer) Start() error {
-	log.Println("[Autodial] Сервис автоподключения запущен")
 	return nil
 }
 
 // Stop останавливает автоподключение
 func (d *Dialer) Stop() error {
 	d.cancel()
-	log.Println("[Autodial] Сервис автоподключения остановлен")
 	return nil
 }
 

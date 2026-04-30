@@ -89,13 +89,11 @@ func NewExchangeService(h host.Host, provider PeerProvider) *ExchangeService {
 // Start запускает сервис
 func (s *ExchangeService) Start() error {
 	s.host.SetStreamHandler(ProtocolID, s.handleExchange)
-	log.Println("[PeerExchange] Сервис обмена пирами запущен")
 	return nil
 }
 
 // Stop останавливает сервис
 func (s *ExchangeService) Stop() error {
-	log.Println("[PeerExchange] Сервис обмена пирами остановлен")
 	return nil
 }
 

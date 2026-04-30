@@ -36,34 +36,27 @@ func NewContentBlocksService() *ContentBlocksService {
 
 // ProcessFileData обрабатывает файлы и возвращает блоки
 func (s *ContentBlocksService) ProcessFileData(selectedFiles *[]string, linkEntries []string) ([]Block, []string) {
-	fmt.Printf("Начинаем обработку файлов, количество выбранных файлов: %d\n", len(*selectedFiles))
 	var blocks []Block
 	var errors []string
 
 	// Вспомогательная функция для обработки одного файла
 	processSingleFile := func(filepath, blockType string) (Block, error) {
-		fmt.Printf("Обработка файла: %s, тип: %s\n", filepath, blockType)
 		// Проверяем существование файла
 		if _, err := os.Stat(filepath); os.IsNotExist(err) {
-			fmt.Printf("Файл не существует: %s\n", filepath)
 			return Block{}, fmt.Errorf("файл не существует: %s", filepath)
 		}
 
 		// Читаем файл
 		fileBytes, err := os.ReadFile(filepath)
 		if err != nil {
-			fmt.Printf("Ошибка чтения файла %s: %v\n", filepath, err)
 			return Block{}, fmt.Errorf("ошибка чтения файла %s: %v", filepath, err)
 		}
-		fmt.Printf("Файл успешно прочитан, размер: %d байт\n", len(fileBytes))
 
 		// Сохраняем в файловую систему
 		fileData, err := filesystem.SaveFileWithOriginalName(fileBytes, filepath)
 		if err != nil {
-			fmt.Printf("Ошибка сохранения файла %s: %v\n", filepath, err)
 			return Block{}, fmt.Errorf("ошибка сохранения файла %s: %v", filepath, err)
 		}
-		fmt.Printf("Файл успешно сохранен с хешем: %s\n", fileData.Hash)
 
 		return Block{
 			Type:         blockType,
@@ -74,8 +67,7 @@ func (s *ContentBlocksService) ProcessFileData(selectedFiles *[]string, linkEntr
 	}
 
 	// Обрабатываем изображения (в данном случае все файлы из selectedFiles)
-	for i, filepath := range *selectedFiles {
-		fmt.Printf("Обрабатываем файл %d/%d: %s\n", i+1, len(*selectedFiles), filepath)
+	for _, filepath := range *selectedFiles {
 		ext := strings.ToLower(strings.TrimPrefix(path.Ext(filepath), "."))
 		blockType := "file"
 
@@ -92,34 +84,24 @@ func (s *ContentBlocksService) ProcessFileData(selectedFiles *[]string, linkEntr
 			blockType = "video"
 		}
 
-		fmt.Printf("Расширение файла: %s, определенный тип: %s\n", ext, blockType)
-
 		block, err := processSingleFile(filepath, blockType)
 		if err != nil {
-			fmt.Printf("Ошибка при обработке файла %s: %v\n", filepath, err)
 			errors = append(errors, err.Error())
 			continue
 		}
 		blocks = append(blocks, block)
-		fmt.Printf("Файл успешно обработан, добавлен блок типа: %s\n", block.Type)
 	}
 
-	fmt.Printf("Начинаем обработку ссылок, количество ссылок: %d\n", len(linkEntries))
 	// Обрабатываем ссылки
-	for i, link := range linkEntries {
-		fmt.Printf("Обрабатываем ссылку %d/%d: %s\n", i+1, len(linkEntries), link)
+	for _, link := range linkEntries {
 		if link != "" {
 			blocks = append(blocks, Block{
 				Type:    "link",
 				Content: link,
 			})
-			fmt.Printf("Ссылка добавлена как блок\n")
-		} else {
-			fmt.Printf("Ссылка пустая, пропускаем\n")
 		}
 	}
 
-	fmt.Printf("Обработка файлов завершена. Создано блоков: %d, ошибок: %d\n", len(blocks), len(errors))
 	return blocks, errors
 }
 
@@ -182,32 +164,22 @@ func (s *ContentBlocksService) CleanupOldFiles(oldBlocks, newBlocks []Block) {
 	}
 
 	// Удаляем старые файлы, которых нет в новых
-	for _, block := range oldBlocks {
+	/*for _, block := range oldBlocks { хз что это
 		if block.FileHash != "" && !newHashes[block.FileHash] {
 			if err := filesystem.DeleteFile(block.FileHash); err != nil {
-				// Логируем, но не прерываем
-				fmt.Printf("WARN: ошибка удаления файла %s: %v\n", block.FileHash, err)
+				// Ignore error - file cleanup is not critical
 			}
 		}
-	}
+	}*/
 }
 
 // CreateItemWithTransaction создает элемент в транзакции
 func (s *ContentBlocksService) CreateItemWithTransaction(ctx context.Context, title, description string, itemType models.ItemType, contentMeta string, parentID *int) (*models.Item, error) {
-	fmt.Println("Начинаем создание элемента в базе данных...")
-	fmt.Printf("Title: %s\n", title)
-	fmt.Printf("Description: %s\n", description)
-	fmt.Printf("ItemType: %s\n", itemType)
-	fmt.Printf("ContentMeta length: %d\n", len(contentMeta))
-	fmt.Printf("ParentID: %v\n", parentID)
-
 	// Генерируем hash для уникальной идентификации содержимого (дедупликация)
 	hash := filesystem.GenerateContentHash(title, description, contentMeta)
-	fmt.Printf("Hash: %s\n", hash)
 
-	// Генерируем element_uuid - уникальный идентификатор для P2P
+	// Генерируем elementUUID - уникальный идентификатор для P2P
 	elementUUID := filesystem.GenerateElementUUID()
-	fmt.Printf("ElementUUID: %s\n", elementUUID)
 
 	// Создаем элемент
 	item := &models.Item{
@@ -220,12 +192,9 @@ func (s *ContentBlocksService) CreateItemWithTransaction(ctx context.Context, ti
 		ParentID:    parentID,
 	}
 
-	fmt.Println("Вызываем queries.CreateItem...")
 	if err := queries.CreateItem(item); err != nil {
-		fmt.Printf("Ошибка при создании элемента: %v\n", err)
 		return nil, fmt.Errorf("ошибка создания элемента: %w", err)
 	}
-	fmt.Println("Элемент успешно создан в базе данных")
 
 	return item, nil
 }
@@ -237,7 +206,7 @@ func (s *ContentBlocksService) UpdateItemWithTransaction(ctx context.Context, it
 		return nil, nil, fmt.Errorf("ошибка начала транзакции: %w", err)
 	}
 	defer func() {
-		_ = tx.Rollback() // Игнорируем ошибку отката, т.к. коммит уже мог состояться
+		_ = tx.Rollback()
 	}()
 
 	// Получаем текущий элемент напрямую в транзакции
@@ -266,8 +235,7 @@ func (s *ContentBlocksService) UpdateItemWithTransaction(ctx context.Context, it
 	var oldBlocks []Block
 	if currentContentMeta != "" {
 		if err := json.Unmarshal([]byte(currentContentMeta), &oldBlocks); err != nil {
-			// Логируем ошибку, но продолжаем
-			fmt.Printf("WARN: ошибка разбора старых блоков: %v\n", err)
+			_ = err // Ignore error
 		}
 	}
 
@@ -307,7 +275,6 @@ func (s *ContentBlocksService) SaveItemFiles(itemID int, blocks []Block) error {
 			// Получаем информацию о файле
 			fileInfo, err := filesystem.GetFileInfo(block.FileHash)
 			if err != nil {
-				fmt.Printf("WARN: не удалось получить информацию о файле %s: %v\n", block.FileHash, err)
 				continue
 			}
 
@@ -322,12 +289,7 @@ func (s *ContentBlocksService) SaveItemFiles(itemID int, blocks []Block) error {
 				SourcePeerID: "",
 			}
 
-			if err := queries.CreateItemFile(itemFile); err != nil {
-				fmt.Printf("WARN: ошибка сохранения файла в item_files: %v\n", err)
-				// Не прерываем процесс, продолжаем с остальными файлами
-			} else {
-				fmt.Printf("Файл сохранён в item_files: %s\n", block.FileHash)
-			}
+			_ = queries.CreateItemFile(itemFile)
 		}
 	}
 	return nil
@@ -335,9 +297,7 @@ func (s *ContentBlocksService) SaveItemFiles(itemID int, blocks []Block) error {
 
 // ProcessTags обрабатывает теги для элемента
 func (s *ContentBlocksService) ProcessTags(ctx context.Context, itemID int, tagsInput string) error {
-	fmt.Printf("Начинаем обработку тегов, itemID: %d, теги: '%s'\n", itemID, tagsInput)
 	if tagsInput == "" {
-		fmt.Println("Теги отсутствуют, возвращаемся")
 		// При пустых тегах удаляем все существующие теги для элемента
 		return queries.ReplaceItemTags(ctx, itemID, []int{})
 	}
@@ -352,31 +312,22 @@ func (s *ContentBlocksService) ProcessTags(ctx context.Context, itemID int, tags
 		}
 	}
 
-	fmt.Printf("Очищенные теги: %v\n", cleanTagNames)
-
 	if len(cleanTagNames) == 0 {
-		fmt.Println("Нет действительных тегов, возвращаемся")
 		// При отсутствии действительных тегов удаляем все существующие теги для элемента
 		return queries.ReplaceItemTags(ctx, itemID, []int{})
 	}
 
-	fmt.Println("Вызываем queries.GetOrCreateTags...")
 	// Получаем или создаем теги
 	tagIDs, err := queries.GetOrCreateTags(ctx, cleanTagNames)
 	if err != nil {
-		fmt.Printf("Ошибка при получении/создании тегов: %v\n", err)
 		return fmt.Errorf("ошибка обработки тегов: %w", err)
 	}
-	fmt.Printf("Получены тег ID: %v\n", tagIDs)
 
-	fmt.Println("Вызываем queries.ReplaceItemTags...")
 	// Привязываем теги к элементу
 	err = queries.ReplaceItemTags(ctx, itemID, tagIDs)
 	if err != nil {
-		fmt.Printf("Ошибка при привязке тегов к элементу: %v\n", err)
 		return err
 	}
-	fmt.Println("Теги успешно привязаны к элементу")
 
 	return nil
 }

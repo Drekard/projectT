@@ -1,7 +1,6 @@
 package concrete
 
 import (
-	"fmt"
 	"image/color"
 	"os/exec"
 	"path/filepath"
@@ -49,10 +48,7 @@ func NewFileCardWithCallback(item *models.Item, clickCallback func(), noButtons 
 	}
 
 	// Извлекаем все блоки для определения типа файлов
-	blocks, err := cards.ParseBlocks(fileCard.Item.ContentMeta)
-	if err != nil {
-		fmt.Printf("[ERROR] Ошибка парсинга ContentMeta: %v\n", err)
-	}
+	blocks, _ := cards.ParseBlocks(fileCard.Item.ContentMeta)
 
 	// Определяем, какие файлы показывать на карточке (все, кроме изображений)
 	var displayFiles []string
@@ -216,12 +212,9 @@ func (fc *FileCard) UpdateContent() {
 
 // openSpecificFileWithDefaultApp открывает конкретный файл по индексу средствами Windows
 func (fc *FileCard) openSpecificFileWithDefaultApp(index int) {
-	fmt.Printf("[DEBUG] Клик по файлу с индексом %d\n", index)
-
 	// Получаем все блоки файлов
 	blocks, err := cards.ParseBlocks(fc.Item.ContentMeta)
 	if err != nil {
-		fmt.Printf("[ERROR] Ошибка парсинга ContentMeta: %v\n", err)
 		return
 	}
 
@@ -237,35 +230,24 @@ func (fc *FileCard) openSpecificFileWithDefaultApp(index int) {
 
 	// Проверяем, что индекс в пределах диапазона
 	if index < 0 || index >= len(fileBlocks) {
-		fmt.Printf("[ERROR] Индекс файла вне диапазона: %d\n", index)
 		return
 	}
 
 	targetBlock := fileBlocks[index]
 
-	fmt.Printf("[DEBUG] Открываем файл: hash=%s, type=%s\n",
-		targetBlock.FileHash, targetBlock.Type)
-
 	// Получаем путь к файлу по хешу
 	filePath := filesystem.GetFilePathByHash(targetBlock.FileHash)
 	if filePath == "" {
-		fmt.Printf("[ERROR] Не удалось получить путь к файлу\n")
 		return
 	}
-
-	fmt.Printf("[DEBUG] Путь к файлу: %s\n", filePath)
 
 	// Получаем абсолютный путь
 	absPath, err := filepath.Abs(filePath)
 	if err != nil {
-		fmt.Printf("[WARN] Ошибка получения абсолютного пути: %v\n", err)
 		absPath = filePath
 	}
 
 	// Открываем файл через explorer.exe
-	fmt.Printf("[DEBUG] Открываем через explorer.exe: %s\n", absPath)
 	cmd := exec.Command("explorer.exe", absPath)
-	if err := cmd.Run(); err != nil {
-		fmt.Printf("[ERROR] Ошибка при открытии файла: %v\n", err)
-	}
+	_ = cmd.Run()
 }

@@ -48,13 +48,11 @@ func NewService(h host.Host) *Service {
 // Start запускает сервис
 func (s *Service) Start() error {
 	s.host.SetStreamHandler(ProtocolID, s.handleAvatarRequest)
-	log.Println("[Avatar] Сервис загрузки аватарок запущен")
 	return nil
 }
 
 // Stop останавливает сервис
 func (s *Service) Stop() error {
-	log.Println("[Avatar] Сервис загрузки аватарок остановлен")
 	return nil
 }
 

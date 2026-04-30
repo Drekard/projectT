@@ -1,7 +1,6 @@
 package concrete
 
 import (
-	"fmt"
 	"image/color"
 	"os/exec"
 	"path/filepath"
@@ -51,10 +50,7 @@ func NewVideoCardWithCallback(item *models.Item, clickCallback func(), noButtons
 	}
 
 	// Извлекаем все видеофайлы из ContentMeta
-	blocks, err := cards.ParseBlocks(videoCard.Item.ContentMeta)
-	if err != nil {
-		fmt.Printf("[ERROR] Ошибка парсинга ContentMeta: %v\n", err)
-	}
+	blocks, _ := cards.ParseBlocks(videoCard.Item.ContentMeta)
 
 	// Собираем видеофайлы
 	for _, block := range blocks {
@@ -210,9 +206,7 @@ func (vc *VideoCard) openCurrentFileWithDefaultApp() {
 
 	// Открываем через explorer.exe
 	cmd := exec.Command("explorer.exe", absPath)
-	if err := cmd.Run(); err != nil {
-		fmt.Printf("[ERROR] Ошибка при открытии файла: %v\n", err)
-	}
+	_ = cmd.Run()
 }
 
 // Методы интерфейса CardRenderer

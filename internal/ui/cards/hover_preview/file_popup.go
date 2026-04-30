@@ -1,7 +1,6 @@
 package hover_preview
 
 import (
-	"fmt"
 	"os/exec"
 	"path/filepath"
 
@@ -14,28 +13,18 @@ import (
 
 // openFileWithDefaultApp opens a file using the default application in Windows
 func openFileWithDefaultApp(filePath string) {
-	fmt.Printf("[DEBUG] Opening file: %s\n", filePath)
-
 	// Get absolute path
 	absPath, err := filepath.Abs(filePath)
 	if err != nil {
-		fmt.Printf("[WARN] Error getting absolute path: %v\n", err)
 		absPath = filePath
 	}
 
 	// Open file through explorer.exe
-	fmt.Printf("[DEBUG] Opening via explorer.exe: %s\n", absPath)
 	cmd := exec.Command("explorer.exe", absPath)
 	if err := cmd.Run(); err != nil {
-		fmt.Printf("[ERROR] Error opening file: %v\n", err)
-
 		// Try alternative method through cmd start
 		cmd = exec.Command("cmd", "/c", "start", "", absPath)
-		if err := cmd.Run(); err != nil {
-			fmt.Printf("[ERROR] Alternative method also failed: %v\n", err)
-		}
-	} else {
-		fmt.Printf("[DEBUG] File successfully opened\n")
+		_ = cmd.Run()
 	}
 }
 
@@ -66,11 +55,7 @@ func NewFilePopup(fileItems []FileItem, trigger fyne.CanvasObject) *FilePopup {
 				filePath := filesystem.GetFilePathByHash(currentFileItem.Hash)
 				if filePath != "" {
 					openFileWithDefaultApp(filePath)
-				} else {
-					fmt.Printf("[ERROR] Could not get file path for hash: %s\n", currentFileItem.Hash)
 				}
-			} else {
-				fmt.Printf("[ERROR] Invalid hash format detected: %s\n", currentFileItem.Hash)
 			}
 		})
 

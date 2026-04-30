@@ -138,7 +138,6 @@ func (cs *Service) Start() error {
 	// Запускаем обработчик очереди сообщений
 	go cs.processMessageQueue()
 
-	log.Println("ChatService запущен")
 	return nil
 }
 
@@ -148,7 +147,6 @@ func (cs *Service) Stop() error {
 	defer cs.mu.Unlock()
 
 	cs.cancel()
-	log.Println("ChatService остановлен")
 	return nil
 }
 

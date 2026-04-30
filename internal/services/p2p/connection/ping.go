@@ -87,7 +87,6 @@ func (s *Service) Start() error {
 	// Запускаем обработчик очереди переподключения
 	go s.processReconnectQueue()
 
-	log.Println("ConnectionService запущен")
 	return nil
 }
 
@@ -97,7 +96,6 @@ func (s *Service) Stop() error {
 	defer s.mu.Unlock()
 
 	s.cancel()
-	log.Println("ConnectionService остановлен")
 	return nil
 }
 

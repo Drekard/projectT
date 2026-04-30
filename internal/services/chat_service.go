@@ -5,7 +5,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"log"
 	"projectT/internal/metrics"
 	"projectT/internal/storage/database/models"
 	"projectT/internal/storage/database/queries"
@@ -28,7 +27,6 @@ func SetGlobalP2PNetwork(p2pNet interface {
 	p2pNetworkMu.Lock()
 	defer p2pNetworkMu.Unlock()
 	globalP2PNetwork = p2pNet
-	log.Println("[Chat] ✅ Глобальный P2P сервис установлен")
 }
 
 // getGlobalP2PNetwork возвращает глобальный P2P сервис
@@ -45,7 +43,6 @@ func (cs *ChatService) SetTransferService(transferSvc interface {
 	SendElementMetadata(ctx context.Context, peerID peer.ID, elementUUID, title, description, contentMeta string) (string, error)
 }) {
 	cs.transferSvc = transferSvc
-	log.Println("[Chat] ✅ Transfer Service установлен")
 }
 
 // SetItemSyncService устанавливает ItemSync Service для загрузки элементов
@@ -53,7 +50,6 @@ func (cs *ChatService) SetItemSyncService(itemSyncSvc interface {
 	RequestItemByElementUUID(ctx context.Context, peerID peer.ID, elementUUID string) (*models.Item, error)
 }) {
 	cs.itemSync = itemSyncSvc
-	log.Println("[Chat] ✅ ItemSync Service установлен")
 }
 
 // ItemSync возвращает ItemSync сервис
@@ -133,9 +129,6 @@ func (cs *ChatService) Subscribe() <-chan *ChatMessageEvent {
 
 // SendTextMessage отправляет текстовое сообщение
 func (cs *ChatService) SendTextMessage(contactID int, recipientPeerID, fromPeerID string, content string) (*models.ChatMessage, error) {
-	log.Printf("[Chat] 📤 SendTextMessage: contactID=%d, recipientPeerID=%s, fromPeerID=%s, len=%d",
-		contactID, recipientPeerID[:min(10, len(recipientPeerID))], fromPeerID[:min(10, len(fromPeerID))], len(content))
-
 	// Получаем peer_id из контакта
 	var peerID string
 	var contactIDPtr *int
@@ -145,13 +138,11 @@ func (cs *ChatService) SendTextMessage(contactID int, recipientPeerID, fromPeerI
 			// Локальный чат
 			peerID = fromPeerID
 			contactIDPtr = nil
-			log.Printf("[Chat] 📝 Локальный чат: peerID=%s", peerID[:8])
 		} else {
 			// Это чат с пиром, но без контакта в БД (временный контакт)
 			// Используем recipientPeerID как peer_id получателя
 			peerID = recipientPeerID
 			contactIDPtr = nil
-			log.Printf("[Chat] 👤 Чат с пиром (временный контакт): peerID=%s", peerID[:8])
 		}
 	} else {
 		contact, err := queries.GetContact(contactID)
@@ -160,7 +151,6 @@ func (cs *ChatService) SendTextMessage(contactID int, recipientPeerID, fromPeerI
 		}
 		peerID = contact.PeerID
 		contactIDPtr = &contactID
-		log.Printf("[Chat] 👤 Чат с пиром: contactID=%d, peerID=%s, username=%q", contactID, peerID[:8], contact.Username)
 	}
 
 	// Получаем или создаём чат
@@ -168,7 +158,6 @@ func (cs *ChatService) SendTextMessage(contactID int, recipientPeerID, fromPeerI
 	if err != nil {
 		return nil, fmt.Errorf("ошибка получения чата: %w", err)
 	}
-	log.Printf("[Chat] 📋 Чат получен/создан: chat_id=%d, peer_id=%s", chat.ID, peerID[:8])
 
 	message := &models.ChatMessage{
 		ChatID:      chat.ID,
@@ -181,11 +170,6 @@ func (cs *ChatService) SendTextMessage(contactID int, recipientPeerID, fromPeerI
 
 	if err := queries.CreateChatMessage(message); err != nil {
 		return nil, fmt.Errorf("ошибка сохранения сообщения: %w", err)
-	}
-
-	// Обновляем время последнего сообщения в чате
-	if err := queries.UpdateChatLastMessage(chat.ID, message.SentAt); err != nil {
-		log.Printf("Предупреждение: не удалось обновить время чата: %v", err)
 	}
 
 	// Получаем имя контакта для события
@@ -211,9 +195,6 @@ func (cs *ChatService) SendTextMessage(contactID int, recipientPeerID, fromPeerI
 // SendElementMessage отправляет элемент в чат
 // Если chat с peer_id != local peer и P2P активен - отправляет элемент через P2P
 func (cs *ChatService) SendElementMessage(contactID int, recipientPeerID, fromPeerID string, item *models.Item) (*models.ChatMessage, error) {
-	log.Printf("[Chat] 📤 SendElementMessage: contactID=%d, recipientPeerID=%s, fromPeerID=%s, item_id=%d, element_uuid=%s, title=%q",
-		contactID, recipientPeerID[:min(10, len(recipientPeerID))], fromPeerID[:min(10, len(fromPeerID))], item.ID, item.ElementUUID, item.Title)
-
 	// Получаем peer_id из контакта
 	var peerID string
 	var isLocalChat bool
@@ -223,13 +204,11 @@ func (cs *ChatService) SendElementMessage(contactID int, recipientPeerID, fromPe
 		if recipientPeerID == fromPeerID {
 			peerID = fromPeerID
 			isLocalChat = true
-			log.Printf("[Chat] 📝 Локальный чат: peerID=%s", peerID[:8])
 		} else {
 			// Это чат с пиром, но без контакта в БД (временный контакт)
 			// Используем recipientPeerID как peer_id получателя
 			peerID = recipientPeerID
 			isLocalChat = false
-			log.Printf("[Chat] 👤 Чат с пиром (временный контакт): peerID=%s", peerID[:8])
 		}
 	} else {
 		contact, err := queries.GetContact(contactID)
@@ -238,7 +217,6 @@ func (cs *ChatService) SendElementMessage(contactID int, recipientPeerID, fromPe
 		}
 		peerID = contact.PeerID
 		isLocalChat = false
-		log.Printf("[Chat] 👤 Чат с пиром: contactID=%d, peerID=%s, username=%q", contactID, peerID[:8], contact.Username)
 	}
 
 	// Получаем или создаём чат
@@ -246,10 +224,8 @@ func (cs *ChatService) SendElementMessage(contactID int, recipientPeerID, fromPe
 	if err != nil {
 		return nil, fmt.Errorf("ошибка получения чата: %w", err)
 	}
-	log.Printf("[Chat] 📋 Чат получен/создан: chat_id=%d, peer_id=%s", chat.ID, peerID[:8])
 
 	// Создаём метаданные элемента
-	// Хеш используется для проверки дубликатов, передача идёт по element_uuid
 	metadata := map[string]interface{}{
 		"item_id":      item.ID,
 		"item_type":    string(item.Type),
@@ -279,12 +255,6 @@ func (cs *ChatService) SendElementMessage(contactID int, recipientPeerID, fromPe
 	if err := queries.CreateChatMessage(message); err != nil {
 		return nil, fmt.Errorf("ошибка сохранения сообщения: %w", err)
 	}
-	log.Printf("[Chat] 💾 Сообщение сохранено в БД: message_id=%d, chat_id=%d", message.ID, chat.ID)
-
-	// Обновляем время последнего сообщения в чате
-	if err := queries.UpdateChatLastMessage(chat.ID, message.SentAt); err != nil {
-		log.Printf("Предупреждение: не удалось обновить время чата: %v", err)
-	}
 
 	// Получаем имя контакта для события
 	contactName := "Локальный чат"
@@ -302,23 +272,19 @@ func (cs *ChatService) SendElementMessage(contactID int, recipientPeerID, fromPe
 		Message:     message,
 		IsOutgoing:  true,
 	}
-	log.Printf("[Chat] 📢 Уведомление UI отправлено: contactID=%d, contactName=%q", contactID, contactName)
 
 	// Если это не локальный чат - отправляем элемент через P2P
 	if !isLocalChat {
-		log.Printf("[Chat] 📤 Отправка элемента через P2P пиру %s: element_uuid=%s", peerID[:8], item.ElementUUID)
 		go func() {
 			// Получаем глобальный P2P сервис
 			p2pNet := getGlobalP2PNetwork()
 			if p2pNet == nil {
-				log.Printf("[Chat] ❌ P2P сеть не инициализирована")
 				return
 			}
 
 			// Декодируем PeerID
 			targetPeerID, err := peer.Decode(peerID)
 			if err != nil {
-				log.Printf("[Chat] ❌ Ошибка декодирования PeerID: %v", err)
 				return
 			}
 
@@ -327,27 +293,17 @@ func (cs *ChatService) SendElementMessage(contactID int, recipientPeerID, fromPe
 
 			// Отправляем метаданные через Transfer Service (для отображения прогресса)
 			if cs.transferSvc != nil {
-				log.Printf("[Chat] 📊 Отправка метаданных через Transfer Service...")
-				transferID, err := cs.transferSvc.SendElementMetadata(
+				_, _ = cs.transferSvc.SendElementMetadata(
 					ctx, targetPeerID,
 					item.ElementUUID,
 					item.Title,
 					item.Description,
 					item.ContentMeta,
 				)
-				if err != nil {
-					log.Printf("[Chat] ❌ Ошибка Transfer Service: %v", err)
-				} else {
-					log.Printf("[Chat] ✅ Transfer ID=%s, метаданные отправляются...", transferID)
-				}
 			}
 
 			// Отправляем сообщение через P2P
-			if err := p2pNet.SendMessage(ctx, targetPeerID, item.ElementUUID, "element", string(metadataJSON)); err != nil {
-				log.Printf("[Chat] ❌ Ошибка P2P отправки элемента: %v", err)
-			} else {
-				log.Printf("[Chat] ✅ Элемент отправлен через P2P пиру %s", peerID[:8])
-			}
+			_ = p2pNet.SendMessage(ctx, targetPeerID, item.ElementUUID, "element", string(metadataJSON))
 		}()
 	}
 

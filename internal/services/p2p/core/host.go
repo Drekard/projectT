@@ -4,7 +4,6 @@ package core
 import (
 	"errors"
 	"fmt"
-	"log"
 
 	"github.com/libp2p/go-libp2p"
 	dht "github.com/libp2p/go-libp2p-kad-dht"
@@ -42,15 +41,11 @@ func (n *P2PNetwork) createHost(profile *models.P2PProfile) error {
 		if err != nil {
 			return fmt.Errorf("ошибка десериализации приватного ключа: %w", err)
 		}
-		log.Println("Приватный ключ расшифрован")
 	} else {
 		// Ключ не зашифрован
 		privKey, err = crypto.UnmarshalPrivateKey(profile.PrivateKey)
 		if err != nil {
 			return fmt.Errorf("ошибка десериализации приватного ключа: %w", err)
-		}
-		if n.config.MasterPassword != "" {
-			log.Println("Предупреждение: приватный ключ не зашифрован, хотя пароль установлен")
 		}
 	}
 
@@ -91,46 +86,20 @@ func (n *P2PNetwork) createHost(profile *models.P2PProfile) error {
 	// NAT Port Mapping - только если включено в настройках
 	if n.config.EnableNATPortMap {
 		opts = append(opts, libp2p.NATPortMap())
-		log.Println("NAT Port Mapping включён")
-	} else {
-		log.Println("NAT Port Mapping выключен")
 	}
 
 	// Relay - только если включено в настройках
 	if n.config.EnableRelay {
 		opts = append(opts, libp2p.EnableRelay())
-		log.Println("Relay включён")
-	} else {
-		log.Println("Relay выключен")
 	}
 
 	// AutoRelay - только если включены Relay и AutoRelay
 	if n.config.EnableRelay && n.config.EnableAutoRelay {
 		opts = append(opts, libp2p.EnableAutoRelayWithStaticRelays(staticRelays))
-		log.Println("AutoRelay включён")
-	} else {
-		log.Println("AutoRelay выключен")
 	}
 
 	// Hole Punching - всегда включён для прямых соединений
 	opts = append(opts, libp2p.EnableHolePunching())
-
-	// mDNS - только если включено в настройках (локальная сеть)
-	if n.config.EnableMDNS {
-		// Включаем mDNS через опцию libp2p
-		// Примечание: в новых версиях libp2p mDNS включается автоматически при наличии
-		log.Println("mDNS включён (локальное обнаружение)")
-	} else {
-		log.Println("mDNS выключен")
-	}
-
-	// STUN клиент - для определения внешнего IP
-	if n.config.EnableSTUNClient && n.config.STUNServer != "" {
-		log.Printf("STUN клиент включён, сервер: %s", n.config.STUNServer)
-		// TODO: Реализовать STUN клиент для определения внешнего IP
-	} else {
-		log.Println("STUN клиент выключен")
-	}
 
 	// Дополнительные опции
 	opts = append(opts, libp2p.UserAgent("ProjectT/1.0"))
@@ -138,7 +107,6 @@ func (n *P2PNetwork) createHost(profile *models.P2PProfile) error {
 	// Prometheus метрики libp2p (если включено)
 	if n.config.EnablePrometheusMetrics && n.prometheusRegistry != nil {
 		opts = append(opts, libp2p.PrometheusRegisterer(n.prometheusRegistry))
-		log.Println("Prometheus метрики libp2p включены")
 	}
 
 	// Создаём хост
@@ -153,20 +121,14 @@ func (n *P2PNetwork) createHost(profile *models.P2PProfile) error {
 
 	// Инициализируем DHT
 	if n.config.EnableDHT {
-		if err := n.initDHT(); err != nil {
-			log.Printf("Предупреждение: DHT не инициализирована: %v", err)
-		}
+		_ = n.initDHT()
 	}
 
 	// Инициализируем PubSub
-	if err := n.initPubSub(); err != nil {
-		log.Printf("Предупреждение: PubSub не инициализирована: %v", err)
-	}
+	_ = n.initPubSub()
 
 	// Инициализируем ChatService
-	if err := n.initChat(); err != nil {
-		log.Printf("Предупреждение: ChatService не инициализирован: %v", err)
-	}
+	_ = n.initChat()
 
 	return nil
 }
@@ -193,7 +155,6 @@ func (n *P2PNetwork) initDHT() error {
 	// Создаём RoutingDiscovery для использования в сервисе обнаружения
 	n.dhtDiscovery = routing.NewRoutingDiscovery(kdht)
 
-	log.Println("DHT инициализирована")
 	return nil
 }
 
@@ -209,6 +170,5 @@ func (n *P2PNetwork) initPubSub() error {
 	}
 
 	n.pubsub = ps
-	log.Println("PubSub инициализирована")
 	return nil
 }
