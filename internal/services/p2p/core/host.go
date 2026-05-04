@@ -4,6 +4,7 @@ package core
 import (
 	"errors"
 	"fmt"
+	"log"
 
 	"github.com/libp2p/go-libp2p"
 	dht "github.com/libp2p/go-libp2p-kad-dht"
@@ -101,6 +102,10 @@ func (n *P2PNetwork) createHost(profile *models.P2PProfile) error {
 	// Hole Punching - всегда включён для прямых соединений
 	opts = append(opts, libp2p.EnableHolePunching())
 
+	// AutoRelay с сервисом релея - критично для соединения через NAT
+	// RelayService позволяет этому узлу выступать как релеи для других
+	opts = append(opts, libp2p.EnableRelayService())
+
 	// Дополнительные опции
 	opts = append(opts, libp2p.UserAgent("ProjectT/1.0"))
 
@@ -118,6 +123,35 @@ func (n *P2PNetwork) createHost(profile *models.P2PProfile) error {
 	n.host = h
 	n.localPrivKey = privKey
 	n.localPubKey = pubKey
+
+	// === ЛОГИРОВАНИЕ: Информация о хосте после создания ===
+	log.Printf("[P2P/Host] ========================================")
+	log.Printf("[P2P/Host] Хост создан, PeerID: %s", h.ID().String())
+	log.Printf("[P2P/Host] Слушаемые адреса (ListenAddrs):")
+	for _, addr := range h.Addrs() {
+		log.Printf("[P2P/Host]   - %s/p2p/%s", addr.String(), h.ID().String())
+	}
+
+	// Проверяем наличие публичных адресов
+	hasPublicAddr := false
+	for _, addr := range h.Addrs() {
+		if isPublicMultiaddr(addr) {
+			hasPublicAddr = true
+			log.Printf("[P2P/Host]   ✅ Обнаружен публичный адрес: %s", addr.String())
+		}
+	}
+	if !hasPublicAddr {
+		log.Printf("[P2P/Host]   ⚠️ Публичные адреса не обнаружены (возможно, за NAT)")
+	}
+	log.Printf("[P2P/Host] NAT Port Map: %v", n.config.EnableNATPortMap)
+	log.Printf("[P2P/Host] Relay: %v, AutoRelay: %v", n.config.EnableRelay, n.config.EnableAutoRelay)
+	log.Printf("[P2P/Host] Hole Punching: enabled (always)")
+	log.Printf("[P2P/Host] RelayService: enabled (always)")
+	log.Printf("[P2P/Host] Bootstrap релеи: %d загружено", len(staticRelays))
+	for _, r := range staticRelays {
+		log.Printf("[P2P/Host]   - Релей: %s", r.ID.String())
+	}
+	log.Printf("[P2P/Host] ========================================")
 
 	// Инициализируем DHT
 	if n.config.EnableDHT {
@@ -171,4 +205,41 @@ func (n *P2PNetwork) initPubSub() error {
 
 	n.pubsub = ps
 	return nil
+}
+
+// isPublicMultiaddr проверяет, является ли multiaddr публичным
+func isPublicMultiaddr(addr multiaddr.Multiaddr) bool {
+	ipStr, err := addr.ValueForProtocol(multiaddr.P_IP4)
+	if err != nil {
+		ipStr, err = addr.ValueForProtocol(multiaddr.P_IP6)
+		if err != nil {
+			return false
+		}
+	}
+	return !isPrivateIP(ipStr)
+}
+
+// isPrivateIP проверяет, является ли IP частным
+func isPrivateIP(ip string) bool {
+	if len(ip) >= 8 && ip[:8] == "192.168." {
+		return true
+	}
+	if len(ip) >= 3 && ip[:3] == "10." {
+		return true
+	}
+	if len(ip) >= 7 && (ip[:7] == "172.16." || ip[:7] == "172.17." || ip[:7] == "172.18." ||
+		ip[:7] == "172.19." || ip[:7] == "172.20." || ip[:7] == "172.21." ||
+		ip[:7] == "172.22." || ip[:7] == "172.23." || ip[:7] == "172.24." ||
+		ip[:7] == "172.25." || ip[:7] == "172.26." || ip[:7] == "172.27." ||
+		ip[:7] == "172.28." || ip[:7] == "172.29." || ip[:7] == "172.30." ||
+		ip[:7] == "172.31.") {
+		return true
+	}
+	if ip == "127.0.0.1" || (len(ip) >= 4 && ip[:4] == "127.") {
+		return true
+	}
+	if ip == "0.0.0.0" {
+		return true
+	}
+	return false
 }

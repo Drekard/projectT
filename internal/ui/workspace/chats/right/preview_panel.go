@@ -3,7 +3,6 @@ package right
 
 import (
 	"fmt"
-	"log"
 
 	"projectT/internal/services"
 	"projectT/internal/storage/database/models"
@@ -54,7 +53,6 @@ func (p *PreviewPanel) createContainer() *fyne.Container {
 	// Load preview elements
 	previewItems, err := p.itemsSvc.GetPreviewItemsWithoutParentFilter()
 	if err != nil {
-		log.Printf("Error loading preview elements: %v", err)
 		errorLabel := widget.NewLabel("Error loading elements")
 		errorLabel.Importance = widget.DangerImportance
 		previewContainer.Add(errorLabel)
@@ -146,16 +144,11 @@ func (p *PreviewPanel) createPreviewCard(item *models.Item) fyne.CanvasObject {
 
 // saveItem saves element to collection (changes status from 'preview' to 'saved')
 func (p *PreviewPanel) saveItem(item *models.Item) {
-	log.Printf("[Preview] Saving element: ID=%d, title=%s", item.ID, item.Title)
-
 	err := p.itemsSvc.SavePreviewItem(item.ID)
 	if err != nil {
-		log.Printf("Error saving element: %v", err)
 		dialog.ShowError(fmt.Errorf("error saving element: %w", err), p.window)
 		return
 	}
-
-	log.Printf("[Preview] ✅ Element saved: ID=%d", item.ID)
 
 	// Show notification
 	dialog.ShowInformation("Success", fmt.Sprintf("Element '%s' saved to collection", item.Title), p.window)
@@ -175,11 +168,8 @@ func (p *PreviewPanel) deleteItem(item *models.Item) {
 				return
 			}
 
-			log.Printf("[Preview] Deleting element: ID=%d, title=%s", item.ID, item.Title)
-
 			// TODO: Call element deletion function
 			// For now just log
-			log.Printf("[Preview] ⚠️ Element deletion not yet implemented")
 
 			// Refresh panel
 			p.Refresh()

@@ -2,7 +2,9 @@
 package core
 
 import (
+	"context"
 	"log"
+	"strings"
 	"time"
 
 	"github.com/libp2p/go-libp2p/core/network"
@@ -13,7 +15,11 @@ import (
 
 // onPeerConnected вызывается при подключении пира
 func (n *P2PNetwork) onPeerConnected(peerID peer.ID) {
-	log.Printf("Пир подключён: %s", peerID.String())
+	log.Printf("[P2P/Event] ========================================")
+	log.Printf("[P2P/Event] Пир подключён: %s", peerID.String())
+
+	// Определяем тип соединения и логируем детали
+	n.logConnectionDetails(peerID)
 
 	// Обновляем время последней активности контакта
 	contact, err := queries.GetContactByPeerID(peerID.String())
@@ -22,13 +28,94 @@ func (n *P2PNetwork) onPeerConnected(peerID peer.ID) {
 		_ = queries.UpdateContactLastSeen(contact.ID, &now)
 	}
 
-	// Не запрашиваем профиль автоматически — это делается через UI при подключении
-	// Профиль запрашивается только инициатором подключения, чтобы избежать гонки
+	// Запускаем синхронизацию профилей асинхронно
+	if n.profileSync != nil {
+		go func() {
+			ctx, cancel := context.WithTimeout(n.ctx, 60*time.Second)
+			defer cancel()
+
+			if err := n.profileSync.SyncWithPeer(ctx, peerID); err != nil {
+				log.Printf("[ProfileSync] ⚠️ Ошибка синхронизации с %s: %v", peerID.String()[:8], err)
+			}
+		}()
+	}
+	log.Printf("[P2P/Event] ========================================")
+}
+
+// logConnectionDetails логирует детали подключения (тип, транспорт, адрес)
+func (n *P2PNetwork) logConnectionDetails(peerID peer.ID) {
+	if n.host == nil {
+		return
+	}
+
+	// Получаем все соединения с этим пиром
+	conns := n.host.Network().ConnsToPeer(peerID)
+	if len(conns) == 0 {
+		log.Printf("[P2P/Event] ⚠️ Соединений с %s не найдено в сети", peerID.String()[:8])
+		return
+	}
+
+	for i, conn := range conns {
+		remoteAddr := conn.RemoteMultiaddr()
+		localAddr := conn.LocalMultiaddr()
+
+		// Определяем тип соединения: direct или relay
+		connType := "DIRECT"
+		isCircuit := false
+
+		addrStr := remoteAddr.String()
+		if strings.Contains(addrStr, "/p2p-circuit") {
+			connType = "RELAYED (circuit)"
+			isCircuit = true
+		} else if strings.Contains(addrStr, "/relay") {
+			connType = "RELAYED"
+		}
+
+		// Определяем транспорт
+		transport := "unknown"
+		if strings.Contains(addrStr, "/tcp/") {
+			transport = "TCP"
+		} else if strings.Contains(addrStr, "/udp/") {
+			if strings.Contains(addrStr, "/quic/") {
+				transport = "QUIC"
+			} else if strings.Contains(addrStr, "/webtransport/") {
+				transport = "WebTransport"
+			} else {
+				transport = "UDP"
+			}
+		} else if strings.Contains(addrStr, "/ws/") || strings.Contains(addrStr, "/wss/") {
+			transport = "WebSocket"
+		}
+
+		// Определяем, является ли удалённый адрес публичным
+		remoteIsPublic := false
+		if ip, err := remoteAddr.ValueForProtocol(4); err == nil {
+			remoteIsPublic = !isPrivateIP(ip)
+		} else if ip, err := remoteAddr.ValueForProtocol(41); err == nil {
+			remoteIsPublic = !isPrivateIP(ip)
+		}
+
+		log.Printf("[P2P/Event] Соединение #%d с %s:", i+1, peerID.String()[:8])
+		log.Printf("[P2P/Event]   Тип: %s", connType)
+		log.Printf("[P2P/Event]   Транспорт: %s", transport)
+		log.Printf("[P2P/Event]   Удалённый адрес: %s", remoteAddr.String())
+		log.Printf("[P2P/Event]   Локальный адрес: %s", localAddr.String())
+		log.Printf("[P2P/Event]   Удалённый публичный: %v", remoteIsPublic)
+
+		if isCircuit {
+			// Извлекаем адрес релея
+			log.Printf("[P2P/Event]   ⚠️ Соединение через релеи — может быть высокая задержка")
+		} else if !remoteIsPublic {
+			log.Printf("[P2P/Event]   ℹ️ Удалённый пир находится в частной сети (NAT)")
+		} else {
+			log.Printf("[P2P/Event]   ✅ Прямое соединение с публичным адресом")
+		}
+	}
 }
 
 // onPeerDisconnected вызывается при отключении пира
 func (n *P2PNetwork) onPeerDisconnected(peerID peer.ID) {
-	log.Printf("Пир отключён: %s", peerID.String())
+	log.Printf("[P2P/Event] Пир отключён: %s", peerID.String())
 
 	// Обновляем время последней активности контакта
 	contact, err := queries.GetContactByPeerID(peerID.String())
@@ -45,6 +132,6 @@ func (n *P2PNetwork) handleChatStream(stream network.Stream) {
 	if n.chat != nil {
 		n.chat.HandleChatStream(stream)
 	} else {
-		log.Printf("Получен поток чата от: %s (ChatService не инициализирован)", stream.Conn().RemotePeer().String())
+		log.Printf("[P2P/Event] Получен поток чата от: %s (ChatService не инициализирован)", stream.Conn().RemotePeer().String())
 	}
 }

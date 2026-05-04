@@ -20,6 +20,7 @@ import (
 	"projectT/internal/services/p2p/protocols/chat"
 	"projectT/internal/services/p2p/protocols/itemsync"
 	"projectT/internal/services/p2p/protocols/profile"
+	"projectT/internal/services/p2p/protocols/profilesync"
 	"projectT/internal/services/p2p/protocols/transfer"
 	"projectT/internal/storage/database/models"
 )
@@ -381,4 +382,11 @@ func (n *P2PNetwork) Transfer() *transfer.Service {
 	n.mu.RLock()
 	defer n.mu.RUnlock()
 	return n.transfer
+}
+
+// ProfileSync возвращает сервис синхронизации профилей
+func (n *P2PNetwork) ProfileSync() *profilesync.SyncService {
+	n.mu.RLock()
+	defer n.mu.RUnlock()
+	return n.profileSync
 }

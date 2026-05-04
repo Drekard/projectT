@@ -3,7 +3,6 @@ package center
 
 import (
 	"image/color"
-	"log"
 
 	"projectT/internal/storage/database/models"
 	"projectT/internal/storage/database/queries"
@@ -213,7 +212,6 @@ func NewMessageInput(onSend func()) *MessageInput {
 	mi.entry = entryWidget
 
 	mi.button = widget.NewButtonWithIcon("", theme.MailSendIcon(), func() {
-		log.Printf("[Chat] 🎯 Нажата кнопка отправки сообщения")
 		if onSend != nil {
 			onSend()
 		}
@@ -222,7 +220,6 @@ func NewMessageInput(onSend func()) *MessageInput {
 
 	// Отправка по Enter
 	mi.entry.OnSubmitted = func(s string) {
-		log.Printf("[Chat] ⏎ Нажат Enter для отправки сообщения")
 		if onSend != nil {
 			onSend()
 		}
@@ -288,20 +285,6 @@ func (ml *MessagesList) Container() fyne.CanvasObject {
 
 // AddMessage добавляет сообщение в список
 func (ml *MessagesList) AddMessage(message *models.ChatMessage, isOutgoing bool) {
-	direction := "входящее"
-	if isOutgoing {
-		direction = "исходящее"
-	}
-	// Безопасное получение PeerID для логирования
-	fromPeer := "unknown"
-	if len(message.FromPeerID) >= 8 {
-		fromPeer = message.FromPeerID[:8]
-	} else if message.FromPeerID != "" {
-		fromPeer = message.FromPeerID
-	}
-	log.Printf("[Chat] 💬 Добавление сообщения в UI: %s, от=%s, len=%d",
-		direction, fromPeer, len(message.Content))
-
 	// Создаём пузырёк сообщения с обработчиком правого клика
 	var bubbleContainer fyne.CanvasObject
 	bubble := NewMessageBubble(
@@ -316,7 +299,6 @@ func (ml *MessagesList) AddMessage(message *models.ChatMessage, isOutgoing bool)
 	)
 	bubbleContainer = bubble.Container()
 	ml.container.Add(bubbleContainer)
-	log.Printf("[Chat] 📭 Сообщение добавлено в контейнер, выполняется прокрутка вниз")
 
 	// Обновляем контейнер сообщений чтобы новое сообщение отобразилось
 	ml.container.Refresh()
@@ -330,15 +312,12 @@ func (ml *MessagesList) AddMessage(message *models.ChatMessage, isOutgoing bool)
 
 // AddMessages добавляет несколько сообщений
 func (ml *MessagesList) AddMessages(messages []*models.ChatMessage, localPeerID string) {
-	log.Printf("[Chat] 📚 Загрузка %d сообщений в чат", len(messages))
-	log.Printf("[Chat] 🔍 localPeerID = %q (len=%d)", localPeerID, len(localPeerID))
-	for i, msg := range messages {
-		isOutgoing := msg.FromPeerID == localPeerID
-		log.Printf("[Chat] 📨 Сообщение #%d: from=%q (len=%d), isOutgoing=%v",
-			i, msg.FromPeerID, len(msg.FromPeerID), isOutgoing)
+	for _, msg := range messages {
+		// Сообщение исходящее, если FromPeerID совпадает с localPeerID
+		// Если localPeerID пустой или FromPeerID пустой - считаем входящим
+		isOutgoing := localPeerID != "" && msg.FromPeerID != "" && msg.FromPeerID == localPeerID
 		ml.AddMessage(msg, isOutgoing)
 	}
-	log.Printf("[Chat] ✅ Загрузка сообщений завершена")
 }
 
 // Clear очищает список сообщений
@@ -455,23 +434,18 @@ func (cp *ChatPanel) MessageInput() *MessageInput {
 
 // AddMessage добавляет сообщение
 func (cp *ChatPanel) AddMessage(message *models.ChatMessage, isOutgoing bool) {
-	log.Printf("[Chat] 📩 ChatPanel.AddMessage: %s", map[bool]string{true: "исходящее", false: "входящее"}[isOutgoing])
 	cp.messagesList.AddMessage(message, isOutgoing)
 }
 
 // LoadMessages загружает сообщения
 func (cp *ChatPanel) LoadMessages(messages []*models.ChatMessage, localPeerID string) {
-	log.Printf("[Chat] 📥 ChatPanel.LoadMessages: %d сообщений", len(messages))
 	cp.messagesList.AddMessages(messages, localPeerID)
 }
 
 // LoadMessagesForCurrentContact загружает сообщения для текущего контакта
 func (cp *ChatPanel) LoadMessagesForCurrentContact() {
-	log.Printf("[Chat] 📖 Загрузка сообщений для контакта: ID=%d, peerID=%s", cp.contactID, cp.peerID[:min(8, len(cp.peerID))])
-
 	// Очищаем текущие сообщения
 	cp.Clear()
-	log.Printf("[Chat] 🧹 Список сообщений очищен")
 
 	// Для контактов с ID=0 (временные) используем загрузку по peerID
 	var messages []*models.ChatMessage
@@ -481,11 +455,9 @@ func (cp *ChatPanel) LoadMessagesForCurrentContact() {
 		// Временный контакт - загружаем по peerID через GetChatByPeerID
 		chat, chatErr := queries.GetChatByPeerID(cp.peerID)
 		if chatErr != nil {
-			log.Printf("[Chat] ❌ Ошибка получения чата по peerID: %v", chatErr)
 			return
 		}
 		if chat == nil {
-			log.Printf("[Chat] 📚 Чат не найден, сообщений нет")
 			return
 		}
 		messages, err = queries.GetMessagesForChat(chat.ID, 100, 0)
@@ -495,11 +467,8 @@ func (cp *ChatPanel) LoadMessagesForCurrentContact() {
 	}
 
 	if err != nil {
-		log.Printf("[Chat] ❌ Ошибка загрузки сообщений: %v", err)
 		return
 	}
-
-	log.Printf("[Chat] 📚 Получено %d сообщений из БД", len(messages))
 
 	// Загружаем сообщения в список
 	cp.messagesList.AddMessages(messages, cp.localPeerID)
@@ -508,12 +477,4 @@ func (cp *ChatPanel) LoadMessagesForCurrentContact() {
 // Clear очищает панель
 func (cp *ChatPanel) Clear() {
 	cp.messagesList.Clear()
-}
-
-// min возвращает минимальное из двух чисел
-func min(a, b int) int {
-	if a < b {
-		return a
-	}
-	return b
 }

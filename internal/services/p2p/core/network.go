@@ -5,6 +5,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log"
 	"strings"
 	"sync"
 
@@ -30,6 +31,7 @@ import (
 	"projectT/internal/services/p2p/protocols/chat"
 	"projectT/internal/services/p2p/protocols/itemsync"
 	"projectT/internal/services/p2p/protocols/profile"
+	"projectT/internal/services/p2p/protocols/profilesync"
 	"projectT/internal/services/p2p/protocols/transfer"
 	"projectT/internal/storage/database/queries"
 )
@@ -54,6 +56,7 @@ type P2PNetwork struct {
 	avatar             *avatar.Service               // ✅ Сервис загрузки аватарок
 	autodial           *autodial.DialerManager       // ✅ Менеджер автоподключения
 	peerExchange       *peerexchange.ExchangeService // ✅ Сервис обмена пирами
+	profileSync        *profilesync.SyncService      // ✅ Сервис синхронизации профилей
 	helper             *HelperService
 	config             *p2p.P2PConfig
 	prometheusRegistry prometheus.Registerer // Prometheus registry для libp2p метрик
@@ -225,8 +228,26 @@ func (n *P2PNetwork) Start() error {
 		_ = err // Ignore error
 	}
 
+	// ✅ Запускаем автоподключение к известным пирам
+	go func() {
+		log.Printf("[P2P] 🚀 Запуск автоподключения к известным пирам...")
+		results := n.autodial.ConnectToAll()
+		for result := range results {
+			if result.Success {
+				log.Printf("[P2P] ✅ Подключение к пиру %s успешно", result.PeerID.String()[:8])
+			} else {
+				log.Printf("[P2P] ❌ Подключение к пиру %s не удалось: %v", result.PeerID.String()[:8], result.Error)
+			}
+		}
+	}()
+
 	// ✅ Инициализируем сервис обмена пирами
 	if err := n.initPeerExchange(); err != nil {
+		_ = err // Ignore error
+	}
+
+	// ✅ Инициализируем сервис синхронизации профилей
+	if err := n.initProfileSync(); err != nil {
 		_ = err // Ignore error
 	}
 
@@ -295,6 +316,13 @@ func (n *P2PNetwork) Stop() error {
 	if n.profileExchange != nil {
 		if err := n.profileExchange.Stop(); err != nil {
 			errs = append(errs, fmt.Sprintf("ProfileExchange: %v", err))
+		}
+	}
+
+	// Останавливаем сервис синхронизации профилей
+	if n.profileSync != nil {
+		if err := n.profileSync.Stop(); err != nil {
+			errs = append(errs, fmt.Sprintf("ProfileSync: %v", err))
 		}
 	}
 

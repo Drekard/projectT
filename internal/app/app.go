@@ -1,6 +1,7 @@
 package app
 
 import (
+	"log"
 	"os"
 	"path/filepath"
 
@@ -93,30 +94,16 @@ func NewApp() *App {
 
 func (a *App) Run() {
 	a.fyneApp.Settings().SetTheme(theme.GetFyneTheme())
-
-	// Запускаем P2P если включён в конфигурации
-	/*if a.config.P2P.Enabled { тут был ряд логов, они вырезаны
-		if err := a.p2pNetwork.Start(); err != nil {
-			// Ignore error
-		}
-	}
-
 	a.UI = ui.NewUI(a.mainWindow, a.p2pNetwork)
-	a.mainWindow.ShowAndRun()
 
-	// Останавливаем P2P при выходе
-	if a.p2pNetwork != nil {
-		if err := a.p2pNetwork.Stop(); err != nil {
-			// Ignore error
-		}
+	// Запускаем P2P сеть
+	if err := a.p2pNetwork.Start(); err != nil {
+		log.Printf("[P2P] Ошибка запуска P2P сети: %v", err)
+	} else {
+		log.Printf("[P2P] ✅ P2P сеть запущена")
 	}
 
-	// Останавливаем Prometheus сервер при выходе
-	if a.metricsMgr != nil {
-		if err := a.metricsMgr.Stop(); err != nil {
-			// Ignore error
-		}
-	}*/
+	a.mainWindow.ShowAndRun()
 }
 
 // GetConfig возвращает текущую конфигурацию приложения

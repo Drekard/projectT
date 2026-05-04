@@ -2,8 +2,6 @@
 package dialogs
 
 import (
-	"log"
-
 	"projectT/internal/storage/database/models"
 	"projectT/internal/storage/database/queries"
 
@@ -21,17 +19,12 @@ func ShowSendToChatDialog(item *models.Item, onSend func(chat *models.ChatWithLa
 		return
 	}
 
-	log.Printf("[SendDialog] 📤 Открытие диалога отправки элемента: ID=%d, UUID=%s, title=%q, type=%s",
-		item.ID, item.ElementUUID, item.Title, item.Type)
-
 	// Загружаем все чаты с последними сообщениями
 	chats, err := queries.GetChatsWithLastMessages()
 	if err != nil {
 		dialog.ShowError(err, window)
 		return
 	}
-
-	log.Printf("[SendDialog] 📋 Загружено %d чатов для выбора", len(chats))
 
 	// Создаём список чатов
 	chatsList := container.NewVBox()
@@ -73,20 +66,15 @@ func createChatRow(
 	onSend func(chat *models.ChatWithLastMessage),
 	window fyne.Window,
 ) *fyne.Container {
-	log.Printf("[SendDialog] 🔍 Создание строки чата: peer_id=%s, username=%q, chat_id=%d, avatar_path=%q",
-		chat.PeerID[:min(10, len(chat.PeerID))], chat.Username, chat.ID, chat.AvatarPath)
-
 	// Аватар чата (если есть)
 	var avatar fyne.CanvasObject
 	if chat.AvatarPath != "" {
 		// Загружаем изображение как ресурс
 		avatarRes, err := fyne.LoadResourceFromPath(chat.AvatarPath)
 		if err == nil {
-			log.Printf("[SendDialog] ✅ Аватар загружен из %q (%d байт)", chat.AvatarPath, len(avatarRes.Content()))
 			avatarImg := widget.NewIcon(avatarRes)
 			avatar = container.NewStack(avatarImg)
 		} else {
-			log.Printf("[SendDialog] ❌ Ошибка загрузки аватара из %q: %v", chat.AvatarPath, err)
 			// Если ошибка загрузки - используем заглушку
 			initial := "?"
 			if len(chat.Username) > 0 {
@@ -96,7 +84,6 @@ func createChatRow(
 			avatar.Resize(fyne.NewSize(30, 30))
 		}
 	} else {
-		log.Printf("[SendDialog] ℹ️ AvatarPath пустой, используем заглушку")
 		// Заглушка вместо аватара
 		initial := "?"
 		if len(chat.Username) > 0 {
@@ -116,8 +103,6 @@ func createChatRow(
 
 	// Кнопка отправки
 	sendButton := widget.NewButton("Send", func() {
-		log.Printf("[SendDialog] 🚀 Send button pressed for chat: peer_id=%s, username=%q, element_uuid=%s",
-			chat.PeerID[:min(10, len(chat.PeerID))], chat.Username, item.ElementUUID)
 		if onSend != nil {
 			onSend(chat)
 		}
@@ -144,15 +129,11 @@ func createLocalChatRow(
 	// Получаем локальный профиль для аватара и имени
 	localProfile, err := queries.GetLocalProfile()
 	if err != nil {
-		log.Printf("[SendDialog] ❌ Ошибка получения локального профиля: %v", err)
 		// Если ошибка - используем заглушку
 		localProfile = &models.Profile{
 			Username:   "Local chat",
 			AvatarPath: "",
 		}
-	} else {
-		log.Printf("[SendDialog] 📋 Локальный профиль загружен: username=%q, avatar_path=%q",
-			localProfile.Username, localProfile.AvatarPath)
 	}
 
 	// Аватар локального чата
@@ -160,11 +141,9 @@ func createLocalChatRow(
 	if localProfile.AvatarPath != "" {
 		avatarRes, err := fyne.LoadResourceFromPath(localProfile.AvatarPath)
 		if err == nil {
-			log.Printf("[SendDialog] ✅ Локальный аватар загружен из %q (%d байт)", localProfile.AvatarPath, len(avatarRes.Content()))
 			avatarImg := widget.NewIcon(avatarRes)
 			avatar = container.NewStack(avatarImg)
 		} else {
-			log.Printf("[SendDialog] ❌ Ошибка загрузки локального аватара из %q: %v", localProfile.AvatarPath, err)
 			initial := "?"
 			if len(localProfile.Username) > 0 {
 				initial = string(localProfile.Username[0])
@@ -173,7 +152,6 @@ func createLocalChatRow(
 			avatar.Resize(fyne.NewSize(30, 30))
 		}
 	} else {
-		log.Printf("[SendDialog] ℹ️ Локальный AvatarPath пустой, используем заглушку")
 		initial := "?"
 		if len(localProfile.Username) > 0 {
 			initial = string(localProfile.Username[0])
@@ -192,7 +170,6 @@ func createLocalChatRow(
 
 	// Кнопка отправки
 	sendButton := widget.NewButton("Send", func() {
-		log.Printf("[SendDialog] 🚀 Send button pressed for local chat: element_uuid=%s", item.ElementUUID)
 		if onSend != nil {
 			// Создаём заглушку локального чата для отправки
 			localChat := &models.ChatWithLastMessage{
@@ -214,12 +191,4 @@ func createLocalChatRow(
 	)
 
 	return container.NewPadded(row)
-}
-
-// min возвращает минимальное из двух чисел
-func min(a, b int) int {
-	if a < b {
-		return a
-	}
-	return b
 }

@@ -54,26 +54,20 @@ func CreateSidebar(width float32, handler NavigationHandler, transferSvc *transf
 
 // createFrequentlyUsedSection создает секцию "Часто используемые" (избранные элементы)
 func createFrequentlyUsedSection(handler NavigationHandler) *fyne.Container {
-	// Создаем контейнер для избранных элементов
 	frequentContainer := container.NewVBox()
 
-	// Функция для обновления содержимого
 	updateContent := func() {
 		frequentLabel := widget.NewLabel("Favorites")
 		frequentLabel.TextStyle = fyne.TextStyle{Bold: true}
 
 		buttons := make([]fyne.CanvasObject, 0)
 
-		// Get favorite folders
 		favoriteFolders, err := queries.GetFavoriteFolders()
-		if err != nil {
-			// Error loading favorite folders
-		} else {
+		if err == nil {
 			for _, folder := range favoriteFolders {
 				buttonText := "📁 " + folder.Title
 				btn := widget.NewButton(buttonText, func(folderID int) func() {
 					return func() {
-						// Navigate to selected folder
 						if handler != nil {
 							_ = handler.NavigateToFolder(folderID)
 						}
@@ -86,16 +80,12 @@ func createFrequentlyUsedSection(handler NavigationHandler) *fyne.Container {
 			}
 		}
 
-		// Get favorite tags
 		favoriteTags, err := queries.GetFavoriteTags()
-		if err != nil {
-			// Error loading favorite tags
-		} else {
+		if err == nil {
 			for _, tag := range favoriteTags {
 				buttonText := "# " + tag.Name
 				btn := widget.NewButton(buttonText, func(tagName string) func() {
 					return func() {
-						// Set tag in search field
 						if handler != nil {
 							_ = handler.SetSearchQuery(tagName)
 						}
@@ -108,42 +98,32 @@ func createFrequentlyUsedSection(handler NavigationHandler) *fyne.Container {
 			}
 		}
 
-		// If no favorite items, add info message
 		if len(buttons) == 0 {
 			infoLabel := widget.NewLabel("No favorite items")
 			infoLabel.TextStyle = fyne.TextStyle{Italic: true}
 			buttons = append(buttons, infoLabel)
 		}
 
-		// Update container content
 		frequentContainer.Objects = append([]fyne.CanvasObject{frequentLabel}, buttons...)
 		frequentContainer.Refresh()
 	}
 
-	// Initialize content
 	updateContent()
 
-	// Subscribe to favorite change events
 	eventChan := favorites.GetEventManager().Subscribe()
 	go func() {
 		for range eventChan {
-			// Update container directly (in Fyne, Refresh updates may be safe)
-			// Update container content
 			frequentLabel := widget.NewLabel("Favorites")
 			frequentLabel.TextStyle = fyne.TextStyle{Bold: true}
 
 			buttons := make([]fyne.CanvasObject, 0)
 
-			// Get favorite folders
 			favoriteFolders, err := queries.GetFavoriteFolders()
-			if err != nil {
-				// Error loading favorite folders
-			} else {
+			if err == nil {
 				for _, folder := range favoriteFolders {
 					buttonText := "📁 " + folder.Title
 					btn := widget.NewButton(buttonText, func(folderID int) func() {
 						return func() {
-							// Navigate to selected folder
 							if handler != nil {
 								_ = handler.NavigateToFolder(folderID)
 							}
@@ -156,16 +136,12 @@ func createFrequentlyUsedSection(handler NavigationHandler) *fyne.Container {
 				}
 			}
 
-			// Get favorite tags
 			favoriteTags, err := queries.GetFavoriteTags()
-			if err != nil {
-				// Error loading favorite tags
-			} else {
+			if err == nil {
 				for _, tag := range favoriteTags {
 					buttonText := "# " + tag.Name
 					btn := widget.NewButton(buttonText, func(tagName string) func() {
 						return func() {
-							// Set tag in search field
 							if handler != nil {
 								_ = handler.SetSearchQuery(tagName)
 							}
@@ -178,14 +154,12 @@ func createFrequentlyUsedSection(handler NavigationHandler) *fyne.Container {
 				}
 			}
 
-			// If no favorite items, add info message
 			if len(buttons) == 0 {
 				infoLabel := widget.NewLabel("No favorite items")
 				infoLabel.TextStyle = fyne.TextStyle{Italic: true}
 				buttons = append(buttons, infoLabel)
 			}
 
-			// Update container content
 			frequentContainer.Objects = append([]fyne.CanvasObject{frequentLabel}, buttons...)
 			frequentContainer.Refresh()
 		}

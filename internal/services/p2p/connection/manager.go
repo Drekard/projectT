@@ -4,9 +4,9 @@ package connection
 import (
 	"context"
 	"log"
+	"strings"
 	"time"
 
-	"github.com/libp2p/go-libp2p/core/network"
 	"github.com/libp2p/go-libp2p/core/peer"
 	"github.com/libp2p/go-libp2p/core/peerstore"
 	"github.com/multiformats/go-multiaddr"
@@ -59,8 +59,12 @@ func (s *Service) CanRequestProfile(peerID peer.ID) bool {
 	return true
 }
 
-// initializeConnections инициализирует подключения к известным пирам
+// initializeConnections инициализирует подключения к известным пирам (ОДНОКРАТНО при запуске)
 func (s *Service) initializeConnections() {
+	log.Printf("[connection/manager.go] ========================================")
+	log.Printf("[connection/manager.go] ЗАПУСК: Однократное подключение к известным пирам")
+	log.Printf("[connection/manager.go] ========================================")
+
 	// Загружаем ВСЕ активные адреса для подключения (bootstrap + contact + discovered)
 	var addresses []*models.PeerAddress
 	var err error
@@ -76,40 +80,43 @@ func (s *Service) initializeConnections() {
 	}()
 
 	if addresses == nil && err == nil {
+		log.Printf("[connection/manager.go] Нет известных пиров в БД, подключение не выполняется")
 		return
 	}
 
 	if err != nil {
-		log.Printf("Предупреждение: не удалось загрузить адреса пиров: %v", err)
+		log.Printf("[connection/manager.go] Предупреждение: не удалось загрузить адреса пиров: %v", err)
 		return
 	}
 
-	log.Printf("[Connection] Загружено %d адресов для подключения", len(addresses))
+	log.Printf("[connection/manager.go] Загружено %d адресов из БД для подключения", len(addresses))
 
-	// ✅ Проверяем лимит подключений
+	// Проверяем лимит подключений
 	connectedCount := s.GetConnectedPeersCount()
 	if connectedCount >= MaxConcurrentConnections {
-		log.Printf("[Connection] ⚠️ Достигнут лимит подключений: %d/%d", connectedCount, MaxConcurrentConnections)
+		log.Printf("[connection/manager.go] Достигнут лимит подключений: %d/%d", connectedCount, MaxConcurrentConnections)
 		return
 	}
 
 	// Ограничиваем количество попыток подключения с учётом уже подключённых
 	maxToConnect := MaxConcurrentConnections - connectedCount
-	log.Printf("[Connection] Максимум подключений: %d (уже подключено: %d)", maxToConnect, connectedCount)
+	log.Printf("[connection/manager.go] Лимит: %d одновременных подключений, уже подключено: %d, можно подключить: %d",
+		MaxConcurrentConnections, connectedCount, maxToConnect)
 
 	// Счётчик попыток подключения
 	var connectAttempt int
 
-	for _, addr := range addresses {
-		// ✅ Ограничиваем количество подключений
+	for i, addr := range addresses {
+		// Ограничиваем количество подключений
 		if connectAttempt >= maxToConnect {
-			log.Printf("[Connection] ⚠️ Достигнут лимит подключений (%d), остальные адреса в очереди", connectAttempt)
+			log.Printf("[connection/manager.go] Достигнут лимит подключений (%d/%d), остальные %d адресов не обрабатываются",
+				connectAttempt, maxToConnect, len(addresses)-i)
 			break
 		}
 
 		peerID, err := peer.Decode(addr.PeerID)
 		if err != nil {
-			log.Printf("Предупреждение: неверный PeerID %s: %v", addr.PeerID, err)
+			log.Printf("[connection/manager.go] [%d/%d] Неверный PeerID %s: %v", i+1, len(addresses), addr.PeerID, err)
 			continue
 		}
 
@@ -122,7 +129,7 @@ func (s *Service) initializeConnections() {
 		multiaddrStr := addr.Multiaddr
 		ma, err := multiaddr.NewMultiaddr(multiaddrStr)
 		if err != nil {
-			log.Printf("Предупреждение: неверный адрес %s: %v", addr.Multiaddr, err)
+			log.Printf("[connection/manager.go] [%d/%d] Неверный адрес для %s (%s): %v", i+1, len(addresses), addr.PeerID[:8], addr.AddressType, err)
 			continue
 		}
 
@@ -132,37 +139,59 @@ func (s *Service) initializeConnections() {
 		// Увеличиваем счётчик
 		connectAttempt++
 
-		// ✅ Автоподключение ко ВСЕМ известным пирам (не только контакты!)
-		go func(addr *models.PeerAddress) {
+		// Подключение в горутине
+		go func(idx int, addr *models.PeerAddress, pid peer.ID, ma multiaddr.Multiaddr) {
+			log.Printf("[connection/manager] [%d/%d] Попытка подключения к %s (тип: %s, адрес: %s)...",
+				idx, len(addresses), pid.String()[:8], addr.AddressType, ma.String())
+
 			ctx, cancel := context.WithTimeout(s.ctx, 15*time.Second)
 			defer cancel()
 
-			peerID, err := peer.Decode(addr.PeerID)
-			if err != nil {
-				return
-			}
-
+			startTime := time.Now()
 			if err := s.host.Connect(ctx, peer.AddrInfo{
-				ID:    peerID,
+				ID:    pid,
 				Addrs: []multiaddr.Multiaddr{ma},
 			}); err != nil {
-				log.Printf("❌ Автоподключение к %s (%s): %v", addr.PeerID[:8], addr.AddressType, err)
+				elapsed := time.Since(startTime)
+				log.Printf("[connection/manager] [%d/%d] FAILED подключение к %s (%s) за %v: %v",
+					idx, len(addresses), pid.String()[:8], addr.AddressType, elapsed, err)
 
-				// Если это bootstrap или contact — добавляем в очередь переподключения
-				if addr.AddressType == "bootstrap" || addr.AddressType == "contact" {
-					s.addToReconnectQueue(peerID)
+				// Анализируем ошибку для подсказок
+				errStr := err.Error()
+				if strings.Contains(errStr, "timeout") {
+					log.Printf("[connection/manager]   💡 Timeout: пир может быть за NAT или офлайн")
+				} else if strings.Contains(errStr, "refused") || strings.Contains(errStr, "connect") {
+					log.Printf("[connection/manager]   💡 Connection refused: порт может быть закрыт брандмауэром")
+				} else if strings.Contains(errStr, "no good addresses") {
+					log.Printf("[connection/manager]   💡 No good addresses: проверьте формат multiaddr")
 				}
+				// Переподключение НЕ выполняется — только одна попытка при запуске
 			} else {
-				log.Printf("✅ Автоподключение к %s (%s) успешно", addr.PeerID[:8], addr.AddressType)
+				elapsed := time.Since(startTime)
+				log.Printf("[connection/manager] [%d/%d] SUCCESS подключение к %s (%s) за %v",
+					idx, len(addresses), pid.String()[:8], addr.AddressType, elapsed)
+
+				// Определяем тип установленного соединения
+				conns := s.host.Network().ConnsToPeer(pid)
+				for i, conn := range conns {
+					remoteAddr := conn.RemoteMultiaddr()
+					connType := "DIRECT"
+					if strings.Contains(remoteAddr.String(), "/p2p-circuit") {
+						connType = "RELAYED"
+					}
+					log.Printf("[connection/manager]   Соединение #%d: тип=%s, адрес=%s", i+1, connType, remoteAddr.String())
+				}
 
 				// Обновляем время подключения в БД
 				_ = queries.UpdatePeerAddressLastConnected(addr.Multiaddr)
 				_ = queries.UpdateProfileLastConnected(addr.PeerID)
 			}
-		}(addr)
+		}(i+1, addr, peerID, ma)
 	}
 
-	log.Printf("[Connection] Инициализировано %d известных пиров", len(addresses))
+	log.Printf("[connection/manager.go] Инициировано %d подключений из %d известных пиров (лимит: %d)",
+		connectAttempt, len(addresses), maxToConnect)
+	log.Printf("[connection/manager.go] ========================================")
 }
 
 // monitorConnections отслеживает активные соединения
@@ -211,10 +240,7 @@ func (s *Service) checkConnections() {
 			info.Status = StatusDisconnected
 			info.LastSeen = time.Now()
 			go s.updateContactLastSeen(peerID)
-
-			if s.isContact(peerID) {
-				s.addToReconnectQueue(peerID)
-			}
+			// Переподключение НЕ выполняется — только одна попытка при запуске
 		}
 	}
 
@@ -223,113 +249,6 @@ func (s *Service) checkConnections() {
 		m := metrics.Get().Metrics
 		m.P2PPeersTotal.Set(float64(len(connectedPeers)))
 	}
-}
-
-// processReconnectQueue обрабатывает очередь переподключения
-func (s *Service) processReconnectQueue() {
-	ticker := time.NewTicker(30 * time.Second)
-	defer ticker.Stop()
-
-	for {
-		select {
-		case <-s.ctx.Done():
-			return
-		case <-ticker.C:
-			s.processNextReconnect()
-		}
-	}
-}
-
-// processNextReconnect обрабатывает следующую попытку переподключения
-func (s *Service) processNextReconnect() {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-
-	if len(s.reconnectQueue) == 0 {
-		return
-	}
-
-	peerID := s.reconnectQueue[0]
-	s.reconnectQueue = s.reconnectQueue[1:]
-
-	info, exists := s.peerStatus[peerID]
-	if !exists {
-		return
-	}
-
-	if s.host.Network().Connectedness(peerID) == network.Connected {
-		info.Status = StatusConnected
-		info.LastSeen = time.Now()
-		return
-	}
-
-	if info.ReconnectCount >= 5 {
-		log.Printf("Превышено количество попыток переподключения к %s (5)", peerID)
-		info.Status = StatusDisconnected
-		return
-	}
-
-	info.Status = StatusReconnecting
-	info.ReconnectCount++
-
-	go s.attemptReconnect(peerID)
-}
-
-// attemptReconnect пытается переподключиться к пиру
-func (s *Service) attemptReconnect(peerID peer.ID) {
-	ctx, cancel := context.WithTimeout(s.ctx, 30*time.Second)
-	defer cancel()
-
-	addrs := s.host.Peerstore().Addrs(peerID)
-	if len(addrs) == 0 {
-		log.Printf("Нет адресов для переподключения к %s", peerID)
-		return
-	}
-
-	peerInfo := peer.AddrInfo{
-		ID:    peerID,
-		Addrs: addrs,
-	}
-
-	err := s.host.Connect(ctx, peerInfo)
-
-	s.mu.Lock()
-	defer s.mu.Unlock()
-
-	if err != nil {
-		log.Printf("Переподключение к %s не удалось: %v", peerID, err)
-		s.reconnectQueue = append(s.reconnectQueue, peerID)
-	} else {
-		log.Printf("Переподключение к %s успешно", peerID)
-		if info, exists := s.peerStatus[peerID]; exists {
-			info.Status = StatusConnected
-			info.LastSeen = time.Now()
-			info.ReconnectCount = 0
-
-			// Обновляем метрики
-			if metrics.IsInitialized() {
-				metrics.Get().Metrics.P2PConnectionsTotal.Inc()
-			}
-		}
-	}
-}
-
-// addToReconnectQueue добавляет пира в очередь на переподключение
-func (s *Service) addToReconnectQueue(peerID peer.ID) {
-	for _, p := range s.reconnectQueue {
-		if p == peerID {
-			return
-		}
-	}
-
-	s.reconnectQueue = append(s.reconnectQueue, peerID)
-	log.Printf("Добавлен в очередь на переподключение: %s", peerID)
-}
-
-// isContact проверяет, является ли пир контактом
-func (s *Service) isContact(peerID peer.ID) bool {
-	contact, err := queries.GetContactByPeerID(peerID.String())
-	return err == nil && contact != nil
 }
 
 // updateContactLastSeen обновляет время последней активности контакта в БД

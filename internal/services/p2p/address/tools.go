@@ -570,8 +570,13 @@ func ConnectToPeer(ctx context.Context, h host.Host, addrStr string) error {
 		return errors.New("хост не инициализирован")
 	}
 
+	log.Printf("[ConnectToPeer] ========================================")
 	log.Printf("[ConnectToPeer] Попытка подключения к: %s", addrStr)
 	log.Printf("[ConnectToPeer] Наш PeerID: %s", h.ID().String())
+	log.Printf("[ConnectToPeer] Наши адреса:")
+	for _, addr := range h.Addrs() {
+		log.Printf("[ConnectToPeer]   - %s/p2p/%s", addr.String(), h.ID().String())
+	}
 
 	// === ОТЛАДКА: выводим исходную строку ===
 	fmt.Println("=== ConnectToPeer ===")
@@ -645,13 +650,45 @@ func ConnectToPeer(ctx context.Context, h host.Host, addrStr string) error {
 		return fmt.Errorf("ошибка извлечения информации о пире: %w", err)
 	}
 
-	log.Printf("[ConnectToPeer] Попытка подключения к %s через %s", info.ID, addr)
+	log.Printf("[ConnectToPeer] Целевой пир: %s", info.ID.String())
+	log.Printf("[ConnectToPeer] Целевые адреса:")
+	for _, a := range info.Addrs {
+		log.Printf("[ConnectToPeer]   - %s", a.String())
+	}
+
+	// Проверяем, есть ли уже соединение с этим пиром
+	existingConns := h.Network().ConnsToPeer(info.ID)
+	if len(existingConns) > 0 {
+		log.Printf("[ConnectToPeer] ⚠️ Уже есть %d соединений с %s, пробуем всё равно", len(existingConns), info.ID.String()[:8])
+	}
+
+	log.Printf("[ConnectToPeer] Начинаем подключение через host.Connect()...")
+	startTime := time.Now()
 	if err := h.Connect(ctx, *info); err != nil {
-		log.Printf("[ConnectToPeer] ❌ ОШИБКА подключения: %v", err)
+		elapsed := time.Since(startTime)
+		log.Printf("[ConnectToPeer] ❌ ОШИБКА подключения за %v: %v", elapsed, err)
+		log.Printf("[ConnectToPeer] Подсказка: если пир за NAT, убедитесь что:")
+		log.Printf("[ConnectToPeer]   1. Порт проброшен на роутере (UPnP или вручную)")
+		log.Printf("[ConnectToPeer]   2. Брандмауэр разрешает входящие соединения")
+		log.Printf("[ConnectToPeer]   3. Оба пира используют одинаковый протокол (TCP)")
+		log.Printf("[ConnectToPeer] ========================================")
 		return fmt.Errorf("ошибка подключения к пиру %s: %w", info.ID, err)
 	}
 
-	log.Printf("[ConnectToPeer] ✅ Подключено к пиру: %s", info.ID.String())
+	elapsed := time.Since(startTime)
+	log.Printf("[ConnectToPeer] ✅ Подключено к пиру: %s за %v", info.ID.String(), elapsed)
+
+	// Логируем информацию о установленном соединении
+	conns := h.Network().ConnsToPeer(info.ID)
+	for i, conn := range conns {
+		remoteAddr := conn.RemoteMultiaddr()
+		connType := "DIRECT"
+		if strings.Contains(remoteAddr.String(), "/p2p-circuit") {
+			connType = "RELAYED"
+		}
+		log.Printf("[ConnectToPeer] Соединение #%d: тип=%s, адрес=%s", i+1, connType, remoteAddr.String())
+	}
+	log.Printf("[ConnectToPeer] ========================================")
 	return nil
 }
 

@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"image/color"
-	"log"
 
 	"projectT/internal/storage/database/models"
 	"projectT/internal/storage/database/queries"
@@ -105,36 +104,26 @@ func (p *Panel) loadDemoElements(jsonStr string) {
 		return
 	}
 
-	log.Printf("[DemoElements] 📦 Loading element showcase: pinned_uuids=%s", jsonStr)
-
 	p.demoElementsContainer.Objects = nil
 
 	// Use new parsing function with support for old formats
 	demoElements, err := parseDemoElements(jsonStr)
 	if err != nil {
-		log.Printf("[DemoElements] ❌ JSON parsing error: %v", err)
 		return
 	}
-
-	log.Printf("[DemoElements] 📋 Parsed %d elements", len(demoElements))
 
 	if len(demoElements) == 0 {
 		emptyLabel := widget.NewLabel("No showcase elements")
 		emptyLabel.TextStyle = fyne.TextStyle{Italic: true}
 		p.demoElementsContainer.Add(emptyLabel)
-		log.Printf("[DemoElements] ℹ️ Showcase is empty")
 	} else {
-		for i, elem := range demoElements {
+		for _, elem := range demoElements {
 			elementUUID := elem.GetElementUUID()
 			if elementUUID != "" {
-				log.Printf("[DemoElements] 🔍 Loading element #%d: UUID=%s, title=%q", i+1, elementUUID, elem.Title)
 				elementCard := p.createDemoElementCard(elementUUID)
 				p.demoElementsContainer.Add(elementCard)
-			} else {
-				log.Printf("[DemoElements] ⚠️ Element #%d has empty UUID, skipping", i+1)
 			}
 		}
-		log.Printf("[DemoElements] ✅ Showcase loaded: %d elements displayed", len(demoElements))
 	}
 
 	p.demoElementsContainer.Refresh()
@@ -143,44 +132,33 @@ func (p *Panel) loadDemoElements(jsonStr string) {
 // createDemoElementCard creates a demo element card (similar to chat_panel.go)
 func (p *Panel) createDemoElementCard(elementUUID string) fyne.CanvasObject {
 	if elementUUID == "" {
-		log.Printf("[DemoElements] ❌ createDemoElementCard: empty UUID")
 		// If UUID is empty, show error
 		return p.createDemoElementError("Invalid element format")
 	}
 
-	log.Printf("[DemoElements] 🔍 Loading element from DB: UUID=%s", elementUUID)
-
 	// Load element from database by element_uuid
 	item, err := queries.GetItemByElementUUID(elementUUID)
 	if err != nil {
-		log.Printf("[DemoElements] ❌ Element not found in DB: UUID=%s, error: %v", elementUUID, err)
 		// If element not found, show error message
 		return p.createDemoElementError("Element not found")
 	}
-
-	log.Printf("[DemoElements] ✅ Element found: ID=%d, title=%q, type=%s, status=%s",
-		item.ID, item.Title, item.Type, item.Status)
 
 	// Create full element card using concrete functionality
 	// For profile use mode without buttons
 	var cardRenderer fyne.CanvasObject
 	switch item.Type {
 	case "folder":
-		log.Printf("[DemoElements] 📁 Creating folder card")
 		cardRenderer = concrete.NewFolderCard(item, true).GetContainer()
 	case "element":
-		log.Printf("[DemoElements] 📄 Creating element card")
 		// For elements use composite card in no-button mode
 		cardRenderer = concrete.NewCompositeCard(item, true).GetContainer()
 	default:
-		log.Printf("[DemoElements] ❓ Unknown element type: %s, using composite card", item.Type)
 		// For unknown types use composite card in no-button mode
 		cardRenderer = concrete.NewCompositeCard(item, true).GetContainer()
 	}
 
 	// Wrap in clickable widget for right-click and preview handling
 	clickableCard := hover_preview.NewClickableCard(cardRenderer, func() {
-		log.Printf("[DemoElements] 🖱️ Right-click on element: ID=%d, title=%q", item.ID, item.Title)
 		// Show menu on right-click in no-button mode
 		menuManager := hover_preview.NewMenuManager()
 		menuManager.ShowSimpleMenu(item, cardRenderer, nil, true)
@@ -195,7 +173,6 @@ func (p *Panel) createDemoElementCard(elementUUID string) fyne.CanvasObject {
 		statusIndicator,
 	)
 
-	log.Printf("[DemoElements] ✅ Element card created: ID=%d", item.ID)
 	return cardWithStatus
 }
 

@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"image/color"
-	"log"
 	"projectT/internal/services"
 	"projectT/internal/services/favorites"
 	"projectT/internal/storage/database/models"
@@ -124,47 +123,36 @@ func (t *UI) createTable() *widget.Table {
 				deleteBtn := widget.NewButton("🗑", func() { t.deleteTag(tag.ID) })
 				deleteBtn.Importance = widget.LowImportance
 
-				// Check if tag is favorite (use ID for DB compatibility)
-				isFavorite, err := favoritesService.IsFavorite("tag", fmt.Sprintf("%d", tag.ID))
+				isFavorite, err := favoritesService.IsFavorite("tag", tag.TagUUID)
 				if err != nil {
 					isFavorite = false
 				}
 
-				// Declare variable in advance for use in closure
 				var favBtn *widget.Button
 				favBtn = widget.NewButton("⭐️", func() {
-					log.Printf("[Tags] Click on favorite button for tag ID=%d, UUID=%s, current state: isFavorite=%v", tag.ID, tag.TagUUID, isFavorite)
-
 					if isFavorite {
-						err := favoritesService.RemoveFromFavorites("tag", fmt.Sprintf("%d", tag.ID))
+						err := favoritesService.RemoveFromFavorites("tag", tag.TagUUID)
 						if err != nil {
-							log.Printf("[Tags] Error removing from favorites: %v", err)
 							return
 						}
-						log.Printf("[Tags] Tag ID=%d removed from favorites", tag.ID)
 					} else {
-						err := favoritesService.AddToFavorites("tag", fmt.Sprintf("%d", tag.ID))
+						err := favoritesService.AddToFavorites("tag", tag.TagUUID)
 						if err != nil {
-							log.Printf("[Tags] Error adding to favorites: %v", err)
 							return
 						}
-						log.Printf("[Tags] Tag ID=%d added to favorites", tag.ID)
 					}
 
-					// Update button text based on new state
-					newIsFavorite, _ := favoritesService.IsFavorite("tag", fmt.Sprintf("%d", tag.ID))
+					newIsFavorite, _ := favoritesService.IsFavorite("tag", tag.TagUUID)
 					if newIsFavorite {
 						favBtn.SetText("✨")
 					} else {
 						favBtn.SetText("⭐️")
 					}
 
-					// Refresh table to reflect new state
 					t.Refresh()
 				})
 				favBtn.Importance = widget.LowImportance
 
-				// Set initial button text
 				if isFavorite {
 					favBtn.SetText("✨")
 				}

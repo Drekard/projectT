@@ -5,11 +5,6 @@ import (
 )
 
 // RunMigrations выполняет миграции базы данных
-// Структура:
-// 1. Создание всех таблиц
-// 2. Создание всех индексов
-// 3. Триггеры и ограничения
-// 4. Seed данные
 func RunMigrations() {
 	// ============================================================
 	// ЧАСТЬ 1: СОЗДАНИЕ ТАБЛИЦ
@@ -51,38 +46,7 @@ func RunMigrations() {
 	createElementUUIDTrigger()
 
 	// ============================================================
-	// ЧАСТЬ 4: Миграции существующих таблиц
-	// ============================================================
-
-	migrateItemsAddStatusColumn()
-	createRemoteItemUniqueIndex()
-
-	// ============================================================
-	// ЧАСТЬ 4.1: Миграция таблицы favorites (исправление entity_id -> entity_uuid)
-	// ============================================================
-
-	migrateFavoritesTable()
-
-	// ============================================================
-	// ЧАСТЬ 4.2: Удаление устаревшего триггера validate_favorites_entity_uuid_insert
-	// ============================================================
-
-	dropFavoritesValidateTrigger()
-
-	// ============================================================
-	// ЧАСТЬ 4.3: Миграция для peer_addresses и profiles
-	// ============================================================
-
-	migratePeerAddressesAndProfiles()
-
-	// ============================================================
-	// ЧАСТЬ 4.4: Установка стандартного avatar_path для существующих профилей
-	// ============================================================
-
-	migrateDefaultAvatarPath()
-
-	// ============================================================
-	// ЧАСТЬ 5: SEED ДАННЫЕ
+	// ЧАСТЬ 4: SEED ДАННЫЕ
 	// ============================================================
 
 	seedBootstrapPeers()
@@ -425,7 +389,7 @@ func createPeerAddressesIndexes() {
 }
 
 // ============================================================
-// ЧАСТЬ 4: ТРИГГЕРЫ И ОГРАНИЧЕНИЯ
+// ЧАСТЬ 3: ТРИГГЕРЫ И ОГРАНИЧЕНИЯ
 // ============================================================
 
 func createElementUUIDTrigger() {
@@ -441,39 +405,7 @@ func createElementUUIDTrigger() {
 }
 
 // ============================================================
-// ЧАСТЬ 4.5: МИГРАЦИИ СУЩЕСТВУЮЩИХ ТАБЛИЦ
-// ============================================================
-
-// migrateItemsAddStatusColumn добавляет колонку status в таблицу items
-// Для существующих элементов устанавливается status = 'saved'
-func migrateItemsAddStatusColumn() {
-	var count int
-	err := DB.QueryRow(`
-		SELECT COUNT(*) FROM pragma_table_info('items') WHERE name = 'status'
-	`).Scan(&count)
-
-	if err != nil {
-		return
-	}
-
-	if count > 0 {
-		return
-	}
-
-	_, _ = DB.Exec(`
-		ALTER TABLE items ADD COLUMN status TEXT DEFAULT 'saved' CHECK (status IN ('saved', 'preview', 'archived'))
-	`)
-}
-
-func createRemoteItemUniqueIndex() {
-	_, _ = DB.Exec(`
-		CREATE UNIQUE INDEX IF NOT EXISTS idx_items_remote_unique 
-		ON items(source_peer_id, element_uuid)
-	`)
-}
-
-// ============================================================
-// ЧАСТЬ 5: ВСПОМОГАТЕЛЬНЫЕ ФУНКЦИИ
+// ЧАСТЬ 4: SEED ДАННЫЕ
 // ============================================================
 
 func seedBootstrapPeers() {
@@ -509,182 +441,9 @@ func seedBootstrapPeers() {
 
 // extractPeerID извлекает PeerID из multiaddr строки
 func extractPeerID(multiaddr string) string {
-	// Простая реализация: ищем последнюю часть после /p2p/
-	// В production используйте github.com/multiformats/go-multiaddr
 	parts := strings.Split(multiaddr, "/p2p/")
 	if len(parts) > 1 {
 		return parts[len(parts)-1]
 	}
 	return "unknown_bootstrap_" + multiaddr[len(multiaddr)-8:]
-}
-
-func migrateFavoritesTable() {
-	var tableName string
-	err := DB.QueryRow(`SELECT name FROM sqlite_master WHERE type='table' AND name='favorites'`).Scan(&tableName)
-	if err != nil {
-		return
-	}
-
-	rows, err := DB.Query(`PRAGMA table_info(favorites)`)
-	if err != nil {
-		return
-	}
-	defer func() { _ = rows.Close() }()
-
-	hasEntityID := false
-	hasEntityUUID := false
-	for rows.Next() {
-		var cid, notnull, pk int
-		var name, dfltValue string
-		var typ string
-		err := rows.Scan(&cid, &name, &typ, &notnull, &dfltValue, &pk)
-		if err != nil {
-			continue
-		}
-		if name == "entity_id" {
-			hasEntityID = true
-		}
-		if name == "entity_uuid" {
-			hasEntityUUID = true
-		}
-	}
-
-	if hasEntityID && !hasEntityUUID {
-		type FavData struct {
-			ID         int
-			EntityType string
-			EntityID   int
-		}
-		var oldData []FavData
-
-		rows, err := DB.Query(`SELECT id, entity_type, entity_id FROM favorites`)
-		if err == nil {
-			defer func() { _ = rows.Close() }()
-			for rows.Next() {
-				var fav FavData
-				if err := rows.Scan(&fav.ID, &fav.EntityType, &fav.EntityID); err == nil {
-					oldData = append(oldData, fav)
-				}
-			}
-		}
-
-		_, _ = DB.Exec(`DROP TABLE favorites`)
-
-		createFavoritesTable()
-
-		for _, fav := range oldData {
-			_, _ = DB.Exec(`INSERT INTO favorites (entity_type, entity_uuid) VALUES (?, ?)`,
-				fav.EntityType, fav.EntityID)
-		}
-	} else if !hasEntityUUID {
-		_, _ = DB.Exec(`DROP TABLE favorites`)
-		createFavoritesTable()
-	}
-}
-
-func dropFavoritesValidateTrigger() {
-	var triggerName string
-	err := DB.QueryRow(`SELECT name FROM sqlite_master WHERE type='trigger' AND name='validate_favorites_entity_uuid_insert'`).Scan(&triggerName)
-	if err != nil {
-		return
-	}
-
-	_, _ = DB.Exec(`DROP TRIGGER validate_favorites_entity_uuid_insert`)
-}
-
-func migratePeerAddressesAndProfiles() {
-	var tableName string
-	err := DB.QueryRow(`SELECT name FROM sqlite_master WHERE type='table' AND name='peer_addresses'`).Scan(&tableName)
-	if err != nil {
-		return
-	}
-
-	err = DB.QueryRow(`SELECT name FROM sqlite_master WHERE type='table' AND name='bootstrap_peers'`).Scan(&tableName)
-	if err == nil {
-		_, _ = DB.Exec(`
-			INSERT OR IGNORE INTO peer_addresses (profile_id, multiaddr, address_type, source, priority, is_active)
-			SELECT 
-				COALESCE(
-					(SELECT id FROM profiles WHERE profiles.peer_id = bp.peer_id),
-					(SELECT id FROM profiles WHERE profiles.peer_id = (
-						SELECT peer_id FROM bootstrap_peers WHERE multiaddr = bp.multiaddr LIMIT 1
-					))
-				) as profile_id,
-				bp.multiaddr,
-				'bootstrap',
-				'hardcoded',
-				10,
-				bp.is_active
-			FROM bootstrap_peers bp
-		`)
-
-		_, _ = DB.Exec(`DROP TABLE IF EXISTS bootstrap_peers`)
-	}
-
-	err = DB.QueryRow(`SELECT name FROM sqlite_master WHERE type='table' AND name='contacts'`).Scan(&tableName)
-	if err == nil {
-		_, _ = DB.Exec(`
-			INSERT OR IGNORE INTO peer_addresses (profile_id, multiaddr, address_type, source, priority, is_active)
-			SELECT 
-				p.id,
-				c.multiaddr,
-				'contact',
-				'user_added',
-				10,
-				1
-			FROM contacts c
-			JOIN profiles p ON c.peer_id = p.peer_id
-			WHERE c.multiaddr IS NOT NULL AND c.multiaddr != ''
-		`)
-	}
-
-	var hasLastConnected, hasConnectionCount bool
-	rows, err := DB.Query(`PRAGMA table_info(profiles)`)
-	if err == nil {
-		defer func() { _ = rows.Close() }()
-		for rows.Next() {
-			var cid int
-			var name, typ string
-			var notnull, dfltValue, pk int
-			if err := rows.Scan(&cid, &name, &typ, &notnull, &dfltValue, &pk); err != nil {
-				continue
-			}
-			if name == "last_connected" {
-				hasLastConnected = true
-			}
-			if name == "connection_count" {
-				hasConnectionCount = true
-			}
-		}
-	}
-
-	if !hasLastConnected {
-		_, _ = DB.Exec(`ALTER TABLE profiles ADD COLUMN last_connected DATETIME`)
-	}
-
-	if !hasConnectionCount {
-		_, _ = DB.Exec(`ALTER TABLE profiles ADD COLUMN connection_count INTEGER DEFAULT 0`)
-	}
-}
-
-func migrateDefaultAvatarPath() {
-	var count int
-	err := DB.QueryRow(`
-		SELECT COUNT(*) FROM profiles 
-		WHERE owner_type = 'local' AND (avatar_path IS NULL OR avatar_path = '')
-	`).Scan(&count)
-
-	if err != nil {
-		return
-	}
-
-	if count == 0 {
-		return
-	}
-
-	_, _ = DB.Exec(`
-		UPDATE profiles 
-		SET avatar_path = 'storage/files/avatars/local/ProjctT_true.png'
-		WHERE owner_type = 'local' AND (avatar_path IS NULL OR avatar_path = '')
-	`)
 }

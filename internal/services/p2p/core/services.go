@@ -17,6 +17,7 @@ import (
 	"projectT/internal/services/p2p/protocols/chat"
 	"projectT/internal/services/p2p/protocols/itemsync"
 	"projectT/internal/services/p2p/protocols/profile"
+	"projectT/internal/services/p2p/protocols/profilesync"
 	"projectT/internal/services/p2p/protocols/transfer"
 	"projectT/internal/storage/database/models"
 	"projectT/internal/storage/database/queries"
@@ -155,6 +156,16 @@ func (n *P2PNetwork) initPeerExchange() error {
 	provider := &PeerExchangeProvider{network: n}
 	n.peerExchange = peerexchange.NewExchangeService(n.host, provider)
 	return n.peerExchange.Start()
+}
+
+// initProfileSync инициализирует сервис синхронизации профилей
+func (n *P2PNetwork) initProfileSync() error {
+	if n.host == nil {
+		return errors.New("хост не инициализирован")
+	}
+
+	n.profileSync = profilesync.NewSyncService(n.host, nil)
+	return n.profileSync.Start()
 }
 
 // AutodialProvider адаптер для получения адресов пиров

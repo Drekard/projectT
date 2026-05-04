@@ -109,40 +109,6 @@ func GetChatByPeerID(peerID string) (*models.Chat, error) {
 // GetChatsWithLastMessages возвращает все чаты с последними сообщениями
 // Сортировка по времени последнего сообщения (новые сверху)
 func GetChatsWithLastMessages() ([]*models.ChatWithLastMessage, error) {
-	// Простой запрос для отладки - просто все чаты
-	debugQuery := `SELECT id, contact_id, peer_id, is_temporary FROM chats`
-	debugRows, err := database.DB.Query(debugQuery)
-	if err == nil {
-		defer func() { _ = debugRows.Close() }()
-		for debugRows.Next() {
-			var id int
-			var contactID sql.NullInt64
-			var peerID string
-			var isTemporary bool
-			_ = debugRows.Scan(&id, &contactID, &peerID, &isTemporary)
-			log.Printf("[Chat] 🔍 DEBUG: чат id=%d, peer_id=%s..., contact_id=%v, is_temporary=%v",
-				id, peerID[:min(10, len(peerID))], contactID, isTemporary)
-		}
-	}
-
-	// Debug: проверяем данные в profiles для каждого чата
-	debugProfilesQuery := `
-		SELECT c.peer_id, p.owner_type, p.username, p.avatar_path
-		FROM chats c
-		LEFT JOIN profiles p ON c.peer_id = p.peer_id
-		WHERE c.peer_id IS NOT NULL AND c.peer_id != ''
-	`
-	debugProfilesRows, err := database.DB.Query(debugProfilesQuery)
-	if err == nil {
-		defer func() { _ = debugProfilesRows.Close() }()
-		for debugProfilesRows.Next() {
-			var peerID, ownerType, username, avatarPath string
-			_ = debugProfilesRows.Scan(&peerID, &ownerType, &username, &avatarPath)
-			log.Printf("[Chat] 🔍 DEBUG profiles: peer_id=%s..., owner_type=%s, username=%s, avatar_path=%q",
-				peerID[:min(10, len(peerID))], ownerType, username, avatarPath)
-		}
-	}
-
 	query := `
 		SELECT
 			c.id,
@@ -235,13 +201,8 @@ func GetChatsWithLastMessages() ([]*models.ChatWithLastMessage, error) {
 			chat.LastMessageAt = &t
 		}
 
-		log.Printf("[Chat] 📋 Чат из БД: ID=%d, peer=%s, username=%q, lastMsg=%q, avatar_path=%q",
-			chat.ID, chat.PeerID[:8], chat.Username, chat.LastMessage, chat.AvatarPath)
-
 		chats = append(chats, chat)
 	}
-
-	log.Printf("[Chat] 📚 rows.Next() вернул %d чатов", rowCount)
 
 	// Сортируем чаты по времени последнего сообщения (в памяти)
 	sort.Slice(chats, func(i, j int) bool {

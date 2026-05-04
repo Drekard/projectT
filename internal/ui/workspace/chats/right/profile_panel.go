@@ -3,7 +3,6 @@ package right
 
 import (
 	"image/color"
-	"log"
 	"os"
 
 	network "projectT/internal/services/p2p/ui"
@@ -55,12 +54,8 @@ func (p *Panel) Refresh() {
 
 // UpdateProfile updates the conversation partner's profile
 func (p *Panel) UpdateProfile(contact *models.Contact) {
-	log.Printf("[ProfilePanel] 🔄 Updating profile: username=%q, peer_id=%s, avatar_path=%q, title=%q",
-		contact.Username, contact.PeerID[:min(10, len(contact.PeerID))], contact.AvatarPath, contact.Title)
-
 	// Check if this is a local chat
 	if contact.IsLocalChat() {
-		log.Printf("[ProfilePanel] 📝 Local chat, showing user profile")
 		// For local chat show current user's profile
 		p.showUserProfile()
 		return
@@ -69,13 +64,11 @@ func (p *Panel) UpdateProfile(contact *models.Contact) {
 	// Update name
 	if p.profileName != nil {
 		p.profileName.SetText(contact.Username)
-		log.Printf("[ProfilePanel] ✅ Name set: %q", contact.Username)
 	}
 
 	// Update status (text, from profile)
 	if p.profileStatus != nil {
 		p.profileStatus.SetText(contact.Title)
-		log.Printf("[ProfilePanel] ✅ Status set: %q", contact.Title)
 	}
 
 	// Load avatar
@@ -83,22 +76,16 @@ func (p *Panel) UpdateProfile(contact *models.Contact) {
 
 	// Load characteristics from peer profile
 	if contact.PeerID != "" && p.characteristicsContainer != nil {
-		log.Printf("[ProfilePanel] 🔍 Loading characteristics for peer_id=%s", contact.PeerID[:8])
 		// Load profile from profiles table by PeerID
 		profile, err := queries.GetProfileByPeerID(contact.PeerID)
 		if err == nil && profile != nil {
-			log.Printf("[ProfilePanel] 📋 Profile loaded: content_char=%q", profile.ContentChar)
 			if profile.ContentChar != "" {
 				p.loadCharacteristics(profile.ContentChar)
-				log.Printf("[ProfilePanel] ✅ Characteristics loaded")
 			} else {
-				log.Printf("[ProfilePanel] ℹ️ Characteristics empty")
 				// If no characteristics, clear container
 				p.characteristicsContainer.Objects = nil
 				p.characteristicsContainer.Refresh()
 			}
-		} else {
-			log.Printf("[ProfilePanel] ❌ Error loading profile: %v", err)
 		}
 	}
 
@@ -106,7 +93,6 @@ func (p *Panel) UpdateProfile(contact *models.Contact) {
 	// NOTE: For remote profiles showcase is loaded separately after element sync
 	// via RefreshDemoElementsAfterSync() to avoid race conditions
 	if contact.PeerID != "" && p.demoElementsContainer != nil {
-		log.Printf("[ProfilePanel] ℹ️ Element showcase will be loaded after element sync")
 		// Clear showcase until sync completes
 		p.demoElementsContainer.Objects = nil
 		p.demoElementsContainer.Refresh()
@@ -115,7 +101,6 @@ func (p *Panel) UpdateProfile(contact *models.Contact) {
 	// Update UI
 	if p.container != nil {
 		p.container.Refresh()
-		log.Printf("[ProfilePanel] ✅ UI updated")
 	}
 }
 
@@ -126,27 +111,19 @@ func (p *Panel) RefreshDemoElementsAfterSync(peerID string) {
 		return
 	}
 
-	log.Printf("[ProfilePanel] 🔄 Updating element showcase after sync: peer_id=%s", peerID[:8])
-
 	// Load profile from profiles table by PeerID
 	profile, err := queries.GetProfileByPeerID(peerID)
 	if err != nil {
-		log.Printf("[ProfilePanel] ❌ Error loading profile for showcase: %v", err)
 		return
 	}
 
 	if profile == nil {
-		log.Printf("[ProfilePanel] ❌ Profile not found")
 		return
 	}
 
-	log.Printf("[ProfilePanel] 📋 Profile loaded: pinned_uuids=%s", profile.PinnedUUIDs)
-
 	if profile.PinnedUUIDs != "" && profile.PinnedUUIDs != "[]" {
 		p.loadDemoElements(profile.PinnedUUIDs)
-		log.Printf("[ProfilePanel] ✅ Element showcase updated after sync")
 	} else {
-		log.Printf("[ProfilePanel] ℹ️ Element showcase empty")
 		p.demoElementsContainer.Objects = nil
 		p.demoElementsContainer.Refresh()
 	}
@@ -154,7 +131,6 @@ func (p *Panel) RefreshDemoElementsAfterSync(peerID string) {
 	// Update UI
 	if p.container != nil {
 		p.container.Refresh()
-		log.Printf("[ProfilePanel] ✅ Showcase UI updated")
 	}
 }
 
@@ -266,10 +242,7 @@ func (p *Panel) loadAvatar(avatarPath string) {
 		return
 	}
 
-	log.Printf("[ProfilePanel] 🖼️ Loading avatar: path=%q", avatarPath)
-
 	if avatarPath == "" {
-		log.Printf("[ProfilePanel] ℹ️ AvatarPath empty, hiding image")
 		// Empty avatar - hide image
 		p.profileAvatar.Resource = nil
 		p.profileAvatar.Refresh()
@@ -278,7 +251,6 @@ func (p *Panel) loadAvatar(avatarPath string) {
 
 	// Check file existence
 	if _, err := os.Stat(avatarPath); os.IsNotExist(err) {
-		log.Printf("[ProfilePanel] ❌ Avatar file not found: %s", avatarPath)
 		p.profileAvatar.Resource = nil
 		p.profileAvatar.Refresh()
 		return
@@ -287,17 +259,13 @@ func (p *Panel) loadAvatar(avatarPath string) {
 	// Load image
 	avatarImg, err := fyne.LoadResourceFromPath(avatarPath)
 	if err != nil {
-		log.Printf("[ProfilePanel] ❌ Error loading avatar from %q: %v", avatarPath, err)
 		p.profileAvatar.Resource = nil
 		p.profileAvatar.Refresh()
 		return
 	}
 
-	log.Printf("[ProfilePanel] ✅ Avatar loaded successfully: %q (%d bytes)", avatarPath, len(avatarImg.Content()))
-
 	// Set image
 	p.profileAvatar.Resource = avatarImg
 	p.profileAvatar.FillMode = canvas.ImageFillContain
 	p.profileAvatar.Refresh()
-	log.Printf("[ProfilePanel] 🖼️ Avatar set in UI")
 }
