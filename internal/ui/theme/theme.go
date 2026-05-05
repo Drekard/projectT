@@ -118,9 +118,19 @@ var PurpleTheme = AppTheme{
 // CurrentTheme текущая тема приложения
 var CurrentTheme = PurpleTheme
 
+var themeChangeListeners []func()
+
+// OnThemeChange регистрирует callback, вызываемый при смене темы
+func OnThemeChange(fn func()) {
+	themeChangeListeners = append(themeChangeListeners, fn)
+}
+
 // SetTheme устанавливает новую тему
 func SetTheme(newTheme AppTheme) {
 	CurrentTheme = newTheme
+	for _, fn := range themeChangeListeners {
+		fn()
+	}
 }
 
 // GetTheme возвращает текущую тему

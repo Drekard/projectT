@@ -32,6 +32,10 @@ type fieldRow struct {
 	timer        *time.Timer
 }
 
+type BackgroundUpdater interface {
+	SetBackgroundColor(c color.Color)
+}
+
 type UI struct {
 	content                  fyne.CanvasObject
 	userNameEntry            *widget.Entry
@@ -43,6 +47,7 @@ type UI struct {
 	characteristicsScroll    *container.Scroll
 	backgroundButton         *widget.Button
 	avatarButton             *widget.Button
+	themeButton              *widget.Button
 	addCharacteristicButton  *widget.Button
 	loadCharacteristicsJSON  string
 	nextID                   int
@@ -52,6 +57,7 @@ type UI struct {
 	gridManager              *saved.GridManager
 	userNameTimer            *time.Timer
 	userTitleTimer           *time.Timer
+	backgroundUpdater        BackgroundUpdater
 }
 
 func New() *UI {
@@ -149,6 +155,10 @@ func (p *UI) createComponents() {
 	p.avatarButton = widget.NewButton("Avatar", func() {
 		p.showAvatarDialog()
 	})
+
+	p.themeButton = widget.NewButton("Theme", func() {
+		p.showThemeDialog()
+	})
 }
 
 // createLeftPanel creates the left profile panel (avatar, name, title, buttons, characteristics)
@@ -164,7 +174,7 @@ func (p *UI) createLeftPanel() fyne.CanvasObject {
 		container.NewCenter(p.avatarContainer),
 		container.NewStack(nameBg, p.userNameEntry),
 		container.NewStack(titleBg, p.userTitleEntry),
-		container.NewCenter(container.NewHBox(p.backgroundButton, p.avatarButton)),
+		container.NewCenter(container.NewHBox(p.backgroundButton, p.avatarButton, p.themeButton)),
 	)
 
 	// Characteristics

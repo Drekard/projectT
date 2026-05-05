@@ -246,6 +246,13 @@ func (api *UIP2P) AddContactByAddress(addrStr, username string) error {
 	log.Printf("PeerID: %s", peerID.String())
 	log.Printf("Адрес: %s", addrStr)
 
+	// Сохраняем адрес пира в БД для автоподключения при следующем запуске
+	if err := queries.AddPeerAddressWithProfile(peerID.String(), addrStr, "contact", "add_contact", username); err != nil {
+		log.Printf("⚠️ Не удалось сохранить адрес пира в БД: %v", err)
+	} else {
+		log.Printf("✅ Адрес пира сохранён в peer_addresses: %s", peerID.String()[:8])
+	}
+
 	// Пробуем подключиться к пиру для получения профиля
 	// Увеличиваем таймаут до 60 секунд для подключения через NAT
 	ctx, cancel := context.WithTimeout(api.network.Ctx(), 60*time.Second)
@@ -327,6 +334,13 @@ func (api *UIP2P) ConnectToContact(addrStr string) error {
 	decodedPeerID, err := peer.Decode(peerID)
 	if err != nil {
 		return fmt.Errorf("ошибка декодирования PeerID: %w", err)
+	}
+
+	// Сохраняем адрес пира в БД для автоподключения при следующем запуске
+	if err := queries.AddPeerAddressWithProfile(peerID, addrStr, "contact", "manual_connect", ""); err != nil {
+		log.Printf("[ConnectToContact] ⚠️ Не удалось сохранить адрес пира в БД: %v", err)
+	} else {
+		log.Printf("[ConnectToContact] ✅ Адрес пира сохранён в peer_addresses: %s", peerID[:8])
 	}
 
 	// Запрашиваем профиль после подключения

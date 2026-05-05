@@ -2,8 +2,8 @@ package header
 
 import (
 	"image/color"
-
 	"projectT/internal/storage/database/models"
+	apptheme "projectT/internal/ui/theme"
 
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/canvas"
@@ -31,10 +31,10 @@ type BreadcrumbManager struct {
 // CreateBreadcrumbs создает хлебные крошки с текстом текущего раздела
 func CreateBreadcrumbs() (*fyne.Container, *BreadcrumbManager) {
 	// Цвета
-	bgColor := color.RGBA{44, 44, 44, 255} // Пример цвета фона (#2C2C2C)
+	bgColor := apptheme.GetTheme().BackgroundColor
 	// Фон с закруглением и рамкой
 	bg := canvas.NewRectangle(bgColor)
-	bg.StrokeColor = color.RGBA{191, 46, 215, 255} // Цвет рамки, чуть светлее фона, по стандарту 80
+	bg.StrokeColor = apptheme.GetTheme().BorderColor
 	bg.StrokeWidth = 1
 	bg.CornerRadius = 8
 	bg.Resize(fyne.NewSize(400, 36))
@@ -50,6 +50,13 @@ func CreateBreadcrumbs() (*fyne.Container, *BreadcrumbManager) {
 		bg:        bg,
 		items:     make([]*BreadcrumbItem, 0),
 	}
+
+	// Подписываемся на смену темы
+	apptheme.OnThemeChange(func() {
+		bg.FillColor = apptheme.GetTheme().BackgroundColor
+		bg.StrokeColor = apptheme.GetTheme().BorderColor
+		bg.Refresh()
+	})
 
 	// Добавляем иконки перед начальным элементом
 	refreshButton := widget.NewButtonWithIcon("", theme.ViewRefreshIcon(), func() {

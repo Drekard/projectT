@@ -46,6 +46,12 @@ func (cc *ContactController) AddContactByAddress(addrStr, username string) error
 		return fmt.Errorf("ошибка декодирования PeerID: %w", err)
 	}
 
+	// Сохраняем адрес пира в БД для автоподключения при следующем запуске
+	if err := queries.AddPeerAddressWithProfile(peerID.String(), addrStr, "contact", "add_contact", ""); err != nil {
+		// Не критичная ошибка, продолжаем
+		_ = err
+	}
+
 	// Пробуем подключиться к пиру для получения профиля
 	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
 	defer cancel()
@@ -89,6 +95,12 @@ func (cc *ContactController) ConnectToContact(addrStr string) error {
 	decodedPeerID, err := peer.Decode(peerID)
 	if err != nil {
 		return fmt.Errorf("ошибка декодирования PeerID: %w", err)
+	}
+
+	// Сохраняем адрес пира в БД для автоподключения при следующем запуске
+	if err := queries.AddPeerAddressWithProfile(peerID, addrStr, "contact", "manual_connect", ""); err != nil {
+		// Не критичная ошибка, продолжаем
+		_ = err
 	}
 
 	// Запрашиваем профиль после подключения

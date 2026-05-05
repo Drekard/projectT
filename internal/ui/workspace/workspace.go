@@ -103,6 +103,9 @@ func CreateWorkspace(window fyne.Window, p2pNetwork *p2p_network.P2PNetwork) *Wo
 	// Устанавливаем окно для profile UI
 	ws.profileUI.SetWindow(window)
 
+	// Устанавливаем ссылку на workspace для обновления фона
+	ws.profileUI.SetBackgroundUpdater(ws)
+
 	// Инициализируем единый GridManager
 	ws.gridManager = saved.NewGridManager()
 
@@ -586,4 +589,10 @@ func (ws *Workspace) sortItems(items []*models.Item, options *services.FilterOpt
 	// Используем сортировщик из пакета sorting
 	itemSorter := sorting.NewItemSorter()
 	return itemSorter.SortItems(items, options)
+}
+
+// SetBackgroundColor устанавливает цвет фона рабочей области
+func (ws *Workspace) SetBackgroundColor(c color.Color) {
+	ws.backgroundRect.FillColor = c
+	ws.backgroundRect.Refresh()
 }

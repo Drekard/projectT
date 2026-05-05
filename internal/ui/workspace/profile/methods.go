@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 	"projectT/internal/services/background"
 	"projectT/internal/storage/database/queries"
+	"projectT/internal/ui/theme"
 	"strings"
 	"time"
 
@@ -34,6 +35,11 @@ func (p *UI) GetAvatarPath() string {
 // SetWindow sets the window for UI
 func (p *UI) SetWindow(window fyne.Window) {
 	p.window = window
+}
+
+// SetBackgroundUpdater sets the background updater for changing background color
+func (p *UI) SetBackgroundUpdater(updater BackgroundUpdater) {
+	p.backgroundUpdater = updater
 }
 
 func (p *UI) SetCustomField(index int, title, value string) {
@@ -377,4 +383,66 @@ func (p *UI) showImageDialog(
 
 	// Show dialog
 	dialog.ShowCustom(title, "Close", dialogContent, p.window)
+}
+
+// showThemeDialog shows a dialog for selecting application theme and background color
+func (p *UI) showThemeDialog() {
+	themeNames := []string{"Dark", "Light", "Blue", "Green", "Purple"}
+	themes := []theme.AppTheme{
+		theme.DarkTheme,
+		theme.LightTheme,
+		theme.BlueTheme,
+		theme.GreenTheme,
+		theme.PurpleTheme,
+	}
+
+	currentTheme := theme.GetTheme()
+	currentThemeName := "Purple"
+	for i, t := range themes {
+		if currentTheme == t {
+			currentThemeName = themeNames[i]
+			break
+		}
+	}
+
+	themeRadio := widget.NewRadioGroup(themeNames, func(selected string) {
+		for i, name := range themeNames {
+			if name == selected {
+				theme.SetTheme(themes[i])
+				if app := fyne.CurrentApp(); app != nil {
+					app.Settings().SetTheme(theme.GetFyneTheme())
+				}
+				break
+			}
+		}
+	})
+	themeRadio.Horizontal = false
+	themeRadio.SetSelected(currentThemeName)
+
+	bgRadio := widget.NewRadioGroup([]string{"Black", "White"}, func(selected string) {
+		if p.backgroundUpdater != nil {
+			switch selected {
+			case "Black":
+				p.backgroundUpdater.SetBackgroundColor(color.RGBA{R: 0, G: 0, B: 0, A: 255})
+			case "White":
+				p.backgroundUpdater.SetBackgroundColor(color.RGBA{R: 255, G: 255, B: 255, A: 255})
+			}
+		}
+	})
+	bgRadio.Horizontal = false
+	bgRadio.SetSelected("Black")
+
+	leftCol := container.NewVBox(
+		widget.NewLabel("Theme"),
+		themeRadio,
+	)
+
+	rightCol := container.NewVBox(
+		widget.NewLabel("Background"),
+		bgRadio,
+	)
+
+	dialogContent := container.NewHBox(leftCol, rightCol)
+
+	dialog.ShowCustom("Settings", "Close", dialogContent, p.window)
 }

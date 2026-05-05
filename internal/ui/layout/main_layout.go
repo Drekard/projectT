@@ -5,6 +5,7 @@ import (
 	"projectT/internal/ui/cards/hover_preview"
 	"projectT/internal/ui/header"
 	"projectT/internal/ui/sidebar"
+	"projectT/internal/ui/theme"
 	"projectT/internal/ui/workspace"
 
 	"image/color"
@@ -57,13 +58,21 @@ func CreateMainLayout(window fyne.Window, p2pNetwork *p2p_network.P2PNetwork) *f
 
 	appSidebar := sidebar.CreateSidebar(widthHeaderSidebar, handler, transferSvc)
 
-	borderColor := color.NRGBA{R: 144, G: 55, B: 255, A: 255}
+	borderColor := theme.GetTheme().BorderColor
 
 	headerBorder := canvas.NewRectangle(borderColor)
 	headerBorder.SetMinSize(fyne.NewSize(1, 1.5))
 
 	sidebarBorder := canvas.NewRectangle(borderColor)
 	sidebarBorder.SetMinSize(fyne.NewSize(1, 1))
+
+	// Подписываемся на смену темы для обновления цветов границ
+	theme.OnThemeChange(func() {
+		headerBorder.FillColor = theme.GetTheme().BorderColor
+		sidebarBorder.FillColor = theme.GetTheme().BorderColor
+		headerBorder.Refresh()
+		sidebarBorder.Refresh()
+	})
 
 	sidebarWithBorder := container.NewBorder(
 		nil, nil, nil, sidebarBorder,
