@@ -98,7 +98,7 @@ func CreateBreadcrumbs() (*fyne.Container, *BreadcrumbManager) {
 // AddItem добавляет элемент в хлебные крошки
 func (bm *BreadcrumbManager) AddItem(title string, folderID int) {
 	// Добавляем разделитель, если уже есть элементы
-	if len(bm.items) > 0 {
+	if len(bm.items) > 0 && bm.container != nil {
 		separator := canvas.NewText(" > ", color.RGBA{143, 143, 143, 255})
 		separator.TextSize = 14
 		bm.container.Add(separator)
@@ -115,7 +115,9 @@ func (bm *BreadcrumbManager) AddItem(title string, folderID int) {
 		}
 	})
 	button.Importance = widget.LowImportance
-	button.Resize(fyne.NewSize(80, 24))
+	if bm.container != nil {
+		button.Resize(fyne.NewSize(80, 24))
+	}
 
 	breadcrumbItem := &BreadcrumbItem{
 		button: button,
@@ -123,7 +125,9 @@ func (bm *BreadcrumbManager) AddItem(title string, folderID int) {
 	}
 
 	bm.items = append(bm.items, breadcrumbItem)
-	bm.container.Add(button)
+	if bm.container != nil {
+		bm.container.Add(button)
+	}
 }
 
 // UpdateBreadcrumbs обновляет хлебные крошки на основе пути
@@ -141,7 +145,9 @@ func (bm *BreadcrumbManager) UpdateBreadcrumbs(path []*models.Item) {
 
 // Clear очищает хлебные крошки
 func (bm *BreadcrumbManager) Clear() {
-	bm.container.Objects = nil
+	if bm.container != nil {
+		bm.container.Objects = nil
+	}
 	bm.items = make([]*BreadcrumbItem, 0)
 }
 
@@ -196,13 +202,15 @@ func (bm *BreadcrumbManager) UpdateRemoteBreadcrumbs(peerName string, peerID str
 		bm.AddRemoteFolderItem(item.Title, item.ElementUUID)
 	}
 
-	bm.container.Refresh()
+	if bm.container != nil {
+		bm.container.Refresh()
+	}
 }
 
 // AddRemoteItem добавляет элемент remote breadcrumbs (имя пира)
 func (bm *BreadcrumbManager) AddRemoteItem(title string, peerID string, folderUUID string) {
 	// Добавляем разделитель, если уже есть элементы
-	if len(bm.items) > 0 {
+	if len(bm.items) > 0 && bm.container != nil {
 		separator := canvas.NewText(" > ", color.RGBA{143, 143, 143, 255})
 		separator.TextSize = 14
 		bm.container.Add(separator)
@@ -211,15 +219,15 @@ func (bm *BreadcrumbManager) AddRemoteItem(title string, peerID string, folderUU
 	// Создаём кнопку для элемента
 	button := widget.NewButton(title, func() {
 		if folderUUID == "" && bm.onOpenRemoteProfile != nil {
-			// Клик по имени пира → открываем профиль
 			bm.onOpenRemoteProfile(peerID)
 		} else if bm.onRemoteNavigate != nil {
-			// Клик по папке → навигация
 			bm.onRemoteNavigate(folderUUID)
 		}
 	})
 	button.Importance = widget.LowImportance
-	button.Resize(fyne.NewSize(80, 24))
+	if bm.container != nil {
+		button.Resize(fyne.NewSize(80, 24))
+	}
 
 	// Сохраняем элемент с remote данными
 	item := &BreadcrumbItem{
@@ -228,13 +236,15 @@ func (bm *BreadcrumbManager) AddRemoteItem(title string, peerID string, folderUU
 	}
 
 	bm.items = append(bm.items, item)
-	bm.container.Add(button)
+	if bm.container != nil {
+		bm.container.Add(button)
+	}
 }
 
 // AddRemoteFolderItem добавляет элемент папки в remote breadcrumbs
 func (bm *BreadcrumbManager) AddRemoteFolderItem(title string, folderUUID string) {
 	// Добавляем разделитель, если уже есть элементы
-	if len(bm.items) > 0 {
+	if len(bm.items) > 0 && bm.container != nil {
 		separator := canvas.NewText(" > ", color.RGBA{143, 143, 143, 255})
 		separator.TextSize = 14
 		bm.container.Add(separator)
@@ -247,7 +257,9 @@ func (bm *BreadcrumbManager) AddRemoteFolderItem(title string, folderUUID string
 		}
 	})
 	button.Importance = widget.LowImportance
-	button.Resize(fyne.NewSize(80, 24))
+	if bm.container != nil {
+		button.Resize(fyne.NewSize(80, 24))
+	}
 
 	item := &BreadcrumbItem{
 		button: button,
@@ -255,7 +267,9 @@ func (bm *BreadcrumbManager) AddRemoteFolderItem(title string, folderUUID string
 	}
 
 	bm.items = append(bm.items, item)
-	bm.container.Add(button)
+	if bm.container != nil {
+		bm.container.Add(button)
+	}
 }
 
 // SetRemoteNavigationCallback устанавливает колбэк для remote навигации

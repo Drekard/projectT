@@ -229,9 +229,13 @@ func (ws *Workspace) UpdateContent(contentType string, param ...interface{}) {
 			newContent = ws.createPreviewContent()
 		}
 		// Сохраняем в кэш для консистентности
-		ws.contentCache[ct] = newContent
-		ws.container.Objects = []fyne.CanvasObject{newContent}
-		ws.container.Refresh()
+		if ws.contentCache != nil {
+			ws.contentCache[ct] = newContent
+		}
+		if ws.container != nil {
+			ws.container.Objects = []fyne.CanvasObject{newContent}
+			ws.container.Refresh()
+		}
 		return
 	default:
 		// Проверяем кэш для других типов контента (profile и т.д.)
@@ -259,6 +263,9 @@ func (ws *Workspace) UpdateContent(contentType string, param ...interface{}) {
 
 // loadSavedContent загружает сохраненные элементы
 func (ws *Workspace) loadSavedContent() {
+	if ws.gridManager == nil {
+		return
+	}
 	items, err := itemsService.GetSavedItemsByParent(0)
 	if err != nil {
 		items = []*models.Item{}
@@ -417,6 +424,9 @@ func (ws *Workspace) GetNavigationManager() *NavigationManager {
 
 // createSavedContent создает контент для "Сохраненного"
 func (ws *Workspace) createSavedContent() fyne.CanvasObject {
+	if ws.gridManager == nil {
+		return nil
+	}
 	// Загружаем актуальные данные
 	ws.loadSavedContent()
 	return ws.gridManager.GetContainer()
