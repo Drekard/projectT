@@ -14,6 +14,7 @@ import (
 	"projectT/internal/services/p2p/connection"
 	"projectT/internal/services/p2p/core"
 	"projectT/internal/services/p2p/helper"
+	"projectT/internal/services/p2p/protocols/transfer"
 	"projectT/internal/storage/database/models"
 	"projectT/internal/storage/database/queries"
 
@@ -200,7 +201,7 @@ func (api *UIP2P) OpenFirewall(port int, ruleName string) (bool, string, error) 
 	return result.Success, result.Message, nil
 }
 
-// GetPeerAddress возвращает адрес текущего пира для экспорта
+// GetPeerAddress возвращает адрес текущего пира для экспорта (все адреса в одной строке)
 func (api *UIP2P) GetPeerAddress() (string, error) {
 
 	if api.network.Host() == nil {
@@ -211,9 +212,10 @@ func (api *UIP2P) GetPeerAddress() (string, error) {
 	if err != nil {
 		return "", err
 	}
-	formatted := address.FormatPeerAddress(addr.PeerID, addr.Multiaddr)
+	formatted := address.FormatPeerAddress(addr.PeerID, addr.Multiaddrs)
 	log.Printf("[GetPeerAddress] PeerID: %s", addr.PeerID)
-	log.Printf("[GetPeerAddress] Multiaddr: %s", addr.Multiaddr)
+	log.Printf("[GetPeerAddress] Multiaddrs: %v", addr.Multiaddrs)
+	log.Printf("[GetPeerAddress] Тип адреса: %s", addr.AddressType)
 	log.Printf("[GetPeerAddress] Форматированный адрес: %s", formatted)
 	return formatted, nil
 }
@@ -754,7 +756,7 @@ func (api *UIP2P) ConnectToDiscoveredPeer(peerIDStr string) error {
 	return nil
 }
 
-// GetLocalAddresses возвращает список локальных адресов для подключения в одной сети
+// GetLocalAddresses возвращает список всех адресов для подключения
 func (api *UIP2P) GetLocalAddresses() []string {
 
 	var addresses []string
@@ -801,9 +803,10 @@ func (api *UIP2P) GetLocalAddresses() []string {
 				continue
 			}
 
-			address := fmt.Sprintf("%s:%s@/ip4/%s/tcp/%d/p2p/%s", address.ProtocolPrefix, peerID, ip, port, peerID)
-			addresses = append(addresses, address)
-			log.Printf("[GetLocalAddresses] ✅ Адрес: %s", address)
+			// Компактный формат: projectt:PeerID@ip:port
+			addrFormatted := fmt.Sprintf("%s:%s@%s:%d", address.ProtocolPrefix, peerID, ip, port)
+			addresses = append(addresses, addrFormatted)
+			log.Printf("[GetLocalAddresses] ✅ Адрес: %s", addrFormatted)
 		}
 	}
 
@@ -846,4 +849,61 @@ func min(a, b int) int {
 		return a
 	}
 	return b
+}
+
+// SendBatch отправляет пакет элементов пиру
+func (api *UIP2P) SendBatch(peerID peer.ID, elementUUIDs []string, batchType transfer.TransferType) (string, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
+	defer cancel()
+	return api.network.SendBatch(ctx, peerID, elementUUIDs, batchType)
+}
+
+// SendFolder отправляет папку пиру
+func (api *UIP2P) SendFolder(peerID peer.ID, parentUUID string) (string, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
+	defer cancel()
+	return api.network.SendFolder(ctx, peerID, parentUUID)
+}
+
+// SendPinnedItems отправляет закреплённые элементы пиру
+func (api *UIP2P) SendPinnedItems(peerID peer.ID) (string, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
+	defer cancel()
+	return api.network.SendPinnedItems(ctx, peerID)
+}
+
+// SendSelection отправляет выбранные элементы пиру
+func (api *UIP2P) SendSelection(peerID peer.ID, elementUUIDs []string) (string, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
+	defer cancel()
+	return api.network.SendSelection(ctx, peerID, elementUUIDs)
+}
+
+// GetBatchProgress возвращает прогресс батча
+func (api *UIP2P) GetBatchProgress(batchID string) *transfer.BatchProgress {
+	return api.network.GetBatchProgress(batchID)
+}
+
+// RequestBatchByUUIDs запрашивает батч элементов у пира
+func (api *UIP2P) RequestBatchByUUIDs(peerID peer.ID, elementUUIDs []string) ([]*models.Item, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Minute)
+	defer cancel()
+	return api.network.RequestBatchByUUIDs(ctx, peerID, elementUUIDs)
+}
+
+// RequestFolder запрашивает папку у пира
+func (api *UIP2P) RequestFolder(peerID peer.ID, parentUUID string) ([]*models.Item, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Minute)
+	defer cancel()
+	return api.network.RequestFolder(ctx, peerID, parentUUID)
+}
+
+// GetPinnedItemUUIDs возвращает список UUID закреплённых элементов
+func (api *UIP2P) GetPinnedItemUUIDs() ([]string, error) {
+	return queries.GetPinnedItemUUIDs()
+}
+
+// GetItemsByParentUUID возвращает элементы папки по parent_uuid
+func (api *UIP2P) GetItemsByParentUUID(parentUUID string) ([]*models.Item, error) {
+	return queries.GetItemsByParentUUID(parentUUID)
 }

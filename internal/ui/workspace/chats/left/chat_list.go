@@ -147,14 +147,9 @@ func (p *Panel) loadChatsList() {
 
 // createChatItem создает элемент чата с аватаром 50x50
 func (p *Panel) createChatItem(chat *models.ChatWithLastMessage) *ChatItemWrapper {
-	// Аватар 50x50
-	avatarContainer := p.createChatAvatarIcon(chat)
+	avatar := p.createChatAvatarIcon(chat)
 
-	// Компонуем: только аватар
-	content := container.NewStack(avatarContainer)
-
-	// Создаём обёртку с обработчиками
-	return NewChatItemWrapper(content, chat.ID, chat.PeerID, chat.Username,
+	return NewChatItemWrapper(avatar, chat.ID, chat.PeerID, chat.Username,
 		func() {
 			p.openChatByID(chat.ID)
 		},
@@ -164,53 +159,90 @@ func (p *Panel) createChatItem(chat *models.ChatWithLastMessage) *ChatItemWrappe
 	)
 }
 
+// avatarTappable обёртка для аватара с поддержкой двойного клика
+type avatarTappable struct {
+	widget.BaseWidget
+	chatID      int
+	peerID      string
+	username    string
+	onSelect    func()
+	onDoubleTap func()
+	bg          *canvas.Rectangle
+	icon        *canvas.Image
+}
+
+// newAvatarTappable создаёт новую обёрку для аватара
+func newAvatarTappable(chatID int, peerID string, username string, onSelect, onDoubleTap func(), bg *canvas.Rectangle, icon *canvas.Image) *avatarTappable {
+	w := &avatarTappable{
+		chatID:      chatID,
+		peerID:      peerID,
+		username:    username,
+		onSelect:    onSelect,
+		onDoubleTap: onDoubleTap,
+		bg:          bg,
+		icon:        icon,
+	}
+	w.ExtendBaseWidget(w)
+	return w
+}
+
+// DoubleTapped обрабатывает двойной клик
+func (a *avatarTappable) DoubleTapped(_ *fyne.PointEvent) {
+	if a.onDoubleTap != nil {
+		a.onDoubleTap()
+	}
+}
+
+// Tapped обрабатывает одинарный клик
+func (a *avatarTappable) Tapped(_ *fyne.PointEvent) {
+	if a.onSelect != nil {
+		a.onSelect()
+	}
+}
+
+// CreateRenderer реализует интерфейс fyne.Widget
+func (a *avatarTappable) CreateRenderer() fyne.WidgetRenderer {
+	objects := []fyne.CanvasObject{a.bg}
+	if a.icon != nil {
+		objects = append(objects, a.icon)
+	}
+	return widget.NewSimpleRenderer(container.NewStack(objects...))
+}
+
+// MinSize возвращает минимальный размер виджета
+func (a *avatarTappable) MinSize() fyne.Size {
+	return fyne.NewSize(50, 50)
+}
+
 // createChatAvatarIcon создает иконку чата с аватаром 50x50
-func (p *Panel) createChatAvatarIcon(chat *models.ChatWithLastMessage) *fyne.Container {
-	if chat.AvatarPath != "" {
-		// Пробуем загрузить аватар из файла
-		avatarRes, err := fyne.LoadResourceFromPath(chat.AvatarPath)
-		if err != nil {
-		} else if avatarRes == nil {
-		} else {
-			// Аватар успешно загружен
-			// Создаём изображение аватара
-			img := canvas.NewImageFromResource(avatarRes)
-			img.FillMode = canvas.ImageFillContain
-			img.SetMinSize(fyne.NewSize(50, 50))
-
-			// Создаём кнопку с изображением
-			btn := widget.NewButton("", func() {
-				p.openChatByID(chat.ID)
-			})
-			btn.Importance = widget.LowImportance
-
-			// Оборачиваем в контейнер с фиксированным размером
-			btnWrapper := canvas.NewRectangle(color.Transparent)
-			btnWrapper.SetMinSize(fyne.NewSize(50, 50))
-
-			// Ставим изображение поверх кнопки
-			return container.NewStack(btnWrapper, btn, img)
-		}
-
-		// Если дошли сюда - произошла ошибка загрузки
+func (p *Panel) createChatAvatarIcon(chat *models.ChatWithLastMessage) *avatarTappable {
+	openAction := func() {
+		p.openChatByID(chat.ID)
+	}
+	doubleTapAction := func() {
+		p.chatsUI.ShowChatMenu(chat.ID, chat.PeerID, chat.Username, p.chatsList)
 	}
 
-	// Аватара нет или ошибка загрузки - используем иконку по умолчанию
-	icon := canvas.NewImageFromResource(theme.AccountIcon())
-	icon.FillMode = canvas.ImageFillContain
+	bg := canvas.NewRectangle(color.Transparent)
+	bg.SetMinSize(fyne.NewSize(50, 50))
+
+	var icon *canvas.Image
+
+	if chat.AvatarPath != "" {
+		avatarRes, err := fyne.LoadResourceFromPath(chat.AvatarPath)
+		if err == nil && avatarRes != nil {
+			icon = canvas.NewImageFromResource(avatarRes)
+			icon.FillMode = canvas.ImageFillContain
+		}
+	}
+
+	if icon == nil {
+		icon = canvas.NewImageFromResource(theme.AccountIcon())
+		icon.FillMode = canvas.ImageFillContain
+	}
 	icon.SetMinSize(fyne.NewSize(50, 50))
 
-	// Создаём кнопку с иконкой
-	btn := widget.NewButton("", func() {
-		p.openChatByID(chat.ID)
-	})
-	btn.Importance = widget.LowImportance
-
-	// Оборачиваем в контейнер с фиксированным размером
-	btnWrapper := canvas.NewRectangle(color.Transparent)
-	btnWrapper.SetMinSize(fyne.NewSize(50, 50))
-
-	return container.NewStack(btnWrapper, btn, icon)
+	return newAvatarTappable(chat.ID, chat.PeerID, chat.Username, openAction, doubleTapAction, bg, icon)
 }
 
 // openChatByID открывает чат по ID

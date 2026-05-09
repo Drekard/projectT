@@ -22,6 +22,7 @@ import (
 
 	"projectT/internal/services"
 	p2p "projectT/internal/services/p2p"
+	"projectT/internal/services/p2p/address"
 	"projectT/internal/services/p2p/autodial"
 	"projectT/internal/services/p2p/connection"
 	"projectT/internal/services/p2p/discovery"
@@ -157,6 +158,9 @@ func (n *P2PNetwork) Start() error {
 		return fmt.Errorf("ошибка создания хоста: %w", err)
 	}
 
+	// Автоматически открываем порт в брандмауэре Windows
+	n.openFirewallPort()
+
 	// Настраиваем обработчики соединений
 	n.host.SetStreamHandler(chat.ProtocolID, n.handleChatStream)
 	n.host.Network().Notify(&network.NotifyBundle{
@@ -181,6 +185,11 @@ func (n *P2PNetwork) Start() error {
 		_ = err // Ignore error
 	}
 
+	// ✅ Инициализируем сервис загрузки аватарок (ДО profileExchange, т.к. он использует avatar)
+	if err := n.initAvatar(); err != nil {
+		_ = err // Ignore error
+	}
+
 	// Инициализируем сервис обмена профилями
 	if err := n.initProfileExchange(); err != nil {
 		_ = err // Ignore error
@@ -188,11 +197,6 @@ func (n *P2PNetwork) Start() error {
 
 	// Инициализируем сервис передачи файлов
 	if err := n.initTransfer(); err != nil {
-		_ = err // Ignore error
-	}
-
-	// ✅ Инициализируем сервис загрузки аватарок
-	if err := n.initAvatar(); err != nil {
 		_ = err // Ignore error
 	}
 
@@ -351,4 +355,34 @@ func (n *P2PNetwork) Ctx() context.Context {
 // Avatar возвращает сервис загрузки аватарок
 func (n *P2PNetwork) Avatar() *avatar.Service {
 	return n.avatar
+}
+
+// openFirewallPort автоматически открывает порт P2P в брандмауэре Windows
+func (n *P2PNetwork) openFirewallPort() {
+	port := n.config.ListenPort
+	if port <= 0 {
+		port = 8080
+	}
+
+	ruleName := "ProjectT P2P"
+
+	log.Printf("[Firewall] Проверка порта %d в брандмауэре...", port)
+
+	result, err := address.OpenFirewallRule(port, ruleName)
+	if err != nil {
+		log.Printf("[Firewall] ⚠️ Ошибка проверки брандмауэра: %v", err)
+		log.Printf("[Firewall] 💡 Если подключение не работает, откройте порт вручную:")
+		log.Printf("[Firewall] 💡   netsh advfirewall firewall add rule name=\"%s\" dir=in action=allow protocol=TCP localport=%d", ruleName, port)
+		return
+	}
+
+	if result.Success {
+		log.Printf("[Firewall] ✅ Порт %d открыт в брандмауэре: %s", port, result.Message)
+	} else {
+		log.Printf("[Firewall] ⚠️ Не удалось открыть порт: %s", result.Message)
+		if result.Command != nil {
+			log.Printf("[Firewall] 💡 Выполните от имени администратора:")
+			log.Printf("[Firewall] 💡   %s", result.Command.PowerShell)
+		}
+	}
 }

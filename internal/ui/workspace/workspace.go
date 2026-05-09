@@ -1,8 +1,10 @@
 package workspace
 
 import (
+	"context"
 	"fmt"
 	"image/color"
+	"log"
 	"projectT/internal/services"
 	"projectT/internal/storage/database/models"
 	"projectT/internal/storage/database/queries"
@@ -14,6 +16,7 @@ import (
 	"projectT/internal/ui/workspace/saved/sorting"
 	"projectT/internal/ui/workspace/tags"
 
+	"github.com/libp2p/go-libp2p/core/peer"
 	p2p_network "projectT/internal/services/p2p/core"
 	p2p_ui "projectT/internal/services/p2p/ui"
 
@@ -29,13 +32,15 @@ var itemsService = services.NewItemsService()
 type ContentType string
 
 const (
-	ContentTypeSaved    ContentType = "saved"
-	ContentTypePreview  ContentType = "preview"
-	ContentTypeProfile  ContentType = "profile"
-	ContentTypeTags     ContentType = "tags"
-	ContentTypeChats    ContentType = "chats"
-	ContentTypeContacts ContentType = "contacts"
-	ContentTypeP2P      ContentType = "p2p"
+	ContentTypeSaved         ContentType = "saved"
+	ContentTypePreview       ContentType = "preview"
+	ContentTypeProfile       ContentType = "profile"
+	ContentTypeTags          ContentType = "tags"
+	ContentTypeChats         ContentType = "chats"
+	ContentTypeContacts      ContentType = "contacts"
+	ContentTypeP2P           ContentType = "p2p"
+	ContentTypeRemoteProfile ContentType = "remote_profile"
+	ContentTypeRemoteSaved   ContentType = "remote_saved"
 )
 
 // PreviewMode определяет режим отображения элементов
@@ -64,6 +69,7 @@ type Workspace struct {
 	contentCache       map[ContentType]fyne.CanvasObject
 	navigationManager  *NavigationManager // Менеджер навигации
 	profileUI          *profile.UI
+	remoteProfileUI    *profile.RemoteProfileUI // Профиль удалённого пользователя
 	tagsUI             *tags.UI
 	chatsUI            *chats.UI
 	contactsUI         *contacts.UI
@@ -80,6 +86,14 @@ type Workspace struct {
 	backgroundRect *canvas.Rectangle // прямоугольник фона по умолчанию
 	// Режим отображения элементов
 	showMode string // "current_folder" или "all_items"
+	// Remote profile данные
+	remoteProfilePeerID string
+	remoteFolderUUID    string
+	remoteFolderTitle   string
+	remoteProfileName   string
+	remoteFolderPath    []*models.Item // Путь по папкам для breadcrumbs
+	// Callback для обновления breadcrumbs при смене remote режима
+	onRemoteModeChanged func(isRemote bool, peerID, peerName string, path []*models.Item)
 }
 
 // CreateWorkspace создает и возвращает рабочую область
@@ -167,6 +181,18 @@ func (ws *Workspace) UpdateContent(contentType string, param ...interface{}) {
 		ws.initializeP2PUI()
 		ws.p2pUI.Refresh()
 		ws.contentCache[ct] = ws.createP2PContent()
+		ws.container.Objects = []fyne.CanvasObject{ws.contentCache[ct]}
+		ws.container.Refresh()
+		return
+	case ContentTypeRemoteProfile:
+		// Remote profile — всегда пересоздаём
+		ws.contentCache[ct] = ws.createRemoteProfileContent()
+		ws.container.Objects = []fyne.CanvasObject{ws.contentCache[ct]}
+		ws.container.Refresh()
+		return
+	case ContentTypeRemoteSaved:
+		// Remote saved — всегда пересоздаём
+		ws.contentCache[ct] = ws.createRemoteSavedContent()
 		ws.container.Objects = []fyne.CanvasObject{ws.contentCache[ct]}
 		ws.container.Refresh()
 		return
@@ -276,6 +302,15 @@ func (ws *Workspace) NavigateToPreviewFolder(folderID int) error {
 
 // NavigateToFolder переходит в указанную папку
 func (ws *Workspace) NavigateToFolder(folderID int) error {
+	// Если мы в remote режиме — переходим на remote навигацию
+	if ws.remoteProfilePeerID != "" {
+		item, err := queries.GetItemByID(folderID)
+		if err == nil && item != nil && item.OwnerType == "remote" {
+			ws.NavigateToRemoteFolder(item.ElementUUID)
+			return nil
+		}
+	}
+
 	err := ws.navigationManager.GoToFolderInPath(folderID)
 	if err != nil {
 		return err
@@ -429,9 +464,214 @@ func (ws *Workspace) createP2PContent() fyne.CanvasObject {
 	return ws.p2pUI.GetContent()
 }
 
+// createRemoteProfileContent создает контент для удалённого профиля
+func (ws *Workspace) createRemoteProfileContent() fyne.CanvasObject {
+	if ws.remoteProfileUI == nil || ws.remoteProfileUI.GetPeerID() != ws.remoteProfilePeerID {
+		var p2pUI *p2p_ui.UIP2P
+		if ws.p2pNetwork != nil {
+			p2pUI = p2p_ui.NewUIP2P(ws.p2pNetwork)
+		}
+		ws.remoteProfileUI = profile.NewRemoteProfileUI(ws.remoteProfilePeerID, p2pUI)
+		ws.remoteProfileUI.SetOnOpenElements(func() {
+			ws.OpenRemoteSaved(ws.remoteProfilePeerID, ws.remoteProfileName, "")
+		})
+	}
+	return ws.remoteProfileUI.Container()
+}
+
+// createRemoteSavedContent создает контент для удалённых элементов
+func (ws *Workspace) createRemoteSavedContent() fyne.CanvasObject {
+	// Загружаем элементы по parent_uuid из локальной БД
+	var items []*models.Item
+	remoteItems, err := queries.GetRemoteItemsByPeer(ws.remoteProfilePeerID)
+	if err == nil {
+		if ws.remoteFolderUUID == "" {
+			// Корень — элементы с parent_uuid = nil или ""
+			for _, item := range remoteItems {
+				if item.ParentUUID == nil || *item.ParentUUID == "" {
+					items = append(items, item)
+				}
+			}
+		} else {
+			// Конкретная папка
+			for _, item := range remoteItems {
+				if item.ParentUUID != nil && *item.ParentUUID == ws.remoteFolderUUID {
+					items = append(items, item)
+				}
+			}
+		}
+	}
+
+	ws.gridManager.LoadItemsWithoutCreateElement(items)
+
+	// Если элементов нет в БД — запрашиваем у пира
+	if len(items) == 0 && ws.p2pNetwork != nil {
+		go ws.requestRemoteFolderFromPeer(ws.remoteProfilePeerID, ws.remoteFolderUUID)
+	}
+
+	return ws.gridManager.GetContainer()
+}
+
+// requestRemoteFolderFromPeer запрашивает элементы папки у пира и сохраняет в БД
+func (ws *Workspace) requestRemoteFolderFromPeer(peerID, folderUUID string) {
+	peerIDObj, err := peer.Decode(peerID)
+	if err != nil {
+		log.Printf("[Workspace] Ошибка декодирования peerID: %v", err)
+		return
+	}
+
+	ctx := context.Background()
+	items, err := ws.p2pNetwork.ItemSync().RequestFolder(ctx, peerIDObj, folderUUID)
+	if err != nil {
+		log.Printf("[Workspace] Ошибка запроса элементов у пира: %v", err)
+		return
+	}
+
+	if len(items) == 0 {
+		return
+	}
+
+	// Сохраняем элементы в БД как remote
+	for _, item := range items {
+		item.OwnerType = "remote"
+		item.SourcePeerID = &peerID
+		_ = queries.CreateRemoteItem(item)
+	}
+
+	// Обновляем отображение
+	ws.gridManager.LoadItemsWithoutCreateElement(items)
+}
+
+// OpenRemoteProfile открывает профиль удалённого пользователя
+func (ws *Workspace) OpenRemoteProfile(peerID string) {
+	ws.remoteProfilePeerID = peerID
+	ws.remoteFolderUUID = ""
+	ws.remoteFolderTitle = ""
+	ws.remoteFolderPath = nil
+
+	// Получаем имя профиля (по peerID без фильтра owner_type)
+	profile, err := queries.GetProfileByPeerID(peerID)
+	if err == nil && profile != nil {
+		ws.remoteProfileName = profile.Username
+	}
+
+	ws.notifyRemoteModeChanged(true)
+	ws.UpdateContent(string(ContentTypeRemoteProfile))
+}
+
+// OpenRemoteSaved открывает элементы удалённого пользователя
+func (ws *Workspace) OpenRemoteSaved(peerID, peerName, folderUUID string) {
+	ws.remoteProfilePeerID = peerID
+	ws.remoteProfileName = peerName
+	ws.remoteFolderUUID = folderUUID
+	ws.remoteFolderTitle = ""
+	ws.remoteFolderPath = nil
+
+	// Если folderUUID указан, получаем название папки
+	if folderUUID != "" {
+		item, err := queries.GetItemByElementUUID(folderUUID)
+		if err == nil && item != nil {
+			ws.remoteFolderTitle = item.Title
+			ws.remoteFolderPath = []*models.Item{item}
+		}
+	}
+
+	ws.notifyRemoteModeChanged(true)
+	ws.UpdateContent(string(ContentTypeRemoteSaved))
+}
+
+// NavigateToRemoteFolder переходит в папку удалённого пользователя
+func (ws *Workspace) NavigateToRemoteFolder(folderUUID string) {
+	ws.remoteFolderUUID = folderUUID
+
+	// Получаем название папки
+	item, err := queries.GetItemByElementUUID(folderUUID)
+	if err == nil && item != nil {
+		ws.remoteFolderTitle = item.Title
+		ws.remoteFolderPath = append(ws.remoteFolderPath, item)
+	}
+
+	ws.notifyRemoteModeChanged(true)
+	ws.UpdateContent(string(ContentTypeRemoteSaved))
+}
+
+// OpenRemoteFolderFromChat открывает папку из чата — запрашивает у пира и переключает на remote saved view
+func (ws *Workspace) OpenRemoteFolderFromChat(peerID, folderUUID string) {
+	ws.remoteProfilePeerID = peerID
+	ws.remoteFolderUUID = folderUUID
+	ws.remoteFolderTitle = ""
+	ws.remoteFolderPath = nil
+
+	// Получаем имя профиля
+	profile, err := queries.GetProfileByPeerID(peerID)
+	if err == nil && profile != nil {
+		ws.remoteProfileName = profile.Username
+	}
+
+	// Получаем название папки из БД если есть
+	item, err := queries.GetItemByElementUUID(folderUUID)
+	if err == nil && item != nil {
+		ws.remoteFolderTitle = item.Title
+	}
+
+	// Запускаем запрос папки у пира в фоне
+	go ws.requestRemoteFolderFromPeer(peerID, folderUUID)
+
+	ws.notifyRemoteModeChanged(true)
+	ws.UpdateContent(string(ContentTypeRemoteSaved))
+}
+
+// ResetToLocalSaved сбрасывает remote режим и возвращает к локальной сортировке
+func (ws *Workspace) ResetToLocalSaved() {
+	ws.remoteProfilePeerID = ""
+	ws.remoteFolderUUID = ""
+	ws.remoteFolderTitle = ""
+	ws.remoteProfileName = ""
+	ws.remoteFolderPath = nil
+	ws.remoteProfileUI = nil
+	ws.navigationManager.Reset()
+	ws.notifyRemoteModeChanged(false)
+	ws.UpdateContent(string(ContentTypeSaved))
+}
+
+// GetRemoteProfilePeerID возвращает peerID текущего remote профиля
+func (ws *Workspace) GetRemoteProfilePeerID() string {
+	return ws.remoteProfilePeerID
+}
+
+// GetRemoteProfileName возвращает имя текущего remote профиля
+func (ws *Workspace) GetRemoteProfileName() string {
+	return ws.remoteProfileName
+}
+
+// GetRemoteFolderUUID возвращает текущий remote folder UUID
+func (ws *Workspace) GetRemoteFolderUUID() string {
+	return ws.remoteFolderUUID
+}
+
+// GetRemoteFolderTitle возвращает название текущей remote папки
+func (ws *Workspace) GetRemoteFolderTitle() string {
+	return ws.remoteFolderTitle
+}
+
+// SetOnRemoteModeChanged устанавливает callback при смене remote режима
+func (ws *Workspace) SetOnRemoteModeChanged(callback func(isRemote bool, peerID, peerName string, path []*models.Item)) {
+	ws.onRemoteModeChanged = callback
+}
+
+func (ws *Workspace) notifyRemoteModeChanged(isRemote bool) {
+	if ws.onRemoteModeChanged != nil {
+		ws.onRemoteModeChanged(isRemote, ws.remoteProfilePeerID, ws.remoteProfileName, ws.remoteFolderPath)
+	}
+}
+
 // initializeContactsUI инициализирует UI вкладки "Контакты" при первом обращении
 func (ws *Workspace) initializeContactsUI() {
 	if !ws.contactsInitialized {
+		// Инициализируем chatsUI если еще не инициализирован
+		if ws.chatsUI == nil {
+			ws.initializeChatsUI()
+		}
 		ws.contactsUI = contacts.New(ws.chatsUI)
 		ws.contactsInitialized = true
 
@@ -486,6 +726,16 @@ func (ws *Workspace) initializeChatsUI() {
 
 		// Устанавливаем окно для chats UI
 		ws.chatsUI.SetWindow(ws.window)
+
+		// Устанавливаем callback для открытия remote профиля
+		ws.chatsUI.SetOnOpenRemoteProfile(func(peerID string) {
+			ws.OpenRemoteProfile(peerID)
+		})
+
+		// Устанавливаем callback для открытия папки из чата
+		ws.chatsUI.SetOnOpenFolderFromChat(func(peerID, folderUUID string) {
+			ws.OpenRemoteFolderFromChat(peerID, folderUUID)
+		})
 
 		// Устанавливаем P2P сервис если доступен
 		if ws.p2pNetwork != nil {

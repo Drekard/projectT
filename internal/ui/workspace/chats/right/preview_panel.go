@@ -62,6 +62,11 @@ func (p *PreviewPanel) createContainer() *fyne.Container {
 		emptyLabel.Alignment = fyne.TextAlignCenter
 		previewContainer.Add(emptyLabel)
 	} else {
+		// Limit to first 5 items
+		maxItems := 5
+		if len(previewItems) > maxItems {
+			previewItems = previewItems[:maxItems]
+		}
 		// Create cards for each preview element
 		for _, item := range previewItems {
 			card := p.createPreviewCard(item)

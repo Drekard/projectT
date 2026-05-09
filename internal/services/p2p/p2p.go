@@ -57,20 +57,26 @@ type (
 
 // Transfer типы из package transfer
 type (
-	FileTransferRequest = transfer.FileTransferRequest
-	FileTransferChunk   = transfer.FileTransferChunk
-	TransferAck         = transfer.TransferAck
-	TransferProgress    = transfer.TransferProgress
-	TransferType        = transfer.TransferType
-	TransferStatus      = transfer.TransferStatus
-	TransferService     = transfer.Service
+	FileTransferRequest  = transfer.FileTransferRequest
+	FileTransferChunk    = transfer.FileTransferChunk
+	TransferAck          = transfer.TransferAck
+	TransferProgress     = transfer.TransferProgress
+	TransferType         = transfer.TransferType
+	TransferStatus       = transfer.TransferStatus
+	TransferService      = transfer.Service
+	BatchTransferRequest = transfer.BatchTransferRequest
+	BatchItemProgress    = transfer.BatchItemProgress
+	BatchProgress        = transfer.BatchProgress
 )
 
 // Типы передачи
 const (
-	TransferTypeFile   = transfer.TransferTypeFile
-	TransferTypeAvatar = transfer.TransferTypeAvatar
-	TransferTypeImage  = transfer.TransferTypeImage
+	TransferTypeFile           = transfer.TransferTypeFile
+	TransferTypeAvatar         = transfer.TransferTypeAvatar
+	TransferTypeImage          = transfer.TransferTypeImage
+	TransferTypeBatchFolder    = transfer.TransferTypeBatchFolder
+	TransferTypeBatchPinned    = transfer.TransferTypeBatchPinned
+	TransferTypeBatchSelection = transfer.TransferTypeBatchSelection
 )
 
 // Статусы передачи

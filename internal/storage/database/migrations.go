@@ -69,6 +69,7 @@ func createItemsTable() {
 			description     TEXT,
 			content_meta    TEXT,
 			parent_id       INTEGER,
+			parent_uuid     TEXT,
 			signature       BLOB,
 			version         INTEGER DEFAULT 1,
 			status          TEXT DEFAULT 'saved' CHECK (status IN ('saved', 'preview', 'archived')),
@@ -81,6 +82,11 @@ func createItemsTable() {
 	if err != nil {
 		panic("Ошибка при создании таблицы items:" + err.Error())
 	}
+
+	// Миграция: добавляем parent_uuid если колонка отсутствует (для существующих БД)
+	_, _ = DB.Exec(`
+		ALTER TABLE items ADD COLUMN parent_uuid TEXT
+	`)
 }
 
 func createFilesTable() {
@@ -307,6 +313,7 @@ func createPeerAddressesTable() {
 func createItemsIndexes() {
 	indexes := []string{
 		`CREATE INDEX IF NOT EXISTS idx_items_parent ON items(parent_id)`,
+		`CREATE INDEX IF NOT EXISTS idx_items_parent_uuid ON items(parent_uuid)`,
 		`CREATE INDEX IF NOT EXISTS idx_items_type ON items(type)`,
 		`CREATE INDEX IF NOT EXISTS idx_items_updated ON items(updated_at DESC)`,
 		`CREATE INDEX IF NOT EXISTS idx_items_owner_type ON items(owner_type)`,
@@ -319,10 +326,32 @@ func createItemsIndexes() {
 	for _, sql := range indexes {
 		_, _ = DB.Exec(sql)
 	}
+
+	// Миграция: заполняем parent_uuid из element_uuid родителя для существующих записей
+	migrateParentIDToParentUUID()
 }
 
 func createFilesIndexes() {
 	_, _ = DB.Exec(`CREATE INDEX IF NOT EXISTS idx_files_hash ON files(hash)`)
+}
+
+// migrateParentIDToParentUUID заполняет parent_uuid из element_uuid родителя
+func migrateParentIDToParentUUID() {
+	_, err := DB.Exec(`
+		UPDATE items
+		SET parent_uuid = (
+			SELECT p.element_uuid
+			FROM items p
+			WHERE p.id = items.parent_id
+		)
+		WHERE parent_id IS NOT NULL
+		  AND parent_id != 0
+		  AND parent_uuid IS NULL
+	`)
+	if err != nil {
+		// Игнорируем ошибки миграции (колонка может уже быть заполнена)
+		return
+	}
 }
 
 func createTagsIndexes() {

@@ -200,6 +200,11 @@ func (ui *UI) createConnectedPeerItem(peer *network.PeerInfo) *fyne.Container {
 		ui.openPeerChat(peer.PeerID, peer.Username)
 	})
 
+	// Profile button
+	profileBtn := widget.NewButtonWithIcon("Profile", theme.AccountIcon(), func() {
+		ui.openRemoteProfile(peer.PeerID)
+	})
+
 	// Add to contacts button
 	addContactBtn := widget.NewButtonWithIcon("", theme.ContentAddIcon(), func() {
 		ui.addConnectedPeerToContacts(peer.PeerID)
@@ -213,7 +218,7 @@ func (ui *UI) createConnectedPeerItem(peer *network.PeerInfo) *fyne.Container {
 	content := container.NewBorder(
 		nil, nil,
 		container.NewHBox(statusInd, container.NewVBox(nameLabel, peerIDLabel)),
-		container.NewHBox(latencyLabel, chatBtn, addContactBtn, disconnectBtn),
+		container.NewHBox(latencyLabel, chatBtn, profileBtn, addContactBtn, disconnectBtn),
 		widget.NewSeparator(),
 	)
 
@@ -349,6 +354,11 @@ func (ui *UI) createProfileItem(profile *models.Profile) *fyne.Container {
 		ui.openPeerChat(profile.PeerID, profile.Username)
 	})
 
+	// Profile button
+	profileBtn := widget.NewButtonWithIcon("Profile", theme.AccountIcon(), func() {
+		ui.openRemoteProfile(profile.PeerID)
+	})
+
 	// Delete profile button
 	deleteBtn := widget.NewButtonWithIcon("", theme.DeleteIcon(), func() {
 		ui.deleteProfile(profile.PeerID, profile.Username)
@@ -357,7 +367,7 @@ func (ui *UI) createProfileItem(profile *models.Profile) *fyne.Container {
 	content := container.NewBorder(
 		nil, nil,
 		container.NewHBox(statusInd, container.NewVBox(usernameLabel, peerIDLabel)),
-		container.NewHBox(cachedAtLabel, chatBtn, deleteBtn),
+		container.NewHBox(cachedAtLabel, chatBtn, profileBtn, deleteBtn),
 		widget.NewSeparator(),
 	)
 
@@ -374,6 +384,13 @@ func (ui *UI) openPeerChat(peerID, username string) {
 	// Then open chat with peer
 	if ui.p2pUIProvider != nil {
 		ui.p2pUIProvider.OpenPeerChat(peerID, username)
+	}
+}
+
+// openRemoteProfile opens the remote profile of a peer
+func (ui *UI) openRemoteProfile(peerID string) {
+	if ui.p2pUIProvider != nil {
+		ui.p2pUIProvider.OpenRemoteProfile(peerID)
 	}
 }
 

@@ -41,6 +41,7 @@ func getGlobalP2PNetwork() interface {
 // SetTransferService устанавливает Transfer Service для отправки прогресса
 func (cs *ChatService) SetTransferService(transferSvc interface {
 	SendElementMetadata(ctx context.Context, peerID peer.ID, elementUUID, title, description, contentMeta string) (string, error)
+	SendFolder(ctx context.Context, peerID peer.ID, parentUUID string) (string, error)
 }) {
 	cs.transferSvc = transferSvc
 }
@@ -75,6 +76,7 @@ type ChatService struct {
 	subscribers []chan *ChatMessageEvent
 	transferSvc interface {
 		SendElementMetadata(ctx context.Context, peerID peer.ID, elementUUID, title, description, contentMeta string) (string, error)
+		SendFolder(ctx context.Context, peerID peer.ID, parentUUID string) (string, error)
 	} // Transfer Service для отправки прогресса
 	itemSync interface {
 		RequestItemByElementUUID(ctx context.Context, peerID peer.ID, elementUUID string) (*models.Item, error)
@@ -304,6 +306,112 @@ func (cs *ChatService) SendElementMessage(contactID int, recipientPeerID, fromPe
 
 			// Отправляем сообщение через P2P
 			_ = p2pNet.SendMessage(ctx, targetPeerID, item.ElementUUID, "element", string(metadataJSON))
+		}()
+	}
+
+	return message, nil
+}
+
+// SendFolderMessage отправляет папку в чат
+// Сохраняет сообщение с content_type="folder_batch" и запускает batch transfer
+func (cs *ChatService) SendFolderMessage(contactID int, recipientPeerID, fromPeerID string, folder *models.Item) (*models.ChatMessage, error) {
+	// Получаем peer_id из контакта
+	var peerID string
+	var isLocalChat bool
+	if contactID == 0 {
+		if recipientPeerID == fromPeerID {
+			peerID = fromPeerID
+			isLocalChat = true
+		} else {
+			peerID = recipientPeerID
+			isLocalChat = false
+		}
+	} else {
+		contact, err := queries.GetContact(contactID)
+		if err != nil {
+			return nil, fmt.Errorf("ошибка получения контакта: %w", err)
+		}
+		peerID = contact.PeerID
+		isLocalChat = false
+	}
+
+	// Получаем или создаём чат
+	chat, err := queries.GetOrCreateChat(peerID, &contactID)
+	if err != nil {
+		return nil, fmt.Errorf("ошибка получения чата: %w", err)
+	}
+
+	// Считаем количество элементов в папке
+	childItems, err := queries.GetItemsByParentUUID(folder.ElementUUID)
+	if err != nil {
+		childItems = []*models.Item{}
+	}
+
+	// Создаём метаданные папки
+	metadata := map[string]interface{}{
+		"folder_uuid":  folder.ElementUUID,
+		"folder_title": folder.Title,
+		"item_count":   len(childItems),
+		"sent_at":      folder.CreatedAt.Format(time.RFC3339),
+	}
+
+	metadataJSON, err := json.Marshal(metadata)
+	if err != nil {
+		return nil, fmt.Errorf("ошибка сериализации метаданных: %w", err)
+	}
+
+	// Создаём сообщение
+	message := &models.ChatMessage{
+		ChatID:      chat.ID,
+		FromPeerID:  fromPeerID,
+		Content:     folder.ElementUUID,
+		ContentType: "folder_batch",
+		Metadata:    string(metadataJSON),
+		SentAt:      time.Now(),
+		IsRead:      true,
+	}
+
+	if err := queries.CreateChatMessage(message); err != nil {
+		return nil, fmt.Errorf("ошибка сохранения сообщения: %w", err)
+	}
+
+	// Получаем имя контакта для события
+	contactName := "Локальный чат"
+	if contactID != 0 {
+		contact, err := queries.GetContact(contactID)
+		if err == nil && contact != nil {
+			contactName = contact.Username
+		}
+	}
+
+	// Отправляем событие UI
+	cs.messageChannel <- &ChatMessageEvent{
+		ContactID:   contactID,
+		ContactName: contactName,
+		Message:     message,
+		IsOutgoing:  true,
+	}
+
+	// Если это не локальный чат - отправляем папку через P2P batch transfer
+	if !isLocalChat {
+		go func() {
+			p2pNet := getGlobalP2PNetwork()
+			if p2pNet == nil {
+				return
+			}
+
+			targetPeerID, err := peer.Decode(peerID)
+			if err != nil {
+				return
+			}
+
+			ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
+			defer cancel()
+
+			// Запускаем batch transfer папки
+			if cs.transferSvc != nil {
+				_, _ = cs.transferSvc.SendFolder(ctx, targetPeerID, folder.ElementUUID)
+			}
 		}()
 	}
 

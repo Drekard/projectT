@@ -365,12 +365,13 @@ func getNATMessage(hasPublicAddr bool) string {
 
 // PeerAddress структура для экспорта адреса пира
 type PeerAddress struct {
-	PeerID    string `json:"peer_id"`
-	Multiaddr string `json:"multiaddr"`
-	PublicKey string `json:"public_key"`
+	PeerID      string   `json:"peer_id"`
+	Multiaddrs  []string `json:"multiaddrs"` // Все адреса пира
+	PublicKey   string   `json:"public_key"`
+	AddressType string   `json:"address_type"` // Тип лучшего адреса: "public", "lan", "localhost"
 }
 
-// GetPeerAddress возвращает адрес текущего пира для экспорта
+// GetPeerAddress возвращает ВСЕ адреса текущего пира для экспорта
 func GetPeerAddress(h host.Host) (*PeerAddress, error) {
 	if h == nil {
 		return nil, errors.New("хост не инициализирован")
@@ -390,42 +391,79 @@ func GetPeerAddress(h host.Host) (*PeerAddress, error) {
 	// Добавляем префикс к публичному ключу
 	prefixedPubKey := addPrefixToData(pubKeyBytes)
 
-	// Формируем полный адрес — ТОЛЬКО multiaddr без префикса
-	addr := h.Addrs()[0].String()
-	fullAddr := fmt.Sprintf("%s/p2p/%s", addr, h.ID().String())
+	peerID := h.ID().String()
+	addrs := h.Addrs()
+	log.Printf("[GetPeerAddress] Всего адресов: %d", len(addrs))
+
+	var multiaddrs []string
+	var bestAddrType string
+	bestPriority := 0
+
+	for i, addr := range addrs {
+		addrStr := addr.String()
+		addrType := "unknown"
+		priority := 0
+
+		ipStr, ipErr := addr.ValueForProtocol(multiaddr.P_IP4)
+		if ipErr != nil {
+			ipStr, ipErr = addr.ValueForProtocol(multiaddr.P_IP6)
+		}
+
+		if ipErr == nil {
+			if isPrivateIP(ipStr) {
+				if ipStr == "127.0.0.1" || ipStr == "::1" {
+					addrType = "localhost"
+					priority = 1
+				} else {
+					addrType = "LAN"
+					priority = 2
+				}
+			} else {
+				addrType = "public"
+				priority = 3
+			}
+		}
+
+		// Формируем полный multiaddr с PeerID
+		fullAddr := fmt.Sprintf("%s/p2p/%s", addrStr, peerID)
+		multiaddrs = append(multiaddrs, fullAddr)
+		bestAddrType = addrType
+
+		log.Printf("[GetPeerAddress]   [%d] %s (type=%s, priority=%d)", i, fullAddr, addrType, priority)
+
+		if priority > bestPriority {
+			bestPriority = priority
+			bestAddrType = addrType
+		}
+	}
+
+	if len(multiaddrs) == 0 {
+		return nil, errors.New("нет доступных адресов")
+	}
+
+	log.Printf("[GetPeerAddress] ✅ Адресов для экспорта: %d, лучший тип: %s", len(multiaddrs), bestAddrType)
 
 	return &PeerAddress{
-		PeerID:    h.ID().String(), // PeerID без префикса
-		Multiaddr: fullAddr,        // Multiaddr без префикса
-		PublicKey: base64.StdEncoding.EncodeToString(prefixedPubKey),
+		PeerID:      peerID,
+		Multiaddrs:  multiaddrs,
+		PublicKey:   base64.StdEncoding.EncodeToString(prefixedPubKey),
+		AddressType: bestAddrType,
 	}, nil
 }
 
 // ImportPeerAddress импортирует адрес пира и добавляет в контакты
+// Поддерживает: новый компактный формат, старый полный формат, legacy формат
 func ImportPeerAddress(h host.Host, addrStr string) (*PeerAddress, error) {
 	if h == nil {
 		return nil, errors.New("хост не инициализирован")
 	}
 
-	// === ОТЛАДКА: выводим исходную строку ===
 	fmt.Println("=== ImportPeerAddress ===")
 	fmt.Printf("[DEBUG] Исходная строка адреса: %q\n", addrStr)
-	fmt.Printf("[DEBUG] Длина строки: %d символов\n", len(addrStr))
 
-	// Выводим посимвольно первые 50 символов для выявления скрытых символов
-	if len(addrStr) > 0 {
-		fmt.Print("[DEBUG] Первые символы (hex): ")
-		for i := 0; i < len(addrStr) && i < 50; i++ {
-			fmt.Printf("%02x ", addrStr[i])
-		}
-		fmt.Println()
-	}
-
-	// Сохраняем оригинальную строку для отладки
 	originalAddrStr := addrStr
 
-	// === ВАЖНО: Удаляем ВСЕ повторяющиеся префиксы ===
-	// Может быть: "projectt:projectt:..." или "projectt://projectt://..."
+	// === Удаляем префиксы ===
 	for strings.HasPrefix(addrStr, ProtocolPrefix+"://") || strings.HasPrefix(addrStr, ProtocolPrefix+":") {
 		addrStr = strings.TrimPrefix(addrStr, ProtocolPrefix+"://")
 		addrStr = strings.TrimPrefix(addrStr, ProtocolPrefix+":")
@@ -433,56 +471,69 @@ func ImportPeerAddress(h host.Host, addrStr string) (*PeerAddress, error) {
 
 	fmt.Printf("[DEBUG] После удаления префиксов: %q\n", addrStr)
 
-	// Парсим адрес
-	addr, err := multiaddr.NewMultiaddr(addrStr)
+	// === Пробуем новый компактный формат: PeerID@ip1:port1;ip2:port2 ===
+	targetPeerID, allAddrs, err := parsePeerAddress(addrStr)
 	if err != nil {
-		fmt.Printf("[DEBUG] Ошибка парсинга multiaddr: %v\n", err)
-
-		// Если не удалось распарсить, пробуем извлечь multiaddr из формата peerid@multiaddr
+		// === Пробуем legacy формат: peerid@/ip4/.../tcp/.../p2p/peerid ===
 		if strings.Contains(originalAddrStr, "@") {
-			fmt.Println("[DEBUG] Обнаружен символ @, пробуем извлечь multiaddr...")
+			fmt.Println("[DEBUG] Пробуем legacy формат...")
 			parts := strings.SplitN(originalAddrStr, "@", 2)
 			if len(parts) == 2 {
-				// Берём только multiaddr часть (без peerid@)
-				addrStr = parts[1]
-				fmt.Printf("[DEBUG] Извлечён multiaddr: %q\n", addrStr)
-
-				// Также удаляем префиксы из multiaddr части
-				for strings.HasPrefix(addrStr, ProtocolPrefix+"://") || strings.HasPrefix(addrStr, ProtocolPrefix+":") {
-					addrStr = strings.TrimPrefix(addrStr, ProtocolPrefix+"://")
-					addrStr = strings.TrimPrefix(addrStr, ProtocolPrefix+":")
+				maStr := parts[1]
+				for strings.HasPrefix(maStr, ProtocolPrefix+"://") || strings.HasPrefix(maStr, ProtocolPrefix+":") {
+					maStr = strings.TrimPrefix(maStr, ProtocolPrefix+"://")
+					maStr = strings.TrimPrefix(maStr, ProtocolPrefix+":")
 				}
-				fmt.Printf("[DEBUG] Multiaddr после очистки: %q\n", addrStr)
 
-				addr, err = multiaddr.NewMultiaddr(addrStr)
-				if err != nil {
-					fmt.Printf("[DEBUG] Ошибка парсинга извлечённого multiaddr: %v\n", err)
-					return nil, fmt.Errorf("ошибка парсинга адреса: %w", err)
+				maParts := strings.Split(maStr, ";")
+				for _, maPart := range maParts {
+					maPart = strings.TrimSpace(maPart)
+					if maPart == "" {
+						continue
+					}
+					addr, maErr := multiaddr.NewMultiaddr(maPart)
+					if maErr != nil {
+						continue
+					}
+					info, infoErr := peer.AddrInfoFromP2pAddr(addr)
+					if infoErr != nil {
+						continue
+					}
+					if targetPeerID == "" {
+						targetPeerID = info.ID
+					}
+					allAddrs = append(allAddrs, addr)
 				}
-				fmt.Println("[DEBUG] Multiaddr успешно распарсен!")
-			} else {
-				fmt.Printf("[DEBUG] Не удалось разделить строку на части, получено частей: %d\n", len(parts))
-				return nil, fmt.Errorf("ошибка парсинга адреса: неверный формат")
 			}
-		} else {
-			fmt.Println("[DEBUG] Символ @ не найден")
-			return nil, fmt.Errorf("ошибка парсинга адреса: %w", err)
 		}
-	} else {
-		fmt.Println("[DEBUG] Multiaddr успешно распарсен с первой попытки!")
+
+		// === Пробуем чистый multiaddr ===
+		if targetPeerID == "" {
+			addr, maErr := multiaddr.NewMultiaddr(addrStr)
+			if maErr == nil {
+				info, infoErr := peer.AddrInfoFromP2pAddr(addr)
+				if infoErr == nil {
+					targetPeerID = info.ID
+					allAddrs = append(allAddrs, addr)
+				}
+			}
+		}
 	}
 
-	// Извлекаем PeerID
-	info, err := peer.AddrInfoFromP2pAddr(addr)
-	if err != nil {
-		return nil, fmt.Errorf("ошибка извлечения PeerID: %w", err)
+	if targetPeerID == "" {
+		return nil, fmt.Errorf("не удалось распознать формат адреса")
 	}
 
-	// Добавляем в peerstore
-	h.Peerstore().AddAddr(info.ID, addr, peerstore.PermanentAddrTTL)
+	if len(allAddrs) == 0 {
+		return nil, fmt.Errorf("нет валидных адресов")
+	}
 
-	// Получаем публичный ключ
-	pubKey := h.Peerstore().PubKey(info.ID)
+	// Добавляем все адреса в peerstore
+	for _, addr := range allAddrs {
+		h.Peerstore().AddAddr(targetPeerID, addr, peerstore.PermanentAddrTTL)
+	}
+
+	pubKey := h.Peerstore().PubKey(targetPeerID)
 	if pubKey == nil {
 		return nil, errors.New("публичный ключ не найден")
 	}
@@ -492,16 +543,15 @@ func ImportPeerAddress(h host.Host, addrStr string) (*PeerAddress, error) {
 		return nil, fmt.Errorf("ошибка получения публичного ключа: %w", err)
 	}
 
-	// Создаём профиль для контакта если он ещё не существует
-	username := info.ID.String()[:8] // Первые 8 символов как временное имя
-	if err := queries.EnsureProfileForContact(info.ID.String(), username, ""); err != nil {
+	username := targetPeerID.String()[:8]
+	if err := queries.EnsureProfileForContact(targetPeerID.String(), username, ""); err != nil {
 		log.Printf("Предупреждение: не удалось создать профиль: %v", err)
 	}
 
-	// Создаём контакт в БД
+	// Сохраняем оригинальную строку адреса в БД
 	contact := &models.Contact{
-		PeerID:    info.ID.String(),
-		Multiaddr: addrStr,
+		PeerID:    targetPeerID.String(),
+		Multiaddr: originalAddrStr,
 		Notes:     "",
 		IsBlocked: false,
 	}
@@ -510,61 +560,106 @@ func ImportPeerAddress(h host.Host, addrStr string) (*PeerAddress, error) {
 		if !strings.Contains(err.Error(), "UNIQUE constraint failed") {
 			return nil, fmt.Errorf("ошибка создания контакта: %w", err)
 		}
-		// Контакт уже существует - игнорируем ошибку
+	}
+
+	bestType := "unknown"
+	for _, addr := range allAddrs {
+		ipStr, ipErr := addr.ValueForProtocol(multiaddr.P_IP4)
+		if ipErr != nil {
+			ipStr, ipErr = addr.ValueForProtocol(multiaddr.P_IP6)
+		}
+		if ipErr == nil {
+			if !isPrivateIP(ipStr) {
+				bestType = "public"
+				break
+			} else if ipStr != "127.0.0.1" && ipStr != "::1" {
+				bestType = "LAN"
+			}
+		}
+	}
+
+	var multiaddrStrings []string
+	for _, addr := range allAddrs {
+		multiaddrStrings = append(multiaddrStrings, addr.String())
 	}
 
 	return &PeerAddress{
-		PeerID:    info.ID.String(),
-		Multiaddr: addrStr,
-		PublicKey: base64.StdEncoding.EncodeToString(pubKeyBytes),
+		PeerID:      targetPeerID.String(),
+		Multiaddrs:  multiaddrStrings,
+		PublicKey:   base64.StdEncoding.EncodeToString(pubKeyBytes),
+		AddressType: bestType,
 	}, nil
 }
 
-// ExtractPeerIDFromAddress извлекает PeerID из адреса без добавления в peerstore и создания контакта
-// Используется для подключения без автоматического добавления в контакты
+// ExtractPeerIDFromAddress извлекает PeerID из адреса
+// Поддерживает: новый компактный формат, legacy формат, чистый multiaddr
 func ExtractPeerIDFromAddress(addrStr string) (string, error) {
-	// Сохраняем оригинальную строку для отладки
 	originalAddrStr := addrStr
 
-	// === ВАЖНО: Удаляем ВСЕ повторяющиеся префиксы ===
+	// === Удаляем префиксы ===
 	for strings.HasPrefix(addrStr, ProtocolPrefix+"://") || strings.HasPrefix(addrStr, ProtocolPrefix+":") {
 		addrStr = strings.TrimPrefix(addrStr, ProtocolPrefix+"://")
 		addrStr = strings.TrimPrefix(addrStr, ProtocolPrefix+":")
 	}
 
-	addr, err := multiaddr.NewMultiaddr(addrStr)
-	if err != nil {
-		// Если не удалось распарсить, пробуем извлечь multiaddr из формата peerid@multiaddr
-		if strings.Contains(originalAddrStr, "@") {
-			parts := strings.SplitN(originalAddrStr, "@", 2)
-			if len(parts) == 2 {
-				addrStr = parts[1]
-				for strings.HasPrefix(addrStr, ProtocolPrefix+"://") || strings.HasPrefix(addrStr, ProtocolPrefix+":") {
-					addrStr = strings.TrimPrefix(addrStr, ProtocolPrefix+"://")
-					addrStr = strings.TrimPrefix(addrStr, ProtocolPrefix+":")
-				}
-				addr, err = multiaddr.NewMultiaddr(addrStr)
-				if err != nil {
-					return "", fmt.Errorf("ошибка парсинга адреса: %w", err)
-				}
-			} else {
-				return "", fmt.Errorf("ошибка парсинга адреса: неверный формат")
+	// === Пробуем новый компактный формат: PeerID@ip1:port1;ip2:port2 ===
+	targetPeerID, _, err := parsePeerAddress(addrStr)
+	if err == nil {
+		return targetPeerID.String(), nil
+	}
+
+	// === Пробуем legacy формат: peerid@/ip4/.../tcp/.../p2p/peerid ===
+	if strings.Contains(originalAddrStr, "@") {
+		parts := strings.SplitN(originalAddrStr, "@", 2)
+		if len(parts) == 2 {
+			// Если левая часть — валидный PeerID, возвращаем её
+			pid, pidErr := peer.Decode(parts[0])
+			if pidErr == nil {
+				return pid.String(), nil
 			}
-		} else {
-			return "", fmt.Errorf("ошибка парсинга адреса: %w", err)
+
+			// Иначе пробуем распарсить правую часть как multiaddr
+			maStr := parts[1]
+			for strings.HasPrefix(maStr, ProtocolPrefix+"://") || strings.HasPrefix(maStr, ProtocolPrefix+":") {
+				maStr = strings.TrimPrefix(maStr, ProtocolPrefix+"://")
+				maStr = strings.TrimPrefix(maStr, ProtocolPrefix+":")
+			}
+
+			maParts := strings.Split(maStr, ";")
+			for _, maPart := range maParts {
+				maPart = strings.TrimSpace(maPart)
+				if maPart == "" {
+					continue
+				}
+				addr, maErr := multiaddr.NewMultiaddr(maPart)
+				if maErr != nil {
+					continue
+				}
+				info, infoErr := peer.AddrInfoFromP2pAddr(addr)
+				if infoErr == nil {
+					return info.ID.String(), nil
+				}
+			}
 		}
 	}
 
-	// Извлекаем PeerID
-	info, err := peer.AddrInfoFromP2pAddr(addr)
-	if err != nil {
-		return "", fmt.Errorf("ошибка извлечения PeerID: %w", err)
+	// === Пробуем чистый multiaddr ===
+	addr, maErr := multiaddr.NewMultiaddr(addrStr)
+	if maErr == nil {
+		info, infoErr := peer.AddrInfoFromP2pAddr(addr)
+		if infoErr == nil {
+			return info.ID.String(), nil
+		}
 	}
 
-	return info.ID.String(), nil
+	return "", fmt.Errorf("не удалось извлечь PeerID из адреса")
 }
 
 // ConnectToPeer подключается к пиру по адресу
+// Поддерживаемые форматы:
+//   - Новый компактный: projectt:PeerID@ip1:port1;ip2:port2
+//   - Старый полный: projectt:/ip4/.../tcp/.../p2p/PeerID;/ip4/.../tcp/.../p2p/PeerID
+//   - Legacy: projectt:peerid@/ip4/.../tcp/.../p2p/peerid
 func ConnectToPeer(ctx context.Context, h host.Host, addrStr string) error {
 	if h == nil {
 		return errors.New("хост не инициализирован")
@@ -578,25 +673,13 @@ func ConnectToPeer(ctx context.Context, h host.Host, addrStr string) error {
 		log.Printf("[ConnectToPeer]   - %s/p2p/%s", addr.String(), h.ID().String())
 	}
 
-	// === ОТЛАДКА: выводим исходную строку ===
 	fmt.Println("=== ConnectToPeer ===")
 	fmt.Printf("[DEBUG] Исходная строка адреса: %q\n", addrStr)
-	fmt.Printf("[DEBUG] Длина строки: %d символов\n", len(addrStr))
 
-	// Выводим посимвольно первые 50 символов для выявления скрытых символов
-	if len(addrStr) > 0 {
-		fmt.Print("[DEBUG] Первые символы (hex): ")
-		for i := 0; i < len(addrStr) && i < 50; i++ {
-			fmt.Printf("%02x ", addrStr[i])
-		}
-		fmt.Println()
-	}
-
-	// Сохраняем оригинальную строку для отладки
+	// Сохраняем оригинальную строку
 	originalAddrStr := addrStr
 
-	// === ВАЖНО: Удаляем ВСЕ повторяющиеся префиксы ===
-	// Может быть: "projectt:projectt:..." или "projectt://projectt://..."
+	// === Удаляем префиксы ===
 	for strings.HasPrefix(addrStr, ProtocolPrefix+"://") || strings.HasPrefix(addrStr, ProtocolPrefix+":") {
 		addrStr = strings.TrimPrefix(addrStr, ProtocolPrefix+"://")
 		addrStr = strings.TrimPrefix(addrStr, ProtocolPrefix+":")
@@ -604,92 +687,234 @@ func ConnectToPeer(ctx context.Context, h host.Host, addrStr string) error {
 
 	fmt.Printf("[DEBUG] После удаления префиксов: %q\n", addrStr)
 
-	addr, err := multiaddr.NewMultiaddr(addrStr)
+	// === Пробуем распарсить новый компактный формат: PeerID@ip1:port1;ip2:port2 ===
+	targetPeerID, allAddrs, err := parsePeerAddress(addrStr)
 	if err != nil {
-		fmt.Printf("[DEBUG] Ошибка парсинга multiaddr: %v\n", err)
-
-		// Если не удалось распарсить, пробуем извлечь multiaddr из формата peerid@multiaddr
+		// === Пробуем старый формат: peerid@/ip4/.../tcp/.../p2p/peerid ===
 		if strings.Contains(originalAddrStr, "@") {
-			fmt.Println("[DEBUG] Обнаружен символ @, пробуем извлечь multiaddr...")
+			fmt.Println("[DEBUG] Пробуем legacy формат peerid@multiaddr...")
 			parts := strings.SplitN(originalAddrStr, "@", 2)
 			if len(parts) == 2 {
-				// Берём только multiaddr часть (без peerid@)
-				addrStr = parts[1]
-				fmt.Printf("[DEBUG] Извлечён multiaddr: %q\n", addrStr)
-
-				// Также удаляем префиксы из multiaddr части
-				for strings.HasPrefix(addrStr, ProtocolPrefix+"://") || strings.HasPrefix(addrStr, ProtocolPrefix+":") {
-					addrStr = strings.TrimPrefix(addrStr, ProtocolPrefix+"://")
-					addrStr = strings.TrimPrefix(addrStr, ProtocolPrefix+":")
+				maStr := parts[1]
+				for strings.HasPrefix(maStr, ProtocolPrefix+"://") || strings.HasPrefix(maStr, ProtocolPrefix+":") {
+					maStr = strings.TrimPrefix(maStr, ProtocolPrefix+"://")
+					maStr = strings.TrimPrefix(maStr, ProtocolPrefix+":")
 				}
-				fmt.Printf("[DEBUG] Multiaddr после очистки: %q\n", addrStr)
 
-				addr, err = multiaddr.NewMultiaddr(addrStr)
-				if err != nil {
-					fmt.Printf("[DEBUG] Ошибка парсинга извлечённого multiaddr: %v\n", err)
-					return fmt.Errorf("ошибка парсинга адреса: %w", err)
+				// Поддержка нескольких multiaddr через ;
+				maParts := strings.Split(maStr, ";")
+				for _, maPart := range maParts {
+					maPart = strings.TrimSpace(maPart)
+					if maPart == "" {
+						continue
+					}
+					addr, maErr := multiaddr.NewMultiaddr(maPart)
+					if maErr != nil {
+						continue
+					}
+					info, infoErr := peer.AddrInfoFromP2pAddr(addr)
+					if infoErr != nil {
+						continue
+					}
+					if targetPeerID == "" {
+						targetPeerID = info.ID
+					}
+					allAddrs = append(allAddrs, addr)
 				}
-				fmt.Println("[DEBUG] Multiaddr успешно распарсен!")
-				log.Printf("[ConnectToPeer] ✅ Multiaddr успешно распарсен: %s", addrStr)
-			} else {
-				fmt.Printf("[DEBUG] Не удалось разделить строку на части, получено частей: %d\n", len(parts))
-				return fmt.Errorf("ошибка парсинга адреса: неверный формат")
 			}
-		} else {
-			fmt.Println("[DEBUG] Символ @ не найден")
-			return fmt.Errorf("ошибка парсинга адреса: %w", err)
 		}
-	} else {
-		fmt.Println("[DEBUG] Multiaddr успешно распарсен с первой попытки!")
-		log.Printf("[ConnectToPeer] ✅ Multiaddr успешно распарсен: %s", addrStr)
+
+		// === Пробуем как чистый multiaddr ===
+		if targetPeerID == "" {
+			addr, maErr := multiaddr.NewMultiaddr(addrStr)
+			if maErr == nil {
+				info, infoErr := peer.AddrInfoFromP2pAddr(addr)
+				if infoErr == nil {
+					targetPeerID = info.ID
+					allAddrs = append(allAddrs, addr)
+				}
+			}
+		}
 	}
 
-	info, err := peer.AddrInfoFromP2pAddr(addr)
-	if err != nil {
-		log.Printf("[ConnectToPeer] ❌ Ошибка извлечения PeerInfo: %v", err)
-		return fmt.Errorf("ошибка извлечения информации о пире: %w", err)
+	if targetPeerID == "" {
+		return fmt.Errorf("не удалось распознать формат адреса")
+	}
+
+	if len(allAddrs) == 0 {
+		return fmt.Errorf("нет валидных адресов для подключения")
+	}
+
+	info := peer.AddrInfo{
+		ID:    targetPeerID,
+		Addrs: allAddrs,
 	}
 
 	log.Printf("[ConnectToPeer] Целевой пир: %s", info.ID.String())
-	log.Printf("[ConnectToPeer] Целевые адреса:")
+	log.Printf("[ConnectToPeer] Целевые адреса (%d шт.):", len(info.Addrs))
 	for _, a := range info.Addrs {
-		log.Printf("[ConnectToPeer]   - %s", a.String())
+		addrType := "unknown"
+		ipStr, ipErr := a.ValueForProtocol(multiaddr.P_IP4)
+		if ipErr != nil {
+			ipStr, ipErr = a.ValueForProtocol(multiaddr.P_IP6)
+		}
+		if ipErr == nil {
+			if isPrivateIP(ipStr) {
+				if ipStr == "127.0.0.1" || ipStr == "::1" {
+					addrType = "localhost"
+				} else {
+					addrType = "LAN"
+				}
+			} else {
+				addrType = "public"
+			}
+		}
+		log.Printf("[ConnectToPeer]   - %s [%s]", a.String(), addrType)
 	}
 
-	// Проверяем, есть ли уже соединение с этим пиром
+	// Проверяем localhost
+	for _, a := range info.Addrs {
+		ipStr, ipErr := a.ValueForProtocol(multiaddr.P_IP4)
+		if ipErr != nil {
+			ipStr, ipErr = a.ValueForProtocol(multiaddr.P_IP6)
+		}
+		if ipErr == nil && (ipStr == "127.0.0.1" || ipStr == "::1") {
+			log.Printf("[ConnectToPeer] ⚠️ Целевой пир использует localhost (%s)!", ipStr)
+			log.Printf("[ConnectToPeer] ⚠️ Работает ТОЛЬКО если оба пира на одной машине")
+			break
+		}
+	}
+
+	// Проверяем существующие соединения
 	existingConns := h.Network().ConnsToPeer(info.ID)
 	if len(existingConns) > 0 {
-		log.Printf("[ConnectToPeer] ⚠️ Уже есть %d соединений с %s, пробуем всё равно", len(existingConns), info.ID.String()[:8])
+		log.Printf("[ConnectToPeer] ⚠️ Уже есть %d соединений с %s", len(existingConns), info.ID.String()[:8])
 	}
 
-	log.Printf("[ConnectToPeer] Начинаем подключение через host.Connect()...")
+	log.Printf("[ConnectToPeer] Начинаем подключение...")
 	startTime := time.Now()
-	if err := h.Connect(ctx, *info); err != nil {
+
+	h.Peerstore().AddAddrs(info.ID, info.Addrs, peerstore.TempAddrTTL)
+	log.Printf("[ConnectToPeer] Адреса добавлены в peerstore: %d шт.", len(info.Addrs))
+	log.Printf("[ConnectToPeer]   - Подключённые пиры: %d", len(h.Network().Peers()))
+	log.Printf("[ConnectToPeer]   - Слушаем на: %d адресах", len(h.Addrs()))
+
+	if err := h.Connect(ctx, info); err != nil {
 		elapsed := time.Since(startTime)
-		log.Printf("[ConnectToPeer] ❌ ОШИБКА подключения за %v: %v", elapsed, err)
-		log.Printf("[ConnectToPeer] Подсказка: если пир за NAT, убедитесь что:")
-		log.Printf("[ConnectToPeer]   1. Порт проброшен на роутере (UPnP или вручную)")
-		log.Printf("[ConnectToPeer]   2. Брандмауэр разрешает входящие соединения")
-		log.Printf("[ConnectToPeer]   3. Оба пира используют одинаковый протокол (TCP)")
+		log.Printf("[ConnectToPeer] ❌ ОШИБКА за %v: %v", elapsed, err)
+
+		deadline, hasDeadline := ctx.Deadline()
+		if hasDeadline {
+			log.Printf("[ConnectToPeer]   - deadline=%v", deadline)
+		}
+		log.Printf("[ConnectToPeer]   - PeerID: %s", info.ID.String())
+		log.Printf("[ConnectToPeer]   - Адресов: %d", len(info.Addrs))
+
+		errStr := err.Error()
+		if strings.Contains(errStr, "actively refused") || strings.Contains(errStr, "connection refused") {
+			log.Printf("[ConnectToPeer] 💡 Соединение отклонено — порт закрыт или пир не запущен")
+		} else if strings.Contains(errStr, "timeout") || strings.Contains(errStr, "deadline exceeded") {
+			log.Printf("[ConnectToPeer] 💡 Таймаут — пир за NAT, пробросьте порт или включите Relay")
+			log.Printf("[ConnectToPeer] 💡 РЕШЕНИЕ: Включите Relay в настройках P2P")
+		} else if strings.Contains(errStr, "no route to host") {
+			log.Printf("[ConnectToPeer] 💡 Нет маршрута — неверный IP или сетевая проблема")
+		}
 		log.Printf("[ConnectToPeer] ========================================")
 		return fmt.Errorf("ошибка подключения к пиру %s: %w", info.ID, err)
 	}
 
 	elapsed := time.Since(startTime)
-	log.Printf("[ConnectToPeer] ✅ Подключено к пиру: %s за %v", info.ID.String(), elapsed)
+	log.Printf("[ConnectToPeer] ✅ Подключено к %s за %v", info.ID.String(), elapsed)
 
-	// Логируем информацию о установленном соединении
 	conns := h.Network().ConnsToPeer(info.ID)
+	log.Printf("[ConnectToPeer] Соединений: %d", len(conns))
 	for i, conn := range conns {
 		remoteAddr := conn.RemoteMultiaddr()
+		localAddr := conn.LocalMultiaddr()
 		connType := "DIRECT"
 		if strings.Contains(remoteAddr.String(), "/p2p-circuit") {
 			connType = "RELAYED"
 		}
-		log.Printf("[ConnectToPeer] Соединение #%d: тип=%s, адрес=%s", i+1, connType, remoteAddr.String())
+		log.Printf("[ConnectToPeer]   #%d: %s, local=%s, remote=%s", i+1, connType, localAddr.String(), remoteAddr.String())
 	}
 	log.Printf("[ConnectToPeer] ========================================")
 	return nil
+}
+
+// parsePeerAddress парсит компактный формат: PeerID@ip1:port1;ip2:port2
+func parsePeerAddress(addrStr string) (peer.ID, []multiaddr.Multiaddr, error) {
+	if !strings.Contains(addrStr, "@") {
+		return "", nil, fmt.Errorf("нет разделителя @")
+	}
+
+	parts := strings.SplitN(addrStr, "@", 2)
+	peerIDStr := parts[0]
+	endpointsStr := parts[1]
+
+	// Валидируем PeerID
+	targetPeerID, err := peer.Decode(peerIDStr)
+	if err != nil {
+		return "", nil, fmt.Errorf("неверный PeerID: %w", err)
+	}
+
+	// Разделяем endpoint'ы
+	endpoints := strings.Split(endpointsStr, ";")
+	var addrs []multiaddr.Multiaddr
+
+	for _, ep := range endpoints {
+		ep = strings.TrimSpace(ep)
+		if ep == "" {
+			continue
+		}
+
+		ma, err := endpointToMultiaddr(ep, peerIDStr)
+		if err != nil {
+			fmt.Printf("[DEBUG] Ошибка конвертации endpoint %q: %v\n", ep, err)
+			continue
+		}
+		addrs = append(addrs, ma)
+	}
+
+	if len(addrs) == 0 {
+		return "", nil, fmt.Errorf("нет валидных endpoint'ов")
+	}
+
+	return targetPeerID, addrs, nil
+}
+
+// endpointToMultiaddr конвертирует "ip:port" или "[ipv6]:port" в multiaddr с PeerID
+func endpointToMultiaddr(endpoint, peerIDStr string) (multiaddr.Multiaddr, error) {
+	var ip, port string
+
+	// IPv6: [::1]:8079
+	if strings.HasPrefix(endpoint, "[") {
+		closeIdx := strings.Index(endpoint, "]")
+		if closeIdx == -1 {
+			return nil, fmt.Errorf("неверный IPv6 формат: %s", endpoint)
+		}
+		ip = endpoint[1:closeIdx]
+		if closeIdx+2 >= len(endpoint) || endpoint[closeIdx+1] != ':' {
+			return nil, fmt.Errorf("нет порта после IPv6: %s", endpoint)
+		}
+		port = endpoint[closeIdx+2:]
+	} else {
+		// IPv4: 192.168.0.1:8079
+		lastColon := strings.LastIndex(endpoint, ":")
+		if lastColon == -1 {
+			return nil, fmt.Errorf("нет порта: %s", endpoint)
+		}
+		ip = endpoint[:lastColon]
+		port = endpoint[lastColon+1:]
+	}
+
+	// Определяем протокол
+	protocol := "ip4"
+	if strings.Contains(ip, ":") {
+		protocol = "ip6"
+	}
+
+	maStr := fmt.Sprintf("/%s/%s/tcp/%s/p2p/%s", protocol, ip, port, peerIDStr)
+	return multiaddr.NewMultiaddr(maStr)
 }
 
 // ParsePeerAddressString парсит строку адреса в формате peerid@multiaddr
@@ -717,8 +942,8 @@ func ParsePeerAddressString(addrStr string) (*PeerAddress, error) {
 		}
 
 		return &PeerAddress{
-			PeerID:    info.ID.String(),
-			Multiaddr: originalAddrStr,
+			PeerID:     info.ID.String(),
+			Multiaddrs: []string{originalAddrStr},
 		}, nil
 	}
 
@@ -741,14 +966,53 @@ func ParsePeerAddressString(addrStr string) (*PeerAddress, error) {
 	}
 
 	return &PeerAddress{
-		PeerID:    pid.String(),
-		Multiaddr: ma,
+		PeerID:     pid.String(),
+		Multiaddrs: []string{ma},
 	}, nil
 }
 
-// FormatPeerAddress форматирует адрес для шаринга с префиксом проекта
-func FormatPeerAddress(peerID, multiaddr string) string {
-	return fmt.Sprintf("%s:%s@%s", ProtocolPrefix, peerID, multiaddr)
+// FormatPeerAddress форматирует все адреса пира в одну компактную строку
+// Формат: projectt:PeerID@ip1:port1;ip2:port2;ip3:port3
+// PeerID указывается один раз, IP:port разделяются точкой с запятой
+func FormatPeerAddress(peerID string, multiaddrs []string) string {
+	var endpoints []string
+	for _, ma := range multiaddrs {
+		addr, err := multiaddr.NewMultiaddr(ma)
+		if err != nil {
+			continue
+		}
+
+		ip, ipErr := addr.ValueForProtocol(multiaddr.P_IP4)
+		protocol := "ip4"
+		if ipErr != nil {
+			ip, ipErr = addr.ValueForProtocol(multiaddr.P_IP6)
+			protocol = "ip6"
+			if ipErr != nil {
+				continue
+			}
+		}
+
+		portStr, portErr := addr.ValueForProtocol(multiaddr.P_TCP)
+		if portErr != nil {
+			continue
+		}
+
+		var endpoint string
+		if protocol == "ip6" {
+			endpoint = fmt.Sprintf("[%s]:%s", ip, portStr)
+		} else {
+			endpoint = fmt.Sprintf("%s:%s", ip, portStr)
+		}
+		endpoints = append(endpoints, endpoint)
+	}
+
+	combined := strings.Join(endpoints, ";")
+	return fmt.Sprintf("%s:%s@%s", ProtocolPrefix, peerID, combined)
+}
+
+// FormatSinglePeerAddress форматирует один адрес (для обратной совместимости)
+func FormatSinglePeerAddress(peerID, multiaddr string) string {
+	return fmt.Sprintf("%s:%s", ProtocolPrefix, multiaddr)
 }
 
 // addPrefixToData добавляет префикс проекта к данным

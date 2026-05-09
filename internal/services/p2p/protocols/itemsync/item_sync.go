@@ -48,6 +48,7 @@ type ItemResponse struct {
 	Title       string          `json:"title"`
 	Description string          `json:"description,omitempty"`
 	ContentMeta string          `json:"content_meta,omitempty"`
+	ParentUUID  *string         `json:"parent_uuid,omitempty"` // UUID родителя для P2P
 	Signature   []byte          `json:"signature,omitempty"`
 	Timestamp   int64           `json:"timestamp"`
 	FileData    *ItemFileData   `json:"file_data,omitempty"`
@@ -298,6 +299,7 @@ func (iss *Service) itemToResponse(item *models.Item) (*ItemResponse, error) {
 		Title:       item.Title,
 		Description: item.Description,
 		ContentMeta: item.ContentMeta,
+		ParentUUID:  item.ParentUUID,
 		Signature:   signature,
 		Timestamp:   time.Now().UnixNano(),
 	}
@@ -588,6 +590,7 @@ func (iss *Service) saveRemoteItem(sourcePeerID string, resp *ItemResponse) (*mo
 		Title:        resp.Title,
 		Description:  resp.Description,
 		ContentMeta:  resp.ContentMeta,
+		ParentUUID:   resp.ParentUUID,
 		Signature:    resp.Signature,
 		Version:      1,
 	}
@@ -717,4 +720,106 @@ func (iss *Service) DeleteRemoteItems(peerID string) error {
 	}
 
 	return nil
+}
+
+// RequestBatchByUUIDs запрашивает несколько элементов по UUID
+func (iss *Service) RequestBatchByUUIDs(ctx context.Context, peerID peer.ID, elementUUIDs []string) ([]*models.Item, error) {
+	if len(elementUUIDs) == 0 {
+		return []*models.Item{}, nil
+	}
+
+	stream, err := iss.host.NewStream(ctx, peerID, ProtocolID)
+	if err != nil {
+		return nil, fmt.Errorf("ошибка создания стрима: %w", err)
+	}
+	defer func() { _ = stream.Close() }()
+
+	// Отправляем запрос с UUIDs
+	req := &ItemRequest{Hash: elementUUIDs[0]} // Используем первый UUID
+	reqData, _ := json.Marshal(req)
+
+	writer := bufio.NewWriter(stream)
+	if _, err := writer.Write(reqData); err != nil {
+		return nil, fmt.Errorf("ошибка отправки запроса: %w", err)
+	}
+	if err := writer.Flush(); err != nil {
+		return nil, fmt.Errorf("ошибка flush: %w", err)
+	}
+	if err := stream.CloseWrite(); err != nil {
+		return nil, fmt.Errorf("ошибка CloseWrite: %w", err)
+	}
+
+	// Увеличиваем таймаут для батча
+	timeout := 30 * time.Second
+	if len(elementUUIDs) > 10 {
+		timeout = time.Duration(len(elementUUIDs)*3) * time.Second
+	}
+	if err := stream.SetReadDeadline(time.Now().Add(timeout)); err != nil {
+		log.Printf("Предупреждение: не удалось установить таймаут: %v", err)
+	}
+
+	// Читаем ответы
+	reader := bufio.NewReader(stream)
+	decoder := json.NewDecoder(reader)
+
+	var remoteItems []*models.Item
+	for {
+		var resp ItemResponse
+		if err := decoder.Decode(&resp); err != nil {
+			if err.Error() == "EOF" {
+				break
+			}
+			log.Printf("Ошибка чтения ответа: %v", err)
+			break
+		}
+
+		remoteItem, err := iss.saveRemoteItem(peerID.String(), &resp)
+		if err != nil {
+			log.Printf("Ошибка сохранения элемента %s: %v", resp.ElementUUID[:8], err)
+			continue
+		}
+
+		remoteItems = append(remoteItems, remoteItem)
+	}
+
+	return remoteItems, nil
+}
+
+// RequestFolder запрашивает все элементы папки по parent_uuid
+// Если parentUUID пустой — запрашивает корневые элементы (parent_uuid = nil или "")
+func (iss *Service) RequestFolder(ctx context.Context, peerID peer.ID, parentUUID string) ([]*models.Item, error) {
+	if parentUUID == "" {
+		log.Printf("[ItemSync] 📁 Запрос корневых элементов пира")
+	} else {
+		log.Printf("[ItemSync] 📁 Запрос папки: parentUUID=%s", parentUUID[:8])
+	}
+
+	// Сначала запрашиваем все элементы, затем фильтруем по parent_uuid
+	items, err := iss.RequestAllItems(ctx, peerID)
+	if err != nil {
+		return nil, fmt.Errorf("ошибка запроса всех элементов: %w", err)
+	}
+
+	// Фильтруем элементы по parent_uuid
+	var folderItems []*models.Item
+	for _, item := range items {
+		if parentUUID == "" {
+			// Корневые элементы: parent_uuid = nil или пустая строка
+			if item.ParentUUID == nil || *item.ParentUUID == "" {
+				folderItems = append(folderItems, item)
+			}
+		} else {
+			// Элементы конкретной папки
+			if item.ParentUUID != nil && *item.ParentUUID == parentUUID {
+				folderItems = append(folderItems, item)
+			}
+		}
+	}
+
+	if parentUUID == "" {
+		log.Printf("[ItemSync] 📁 Корневые элементы: найдено %d элементов", len(folderItems))
+	} else {
+		log.Printf("[ItemSync] 📁 Папка %s: найдено %d элементов", parentUUID[:8], len(folderItems))
+	}
+	return folderItems, nil
 }

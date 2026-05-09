@@ -2,6 +2,8 @@
 package center
 
 import (
+	"encoding/json"
+	"fmt"
 	"image/color"
 
 	"projectT/internal/storage/database/models"
@@ -24,13 +26,16 @@ type MessageBubble struct {
 }
 
 // NewMessageBubble создаёт новый пузырёк сообщения
-func NewMessageBubble(message *models.ChatMessage, isOutgoing bool, onRightClick func()) *MessageBubble {
+func NewMessageBubble(message *models.ChatMessage, isOutgoing bool, onRightClick func(), onOpenFolder func(folderUUID, peerID string)) *MessageBubble {
 	mb := &MessageBubble{}
 
 	// Проверяем тип сообщения
-	if message.ContentType == "element" {
+	switch message.ContentType {
+	case "element":
 		mb.container = mb.createBubbleForElement(message, isOutgoing, onRightClick)
-	} else {
+	case "folder_batch":
+		mb.container = mb.createBubbleForFolderBatch(message, isOutgoing, onRightClick, onOpenFolder)
+	default:
 		mb.container = mb.createBubble(message, isOutgoing, onRightClick)
 	}
 
@@ -184,6 +189,97 @@ func (mb *MessageBubble) createErrorBubble(errorMsg string) fyne.CanvasObject {
 	return clickableBubble
 }
 
+// createBubbleForFolderBatch создаёт пузырёк для сообщения типа folder_batch
+func (mb *MessageBubble) createBubbleForFolderBatch(message *models.ChatMessage, isOutgoing bool, onRightClick func(), onOpenFolder func(folderUUID, peerID string)) fyne.CanvasObject {
+	// Извлекаем folder_uuid из Content
+	folderUUID := message.Content
+	if folderUUID == "" {
+		return mb.createErrorBubble("Неверный формат папки")
+	}
+
+	// Парсим метаданные
+	var folderTitle string
+	var itemCount int
+	if message.Metadata != "" {
+		var meta map[string]interface{}
+		if err := json.Unmarshal([]byte(message.Metadata), &meta); err == nil {
+			if t, ok := meta["folder_title"].(string); ok {
+				folderTitle = t
+			}
+			if c, ok := meta["item_count"].(float64); ok {
+				itemCount = int(c)
+			}
+		}
+	}
+
+	if folderTitle == "" {
+		// Пытаемся загрузить из БД
+		item, err := queries.GetItemByElementUUID(folderUUID)
+		if err == nil && item != nil {
+			folderTitle = item.Title
+		} else {
+			folderTitle = "Folder"
+		}
+	}
+
+	// Иконка папки
+	folderIcon := widget.NewIcon(theme.FolderIcon())
+
+	// Название папки
+	titleLabel := widget.NewLabel(folderTitle)
+	titleLabel.TextStyle = fyne.TextStyle{Bold: true}
+
+	// Количество элементов
+	countLabel := widget.NewLabel(fmt.Sprintf("%d elements", itemCount))
+	countLabel.TextStyle = fyne.TextStyle{Italic: true}
+
+	// Время отправки
+	timeStr := message.SentAt.Format("15:04")
+	timeLabel := widget.NewLabel(timeStr)
+	timeLabel.TextStyle = fyne.TextStyle{Italic: true}
+
+	// Компонуем карточку папки
+	cardContent := container.NewVBox(
+		container.NewHBox(folderIcon, titleLabel),
+		countLabel,
+		timeLabel,
+	)
+
+	// Цвет фона в зависимости от направления
+	bgColor := color.RGBA{R: 144, G: 55, B: 255, A: 200}
+	if !isOutgoing {
+		bgColor = color.RGBA{R: 80, G: 80, B: 80, A: 200}
+	}
+
+	bg := canvas.NewRectangle(bgColor)
+	bg.CornerRadius = 10
+	bg.SetMinSize(fyne.NewSize(200, 80))
+
+	messageContainer := container.NewStack(bg, container.NewPadded(cardContent))
+
+	// Выравнивание по правому/левому краю
+	var bubbleContent fyne.CanvasObject
+	if isOutgoing {
+		bubbleContent = container.NewHBox(layout.NewSpacer(), messageContainer)
+	} else {
+		bubbleContent = container.NewHBox(messageContainer, layout.NewSpacer())
+	}
+
+	// Для входящих сообщений делаем карточку кликабельной для открытия папки
+	if !isOutgoing && onOpenFolder != nil {
+		// Определяем peerID отправителя
+		peerID := message.FromPeerID
+		clickableBubble := hover_preview.NewClickableCard(bubbleContent, func() {
+			onOpenFolder(folderUUID, peerID)
+		})
+		return clickableBubble
+	}
+
+	// Для исходящих или без callback — только правый клик
+	clickableBubble := hover_preview.NewClickableCard(bubbleContent, onRightClick)
+	return clickableBubble
+}
+
 // Container возвращает контейнер пузырька
 func (mb *MessageBubble) Container() fyne.CanvasObject {
 	return mb.container
@@ -259,19 +355,21 @@ func (mi *MessageInput) SetEnabled(enabled bool) {
 
 // MessagesList список сообщений
 type MessagesList struct {
-	container   *fyne.Container
-	scroll      *container.Scroll
-	menuManager *dialogs.MessageMenuManager
-	localPeerID string
-	onRefresh   func()
+	container    *fyne.Container
+	scroll       *container.Scroll
+	menuManager  *dialogs.MessageMenuManager
+	localPeerID  string
+	onRefresh    func()
+	onOpenFolder func(folderUUID, peerID string)
 }
 
 // NewMessagesList создаёт новый список сообщений
-func NewMessagesList(menuManager *dialogs.MessageMenuManager, localPeerID string, onRefresh func()) *MessagesList {
+func NewMessagesList(menuManager *dialogs.MessageMenuManager, localPeerID string, onRefresh func(), onOpenFolder func(folderUUID, peerID string)) *MessagesList {
 	ml := &MessagesList{
-		menuManager: menuManager,
-		localPeerID: localPeerID,
-		onRefresh:   onRefresh,
+		menuManager:  menuManager,
+		localPeerID:  localPeerID,
+		onRefresh:    onRefresh,
+		onOpenFolder: onOpenFolder,
 	}
 	ml.container = container.NewVBox()
 	ml.scroll = container.NewScroll(ml.container)
@@ -296,6 +394,7 @@ func (ml *MessagesList) AddMessage(message *models.ChatMessage, isOutgoing bool)
 				ml.menuManager.ShowMessageMenu(message, bubbleContainer, isOutgoing)
 			}
 		},
+		ml.onOpenFolder,
 	)
 	bubbleContainer = bubble.Container()
 	ml.container.Add(bubbleContainer)
@@ -359,15 +458,17 @@ type ChatPanel struct {
 	messageInput *MessageInput
 	menuManager  *dialogs.MessageMenuManager
 	localPeerID  string
+	onOpenFolder func(folderUUID, peerID string)
 }
 
 // NewChatPanel создаёт новую панель чата
-func NewChatPanel(contact *models.Contact, onSend func(), onClose func(), localPeerID string) *ChatPanel {
+func NewChatPanel(contact *models.Contact, onSend func(), onClose func(), localPeerID string, onOpenFolder func(folderUUID, peerID string)) *ChatPanel {
 	cp := &ChatPanel{
-		contact:     contact,
-		contactID:   contact.ID,
-		peerID:      contact.PeerID,
-		localPeerID: localPeerID,
+		contact:      contact,
+		contactID:    contact.ID,
+		peerID:       contact.PeerID,
+		localPeerID:  localPeerID,
+		onOpenFolder: onOpenFolder,
 	}
 
 	// Создаём менеджер меню для сообщений
@@ -386,7 +487,7 @@ func NewChatPanel(contact *models.Contact, onSend func(), onClose func(), localP
 	cp.messagesList = NewMessagesList(cp.menuManager, cp.localPeerID, func() {
 		// Функция обновления - перезагружаем сообщения
 		cp.LoadMessagesForCurrentContact()
-	})
+	}, cp.onOpenFolder)
 
 	// Создаём поле ввода
 	cp.messageInput = NewMessageInput(onSend)

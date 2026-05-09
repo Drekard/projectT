@@ -34,6 +34,7 @@ type UI struct {
 type UIProvider interface {
 	OpenPeerChat(peerID, username string)
 	OpenLocalChat()
+	OpenRemoteProfile(peerID string)
 	GetWindow() fyne.Window
 }
 
@@ -201,6 +202,11 @@ func (ui *UI) createContactItem(contact *models.Contact) *fyne.Container {
 		ui.openChatWithContact(contact)
 	})
 
+	// Profile button
+	profileBtn := widget.NewButtonWithIcon("", theme.AccountIcon(), func() {
+		ui.openRemoteProfile(contact)
+	})
+
 	// Connect button
 	connectBtn := widget.NewButtonWithIcon("", theme.FolderIcon(), func() {
 		ui.connectToContactByContact(contact)
@@ -213,7 +219,7 @@ func (ui *UI) createContactItem(contact *models.Contact) *fyne.Container {
 
 	content := container.NewBorder(
 		nil,
-		container.NewHBox(chatBtn, connectBtn, deleteBtn),
+		container.NewHBox(chatBtn, profileBtn, connectBtn, deleteBtn),
 		container.NewHBox(statusInd, container.NewVBox(nameLabel, peerIDLabel)),
 		nil,
 		widget.NewSeparator(),
@@ -235,6 +241,18 @@ func (ui *UI) openChatWithContact(contact *models.Contact) {
 		ui.contactsUI.OpenPeerChat(contact.PeerID, contact.Username)
 	} else {
 		ui.showErrorDialog("Error", "Contact has no PeerID")
+	}
+}
+
+// openRemoteProfile opens the remote profile of a contact
+func (ui *UI) openRemoteProfile(contact *models.Contact) {
+	if contact.PeerID == "" {
+		ui.showErrorDialog("Error", "Contact has no PeerID")
+		return
+	}
+
+	if ui.contactsUI != nil {
+		ui.contactsUI.OpenRemoteProfile(contact.PeerID)
 	}
 }
 

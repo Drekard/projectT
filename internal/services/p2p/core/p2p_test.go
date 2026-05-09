@@ -481,10 +481,10 @@ func TestP2PNetwork_ProtocolPrefix(t *testing.T) {
 		peerID := "QmTest123"
 		multiaddr := "/ip4/127.0.0.1/tcp/4001"
 
-		formatted := p2paddress.FormatPeerAddress(peerID, multiaddr)
+		formatted := p2paddress.FormatPeerAddress(peerID, []string{multiaddr})
 		assert.Contains(t, formatted, p2p.ProtocolPrefix)
 		assert.Contains(t, formatted, peerID)
-		assert.Contains(t, formatted, multiaddr)
+		assert.Contains(t, formatted, "127.0.0.1")
 	})
 }
 

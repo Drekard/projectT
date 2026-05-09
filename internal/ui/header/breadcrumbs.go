@@ -26,6 +26,12 @@ type BreadcrumbManager struct {
 	items      []*BreadcrumbItem // Изменяем на хранение элементов с информацией
 	onNavigate func(int)         // Колбэк для навигации по папкам
 	onRefresh  func()            // Колбэк для обновления текущей папки
+	// Remote mode
+	isRemoteMode        bool
+	remotePeerID        string
+	remotePeerName      string
+	onRemoteNavigate    func(string) // Колбэк для навигации по remote папкам (folderUUID)
+	onOpenRemoteProfile func(string) // Колбэк для открытия remote профиля (peerID)
 }
 
 // CreateBreadcrumbs создает хлебные крошки с текстом текущего раздела
@@ -170,4 +176,101 @@ func (bm *BreadcrumbManager) GetCurrentFolderID() *int {
 	}
 
 	return nil
+}
+
+// UpdateRemoteBreadcrumbs обновляет хлебные крошки для удалённого профиля
+// peerName — имя удалённого пользователя (первый элемент, кликабельный)
+// peerID — ID пира для открытия профиля
+// path — путь по папкам
+func (bm *BreadcrumbManager) UpdateRemoteBreadcrumbs(peerName string, peerID string, path []*models.Item) {
+	bm.isRemoteMode = true
+	bm.remotePeerID = peerID
+	bm.remotePeerName = peerName
+	bm.Clear()
+
+	// Добавляем имя пира как первый элемент (кликабельный → открывает профиль)
+	bm.AddRemoteItem(peerName, peerID, "")
+
+	// Добавляем остальные элементы пути (папки)
+	for _, item := range path {
+		bm.AddRemoteFolderItem(item.Title, item.ElementUUID)
+	}
+
+	bm.container.Refresh()
+}
+
+// AddRemoteItem добавляет элемент remote breadcrumbs (имя пира)
+func (bm *BreadcrumbManager) AddRemoteItem(title string, peerID string, folderUUID string) {
+	// Добавляем разделитель, если уже есть элементы
+	if len(bm.items) > 0 {
+		separator := canvas.NewText(" > ", color.RGBA{143, 143, 143, 255})
+		separator.TextSize = 14
+		bm.container.Add(separator)
+	}
+
+	// Создаём кнопку для элемента
+	button := widget.NewButton(title, func() {
+		if folderUUID == "" && bm.onOpenRemoteProfile != nil {
+			// Клик по имени пира → открываем профиль
+			bm.onOpenRemoteProfile(peerID)
+		} else if bm.onRemoteNavigate != nil {
+			// Клик по папке → навигация
+			bm.onRemoteNavigate(folderUUID)
+		}
+	})
+	button.Importance = widget.LowImportance
+	button.Resize(fyne.NewSize(80, 24))
+
+	// Сохраняем элемент с remote данными
+	item := &BreadcrumbItem{
+		button: button,
+		item:   &models.Item{Title: title},
+	}
+
+	bm.items = append(bm.items, item)
+	bm.container.Add(button)
+}
+
+// AddRemoteFolderItem добавляет элемент папки в remote breadcrumbs
+func (bm *BreadcrumbManager) AddRemoteFolderItem(title string, folderUUID string) {
+	// Добавляем разделитель, если уже есть элементы
+	if len(bm.items) > 0 {
+		separator := canvas.NewText(" > ", color.RGBA{143, 143, 143, 255})
+		separator.TextSize = 14
+		bm.container.Add(separator)
+	}
+
+	// Создаём кнопку для элемента
+	button := widget.NewButton(title, func() {
+		if bm.onRemoteNavigate != nil {
+			bm.onRemoteNavigate(folderUUID)
+		}
+	})
+	button.Importance = widget.LowImportance
+	button.Resize(fyne.NewSize(80, 24))
+
+	item := &BreadcrumbItem{
+		button: button,
+		item:   &models.Item{Title: title},
+	}
+
+	bm.items = append(bm.items, item)
+	bm.container.Add(button)
+}
+
+// SetRemoteNavigationCallback устанавливает колбэк для remote навигации
+func (bm *BreadcrumbManager) SetRemoteNavigationCallback(callback func(string)) {
+	bm.onRemoteNavigate = callback
+}
+
+// SetOpenRemoteProfileCallback устанавливает колбэк для открытия remote профиля
+func (bm *BreadcrumbManager) SetOpenRemoteProfileCallback(callback func(string)) {
+	bm.onOpenRemoteProfile = callback
+}
+
+// ResetToLocalMode сбрасывает режим на локальный
+func (bm *BreadcrumbManager) ResetToLocalMode() {
+	bm.isRemoteMode = false
+	bm.remotePeerID = ""
+	bm.remotePeerName = ""
 }

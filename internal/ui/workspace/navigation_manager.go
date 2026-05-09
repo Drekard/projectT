@@ -182,3 +182,12 @@ func (nm *NavigationManager) updateBreadcrumbs() {
 		nm.onBreadcrumbUpdate(fullPath)
 	}
 }
+
+// Reset сбрасывает навигацию к корню
+func (nm *NavigationManager) Reset() {
+	nm.currentFolderID = 0
+	nm.folderStack = make([]*models.Item, 0)
+	if nm.onBreadcrumbUpdate != nil {
+		nm.updateBreadcrumbs()
+	}
+}

@@ -2,6 +2,7 @@ package layout
 
 import (
 	"fmt"
+	"projectT/internal/storage/database/models"
 	"projectT/internal/ui/cards/hover_preview"
 	"projectT/internal/ui/header"
 	"projectT/internal/ui/sidebar"
@@ -81,6 +82,15 @@ func CreateMainLayout(window fyne.Window, p2pNetwork *p2p_network.P2PNetwork) *f
 
 	ml.workspace.GetNavigationManager().SetBreadcrumbUpdateCallback(breadcrumbManager.UpdateBreadcrumbs)
 
+	appWorkspace.SetOnRemoteModeChanged(func(isRemote bool, peerID, peerName string, path []*models.Item) {
+		if isRemote {
+			breadcrumbManager.UpdateRemoteBreadcrumbs(peerName, peerID, path)
+		} else {
+			breadcrumbManager.ResetToLocalMode()
+			breadcrumbManager.UpdateBreadcrumbs(nil)
+		}
+	})
+
 	breadcrumbManager.SetNavigationCallback(func(folderID int) {
 		// First switch tab to "Saved"
 		ml.workspace.UpdateContent("saved")
@@ -90,6 +100,14 @@ func CreateMainLayout(window fyne.Window, p2pNetwork *p2p_network.P2PNetwork) *f
 
 	breadcrumbManager.SetRefreshCallback(func() {
 		_ = ml.workspace.RefreshCurrentFolder()
+	})
+
+	breadcrumbManager.SetRemoteNavigationCallback(func(folderUUID string) {
+		ml.workspace.NavigateToRemoteFolder(folderUUID)
+	})
+
+	breadcrumbManager.SetOpenRemoteProfileCallback(func(peerID string) {
+		ml.workspace.OpenRemoteProfile(peerID)
 	})
 
 	headerBg := canvas.NewRectangle(color.RGBA{0, 0, 0, 255})
@@ -160,4 +178,10 @@ func (h *workspaceNavigationHandler) SetSearchQuery(query string) error {
 		return nil
 	}
 	return fmt.Errorf("search entry is not initialized")
+}
+
+func (h *workspaceNavigationHandler) ResetToSaved() {
+	if h.workspace != nil {
+		h.workspace.ResetToLocalSaved()
+	}
 }

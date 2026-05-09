@@ -390,3 +390,87 @@ func (n *P2PNetwork) ProfileSync() *profilesync.SyncService {
 	defer n.mu.RUnlock()
 	return n.profileSync
 }
+
+// SendBatch отправляет пакет элементов пиру
+func (n *P2PNetwork) SendBatch(ctx context.Context, peerID peer.ID, elementUUIDs []string, transferType transfer.TransferType) (string, error) {
+	n.mu.RLock()
+	transferSvc := n.transfer
+	n.mu.RUnlock()
+
+	if transferSvc == nil {
+		return "", errors.New("TransferService не инициализирован")
+	}
+	return transferSvc.SendBatch(ctx, peerID, elementUUIDs, transferType)
+}
+
+// SendFolder отправляет папку пиру
+func (n *P2PNetwork) SendFolder(ctx context.Context, peerID peer.ID, parentUUID string) (string, error) {
+	n.mu.RLock()
+	transferSvc := n.transfer
+	n.mu.RUnlock()
+
+	if transferSvc == nil {
+		return "", errors.New("TransferService не инициализирован")
+	}
+	return transferSvc.SendFolder(ctx, peerID, parentUUID)
+}
+
+// SendPinnedItems отправляет закреплённые элементы пиру
+func (n *P2PNetwork) SendPinnedItems(ctx context.Context, peerID peer.ID) (string, error) {
+	n.mu.RLock()
+	transferSvc := n.transfer
+	n.mu.RUnlock()
+
+	if transferSvc == nil {
+		return "", errors.New("TransferService не инициализирован")
+	}
+	return transferSvc.SendPinnedItems(ctx, peerID)
+}
+
+// SendSelection отправляет выбранные элементы пиру
+func (n *P2PNetwork) SendSelection(ctx context.Context, peerID peer.ID, elementUUIDs []string) (string, error) {
+	n.mu.RLock()
+	transferSvc := n.transfer
+	n.mu.RUnlock()
+
+	if transferSvc == nil {
+		return "", errors.New("TransferService не инициализирован")
+	}
+	return transferSvc.SendSelection(ctx, peerID, elementUUIDs)
+}
+
+// GetBatchProgress возвращает прогресс батча
+func (n *P2PNetwork) GetBatchProgress(batchID string) *transfer.BatchProgress {
+	n.mu.RLock()
+	transferSvc := n.transfer
+	n.mu.RUnlock()
+
+	if transferSvc == nil {
+		return &transfer.BatchProgress{BatchID: batchID, Status: transfer.TransferStatusPending}
+	}
+	return transferSvc.GetBatchProgress(batchID)
+}
+
+// RequestBatchByUUIDs запрашивает батч элементов у пира
+func (n *P2PNetwork) RequestBatchByUUIDs(ctx context.Context, peerID peer.ID, elementUUIDs []string) ([]*models.Item, error) {
+	n.mu.RLock()
+	itemSyncSvc := n.itemSync
+	n.mu.RUnlock()
+
+	if itemSyncSvc == nil {
+		return nil, errors.New("ItemSyncService не инициализирован")
+	}
+	return itemSyncSvc.RequestBatchByUUIDs(ctx, peerID, elementUUIDs)
+}
+
+// RequestFolder запрашивает папку у пира
+func (n *P2PNetwork) RequestFolder(ctx context.Context, peerID peer.ID, parentUUID string) ([]*models.Item, error) {
+	n.mu.RLock()
+	itemSyncSvc := n.itemSync
+	n.mu.RUnlock()
+
+	if itemSyncSvc == nil {
+		return nil, errors.New("ItemSyncService не инициализирован")
+	}
+	return itemSyncSvc.RequestFolder(ctx, peerID, parentUUID)
+}

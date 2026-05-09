@@ -25,6 +25,9 @@ type TransferProgressWidget struct {
 	currentTransfer *transfer.TransferProgress
 	transferSvc     *transfer.Service
 	lastTransferID  string
+
+	// Batch support
+	batchWidget *BatchProgressWidget
 }
 
 // NewTransferProgressWidget создаёт новый виджет прогресса передачи
@@ -58,6 +61,9 @@ func NewTransferProgressWidget(transferSvc *transfer.Service) *TransferProgressW
 	tpw.cancelButton.Importance = widget.DangerImportance
 	tpw.cancelButton.Alignment = widget.ButtonAlignTrailing
 
+	// Batch widget
+	tpw.batchWidget = NewBatchProgressWidget(transferSvc)
+
 	// Компонуем прогресс и кнопку отмены в одну строку
 	progressRow := container.NewBorder(
 		nil,
@@ -75,6 +81,7 @@ func NewTransferProgressWidget(transferSvc *transfer.Service) *TransferProgressW
 	content := container.NewVBox(
 		container.NewHBox(tpw.icon, tpw.statusLabel),
 		progressRow,
+		tpw.batchWidget.Container(),
 	)
 
 	tpw.container = container.NewStack(bg, container.NewPadded(content))

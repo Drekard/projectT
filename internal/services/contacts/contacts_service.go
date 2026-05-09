@@ -59,9 +59,10 @@ func (s *ContactService) AddContactByAddress(addrStr string, notes string) (*mod
 	}
 
 	// Создаём контакт (без username - он будет в profiles)
+	combinedAddrs := strings.Join(addr.Multiaddrs, ";")
 	contact := &models.Contact{
 		PeerID:    addr.PeerID,
-		Multiaddr: addr.Multiaddr,
+		Multiaddr: combinedAddrs,
 		Notes:     notes,
 		IsBlocked: false,
 	}

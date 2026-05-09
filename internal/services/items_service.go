@@ -85,3 +85,28 @@ func (is *ItemsService) GetSavedItemsByParent(parentID int) ([]*models.Item, err
 func (is *ItemsService) SavePreviewItem(itemID int) error {
 	return queries.SetItemStatus(itemID, models.ItemStatusSaved)
 }
+
+// GetItemsByParentUUID возвращает элементы по parent_uuid
+func (is *ItemsService) GetItemsByParentUUID(parentUUID string) ([]*models.Item, error) {
+	return queries.GetItemsByParentUUID(parentUUID)
+}
+
+// GetSavedItemsByParentUUID возвращает сохранённые элементы по parent_uuid
+func (is *ItemsService) GetSavedItemsByParentUUID(parentUUID string) ([]*models.Item, error) {
+	return queries.GetSavedItemsByParentUUID(parentUUID)
+}
+
+// GetPreviewItemsByParentUUID возвращает preview элементы по parent_uuid
+func (is *ItemsService) GetPreviewItemsByParentUUID(parentUUID string) ([]*models.Item, error) {
+	return queries.GetPreviewItemsByParentUUID(parentUUID)
+}
+
+// GetElementUUIDByID возвращает element_uuid по ID
+func (is *ItemsService) GetElementUUIDByID(id int) (string, error) {
+	return queries.GetElementUUIDByID(id)
+}
+
+// GetElementUUIDsByIDs возвращает список element_uuid по списку ID
+func (is *ItemsService) GetElementUUIDsByIDs(ids []int) ([]string, error) {
+	return queries.GetElementUUIDsByIDs(ids)
+}

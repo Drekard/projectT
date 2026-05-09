@@ -29,15 +29,22 @@ func (n *P2PNetwork) onPeerConnected(peerID peer.ID) {
 	}
 
 	// Запускаем синхронизацию профилей асинхронно
-	if n.profileSync != nil {
-		go func() {
-			ctx, cancel := context.WithTimeout(n.ctx, 60*time.Second)
-			defer cancel()
+	// Чтобы избежать race condition (оба пира инициируют одновременно),
+	// только пир с БОЛЬШИМ PeerID инициирует синхронизацию
+	if n.profileSync != nil && n.host != nil {
+		ourID := n.host.ID()
+		if ourID > peerID {
+			go func() {
+				ctx, cancel := context.WithTimeout(n.ctx, 60*time.Second)
+				defer cancel()
 
-			if err := n.profileSync.SyncWithPeer(ctx, peerID); err != nil {
-				log.Printf("[ProfileSync] ⚠️ Ошибка синхронизации с %s: %v", peerID.String()[:8], err)
-			}
-		}()
+				if err := n.profileSync.SyncWithPeer(ctx, peerID); err != nil {
+					log.Printf("[ProfileSync] ⚠️ Ошибка синхронизации с %s: %v", peerID.String()[:8], err)
+				}
+			}()
+		} else {
+			log.Printf("[ProfileSync] ⏳ Ждём входящую синхронизацию от %s (наш PeerID меньше)", peerID.String()[:8])
+		}
 	}
 	log.Printf("[P2P/Event] ========================================")
 }

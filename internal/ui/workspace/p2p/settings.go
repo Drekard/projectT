@@ -35,6 +35,8 @@ func (ui *UI) createSettingsTab() fyne.CanvasObject {
 // createAddressSection creates the address section
 func (ui *UI) createAddressSection() *fyne.Container {
 	label := widget.NewLabel("Your address: ")
+	ui.addressLabel = label
+
 	copyButton := widget.NewButtonWithIcon("Copy Address", theme.ContentCopyIcon(), func() {
 		ui.copyMyAddress()
 	})
@@ -43,13 +45,8 @@ func (ui *UI) createAddressSection() *fyne.Container {
 		ui.checkPortAccessibility()
 	})
 
-	// Button to show local addresses
-	showLocalButton := widget.NewButton("Local Addresses", func() {
-		ui.showLocalAddresses()
-	})
-
 	addressRow := container.NewHBox(label, copyButton)
-	buttonsRow := container.NewHBox(checkPortButton, showLocalButton)
+	buttonsRow := container.NewHBox(checkPortButton)
 
 	return container.NewVBox(addressRow, buttonsRow)
 }
@@ -188,7 +185,30 @@ func (ui *UI) loadP2PSettings() {
 	ui.stunServerEntry.SetText(settings.STUNServer)
 	ui.helperModeCheck.SetChecked(settings.EnableHelperMode)
 
+	// Update address display
+	ui.updateAddressDisplay()
+
 	log.Printf("[loadP2PSettings] Settings loaded")
+}
+
+// updateAddressDisplay обновляет отображение адреса
+func (ui *UI) updateAddressDisplay() {
+	if ui.p2pUI == nil || ui.addressLabel == nil {
+		return
+	}
+
+	addr, err := ui.p2pUI.GetPeerAddress()
+	if err != nil {
+		ui.addressLabel.SetText("Your address: (not available)")
+		return
+	}
+
+	// Show shortened address in the label
+	shortAddr := addr
+	if len(shortAddr) > 60 {
+		shortAddr = shortAddr[:57] + "..."
+	}
+	ui.addressLabel.SetText("Your address: " + shortAddr)
 }
 
 // copyMyAddress copies my address to clipboard
@@ -220,50 +240,6 @@ func (ui *UI) checkPortAccessibility() {
 
 	ui.showInfoDialog("Check", "Checking port... (requires external service)")
 	// TODO: Implement port check via STUN or external service
-}
-
-// showLocalAddresses shows local addresses
-func (ui *UI) showLocalAddresses() {
-	if ui.p2pUI == nil {
-		ui.showErrorDialog("Error", "P2P service not initialized")
-		return
-	}
-
-	addrs := ui.p2pUI.GetLocalAddresses()
-	if len(addrs) == 0 {
-		ui.showInfoDialog("Local Addresses", "No local addresses found")
-		return
-	}
-
-	// Format addresses for display
-	addrsText := ""
-	for i, addr := range addrs {
-		addrsText += fmt.Sprintf("%d. %s\n", i+1, addr)
-	}
-
-	// Format clean addresses for copying (without numbering)
-	addrsTextClean := ""
-	for _, addr := range addrs {
-		addrsTextClean += addr + "\n"
-	}
-
-	// Create label with addresses
-	addrLabel := widget.NewLabel(addrsText)
-	addrLabel.Wrapping = fyne.TextWrapBreak
-
-	// Copy button
-	copyButton := widget.NewButtonWithIcon("Copy", theme.ContentCopyIcon(), func() {
-		// Copy all addresses to clipboard (without numbering)
-		clipboard := ui.window.Clipboard()
-		clipboard.SetContent(addrsTextClean)
-		ui.showInfoDialog("Success", "Local addresses copied to clipboard")
-	})
-
-	// Create dialog with buttons
-	content := container.NewVBox(addrLabel, copyButton)
-
-	customDialog := dialog.NewCustom("Local Addresses", "Close", content, ui.window)
-	customDialog.Show()
 }
 
 // showErrorDialog shows an error dialog

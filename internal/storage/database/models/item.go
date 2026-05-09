@@ -30,7 +30,8 @@ type Item struct {
 	Title        string     `json:"title"`
 	Description  string     `json:"description,omitempty"`
 	ContentMeta  string     `json:"content_meta,omitempty"` // JSON для составных элементов
-	ParentID     *int       `json:"parent_id,omitempty"`    // ID родительского элемента (если есть)
+	ParentID     *int       `json:"parent_id,omitempty"`    // ID родительского элемента (legacy, используйте ParentUUID)
+	ParentUUID   *string    `json:"parent_uuid,omitempty"`  // UUID родительского элемента для P2P
 	Signature    []byte     `json:"signature,omitempty"`    // Подпись владельца (для remote)
 	Version      int        `json:"version"`                // Версия элемента
 	Status       ItemStatus `json:"status"`                 // Статус просмотра: 'saved', 'preview', 'archived'

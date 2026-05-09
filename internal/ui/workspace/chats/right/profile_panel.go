@@ -12,6 +12,7 @@ import (
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/canvas"
 	"fyne.io/fyne/v2/container"
+	"fyne.io/fyne/v2/theme"
 	"fyne.io/fyne/v2/widget"
 )
 
@@ -23,12 +24,15 @@ type Panel struct {
 	profileStatus            *widget.Label
 	characteristicsContainer *fyne.Container
 	demoElementsContainer    *fyne.Container
+	profileMoreButton        *widget.Button
 	chatsUI                  UIProvider
+	currentContact           *models.Contact
 }
 
 // UIProvider interface for accessing chat UI functions
 type UIProvider interface {
 	GetP2PService() *network.UIP2P
+	OpenRemoteProfile(peerID string)
 }
 
 // New creates a new right panel
@@ -54,11 +58,21 @@ func (p *Panel) Refresh() {
 
 // UpdateProfile updates the conversation partner's profile
 func (p *Panel) UpdateProfile(contact *models.Contact) {
+	p.currentContact = contact
+
 	// Check if this is a local chat
 	if contact.IsLocalChat() {
 		// For local chat show current user's profile
+		if p.profileMoreButton != nil {
+			p.profileMoreButton.Hide()
+		}
 		p.showUserProfile()
 		return
+	}
+
+	// Show "⋯" button for remote contacts
+	if p.profileMoreButton != nil && contact.PeerID != "" {
+		p.profileMoreButton.Show()
 	}
 
 	// Update name
@@ -182,6 +196,15 @@ func (p *Panel) createProfileArea() *fyne.Container {
 	p.profileName.TextStyle = fyne.TextStyle{Bold: true}
 	p.profileName.Alignment = fyne.TextAlignCenter
 
+	// "⋯" button for opening full remote profile
+	p.profileMoreButton = widget.NewButtonWithIcon("", theme.MoreHorizontalIcon(), func() {
+		if p.currentContact != nil && p.currentContact.PeerID != "" && !p.currentContact.IsLocalChat() {
+			p.chatsUI.OpenRemoteProfile(p.currentContact.PeerID)
+		}
+	})
+	p.profileMoreButton.Importance = widget.LowImportance
+	p.profileMoreButton.Hide()
+
 	// User text status (set manually)
 	p.profileStatus = widget.NewLabel("")
 	p.profileStatus.TextStyle = fyne.TextStyle{Italic: true}
@@ -190,7 +213,12 @@ func (p *Panel) createProfileArea() *fyne.Container {
 	// Container for avatar and name
 	headerContainer := container.NewVBox(
 		container.NewCenter(avatarStack),
-		p.profileName,
+		container.NewCenter(
+			container.NewHBox(
+				p.profileName,
+				p.profileMoreButton,
+			),
+		),
 		p.profileStatus,
 	)
 

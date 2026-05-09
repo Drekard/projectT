@@ -30,6 +30,9 @@ type UI struct {
 	mdnsCheck       *widget.Check
 	helperModeCheck *widget.Check
 
+	// Адрес
+	addressLabel *widget.Label
+
 	// Списки
 	connectedPeersList  *fyne.Container
 	discoveredPeersList *fyne.Container
@@ -40,6 +43,7 @@ type UI struct {
 type UIProvider interface {
 	OpenPeerChat(peerID, username string)
 	OpenLocalChat()
+	OpenRemoteProfile(peerID string)
 	GetWindow() fyne.Window
 }
 
@@ -87,8 +91,8 @@ func (ui *UI) Refresh() {
 func (ui *UI) createP2PContent() *fyne.Container {
 	// Создаем вкладки
 	tabs := container.NewAppTabs(
-		container.NewTabItem("Настройки", ui.createSettingsTab()),
-		container.NewTabItem("Подключения", ui.createProfilesTab()),
+		container.NewTabItem("Settings", ui.createSettingsTab()),
+		container.NewTabItem("Connections", ui.createProfilesTab()),
 	)
 	tabs.SetTabLocation(container.TabLocationTop)
 

@@ -123,8 +123,8 @@ func EnsureProfileForContact(peerID, username, avatarPath string) error {
 // GetAllRemoteProfiles возвращает все чужие профили
 func GetAllRemoteProfiles() ([]*models.Profile, error) {
 	query := `
-		SELECT id, owner_type, peer_id, username, title, avatar_path, background_path,
-		       content_char, pinned_uuids, cached_at, created_at, updated_at
+		SELECT id, owner_type, peer_id, username, COALESCE(title, ''), COALESCE(avatar_path, ''), COALESCE(background_path, ''),
+		       COALESCE(content_char, ''), COALESCE(pinned_uuids, '[]'), cached_at, created_at, updated_at
 		FROM profiles
 		WHERE owner_type = 'remote'
 		ORDER BY username

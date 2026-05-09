@@ -34,6 +34,21 @@ type UI struct {
 
 	// Менеджеры
 	chatMenuManager *dialogs.ChatMenuManager
+
+	// Callback для открытия remote профиля
+	onOpenRemoteProfile func(peerID string)
+	// Callback для открытия папки из чата
+	onOpenFolderFromChat func(peerID, folderUUID string)
+}
+
+// SetOnOpenRemoteProfile устанавливает callback для открытия remote профиля
+func (ui *UI) SetOnOpenRemoteProfile(callback func(peerID string)) {
+	ui.onOpenRemoteProfile = callback
+}
+
+// SetOnOpenFolderFromChat устанавливает callback для открытия папки из чата
+func (ui *UI) SetOnOpenFolderFromChat(callback func(peerID, folderUUID string)) {
+	ui.onOpenFolderFromChat = callback
 }
 
 // New создает и возвращает новый UI чатов
@@ -211,6 +226,15 @@ func (ui *UI) OpenPeerChat(peerID, username string) {
 	}
 }
 
+// OpenRemoteProfile открывает профиль удалённого пользователя
+func (ui *UI) OpenRemoteProfile(peerID string) {
+	// Переключаемся на workspace для отображения remote профиля
+	// Это будет вызвано через callback из main_layout
+	if ui.onOpenRemoteProfile != nil {
+		ui.onOpenRemoteProfile(peerID)
+	}
+}
+
 // openPeerChatLegacy открывает чат по-старому (для обратной совместимости)
 func (ui *UI) openPeerChatLegacy(peerID, username string) {
 	// Получаем профиль пира из БД для корректного отображения
@@ -314,6 +338,7 @@ func (ui *UI) createChatPanel(contact *models.Contact) fyne.CanvasObject {
 		ui.sendMessage,
 		ui.closeChat,
 		localPeerID,
+		ui.openFolderFromChat,
 	)
 
 	return ui.chatPanel.Container()
@@ -505,4 +530,11 @@ func (ui *UI) GetP2PService() *network.UIP2P {
 // GetWindow возвращает окно
 func (ui *UI) GetWindow() fyne.Window {
 	return ui.window
+}
+
+// openFolderFromChat открывает папку из чата — запрашивает у пира и переключает workspace
+func (ui *UI) openFolderFromChat(folderUUID, peerID string) {
+	if ui.onOpenFolderFromChat != nil {
+		ui.onOpenFolderFromChat(peerID, folderUUID)
+	}
 }

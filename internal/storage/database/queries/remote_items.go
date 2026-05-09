@@ -1,10 +1,10 @@
-// Package queries содержит SQL-запросы для работы с объединённой таблицей items.
-// Remote элементы теперь хранятся в той же таблице items с owner_type = 'remote'
 package queries
 
 import (
 	"database/sql"
 	"errors"
+	"fmt"
+	"strings"
 
 	"projectT/internal/storage/database"
 	"projectT/internal/storage/database/models"
@@ -22,15 +22,16 @@ func CreateRemoteItem(item *models.Item) error {
 		INSERT INTO items (
 			element_uuid, hash,
 			owner_type, source_peer_id,
-			type, title, description, content_meta,
+			type, title, description, content_meta, parent_uuid,
 			signature, version, status,
 			created_at, updated_at
 		)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
 		ON CONFLICT(source_peer_id, element_uuid) DO UPDATE SET
 			title = excluded.title,
 			description = excluded.description,
 			content_meta = excluded.content_meta,
+			parent_uuid = excluded.parent_uuid,
 			signature = excluded.signature,
 			version = version + 1,
 			cached_at = CURRENT_TIMESTAMP
@@ -38,7 +39,7 @@ func CreateRemoteItem(item *models.Item) error {
 	result, err := database.DB.Exec(query,
 		item.ElementUUID, item.Hash,
 		models.OwnerTypeRemote, item.SourcePeerID,
-		item.Type, item.Title, item.Description, item.ContentMeta,
+		item.Type, item.Title, item.Description, item.ContentMeta, item.ParentUUID,
 		item.Signature, item.Version, item.Status,
 	)
 	if err != nil {
@@ -58,50 +59,28 @@ func GetRemoteItemByElementUUID(sourcePeerID, elementUUID string) (*models.Item,
 	query := `
 		SELECT id, element_uuid, hash,
 		       owner_type, source_peer_id,
-		       type, title, description, content_meta,
+		       type, title, description, content_meta, parent_uuid,
 		       signature, version, status, cached_at,
 		       created_at, updated_at
 		FROM items
 		WHERE source_peer_id = ? AND element_uuid = ? AND owner_type = 'remote'
 		LIMIT 1
 	`
-	var item models.Item
-	var cachedAt, createdAt, updatedAt sql.NullTime
-	var parentID sql.NullInt64
-	var sourcePeerIDNull sql.NullString
-	var status string
 
-	err := database.DB.QueryRow(query, sourcePeerID, elementUUID).Scan(
-		&item.ID, &item.ElementUUID, &item.Hash,
-		&item.OwnerType, &sourcePeerIDNull,
-		&item.Type, &item.Title, &item.Description, &item.ContentMeta,
-		&item.Signature, &item.Version, &status, &cachedAt,
-		&createdAt, &updatedAt,
-	)
+	rows, err := database.DB.Query(query, sourcePeerID, elementUUID)
 	if err != nil {
-		if errors.Is(err, sql.ErrNoRows) {
-			return nil, errors.New("элемент не найден")
-		}
 		return nil, err
 	}
+	defer func() { _ = rows.Close() }()
 
-	if cachedAt.Valid {
-		item.CachedAt = &cachedAt.Time
-	}
-	item.CreatedAt = createdAt.Time
-	item.UpdatedAt = updatedAt.Time
-	item.Status = models.ItemStatus(status)
-
-	if parentID.Valid {
-		parentIDValue := int(parentID.Int64)
-		item.ParentID = &parentIDValue
+	if rows.Next() {
+		item := scanRemoteItemRow(rows)
+		if item != nil {
+			return item, nil
+		}
 	}
 
-	if sourcePeerIDNull.Valid {
-		item.SourcePeerID = &sourcePeerIDNull.String
-	}
-
-	return &item, nil
+	return nil, errors.New("элемент не найден")
 }
 
 // GetRemoteItemByHash возвращает элемент по hash и PeerID владельца (устаревшее, используйте GetRemoteItemByElementUUID)
@@ -109,50 +88,28 @@ func GetRemoteItemByHash(sourcePeerID, hash string) (*models.Item, error) {
 	query := `
 		SELECT id, element_uuid, hash,
 		       owner_type, source_peer_id,
-		       type, title, description, content_meta,
+		       type, title, description, content_meta, parent_uuid,
 		       signature, version, status, cached_at,
 		       created_at, updated_at
 		FROM items
 		WHERE source_peer_id = ? AND hash = ? AND owner_type = 'remote'
 		LIMIT 1
 	`
-	var item models.Item
-	var cachedAt, createdAt, updatedAt sql.NullTime
-	var parentID sql.NullInt64
-	var sourcePeerIDNull sql.NullString
-	var status string
 
-	err := database.DB.QueryRow(query, sourcePeerID, hash).Scan(
-		&item.ID, &item.ElementUUID, &item.Hash,
-		&item.OwnerType, &sourcePeerIDNull,
-		&item.Type, &item.Title, &item.Description, &item.ContentMeta,
-		&item.Signature, &item.Version, &status, &cachedAt,
-		&createdAt, &updatedAt,
-	)
+	rows, err := database.DB.Query(query, sourcePeerID, hash)
 	if err != nil {
-		if errors.Is(err, sql.ErrNoRows) {
-			return nil, errors.New("элемент не найден")
-		}
 		return nil, err
 	}
+	defer func() { _ = rows.Close() }()
 
-	if cachedAt.Valid {
-		item.CachedAt = &cachedAt.Time
-	}
-	item.CreatedAt = createdAt.Time
-	item.UpdatedAt = updatedAt.Time
-	item.Status = models.ItemStatus(status)
-
-	if parentID.Valid {
-		parentIDValue := int(parentID.Int64)
-		item.ParentID = &parentIDValue
+	if rows.Next() {
+		item := scanRemoteItemRow(rows)
+		if item != nil {
+			return item, nil
+		}
 	}
 
-	if sourcePeerIDNull.Valid {
-		item.SourcePeerID = &sourcePeerIDNull.String
-	}
-
-	return &item, nil
+	return nil, errors.New("элемент не найден")
 }
 
 // GetRemoteItemsByPeer возвращает все кэшированные элементы от пира
@@ -160,7 +117,7 @@ func GetRemoteItemsByPeer(sourcePeerID string) ([]*models.Item, error) {
 	query := `
 		SELECT id, element_uuid, hash,
 		       owner_type, source_peer_id,
-		       type, title, description, content_meta,
+		       type, title, description, content_meta, parent_uuid,
 		       signature, version, status, cached_at,
 		       created_at, updated_at
 		FROM items
@@ -175,74 +132,77 @@ func GetRemoteItemsByPeer(sourcePeerID string) ([]*models.Item, error) {
 
 	var items []*models.Item
 	for rows.Next() {
-		var item models.Item
-		var cachedAt, createdAt, updatedAt sql.NullTime
-		var parentID sql.NullInt64
-		var sourcePeerIDNull sql.NullString
-		var status string
-
-		err := rows.Scan(
-			&item.ID, &item.ElementUUID, &item.Hash,
-			&item.OwnerType, &sourcePeerIDNull,
-			&item.Type, &item.Title, &item.Description, &item.ContentMeta,
-			&item.Signature, &item.Version, &status, &cachedAt,
-			&createdAt, &updatedAt,
-		)
-		if err != nil {
-			return nil, err
+		item := scanRemoteItemRow(rows)
+		if item == nil {
+			continue
 		}
-
-		if cachedAt.Valid {
-			item.CachedAt = &cachedAt.Time
-		}
-		item.CreatedAt = createdAt.Time
-		item.UpdatedAt = updatedAt.Time
-		item.Status = models.ItemStatus(status)
-
-		if parentID.Valid {
-			parentIDValue := int(parentID.Int64)
-			item.ParentID = &parentIDValue
-		}
-
-		if sourcePeerIDNull.Valid {
-			item.SourcePeerID = &sourcePeerIDNull.String
-		}
-
-		items = append(items, &item)
+		items = append(items, item)
 	}
 
 	return items, rows.Err()
 }
 
-// GetRemoteItemByID возвращает элемент по локальному ID
-func GetRemoteItemByID(id int) (*models.Item, error) {
-	query := `
+// GetRemoteItemsByElementUUIDs возвращает кэшированные элементы по списку element_uuid
+func GetRemoteItemsByElementUUIDs(sourcePeerID string, elementUUIDs []string) ([]*models.Item, error) {
+	if len(elementUUIDs) == 0 {
+		return []*models.Item{}, nil
+	}
+
+	placeholders := make([]string, len(elementUUIDs))
+	args := make([]interface{}, 1+len(elementUUIDs))
+	args[0] = sourcePeerID
+	for i, uuid := range elementUUIDs {
+		placeholders[i] = "?"
+		args[i+1] = uuid
+	}
+
+	query := fmt.Sprintf(`
 		SELECT id, element_uuid, hash,
 		       owner_type, source_peer_id,
-		       type, title, description, content_meta,
+		       type, title, description, content_meta, parent_uuid,
 		       signature, version, status, cached_at,
 		       created_at, updated_at
 		FROM items
-		WHERE id = ?
-	`
+		WHERE source_peer_id = ? AND owner_type = 'remote'
+		  AND element_uuid IN (%s)
+		ORDER BY title
+	`, strings.Join(placeholders, ","))
+
+	rows, err := database.DB.Query(query, args...)
+	if err != nil {
+		return nil, err
+	}
+	defer func() { _ = rows.Close() }()
+
+	var items []*models.Item
+	for rows.Next() {
+		item := scanRemoteItemRow(rows)
+		if item == nil {
+			continue
+		}
+		items = append(items, item)
+	}
+
+	return items, rows.Err()
+}
+
+// scanRemoteItemRow сканирует строку remote элемента
+func scanRemoteItemRow(rows *sql.Rows) *models.Item {
 	var item models.Item
-	var cachedAt, createdAt, updatedAt sql.NullTime
-	var parentID sql.NullInt64
+	var parentUUID sql.NullString
 	var sourcePeerIDNull sql.NullString
+	var cachedAt, createdAt, updatedAt sql.NullTime
 	var status string
 
-	err := database.DB.QueryRow(query, id).Scan(
+	err := rows.Scan(
 		&item.ID, &item.ElementUUID, &item.Hash,
 		&item.OwnerType, &sourcePeerIDNull,
-		&item.Type, &item.Title, &item.Description, &item.ContentMeta,
+		&item.Type, &item.Title, &item.Description, &item.ContentMeta, &parentUUID,
 		&item.Signature, &item.Version, &status, &cachedAt,
 		&createdAt, &updatedAt,
 	)
 	if err != nil {
-		if errors.Is(err, sql.ErrNoRows) {
-			return nil, errors.New("элемент не найден")
-		}
-		return nil, err
+		return nil
 	}
 
 	if cachedAt.Valid {
@@ -252,16 +212,43 @@ func GetRemoteItemByID(id int) (*models.Item, error) {
 	item.UpdatedAt = updatedAt.Time
 	item.Status = models.ItemStatus(status)
 
-	if parentID.Valid {
-		parentIDValue := int(parentID.Int64)
-		item.ParentID = &parentIDValue
+	if parentUUID.Valid {
+		item.ParentUUID = &parentUUID.String
 	}
 
 	if sourcePeerIDNull.Valid {
 		item.SourcePeerID = &sourcePeerIDNull.String
 	}
 
-	return &item, nil
+	return &item
+}
+
+// GetRemoteItemByID возвращает элемент по локальному ID
+func GetRemoteItemByID(id int) (*models.Item, error) {
+	query := `
+		SELECT id, element_uuid, hash,
+		       owner_type, source_peer_id,
+		       type, title, description, content_meta, parent_uuid,
+		       signature, version, status, cached_at,
+		       created_at, updated_at
+		FROM items
+		WHERE id = ?
+	`
+
+	rows, err := database.DB.Query(query, id)
+	if err != nil {
+		return nil, err
+	}
+	defer func() { _ = rows.Close() }()
+
+	if rows.Next() {
+		item := scanRemoteItemRow(rows)
+		if item != nil {
+			return item, nil
+		}
+	}
+
+	return nil, errors.New("элемент не найден")
 }
 
 // UpdateRemoteItem обновляет кэшированный элемент

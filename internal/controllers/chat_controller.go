@@ -477,3 +477,149 @@ func (cc *ChatController) downloadPinnedElements(peerIDStr string) {
 		cc.onPinnedElementsLoaded(peerIDStr)
 	}
 }
+
+// SendFolderToChat отправляет папку в чат через batch transfer
+func (cc *ChatController) SendFolderToChat(contactID int, parentUUID string) error {
+	if cc.p2pUI == nil {
+		return fmt.Errorf("P2P сервис не инициализирован")
+	}
+
+	// Получаем контакт
+	contact, err := queries.GetContact(contactID)
+	if err != nil {
+		return fmt.Errorf("ошибка получения контакта: %w", err)
+	}
+	if contact == nil || contact.PeerID == "" {
+		return fmt.Errorf("контакт не найден или не имеет PeerID")
+	}
+
+	if contact.IsLocalChat() {
+		return fmt.Errorf("нельзя отправить папку в локальный чат")
+	}
+
+	peerID, err := peer.Decode(contact.PeerID)
+	if err != nil {
+		return fmt.Errorf("ошибка декодирования PeerID: %w", err)
+	}
+
+	// Получаем папку из БД
+	folder, err := queries.GetItemByElementUUID(parentUUID)
+	if err != nil {
+		return fmt.Errorf("ошибка получения папки: %w", err)
+	}
+	if folder == nil {
+		return fmt.Errorf("папка не найдена: %s", parentUUID)
+	}
+
+	// Отправляем папку через batch transfer
+	ctx, cancel := context.WithTimeout(context.Background(), 120*time.Second)
+	defer cancel()
+
+	p2pNet := cc.p2pUI.GetNetwork()
+	if p2pNet == nil {
+		return fmt.Errorf("P2P сеть не инициализирована")
+	}
+
+	transferSvc := p2pNet.Transfer()
+	if transferSvc == nil {
+		return fmt.Errorf("TransferService не инициализирован")
+	}
+
+	_, err = transferSvc.SendFolder(ctx, peerID, folder.ElementUUID)
+	if err != nil {
+		return fmt.Errorf("ошибка отправки папки: %w", err)
+	}
+
+	// Сохраняем сообщение в БД
+	chatSvc := services.GetChatService()
+	if chatSvc != nil {
+		_, _ = chatSvc.SendFolderMessage(contactID, contact.PeerID, cc.localPeerID, folder)
+	}
+
+	return nil
+}
+
+// LoadRemoteFolder загружает содержимое папки удалённого пира
+func (cc *ChatController) LoadRemoteFolder(peerIDStr, folderUUID string) ([]*models.Item, error) {
+	if cc.p2pUI == nil {
+		return nil, fmt.Errorf("P2P сервис не инициализирован")
+	}
+
+	peerID, err := peer.Decode(peerIDStr)
+	if err != nil {
+		return nil, fmt.Errorf("ошибка декодирования PeerID: %w", err)
+	}
+
+	p2pNet := cc.p2pUI.GetNetwork()
+	if p2pNet == nil {
+		return nil, fmt.Errorf("P2P сеть не инициализирована")
+	}
+
+	itemSyncSvc := p2pNet.ItemSync()
+	if itemSyncSvc == nil {
+		return nil, fmt.Errorf("ItemSyncService не инициализирован")
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
+	defer cancel()
+
+	items, err := itemSyncSvc.RequestFolder(ctx, peerID, folderUUID)
+	if err != nil {
+		return nil, fmt.Errorf("ошибка загрузки папки: %w", err)
+	}
+
+	return items, nil
+}
+
+// LoadRemoteProfileItems загружает pinned элементы профиля удалённого пира
+func (cc *ChatController) LoadRemoteProfileItems(peerIDStr string) ([]*models.Item, error) {
+	if cc.p2pUI == nil {
+		return nil, fmt.Errorf("P2P сервис не инициализирован")
+	}
+
+	profile, err := queries.GetProfileByPeerID(peerIDStr)
+	if err != nil || profile == nil {
+		return nil, fmt.Errorf("профиль пира не найден: %w", err)
+	}
+
+	var pinnedUUIDs []string
+	if err := json.Unmarshal([]byte(profile.PinnedUUIDs), &pinnedUUIDs); err != nil {
+		return nil, fmt.Errorf("ошибка парсинга pinned UUIDs: %w", err)
+	}
+
+	if len(pinnedUUIDs) == 0 {
+		return []*models.Item{}, nil
+	}
+
+	// Сначала пробуем загрузить из локальной БД
+	items, err := queries.GetRemoteItemsByElementUUIDs(peerIDStr, pinnedUUIDs)
+	if err == nil && len(items) == len(pinnedUUIDs) {
+		return items, nil
+	}
+
+	// Запрашиваем у пира недостающие элементы
+	peerID, err := peer.Decode(peerIDStr)
+	if err != nil {
+		return nil, fmt.Errorf("ошибка декодирования PeerID: %w", err)
+	}
+
+	p2pNet := cc.p2pUI.GetNetwork()
+	if p2pNet == nil {
+		return nil, fmt.Errorf("P2P сеть не инициализирована")
+	}
+
+	itemSyncSvc := p2pNet.ItemSync()
+	if itemSyncSvc == nil {
+		return nil, fmt.Errorf("ItemSyncService не инициализирован")
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
+	defer cancel()
+
+	items, err = itemSyncSvc.RequestBatchByUUIDs(ctx, peerID, pinnedUUIDs)
+	if err != nil {
+		return nil, fmt.Errorf("ошибка запроса pinned элементов: %w", err)
+	}
+
+	return items, nil
+}

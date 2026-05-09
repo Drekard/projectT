@@ -13,6 +13,7 @@ type NavigationHandler interface {
 	NavigateToFolder(folderID int) error
 	SearchByTag(tagName string) error
 	SetSearchQuery(query string) error
+	ResetToSaved()
 }
 
 // CreateNavigation создает навигационные кнопки
@@ -34,12 +35,25 @@ func CreateNavigation(handler NavigationHandler) *fyne.Container {
 		}
 	}
 
+	updateButtonStateSimple := func(clickedButton *widget.Button) {
+		buttons := []*widget.Button{profileButton, savedButton, previewButton, tagsButton, chatsButton, contactsButton, p2pButton}
+		for _, btn := range buttons {
+			btn.Importance = widget.LowImportance
+			btn.Refresh()
+		}
+		clickedButton.Importance = widget.MediumImportance
+		clickedButton.Refresh()
+	}
+
 	profileButton = createCustomNavButton("Profile", theme.AccountIcon(), func() {
 		updateButtonState(profileButton, "profile")
 	})
 
 	savedButton = createCustomNavButton("Saved", theme.HomeIcon(), func() {
-		updateButtonState(savedButton, "saved")
+		updateButtonStateSimple(savedButton)
+		if handler != nil {
+			handler.ResetToSaved()
+		}
 	})
 
 	previewButton = createCustomNavButton("Downloads", theme.DownloadIcon(), func() {

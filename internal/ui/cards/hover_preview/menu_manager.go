@@ -811,7 +811,7 @@ func showMoveFolderSelection(parentPopup *widget.PopUp, item *models.Item) {
 	dialog.ShowCustom("Move to folder", "Cancel", content, window)
 }
 
-// sendItemToChat отправляет элемент в выбранный чат
+// sendItemToChat отправляет элемент или папку в выбранный чат
 func sendItemToChat(chat *models.ChatWithLastMessage, item *models.Item, window fyne.Window) {
 	// Получаем локальный профиль для from_peer_id
 	localProfile, err := queries.GetLocalProfile()
@@ -820,11 +820,10 @@ func sendItemToChat(chat *models.ChatWithLastMessage, item *models.Item, window 
 		return
 	}
 
-	log.Printf("[SendDialog] 📤 Отправка элемента в чат: chat_id=%d, peer_id=%s, username=%q, element_uuid=%s",
-		chat.ID, chat.PeerID[:min(10, len(chat.PeerID))], chat.Username, item.ElementUUID)
+	log.Printf("[SendDialog] 📤 Отправка в чат: chat_id=%d, peer_id=%s, username=%q, element_uuid=%s, type=%s",
+		chat.ID, chat.PeerID[:min(10, len(chat.PeerID))], chat.Username, item.ElementUUID, item.Type)
 
 	// Определяем ID контакта для отправки
-	// Для локального чата используем 0, иначе используем ContactID из чата
 	contactID := 0
 	if chat.PeerID != models.LocalChatPeerID && chat.ContactID != nil {
 		contactID = *chat.ContactID
@@ -833,15 +832,24 @@ func sendItemToChat(chat *models.ChatWithLastMessage, item *models.Item, window 
 	// Передаём peer_id получателя явно
 	recipientPeerID := chat.PeerID
 
-	// Используем ChatService для отправки сообщения
-	// ChatService автоматически отправит элемент через P2P если это не локальный чат
-	_, err = services.GetChatService().SendElementMessage(contactID, recipientPeerID, localProfile.PeerID, item)
-	if err != nil {
-		dialog.ShowError(err, window)
-		return
+	// В зависимости от типа элемента используем разный метод отправки
+	if item.Type == models.ItemTypeFolder {
+		// Для папок используем SendFolderMessage (batch transfer)
+		_, err = services.GetChatService().SendFolderMessage(contactID, recipientPeerID, localProfile.PeerID, item)
+		if err != nil {
+			dialog.ShowError(err, window)
+			return
+		}
+		dialog.ShowInformation("Success", fmt.Sprintf("Folder '%s' sent to chat", item.Title), window)
+	} else {
+		// Для одиночных элементов используем SendElementMessage
+		_, err = services.GetChatService().SendElementMessage(contactID, recipientPeerID, localProfile.PeerID, item)
+		if err != nil {
+			dialog.ShowError(err, window)
+			return
+		}
+		dialog.ShowInformation("Success", "Element sent to chat", window)
 	}
-
-	dialog.ShowInformation("Success", "Element sent to chat", window)
 }
 
 // min возвращает минимальное из двух чисел
