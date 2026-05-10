@@ -1,16 +1,10 @@
-// Package center содержит компоненты центральной панели чата
 package center
 
 import (
-	"encoding/json"
-	"fmt"
 	"image/color"
 
 	"projectT/internal/storage/database/models"
-	"projectT/internal/storage/database/queries"
-	"projectT/internal/ui/cards/concrete"
 	"projectT/internal/ui/cards/hover_preview"
-	"projectT/internal/ui/workspace/chats/dialogs"
 
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/canvas"
@@ -29,7 +23,6 @@ type MessageBubble struct {
 func NewMessageBubble(message *models.ChatMessage, isOutgoing bool, onRightClick func(), onOpenFolder func(folderUUID, peerID string)) *MessageBubble {
 	mb := &MessageBubble{}
 
-	// Проверяем тип сообщения
 	switch message.ContentType {
 	case "element":
 		mb.container = mb.createBubbleForElement(message, isOutgoing, onRightClick)
@@ -44,39 +37,32 @@ func NewMessageBubble(message *models.ChatMessage, isOutgoing bool, onRightClick
 
 // createBubble создаёт пузырёк сообщения
 func (mb *MessageBubble) createBubble(message *models.ChatMessage, isOutgoing bool, onRightClick func()) fyne.CanvasObject {
-	// Текст сообщения
 	msgLabel := widget.NewLabel(message.Content)
 	msgLabel.Wrapping = fyne.TextWrapBreak
 
-	// Выравнивание текста в зависимости от направления
 	if isOutgoing {
 		msgLabel.Alignment = fyne.TextAlignTrailing
 	}
 
-	// Время отправки
 	timeStr := message.SentAt.Format("15:04")
 	timeLabel := widget.NewLabel(timeStr)
 	timeLabel.TextStyle = fyne.TextStyle{Italic: true}
 
-	// Выравнивание времени в зависимости от направления
 	if isOutgoing {
 		timeLabel.Alignment = fyne.TextAlignTrailing
 	}
 
-	// Компонуем сообщение и время
 	content := container.NewVBox(msgLabel, timeLabel)
 
-	// Цвет фона в зависимости от направления
-	bgColor := color.RGBA{R: 144, G: 55, B: 255, A: 200} // Синий для исходящих
+	bgColor := color.RGBA{R: 144, G: 55, B: 255, A: 200}
 	if !isOutgoing {
-		bgColor = color.RGBA{R: 80, G: 80, B: 80, A: 200} // Серый для входящих
+		bgColor = color.RGBA{R: 80, G: 80, B: 80, A: 200}
 	}
 
-	// Расчёт ширины на основе количества символов (максимум 300)
 	const (
 		maxWidth     = 300
 		minWidth     = 100
-		charsPerUnit = 10 // символов на единицу ширины
+		charsPerUnit = 10
 	)
 	calculatedWidth := float32(minWidth) + float32(len(message.Content))/charsPerUnit*float32(maxWidth-minWidth)/10
 	if calculatedWidth > maxWidth {
@@ -89,7 +75,6 @@ func (mb *MessageBubble) createBubble(message *models.ChatMessage, isOutgoing bo
 
 	messageContainer := container.NewStack(bg, container.NewPadded(content))
 
-	// Выравнивание по правому/левому краю
 	var bubbleContent fyne.CanvasObject
 	if isOutgoing {
 		bubbleContent = container.NewHBox(layout.NewSpacer(), messageContainer)
@@ -97,66 +82,6 @@ func (mb *MessageBubble) createBubble(message *models.ChatMessage, isOutgoing bo
 		bubbleContent = container.NewHBox(messageContainer, layout.NewSpacer())
 	}
 
-	// Оборачиваем в кликабельный виджет для обработки правого клика
-	clickableBubble := hover_preview.NewClickableCard(bubbleContent, onRightClick)
-
-	return clickableBubble
-}
-
-// createBubbleForElement создаёт пузырёк для сообщения типа element
-func (mb *MessageBubble) createBubbleForElement(message *models.ChatMessage, isOutgoing bool, onRightClick func()) fyne.CanvasObject {
-	// Извлекаем element_uuid из Content
-	elementUUID := message.Content
-	if elementUUID == "" {
-		// Если UUID пустой, показываем ошибку
-		return mb.createErrorBubble("Неверный формат элемента")
-	}
-
-	// Загружаем элемент из базы данных по element_uuid
-	item, err := queries.GetItemByElementUUID(elementUUID)
-	if err != nil {
-		// Если элемент не найден, показываем сообщение об ошибке
-		return mb.createErrorBubble("Элемент не найден")
-	}
-
-	// Создаём полноценную карточку элемента используя функционал concrete
-	// Для чатов используем режим без кнопок
-	var cardRenderer fyne.CanvasObject
-	switch item.Type {
-	case "folder":
-		cardRenderer = concrete.NewFolderCard(item, true).GetContainer()
-	case "element":
-		// Для элементов используем композитную карточку в режиме без кнопок
-		cardRenderer = concrete.NewCompositeCard(item, true).GetContainer()
-	default:
-		// Для неизвестных типов используем композитную карточку в режиме без кнопок
-		cardRenderer = concrete.NewCompositeCard(item, true).GetContainer()
-	}
-
-	// Компонуем только карточку (без времени)
-	content := container.NewVBox(cardRenderer)
-
-	// Цвет фона в зависимости от направления
-	bgColor := color.RGBA{R: 144, G: 55, B: 255, A: 200} // Синий для исходящих
-	if !isOutgoing {
-		bgColor = color.RGBA{R: 80, G: 80, B: 80, A: 200} // Серый для входящих
-	}
-
-	bg := canvas.NewRectangle(bgColor)
-	bg.CornerRadius = 10
-	bg.SetMinSize(fyne.NewSize(200, 150))
-
-	messageContainer := container.NewStack(bg, container.NewPadded(content))
-
-	// Выравнивание по правому/левому краю
-	var bubbleContent fyne.CanvasObject
-	if isOutgoing {
-		bubbleContent = container.NewHBox(layout.NewSpacer(), messageContainer)
-	} else {
-		bubbleContent = container.NewHBox(messageContainer, layout.NewSpacer())
-	}
-
-	// Оборачиваем в кликабельный виджет для обработки правого клика
 	clickableBubble := hover_preview.NewClickableCard(bubbleContent, onRightClick)
 
 	return clickableBubble
@@ -167,7 +92,6 @@ func (mb *MessageBubble) createErrorBubble(errorMsg string) fyne.CanvasObject {
 	msgLabel := widget.NewLabel(errorMsg)
 	msgLabel.Wrapping = fyne.TextWrapBreak
 
-	// Используем RichText для установки цвета
 	timeLabel := widget.NewRichTextFromMarkdown("*ошибка*")
 	if len(timeLabel.Segments) > 0 {
 		timeLabel.Segments[0].(*widget.TextSegment).Style = widget.RichTextStyleInline
@@ -176,7 +100,7 @@ func (mb *MessageBubble) createErrorBubble(errorMsg string) fyne.CanvasObject {
 
 	content := container.NewVBox(msgLabel, timeLabel)
 
-	bgColor := color.RGBA{R: 200, G: 50, B: 50, A: 200} // Красный для ошибок
+	bgColor := color.RGBA{R: 200, G: 50, B: 50, A: 200}
 	bg := canvas.NewRectangle(bgColor)
 	bg.CornerRadius = 10
 	bg.SetMinSize(fyne.NewSize(200, 50))
@@ -189,393 +113,7 @@ func (mb *MessageBubble) createErrorBubble(errorMsg string) fyne.CanvasObject {
 	return clickableBubble
 }
 
-// createBubbleForFolderBatch создаёт пузырёк для сообщения типа folder_batch
-func (mb *MessageBubble) createBubbleForFolderBatch(message *models.ChatMessage, isOutgoing bool, onRightClick func(), onOpenFolder func(folderUUID, peerID string)) fyne.CanvasObject {
-	// Извлекаем folder_uuid из Content
-	folderUUID := message.Content
-	if folderUUID == "" {
-		return mb.createErrorBubble("Неверный формат папки")
-	}
-
-	// Парсим метаданные
-	var folderTitle string
-	var itemCount int
-	if message.Metadata != "" {
-		var meta map[string]interface{}
-		if err := json.Unmarshal([]byte(message.Metadata), &meta); err == nil {
-			if t, ok := meta["folder_title"].(string); ok {
-				folderTitle = t
-			}
-			if c, ok := meta["item_count"].(float64); ok {
-				itemCount = int(c)
-			}
-		}
-	}
-
-	if folderTitle == "" {
-		// Пытаемся загрузить из БД
-		item, err := queries.GetItemByElementUUID(folderUUID)
-		if err == nil && item != nil {
-			folderTitle = item.Title
-		} else {
-			folderTitle = "Folder"
-		}
-	}
-
-	// Иконка папки
-	folderIcon := widget.NewIcon(theme.FolderIcon())
-
-	// Название папки
-	titleLabel := widget.NewLabel(folderTitle)
-	titleLabel.TextStyle = fyne.TextStyle{Bold: true}
-
-	// Количество элементов
-	countLabel := widget.NewLabel(fmt.Sprintf("%d elements", itemCount))
-	countLabel.TextStyle = fyne.TextStyle{Italic: true}
-
-	// Время отправки
-	timeStr := message.SentAt.Format("15:04")
-	timeLabel := widget.NewLabel(timeStr)
-	timeLabel.TextStyle = fyne.TextStyle{Italic: true}
-
-	// Компонуем карточку папки
-	cardContent := container.NewVBox(
-		container.NewHBox(folderIcon, titleLabel),
-		countLabel,
-		timeLabel,
-	)
-
-	// Цвет фона в зависимости от направления
-	bgColor := color.RGBA{R: 144, G: 55, B: 255, A: 200}
-	if !isOutgoing {
-		bgColor = color.RGBA{R: 80, G: 80, B: 80, A: 200}
-	}
-
-	bg := canvas.NewRectangle(bgColor)
-	bg.CornerRadius = 10
-	bg.SetMinSize(fyne.NewSize(200, 80))
-
-	messageContainer := container.NewStack(bg, container.NewPadded(cardContent))
-
-	// Выравнивание по правому/левому краю
-	var bubbleContent fyne.CanvasObject
-	if isOutgoing {
-		bubbleContent = container.NewHBox(layout.NewSpacer(), messageContainer)
-	} else {
-		bubbleContent = container.NewHBox(messageContainer, layout.NewSpacer())
-	}
-
-	// Для входящих сообщений делаем карточку кликабельной для открытия папки
-	if !isOutgoing && onOpenFolder != nil {
-		// Определяем peerID отправителя
-		peerID := message.FromPeerID
-		clickableBubble := hover_preview.NewClickableCard(bubbleContent, func() {
-			onOpenFolder(folderUUID, peerID)
-		})
-		return clickableBubble
-	}
-
-	// Для исходящих или без callback — только правый клик
-	clickableBubble := hover_preview.NewClickableCard(bubbleContent, onRightClick)
-	return clickableBubble
-}
-
 // Container возвращает контейнер пузырька
 func (mb *MessageBubble) Container() fyne.CanvasObject {
 	return mb.container
-}
-
-// MessageInput поле ввода сообщения
-type MessageInput struct {
-	entry          *widget.Entry
-	entryContainer *fyne.Container
-	button         *widget.Button
-}
-
-// NewMessageInput создаёт новое поле ввода сообщения
-func NewMessageInput(onSend func()) *MessageInput {
-	mi := &MessageInput{}
-
-	// Создаём поле ввода с минимальной шириной
-	entryWidget := widget.NewMultiLineEntry()
-	entryWidget.SetPlaceHolder("Введите сообщение...")
-	entryWidget.Wrapping = fyne.TextWrapBreak
-
-	// Ограничиваем минимальную ширину
-	bg := canvas.NewRectangle(color.Transparent)
-	bg.SetMinSize(fyne.NewSize(600, 0))
-	mi.entryContainer = container.NewStack(bg, entryWidget)
-	mi.entry = entryWidget
-
-	mi.button = widget.NewButtonWithIcon("", theme.MailSendIcon(), func() {
-		if onSend != nil {
-			onSend()
-		}
-	})
-	mi.button.Importance = widget.HighImportance
-
-	// Отправка по Enter
-	mi.entry.OnSubmitted = func(s string) {
-		if onSend != nil {
-			onSend()
-		}
-	}
-
-	return mi
-}
-
-// Container возвращает контейнер поля ввода
-func (mi *MessageInput) Container() *fyne.Container {
-	return mi.entryContainer
-}
-
-// Text возвращает текст сообщения
-func (mi *MessageInput) Text() string {
-	return mi.entry.Text
-}
-
-// SetText устанавливает текст сообщения
-func (mi *MessageInput) SetText(text string) {
-	mi.entry.SetText(text)
-}
-
-// Clear очищает поле ввода
-func (mi *MessageInput) Clear() {
-	mi.entry.SetText("")
-}
-
-// SetEnabled устанавливает доступность поля ввода
-func (mi *MessageInput) SetEnabled(enabled bool) {
-	mi.entry.Disable()
-	if enabled {
-		mi.entry.Enable()
-	}
-	// Кнопка не имеет метода SetEnabled в Fyne v2
-}
-
-// MessagesList список сообщений
-type MessagesList struct {
-	container    *fyne.Container
-	scroll       *container.Scroll
-	menuManager  *dialogs.MessageMenuManager
-	localPeerID  string
-	onRefresh    func()
-	onOpenFolder func(folderUUID, peerID string)
-}
-
-// NewMessagesList создаёт новый список сообщений
-func NewMessagesList(menuManager *dialogs.MessageMenuManager, localPeerID string, onRefresh func(), onOpenFolder func(folderUUID, peerID string)) *MessagesList {
-	ml := &MessagesList{
-		menuManager:  menuManager,
-		localPeerID:  localPeerID,
-		onRefresh:    onRefresh,
-		onOpenFolder: onOpenFolder,
-	}
-	ml.container = container.NewVBox()
-	ml.scroll = container.NewScroll(ml.container)
-	return ml
-}
-
-// Container возвращает контейнер списка
-func (ml *MessagesList) Container() fyne.CanvasObject {
-	return ml.scroll
-}
-
-// AddMessage добавляет сообщение в список
-func (ml *MessagesList) AddMessage(message *models.ChatMessage, isOutgoing bool) {
-	// Создаём пузырёк сообщения с обработчиком правого клика
-	var bubbleContainer fyne.CanvasObject
-	bubble := NewMessageBubble(
-		message,
-		isOutgoing,
-		func() {
-			// Показываем контекстное меню при правом клике
-			if ml.menuManager != nil {
-				ml.menuManager.ShowMessageMenu(message, bubbleContainer, isOutgoing)
-			}
-		},
-		ml.onOpenFolder,
-	)
-	bubbleContainer = bubble.Container()
-	ml.container.Add(bubbleContainer)
-
-	// Обновляем контейнер сообщений чтобы новое сообщение отобразилось
-	ml.container.Refresh()
-	// Обновляем scroll чтобы он пересчитал размер контента
-	if ml.scroll != nil {
-		ml.scroll.Refresh()
-	}
-
-	ml.scrollToBottom()
-}
-
-// AddMessages добавляет несколько сообщений
-func (ml *MessagesList) AddMessages(messages []*models.ChatMessage, localPeerID string) {
-	for _, msg := range messages {
-		// Сообщение исходящее, если FromPeerID совпадает с localPeerID
-		// Если localPeerID пустой или FromPeerID пустой - считаем входящим
-		isOutgoing := localPeerID != "" && msg.FromPeerID != "" && msg.FromPeerID == localPeerID
-		ml.AddMessage(msg, isOutgoing)
-	}
-}
-
-// Clear очищает список сообщений
-func (ml *MessagesList) Clear() {
-	ml.container.Objects = nil
-	ml.container.Refresh()
-}
-
-// scrollToBottom прокручивает к последнему сообщению
-func (ml *MessagesList) scrollToBottom() {
-	if ml.scroll == nil {
-		return
-	}
-
-	// Принудительно обновляем scroll чтобы он пересчитал размер контента
-	ml.scroll.Refresh()
-
-	// Прокручиваем вниз с небольшой задержкой чтобы UI успел обновиться
-	contentHeight := ml.container.MinSize().Height
-	scrollHeight := ml.scroll.Size().Height
-
-	if contentHeight > scrollHeight {
-		ml.scroll.Offset.Y = contentHeight - scrollHeight
-		if ml.scroll.Offset.Y < 0 {
-			ml.scroll.Offset.Y = 0
-		}
-	}
-
-	ml.scroll.Refresh()
-}
-
-// ChatPanel панель чата
-type ChatPanel struct {
-	container    *fyne.Container
-	contact      *models.Contact
-	contactID    int
-	peerID       string
-	messagesList *MessagesList
-	messageInput *MessageInput
-	menuManager  *dialogs.MessageMenuManager
-	localPeerID  string
-	onOpenFolder func(folderUUID, peerID string)
-}
-
-// NewChatPanel создаёт новую панель чата
-func NewChatPanel(contact *models.Contact, onSend func(), onClose func(), localPeerID string, onOpenFolder func(folderUUID, peerID string)) *ChatPanel {
-	cp := &ChatPanel{
-		contact:      contact,
-		contactID:    contact.ID,
-		peerID:       contact.PeerID,
-		localPeerID:  localPeerID,
-		onOpenFolder: onOpenFolder,
-	}
-
-	// Создаём менеджер меню для сообщений
-	cp.menuManager = dialogs.NewMessageMenuManager(
-		func(message *models.ChatMessage) {
-			// Обновляем сообщение в UI
-			cp.LoadMessagesForCurrentContact()
-		},
-		func(messageID int) {
-			// Удаляем сообщение из UI
-			cp.LoadMessagesForCurrentContact()
-		},
-	)
-
-	// Создаём список сообщений с менеджером меню
-	cp.messagesList = NewMessagesList(cp.menuManager, cp.localPeerID, func() {
-		// Функция обновления - перезагружаем сообщения
-		cp.LoadMessagesForCurrentContact()
-	}, cp.onOpenFolder)
-
-	// Создаём поле ввода
-	cp.messageInput = NewMessageInput(onSend)
-
-	// Компонуем поле ввода и кнопку
-	inputRow := container.NewHBox(
-		cp.messageInput.Container(),
-		cp.messageInput.button,
-	)
-
-	// Собираем панель
-	content := container.NewBorder(
-		nil,
-		inputRow,
-		nil,
-		nil,
-		cp.messagesList.Container(),
-	)
-
-	// Фон
-	bg := canvas.NewRectangle(color.RGBA{R: 0, G: 0, B: 0, A: 0})
-
-	cp.container = container.NewStack(bg, content)
-
-	// Автоматически загружаем сообщения для контакта
-	cp.LoadMessagesForCurrentContact()
-
-	return cp
-}
-
-// Container возвращает контейнер панели
-func (cp *ChatPanel) Container() fyne.CanvasObject {
-	return cp.container
-}
-
-// MessagesList возвращает список сообщений
-func (cp *ChatPanel) MessagesList() *MessagesList {
-	return cp.messagesList
-}
-
-// MessageInput возвращает поле ввода
-func (cp *ChatPanel) MessageInput() *MessageInput {
-	return cp.messageInput
-}
-
-// AddMessage добавляет сообщение
-func (cp *ChatPanel) AddMessage(message *models.ChatMessage, isOutgoing bool) {
-	cp.messagesList.AddMessage(message, isOutgoing)
-}
-
-// LoadMessages загружает сообщения
-func (cp *ChatPanel) LoadMessages(messages []*models.ChatMessage, localPeerID string) {
-	cp.messagesList.AddMessages(messages, localPeerID)
-}
-
-// LoadMessagesForCurrentContact загружает сообщения для текущего контакта
-func (cp *ChatPanel) LoadMessagesForCurrentContact() {
-	// Очищаем текущие сообщения
-	cp.Clear()
-
-	// Для контактов с ID=0 (временные) используем загрузку по peerID
-	var messages []*models.ChatMessage
-	var err error
-
-	if cp.contactID == 0 {
-		// Временный контакт - загружаем по peerID через GetChatByPeerID
-		chat, chatErr := queries.GetChatByPeerID(cp.peerID)
-		if chatErr != nil {
-			return
-		}
-		if chat == nil {
-			return
-		}
-		messages, err = queries.GetMessagesForChat(chat.ID, 100, 0)
-	} else {
-		// Обычный контакт - загружаем по contactID
-		messages, err = queries.GetMessagesForContact(cp.contactID, 100, 0)
-	}
-
-	if err != nil {
-		return
-	}
-
-	// Загружаем сообщения в список
-	cp.messagesList.AddMessages(messages, cp.localPeerID)
-}
-
-// Clear очищает панель
-func (cp *ChatPanel) Clear() {
-	cp.messagesList.Clear()
 }

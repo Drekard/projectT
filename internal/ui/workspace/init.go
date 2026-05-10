@@ -1,0 +1,92 @@
+package workspace
+
+import (
+	"projectT/internal/services"
+	"projectT/internal/ui/workspace/chats"
+	"projectT/internal/ui/workspace/contacts"
+	"projectT/internal/ui/workspace/p2p"
+	"projectT/internal/ui/workspace/tags"
+
+	p2p_ui "projectT/internal/services/p2p/ui"
+)
+
+// initializeTagsUI инициализирует UI тегов при первом обращении
+func (ws *Workspace) initializeTagsUI() {
+	if !ws.tagsInitialized {
+		ws.tagsUI = tags.New()
+		ws.tagsInitialized = true
+	}
+}
+
+// initializeChatsUI инициализирует UI чатов при первом обращении
+func (ws *Workspace) initializeChatsUI() {
+	if !ws.chatsInitialized {
+		ws.chatsUI = chats.New()
+		ws.chatsInitialized = true
+
+		ws.chatsUI.SetWindow(ws.window)
+
+		ws.chatsUI.SetOnOpenRemoteProfile(func(peerID string) {
+			ws.OpenRemoteProfile(peerID)
+		})
+
+		ws.chatsUI.SetOnOpenFolderFromChat(func(peerID, folderUUID string) {
+			ws.OpenRemoteFolderFromChat(peerID, folderUUID)
+		})
+
+		if ws.p2pNetwork != nil {
+			p2pUI := p2p_ui.NewUIP2P(ws.p2pNetwork)
+			p2pUI.SetOnProfileUpdated(func(peerID string) {
+				ws.chatsUI.RefreshRightPanel(peerID)
+			})
+			ws.chatsUI.SetP2PService(p2pUI)
+
+			if ws.p2pNetwork.ProfileExchange() != nil {
+				ws.p2pNetwork.ProfileExchange().SetUIP2P(p2pUI)
+				ws.p2pNetwork.ProfileExchange().SetUIProfilePanel(ws.chatsUI)
+			}
+
+			services.SetGlobalP2PNetwork(ws.p2pNetwork)
+		}
+
+		ws.chatsUI.SubscribeToMessages()
+	}
+}
+
+// initializeContactsUI инициализирует UI вкладки "Контакты" при первом обращении
+func (ws *Workspace) initializeContactsUI() {
+	if !ws.contactsInitialized {
+		if ws.chatsUI == nil {
+			ws.initializeChatsUI()
+		}
+		ws.contactsUI = contacts.New(ws.chatsUI)
+		ws.contactsInitialized = true
+
+		ws.contactsUI.SetWindow(ws.window)
+
+		if ws.p2pNetwork != nil {
+			p2pUI := p2p_ui.NewUIP2P(ws.p2pNetwork)
+			ws.contactsUI.SetP2PService(p2pUI)
+		}
+	}
+}
+
+// initializeP2PUI инициализирует UI вкладки "P2P" при первом обращении
+func (ws *Workspace) initializeP2PUI() {
+	if !ws.p2pInitialized {
+		if ws.chatsUI == nil {
+			ws.initializeChatsUI()
+		}
+		ws.p2pUI = p2p.New(ws.chatsUI, func(contentType string) {
+			ws.UpdateContent(contentType)
+		})
+		ws.p2pInitialized = true
+
+		ws.p2pUI.SetWindow(ws.window)
+
+		if ws.p2pNetwork != nil {
+			p2pUI := p2p_ui.NewUIP2P(ws.p2pNetwork)
+			ws.p2pUI.SetP2PService(p2pUI)
+		}
+	}
+}
