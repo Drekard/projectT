@@ -3,6 +3,7 @@ package autodial
 
 import (
 	"context"
+	"fmt"
 	"log"
 	"strings"
 	"sync"
@@ -122,15 +123,26 @@ func (d *Dialer) DialMany(addresses []*PeerAddress) <-chan DialResult {
 
 // dialOne подключается к одному пиру
 func (d *Dialer) dialOne(addr *PeerAddress) DialResult {
+	// Пробуем распарсить как multiaddr
+	ma, maErr := multiaddr.NewMultiaddr(addr.Multiaddr)
+	if maErr == nil {
+		return d.dialWithMultiaddr(addr, ma)
+	}
+
+	// Если не multiaddr — пробуем компактный формат: projectt:PeerID@ip:port;ip2:port2
+	if strings.Contains(addr.Multiaddr, "@") {
+		return d.dialWithCompactAddress(addr)
+	}
+
+	log.Printf("[Autodial] ❌ Ошибка парсинга адреса %s: %v", addr.Multiaddr, maErr)
+	return DialResult{Success: false, Error: maErr}
+}
+
+// dialWithMultiaddr подключается используя готовый multiaddr
+func (d *Dialer) dialWithMultiaddr(addr *PeerAddress, ma multiaddr.Multiaddr) DialResult {
 	peerID, err := peer.Decode(addr.PeerID)
 	if err != nil {
 		log.Printf("[Autodial] ❌ Ошибка декодирования PeerID %s: %v", addr.PeerID, err)
-		return DialResult{Success: false, Error: err}
-	}
-
-	ma, err := multiaddr.NewMultiaddr(addr.Multiaddr)
-	if err != nil {
-		log.Printf("[Autodial] ❌ Ошибка парсинга адреса %s: %v", addr.Multiaddr, err)
 		return DialResult{Success: false, Error: err}
 	}
 
@@ -187,6 +199,132 @@ func (d *Dialer) dialOne(addr *PeerAddress) DialResult {
 	d.mu.Unlock()
 
 	return DialResult{PeerID: peerID, Success: true}
+}
+
+// dialWithCompactAddress подключается используя компактный формат адреса
+func (d *Dialer) dialWithCompactAddress(addr *PeerAddress) DialResult {
+	addrStr := addr.Multiaddr
+
+	// Удаляем префикс projectt:
+	for strings.HasPrefix(addrStr, "projectt://") || strings.HasPrefix(addrStr, "projectt:") {
+		addrStr = strings.TrimPrefix(addrStr, "projectt://")
+		addrStr = strings.TrimPrefix(addrStr, "projectt:")
+	}
+
+	// Парсим PeerID@endpoints
+	parts := strings.SplitN(addrStr, "@", 2)
+	if len(parts) != 2 {
+		return DialResult{Success: false, Error: fmt.Errorf("неверный формат адреса")}
+	}
+
+	targetPeerID, err := peer.Decode(parts[0])
+	if err != nil {
+		log.Printf("[Autodial] ❌ Ошибка декодирования PeerID %s: %v", parts[0], err)
+		return DialResult{Success: false, Error: err}
+	}
+
+	// Парсим endpoints: ip1:port1;ip2:port2;[ipv6]:port
+	endpoints := strings.Split(parts[1], ";")
+	var addrs []multiaddr.Multiaddr
+	for _, ep := range endpoints {
+		ep = strings.TrimSpace(ep)
+		if ep == "" {
+			continue
+		}
+		ma, err := endpointToMultiaddr(ep, parts[0])
+		if err != nil {
+			continue
+		}
+		addrs = append(addrs, ma)
+	}
+
+	if len(addrs) == 0 {
+		return DialResult{PeerID: targetPeerID, Success: false, Error: fmt.Errorf("нет валидных адресов")}
+	}
+
+	// Добавляем все адреса в peerstore
+	for _, a := range addrs {
+		d.host.Peerstore().AddAddr(targetPeerID, a, peerstore.PermanentAddrTTL)
+	}
+
+	log.Printf("[Autodial] Подключение к %s (%s), адресов: %d...", targetPeerID.String()[:8], addr.AddressType, len(addrs))
+
+	ctx, cancel := context.WithTimeout(d.ctx, d.config.ConnectionTimeout)
+	defer cancel()
+
+	startTime := time.Now()
+	err = d.host.Connect(ctx, peer.AddrInfo{
+		ID:    targetPeerID,
+		Addrs: addrs,
+	})
+	elapsed := time.Since(startTime)
+
+	if err != nil {
+		log.Printf("[Autodial] ❌ Подключение к %s (%s) за %v: %v", targetPeerID.String()[:8], addr.AddressType, elapsed, err)
+
+		errStr := err.Error()
+		if strings.Contains(errStr, "timeout") {
+			log.Printf("[Autodial]   💡 Timeout: пир может быть за NAT или офлайн")
+		} else if strings.Contains(errStr, "refused") {
+			log.Printf("[Autodial]   💡 Connection refused: порт закрыт или брандмауэр блокирует")
+		}
+
+		if addr.AddressType == "bootstrap" || addr.AddressType == "contact" {
+			d.addToReconnectQueue(targetPeerID)
+		}
+
+		return DialResult{PeerID: targetPeerID, Success: false, Error: err}
+	}
+
+	log.Printf("[Autodial] ✅ Подключение к %s (%s) успешно за %v", targetPeerID.String()[:8], addr.AddressType, elapsed)
+
+	conns := d.host.Network().ConnsToPeer(targetPeerID)
+	for i, conn := range conns {
+		remoteAddr := conn.RemoteMultiaddr()
+		connType := "DIRECT"
+		if strings.Contains(remoteAddr.String(), "/p2p-circuit") {
+			connType = "RELAYED"
+		}
+		log.Printf("[Autodial]   Соединение #%d: тип=%s, адрес=%s", i+1, connType, remoteAddr.String())
+	}
+
+	d.mu.Lock()
+	d.connectedCount++
+	d.mu.Unlock()
+
+	return DialResult{PeerID: targetPeerID, Success: true}
+}
+
+// endpointToMultiaddr конвертирует "ip:port" или "[ipv6]:port" в multiaddr
+func endpointToMultiaddr(endpoint, peerIDStr string) (multiaddr.Multiaddr, error) {
+	var ip, port string
+
+	if strings.HasPrefix(endpoint, "[") {
+		closeIdx := strings.Index(endpoint, "]")
+		if closeIdx == -1 {
+			return nil, fmt.Errorf("неверный IPv6 формат: %s", endpoint)
+		}
+		ip = endpoint[1:closeIdx]
+		if closeIdx+2 >= len(endpoint) || endpoint[closeIdx+1] != ':' {
+			return nil, fmt.Errorf("нет порта после IPv6: %s", endpoint)
+		}
+		port = endpoint[closeIdx+2:]
+	} else {
+		lastColon := strings.LastIndex(endpoint, ":")
+		if lastColon == -1 {
+			return nil, fmt.Errorf("нет порта: %s", endpoint)
+		}
+		ip = endpoint[:lastColon]
+		port = endpoint[lastColon+1:]
+	}
+
+	protocol := "ip4"
+	if strings.Contains(ip, ":") {
+		protocol = "ip6"
+	}
+
+	maStr := fmt.Sprintf("/%s/%s/tcp/%s/p2p/%s", protocol, ip, port, peerIDStr)
+	return multiaddr.NewMultiaddr(maStr)
 }
 
 // AddToReconnectQueue добавляет пира в очередь переподключения

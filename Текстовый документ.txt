@@ -1,0 +1,352 @@
+C:\Users\egors\Desktop\projectT>go run cmd/main.go
+2026/05/11 18:50:59 [P2P/Host] ========================================
+2026/05/11 18:50:59 [P2P/Host] Хост создан, PeerID: 12D3KooWJyZ283MgjARck96rPQSDWsXS27qtxxP5Xu5cH8Fghyxe
+2026/05/11 18:50:59 [P2P/Host] Слушаемые адреса (ListenAddrs):
+2026/05/11 18:50:59 [P2P/Host]   - /ip4/127.0.0.1/tcp/8079/p2p/12D3KooWJyZ283MgjARck96rPQSDWsXS27qtxxP5Xu5cH8Fghyxe
+2026/05/11 18:50:59 [P2P/Host]   - /ip4/192.168.0.20/tcp/8079/p2p/12D3KooWJyZ283MgjARck96rPQSDWsXS27qtxxP5Xu5cH8Fghyxe
+2026/05/11 18:50:59 [P2P/Host]   - /ip6/::1/tcp/8079/p2p/12D3KooWJyZ283MgjARck96rPQSDWsXS27qtxxP5Xu5cH8Fghyxe
+2026/05/11 18:50:59 [P2P/Host]   ✅ Обнаружен публичный адрес: /ip6/::1/tcp/8079
+2026/05/11 18:50:59 [P2P/Host] NAT Port Map: true
+2026/05/11 18:50:59 [P2P/Host] Relay: true, AutoRelay: true
+2026/05/11 18:50:59 [P2P/Host] Hole Punching: enabled (always)
+2026/05/11 18:50:59 [P2P/Host] RelayService: enabled (always)
+2026/05/11 18:50:59 [P2P/Host] Bootstrap релеи: 0 загружено
+2026/05/11 18:50:59 [P2P/Host] ========================================
+2026/05/11 18:50:59 [Firewall] Проверка порта 8079 в брандмауэре...
+2026/05/11 18:50:59 [Firewall] ⚠️ Не удалось открыть порт: Требуются права администратора. Запустите от имени администратора или выполните команду вручную.
+2026/05/11 18:50:59 [Firewall] 💡 Выполните от имени администратора:
+2026/05/11 18:50:59 [Firewall] 💡   New-NetFirewallRule -DisplayName "ProjectT P2P" -Direction Inbound -LocalPort 8079 -Protocol TCP -Action Allow
+2026/05/11 18:50:59 [connection/manager.go] ========================================
+2026/05/11 18:50:59 [connection/manager.go] ЗАПУСК: Однократное подключение к известным пирам
+2026/05/11 18:50:59 [connection/manager.go] ========================================
+2026/05/11 18:50:59 [connection/manager.go] Нет известных пиров в БД, подключение не выполняется
+2026/05/11 18:50:59 [discovery/service.go] ========================================
+2026/05/11 18:50:59 [discovery/service.go] ЗАПУСК: DiscoveryService — загрузка известных пиров
+2026/05/11 18:50:59 [discovery/service.go] ========================================
+2026/05/11 18:50:59 [discovery/service.go] loadPeerAddresses: БД не инициализирована или нет адресов
+2026/05/11 18:50:59 [discovery/service.go] connectToKnownPeers: нет известных пиров для подключения
+2026/05/11 18:50:59 [P2P] ✅ P2P сеть запущена
+2026/05/11 18:50:59 [P2P] 🚀 Запуск автоподключения к известным пирам...
+2026/05/11 18:50:59 [Autodial] Подключение к 0 пирам (лимит: 50)
+2026/05/11 20:54:32 Fyne error:  Entry cannot wrap single line
+2026/05/11 20:54:32   At: C:/Users/egors/go/pkg/mod/fyne.io/fyne/v2@v2.4.4/widget/entry.go:1261
+2026/05/11 20:54:32 [loadP2PSettings] Loading settings...
+2026/05/11 20:54:32 [loadP2PSettings] Got settings: Port=8079, NAT=true, Relay=true
+2026/05/11 20:54:32 [GetPeerAddress] Всего адресов: 4
+2026/05/11 20:54:32 [GetPeerAddress]   [0] /ip4/90.189.212.147/tcp/31566/p2p/12D3KooWJyZ283MgjARck96rPQSDWsXS27qtxxP5Xu5cH8Fghyxe (type=public, priority=3)
+2026/05/11 20:54:32 [GetPeerAddress]   [1] /ip4/127.0.0.1/tcp/8079/p2p/12D3KooWJyZ283MgjARck96rPQSDWsXS27qtxxP5Xu5cH8Fghyxe (type=localhost, priority=1)
+2026/05/11 20:54:32 [GetPeerAddress]   [2] /ip4/192.168.0.20/tcp/8079/p2p/12D3KooWJyZ283MgjARck96rPQSDWsXS27qtxxP5Xu5cH8Fghyxe (type=LAN, priority=2)
+2026/05/11 20:54:32 [GetPeerAddress]   [3] /ip6/::1/tcp/8079/p2p/12D3KooWJyZ283MgjARck96rPQSDWsXS27qtxxP5Xu5cH8Fghyxe (type=public, priority=3)
+2026/05/11 20:54:32 [GetPeerAddress] ✅ Адресов для экспорта: 4, лучший тип: public
+2026/05/11 20:54:32 [GetPeerAddress] PeerID: 12D3KooWJyZ283MgjARck96rPQSDWsXS27qtxxP5Xu5cH8Fghyxe
+2026/05/11 20:54:32 [GetPeerAddress] Multiaddrs: [/ip4/90.189.212.147/tcp/31566/p2p/12D3KooWJyZ283MgjARck96rPQSDWsXS27qtxxP5Xu5cH8Fghyxe /ip4/127.0.0.1/tcp/8079/p2p/12D3KooWJyZ283MgjARck96rPQSDWsXS27qtxxP5Xu5cH8Fghyxe /ip4/192.168.0.20/tcp/8079/p2p/12D3KooWJyZ283MgjARck96rPQSDWsXS27qtxxP5Xu5cH8Fghyxe /ip6/::1/tcp/8079/p2p/12D3KooWJyZ283MgjARck96rPQSDWsXS27qtxxP5Xu5cH8Fghyxe]
+2026/05/11 20:54:32 [GetPeerAddress] Тип адреса: public
+2026/05/11 20:54:32 [GetPeerAddress] Форматированный адрес: projectt:12D3KooWJyZ283MgjARck96rPQSDWsXS27qtxxP5Xu5cH8Fghyxe@90.189.212.147:31566;127.0.0.1:8079;192.168.0.20:8079;[::1]:8079
+2026/05/11 20:54:32 [loadP2PSettings] Settings loaded
+2026/05/11 20:54:36 [ConnectToPeer] ========================================
+2026/05/11 20:54:36 [ConnectToPeer] Попытка подключения к: projectt:12D3KooWCcKHPX7EcvenMzzgw51qooDdTA4eUUZ59bcWzCEGHBDU@127.0.0.1:4000;192.168.0.13:4000;[::1]:4000
+2026/05/11 20:54:36 [ConnectToPeer] Наш PeerID: 12D3KooWJyZ283MgjARck96rPQSDWsXS27qtxxP5Xu5cH8Fghyxe
+2026/05/11 20:54:36 [ConnectToPeer] Наши адреса:
+2026/05/11 20:54:36 [ConnectToPeer]   - /ip4/90.189.212.147/tcp/31566/p2p/12D3KooWJyZ283MgjARck96rPQSDWsXS27qtxxP5Xu5cH8Fghyxe
+2026/05/11 20:54:36 [ConnectToPeer]   - /ip4/127.0.0.1/tcp/8079/p2p/12D3KooWJyZ283MgjARck96rPQSDWsXS27qtxxP5Xu5cH8Fghyxe
+2026/05/11 20:54:36 [ConnectToPeer]   - /ip4/192.168.0.20/tcp/8079/p2p/12D3KooWJyZ283MgjARck96rPQSDWsXS27qtxxP5Xu5cH8Fghyxe
+2026/05/11 20:54:36 [ConnectToPeer]   - /ip6/::1/tcp/8079/p2p/12D3KooWJyZ283MgjARck96rPQSDWsXS27qtxxP5Xu5cH8Fghyxe
+=== ConnectToPeer ===
+[DEBUG] Исходная строка адреса: "projectt:12D3KooWCcKHPX7EcvenMzzgw51qooDdTA4eUUZ59bcWzCEGHBDU@127.0.0.1:4000;192.168.0.13:4000;[::1]:4000"
+[DEBUG] После удаления префиксов: "12D3KooWCcKHPX7EcvenMzzgw51qooDdTA4eUUZ59bcWzCEGHBDU@127.0.0.1:4000;192.168.0.13:4000;[::1]:4000"
+2026/05/11 20:54:36 [ConnectToPeer] Целевой пир: 12D3KooWCcKHPX7EcvenMzzgw51qooDdTA4eUUZ59bcWzCEGHBDU
+2026/05/11 20:54:36 [ConnectToPeer] Целевые адреса (3 шт.):
+2026/05/11 20:54:36 [ConnectToPeer]   - /ip4/127.0.0.1/tcp/4000/p2p/12D3KooWCcKHPX7EcvenMzzgw51qooDdTA4eUUZ59bcWzCEGHBDU [localhost]
+2026/05/11 20:54:36 [ConnectToPeer]   - /ip4/192.168.0.13/tcp/4000/p2p/12D3KooWCcKHPX7EcvenMzzgw51qooDdTA4eUUZ59bcWzCEGHBDU [LAN]
+2026/05/11 20:54:36 [ConnectToPeer]   - /ip6/::1/tcp/4000/p2p/12D3KooWCcKHPX7EcvenMzzgw51qooDdTA4eUUZ59bcWzCEGHBDU [public]
+2026/05/11 20:54:36 [ConnectToPeer] ⚠️ Целевой пир использует localhost (127.0.0.1)!
+2026/05/11 20:54:36 [ConnectToPeer] ⚠️ Работает ТОЛЬКО если оба пира на одной машине
+2026/05/11 20:54:36 [ConnectToPeer] Начинаем подключение...
+2026/05/11 20:54:36 [ConnectToPeer] Адреса добавлены в peerstore: 3 шт.
+2026/05/11 20:54:36 [ConnectToPeer]   - Подключённые пиры: 0
+2026/05/11 20:54:36 [ConnectToPeer]   - Слушаем на: 4 адресах
+2026/05/11 20:54:36 [P2P/Event] ========================================
+2026/05/11 20:54:36 [P2P/Event] Пир подключён: 12D3KooWCcKHPX7EcvenMzzgw51qooDdTA4eUUZ59bcWzCEGHBDU
+2026/05/11 20:54:36 [P2P/Event] Соединение #1 с 12D3KooW:
+2026/05/11 20:54:36 [P2P/Event]   Тип: DIRECT
+2026/05/11 20:54:36 [P2P/Event]   Транспорт: TCP
+2026/05/11 20:54:36 [P2P/Event]   Удалённый адрес: /ip4/192.168.0.13/tcp/4000
+2026/05/11 20:54:36 [P2P/Event]   Локальный адрес: /ip4/192.168.0.20/tcp/8079
+2026/05/11 20:54:36 [P2P/Event]   Удалённый публичный: false
+2026/05/11 20:54:36 [P2P/Event]   ℹ️ Удалённый пир находится в частной сети (NAT)
+2026/05/11 20:54:36 [P2P/Event] ========================================
+2026/05/11 20:54:36 [profilesync/profile_sync.go] 🔌 Инициирована синхронизация профилей с 12D3KooW
+2026/05/11 20:54:36 [ConnectToPeer] ✅ Подключено к 12D3KooWCcKHPX7EcvenMzzgw51qooDdTA4eUUZ59bcWzCEGHBDU за 137.3858ms
+2026/05/11 20:54:36 [ConnectToPeer] Соединений: 1
+2026/05/11 20:54:36 [ConnectToPeer]   #1: DIRECT, local=/ip4/192.168.0.20/tcp/8079, remote=/ip4/192.168.0.13/tcp/4000
+2026/05/11 20:54:36 [ConnectToPeer] ========================================
+2026/05/11 20:54:36 [profilesync/profile_sync.go] 📡 Стрим создан для синхронизации с 12D3KooW
+2026/05/11 20:54:36 [profilesync/profile_sync.go] Раунд 1: наш root_hash=f24e65e7... (первые 8 символов), наших профилей=2
+2026/05/11 20:54:36 [ConnectToContact] ✅ Адрес пира сохранён в peer_addresses: 12D3KooW
+2026/05/11 20:54:36 [ConnectToContact] Подключение к 12D3KooW успешно, запрашиваем профиль...
+2026/05/11 20:54:36 [profilesync/profile_sync.go] Раунд 1: их root_hash=e3b0c442... (первые 8 символов), их профилей=0
+2026/05/11 20:54:36 [profilesync/profile_sync.go] Раунд 1: списки различаются, переходим к раунду 2
+2026/05/11 20:54:36 [profilesync/profile_sync.go] Раунд 2: ratio=2.00, similarSize=true (размеры близки)
+2026/05/11 20:54:36 [Profile] Запрос профиля у пира 12D3KooW (роль: ИНИЦИАТОР)...
+2026/05/11 20:54:36 [Profile] Пир 12D3KooW отмечен как ожидающий обмена профиля
+2026/05/11 20:54:36 [Profile] Стрим создан для 12D3KooW за 0s
+2026/05/11 20:54:36 [Profile] Отправка запроса профилю 12D3KooW (IsInitiator=true)...
+2026/05/11 20:54:36 [Profile] Запрос отправлен 12D3KooW, ждём ответ...
+2026/05/11 20:54:36 [Profile] Чтение ответа (профиль сервера) от 12D3KooW...
+2026/05/11 20:54:36 [profilesync/profile_sync.go] Раунд 2: обменялись списками — наши=2, их=0
+2026/05/11 20:54:36 [profilesync/profile_sync.go] Раунд 3: нам нужно 0 профилей от них, им нужно 2 профилей от нас
+2026/05/11 20:54:36 [profilesync/profile_sync.go] Получено и сохранено 0 новых профилей
+2026/05/11 20:54:36 [profilesync/profile_sync.go] Отправка 1 профилей пиру
+2026/05/11 20:54:36 [profilesync/profile_sync.go] Синхронизация завершена успешно
+2026/05/11 20:54:36 [profilesync/profile_sync.go] ✅ Синхронизация профилей с 12D3KooW завершена
+2026/05/11 20:54:36 [Profile] ✅ Профиль сервера получен от 12D3KooW за 5.2819ms (username: User_12D3KooW, аватар: 0 байт, encryption_key[0]=209)
+2026/05/11 20:54:36 [Profile] Отправка своего профиля пиру 12D3KooW...
+2026/05/11 20:54:36 [Profile] 📌 PinnedUUIDs для отправки: 3 элементов, UUIDs=[00000024-0000-0000-0000-000000000024 00000041-0000-0000-0000-000000000041 00000045-0000-0000-0000-000000000045]
+2026/05/11 20:54:36 [Profile] Аватар загружен (173494 байт) для отправки
+2026/05/11 20:54:36 [Profile] 📸 AvatarHash="Безымянный3.png" для отправки
+2026/05/11 20:54:36 [Profile] ✅ Свой профиль отправлен 12D3KooW
+2026/05/11 20:54:36 [Profile] ℹ️ Пир 12D3KooW не имеет закреплённых элементов
+2026/05/11 20:54:36 [Profile] savePeerProfile: peer_id=12D3KooW, username=User_12D3KooW, owner_type=remote, avatar_path=""
+2026/05/11 20:54:36 [Profile] ✅ Публичный ключ сохранён в Peerstore для 12D3KooW
+2026/05/11 20:54:36 [Profile] Создаём новый профиль...
+2026/05/11 20:54:36 [Profile] Профиль уже создан в другом потоке (UNIQUE constraint), используем существующий...
+2026/05/11 20:54:36 [Profile] ℹ️ Профиль уже существует: 12D3KooW
+2026/05/11 20:54:36 [Profile] ✅ Профиль сервера 12D3KooW сохранён в БД и Peerstore
+2026/05/11 20:54:36 [Profile] 🔑 Ключ шифрования сохранён для 12D3KooW (len=32, key[0]=209)
+2026/05/11 20:54:36 [Profile] ⚠️ Аватар не загружен (путь: storage/files/avatars/local/ProjctT_true.png, данные: пустые)
+2026/05/11 20:54:36 [Profile] Обмен профиля с 12D3KooW завершён
+2026/05/11 20:54:36 [DB] 🔄 UpdateRemoteProfile: обновление профиля для peer_id=12D3KooWCc, avatar_path=""
+2026/05/11 20:54:36 [DB] ✅ UpdateRemoteProfile: обновлено строк: 1
+2026/05/11 20:54:36 [ConnectToContact] ✅ Профиль пира 12D3KooWCcKHPX7EcvenMzzgw51qooDdTA4eUUZ59bcWzCEGHBDU получен: User_12D3KooW
+2026/05/11 20:54:50 [DB] 🔍 GetRemoteProfile: поиск профиля для peer_id=12D3KooWCc...
+2026/05/11 20:54:50 [DB] ✅ GetRemoteProfile: профиль найден, avatar_path=""
+2026/05/11 20:54:50 [Profile] ✅ Профиль уже есть в БД для 12D3KooW (username: User_12D3KooW), повторный запрос не требуется
+2026/05/11 20:54:57 [Chat] 📤 UIP2P.SendMessage: пиру 12NCHWfmLXd, len=8
+2026/05/11 20:54:57 [Chat] 📝 Сохранение сообщения в БД через ChatService (fromPeerID=12D3KooWJy)
+2026/05/11 20:54:57 [Chat] ✅ Сообщение сохранено в БД
+2026/05/11 20:54:57 [Chat] 📤 P2PNetwork.SendTextMessage: пиру 12NCHWfmLXd, len=8
+2026/05/11 20:54:57 [Chat] 🚀 Отправка сообщения пиру 12NCHWfmLXd: len=8, type=text
+2026/05/11 20:54:57 [Chat] ✅ Пир подключён, создаём сообщение
+2026/05/11 20:54:57 [Chat] 🔐 Данные для подписи: 81 байт
+2026/05/11 20:54:57 [Chat] ✍️ Сообщение подписано: signature=64 байт
+2026/05/11 20:54:57 [Chat] ✍️ Сообщение подписано: signature=64 байт
+2026/05/11 20:54:57 [Chat] 🔐 Локальный ключ шифрования получен (len=32, key[0]=94)
+2026/05/11 20:54:57 [Chat] 🔒 Сообщение зашифровано: nonce=24 байт
+2026/05/11 20:54:57 [Chat] 📦 Сообщение сериализовано: 584 байт
+2026/05/11 20:54:57 [Chat] 🔗 Стрим создан для отправки сообщения
+2026/05/11 20:54:57 [Chat] 📤 Сообщение отправлено в стрим
+2026/05/11 20:54:57 [Chat] ✅ Flush завершён, закрываем Write для сигнала получателю...
+2026/05/11 20:54:57 [Chat] ✅ CloseWrite завершён, ждём подтверждение...
+2026/05/11 20:54:57 [Chat] 📥 Чтение подтверждения...
+2026/05/11 20:54:57 [Chat] ✅ Подтверждение получено
+2026/05/11 20:54:57 [Chat] ✅ P2PNetwork.SendMessage успешно
+2026/05/11 20:54:57 [Chat] ✅ UIP2P.SendMessage успешно
+2026/05/11 20:54:59 [connection/ping.go] Pong от 12D3KooW, latency: 10.2032ms
+2026/05/11 20:55:02 [ItemSync] 🔔 ===============================================
+2026/05/11 20:55:02 [ItemSync] 🔔 ПОЛУЧЕН ЗАПРОС ЭЛЕМЕНТОВ ОТ: 12D3KooWCcKHPX7EcvenMzzgw51qooDdTA4eUUZ59bcWzCEGHBDU
+2026/05/11 20:55:02 [ItemSync] 🔔 ===============================================
+2026/05/11 20:55:02 [ItemSync] 📥 Прочитано 47 байт запроса
+2026/05/11 20:55:02 [ItemSync] 📄 RAW данные запроса (hex): 7b2268617368223a2230303030303032342d303030302d303030302d303030302d303030303030303030303234227d
+2026/05/11 20:55:02 [ItemSync] 📋 === ДЕТАЛИ ЗАПРОСА ===
+2026/05/11 20:55:02 [ItemSync] 📋 Hash/UUID: "00000024-0000-0000-0000-000000000024"
+2026/05/11 20:55:02 [ItemSync] 📋 ItemIDs: []
+2026/05/11 20:55:02 [ItemSync] 📋 All: false
+2026/05/11 20:55:02 [ItemSync] 📋 ОЖИДАНИЕ: Пир хочет получить элемент с UUID=00000024-0000-0000-0000-000000000024
+2026/05/11 20:55:02 [ItemSync] 🔍 Запрос по UUID/Hash: 00000024-0000-0000-0000-000000000024
+2026/05/11 20:55:02 [ItemSync] 🔍 Поиск элемента в БД по element_uuid=00000024-0000-0000-0000-000000000024...
+2026/05/11 20:55:02 [ItemSync] 📋 itemToResponse: ItemID=24, UUID=00000024, Title="Корона", OwnerType=local
+2026/05/11 20:55:02 [ItemSync] 🔍 Извлечение file_hash из ContentMeta для элемента ID=24...
+2026/05/11 20:55:02 [ItemSync] 📋 ContentMeta: [{"type":"image","file_hash":"e42d409ac58a053413622d0bdb1193f79b614e70d8049011de2b2243b0069395","original_name":"C:\\Users\\egors\\OneDrive\\Рабочий стол\\238c9b909408e71145cf70dbebd39b4d.jpg","extension":"jpg"}]
+2026/05/11 20:55:02 [ItemSync] ✅ file_hash извлечён из ContentMeta: e42d409ac58a053413622d0bdb1193f79b614e70d8049011de2b2243b0069395
+2026/05/11 20:55:02 [ItemSync] ✅ Файл прочитан по хешу из общего хранилища: 212100 байт
+2026/05/11 20:55:02 [ItemSync] ✅ Файл добавлен в ответ (MIME=image/jpeg)
+2026/05/11 20:55:02 [ItemSync] ✅ Элемент НАЙДЕН в БД:
+2026/05/11 20:55:02 [ItemSync]    - ItemID: 24
+2026/05/11 20:55:02 [ItemSync]    - ElementUUID: 00000024-0000-0000-0000-000000000024
+2026/05/11 20:55:02 [ItemSync]    - Title: "Корона"
+2026/05/11 20:55:02 [ItemSync]    - Type: element
+2026/05/11 20:55:02 [ItemSync]    - Hash: 00000000000000000000000000000000000000000000000000000006e61043c8
+2026/05/11 20:55:02 [ItemSync]    - Description: ""
+2026/05/11 20:55:02 [ItemSync]    - ContentMeta: "[{\"type\":\"image\",\"file_hash\":\"e42d409ac58a053413622d0bdb1193f79b614e70d8049011de2b2243b0069395\",\"original_name\":\"C:\\\\Users\\\\egors\\\\OneDrive\\\\Рабочий стол\\\\238c9b909408e71145cf70dbebd39b4d.jpg\",\"extension\":\"jpg\"}]"
+2026/05/11 20:55:02 [ItemSync]    - FileData: true
+2026/05/11 20:55:02 [ItemSync]    - File Size: 212100 байт
+2026/05/11 20:55:02 [ItemSync]    - File MIME: image/jpeg
+2026/05/11 20:55:02 [ItemSync] 📤 Отправка 1 ответов...
+2026/05/11 20:55:02 [ItemSync] 📤 === ОТПРАВКА ОТВЕТА ===
+2026/05/11 20:55:02 [ItemSync] 📤 Найдено элементов для отправки: 1
+2026/05/11 20:55:02 [ItemSync] 📤 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+2026/05/11 20:55:02 [ItemSync] 📤 ОТПРАВКА элемента #1/1:
+2026/05/11 20:55:02 [ItemSync] 📤    - ItemID: 24
+2026/05/11 20:55:02 [ItemSync] 📤    - ElementUUID: 00000024-0000-0000-0000-000000000024
+2026/05/11 20:55:02 [ItemSync] 📤    - Title: "Корона"
+2026/05/11 20:55:02 [ItemSync] 📤    - Type: element
+2026/05/11 20:55:02 [ItemSync] 📤    - Hash: 00000000000000000000000000000000000000000000000000000006e61043c8
+2026/05/11 20:55:02 [ItemSync] 📤    - Description: ""
+2026/05/11 20:55:02 [ItemSync] 📤    - ContentMeta: [{"type":"image","file_hash":"e42d409ac58a053413622d0bdb1193f79b614e70d8049011de2b2243b0069395","original_name":"C:\\Users\\egors\\OneDrive\\Рабочий стол\\238c9b909408e71145cf70dbebd39b4d.jpg","extension":"jpg"}]
+2026/05/11 20:55:02 [ItemSync] 📤    - Signature: 64 байт
+2026/05/11 20:55:02 [ItemSync] 📤    - ФАЙЛ ВКЛЮЧЁН:
+2026/05/11 20:55:02 [ItemSync] 📤       * Size: 212100 байт
+2026/05/11 20:55:02 [ItemSync] 📤       * MimeType: image/jpeg
+2026/05/11 20:55:02 [ItemSync] 📤       * Hash: e42d409ac58a053413622d0bdb1193f79b614e70d8049011de2b2243b0069395
+2026/05/11 20:55:02 [ItemSync] ✅ Элемент #1 отправлен в стрим
+2026/05/11 20:55:02 [ItemSync] ✅ ===============================================
+2026/05/11 20:55:02 [ItemSync] ✅ ОТПРАВЛЕНО 1 элементов пиру 12D3KooWCcKHPX7EcvenMzzgw51qooDdTA4eUUZ59bcWzCEGHBDU
+2026/05/11 20:55:02 [ItemSync] ✅ ===============================================
+2026/05/11 20:55:02 [ItemSync] 🔔 ===============================================
+2026/05/11 20:55:02 [ItemSync] 🔔 ПОЛУЧЕН ЗАПРОС ЭЛЕМЕНТОВ ОТ: 12D3KooWCcKHPX7EcvenMzzgw51qooDdTA4eUUZ59bcWzCEGHBDU
+2026/05/11 20:55:02 [ItemSync] 🔔 ===============================================
+2026/05/11 20:55:02 [ItemSync] 📥 Прочитано 47 байт запроса
+2026/05/11 20:55:02 [ItemSync] 📄 RAW данные запроса (hex): 7b2268617368223a2230303030303034312d303030302d303030302d303030302d303030303030303030303431227d
+2026/05/11 20:55:02 [ItemSync] 📋 === ДЕТАЛИ ЗАПРОСА ===
+2026/05/11 20:55:02 [ItemSync] 📋 Hash/UUID: "00000041-0000-0000-0000-000000000041"
+2026/05/11 20:55:02 [ItemSync] 📋 ItemIDs: []
+2026/05/11 20:55:02 [ItemSync] 📋 All: false
+2026/05/11 20:55:02 [ItemSync] 📋 ОЖИДАНИЕ: Пир хочет получить элемент с UUID=00000041-0000-0000-0000-000000000041
+2026/05/11 20:55:02 [ItemSync] 🔍 Запрос по UUID/Hash: 00000041-0000-0000-0000-000000000041
+2026/05/11 20:55:02 [ItemSync] 🔍 Поиск элемента в БД по element_uuid=00000041-0000-0000-0000-000000000041...
+2026/05/11 20:55:02 [ItemSync] 📋 itemToResponse: ItemID=41, UUID=00000041, Title="", OwnerType=local
+2026/05/11 20:55:02 [ItemSync] 🔍 Извлечение file_hash из ContentMeta для элемента ID=41...
+2026/05/11 20:55:02 [ItemSync] 📋 ContentMeta: [{"type":"image","file_hash":"1910190c6703e0c4e76e97de79180984bbe5fbe51772e80b0316ed2518d761b3","original_name":"C:\\Users\\egors\\OneDrive\\Рабочий стол\\ad64ea2cc0e7000f0d2d40ad0ad0eef5.jpg","extension":"jpg"}]
+2026/05/11 20:55:02 [ItemSync] ✅ file_hash извлечён из ContentMeta: 1910190c6703e0c4e76e97de79180984bbe5fbe51772e80b0316ed2518d761b3
+2026/05/11 20:55:02 [ItemSync] ✅ Файл прочитан по хешу из общего хранилища: 153456 байт
+2026/05/11 20:55:02 [ItemSync] ✅ Файл добавлен в ответ (MIME=image/jpeg)
+2026/05/11 20:55:02 [ItemSync] ✅ Элемент НАЙДЕН в БД:
+2026/05/11 20:55:02 [ItemSync]    - ItemID: 41
+2026/05/11 20:55:02 [ItemSync]    - ElementUUID: 00000041-0000-0000-0000-000000000041
+2026/05/11 20:55:02 [ItemSync]    - Title: ""
+2026/05/11 20:55:02 [ItemSync]    - Type: element
+2026/05/11 20:55:02 [ItemSync]    - Hash: 0000000000000000000000000000000000000000000000000000000bc90673cb
+2026/05/11 20:55:02 [ItemSync]    - Description: ""
+2026/05/11 20:55:02 [ItemSync]    - ContentMeta: "[{\"type\":\"image\",\"file_hash\":\"1910190c6703e0c4e76e97de79180984bbe5fbe51772e80b0316ed2518d761b3\",\"original_name\":\"C:\\\\Users\\\\egors\\\\OneDrive\\\\Рабочий стол\\\\ad64ea2cc0e7000f0d2d40ad0ad0eef5.jpg\",\"extension\":\"jpg\"}]"
+2026/05/11 20:55:02 [ItemSync]    - FileData: true
+2026/05/11 20:55:02 [ItemSync]    - File Size: 153456 байт
+2026/05/11 20:55:02 [ItemSync]    - File MIME: image/jpeg
+2026/05/11 20:55:02 [ItemSync] 📤 Отправка 1 ответов...
+2026/05/11 20:55:02 [ItemSync] 📤 === ОТПРАВКА ОТВЕТА ===
+2026/05/11 20:55:02 [ItemSync] 📤 Найдено элементов для отправки: 1
+2026/05/11 20:55:02 [ItemSync] 📤 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+2026/05/11 20:55:02 [ItemSync] 📤 ОТПРАВКА элемента #1/1:
+2026/05/11 20:55:02 [ItemSync] 📤    - ItemID: 41
+2026/05/11 20:55:02 [ItemSync] 📤    - ElementUUID: 00000041-0000-0000-0000-000000000041
+2026/05/11 20:55:02 [ItemSync] 📤    - Title: ""
+2026/05/11 20:55:02 [ItemSync] 📤    - Type: element
+2026/05/11 20:55:02 [ItemSync] 📤    - Hash: 0000000000000000000000000000000000000000000000000000000bc90673cb
+2026/05/11 20:55:02 [ItemSync] 📤    - Description: ""
+2026/05/11 20:55:02 [ItemSync] 📤    - ContentMeta: [{"type":"image","file_hash":"1910190c6703e0c4e76e97de79180984bbe5fbe51772e80b0316ed2518d761b3","original_name":"C:\\Users\\egors\\OneDrive\\Рабочий стол\\ad64ea2cc0e7000f0d2d40ad0ad0eef5.jpg","extension":"jpg"}]
+2026/05/11 20:55:02 [ItemSync] 📤    - Signature: 64 байт
+2026/05/11 20:55:02 [ItemSync] 📤    - ФАЙЛ ВКЛЮЧЁН:
+2026/05/11 20:55:02 [ItemSync] 📤       * Size: 153456 байт
+2026/05/11 20:55:02 [ItemSync] 📤       * MimeType: image/jpeg
+2026/05/11 20:55:02 [ItemSync] 📤       * Hash: 1910190c6703e0c4e76e97de79180984bbe5fbe51772e80b0316ed2518d761b3
+2026/05/11 20:55:02 [ItemSync] ✅ Элемент #1 отправлен в стрим
+2026/05/11 20:55:02 [ItemSync] ✅ ===============================================
+2026/05/11 20:55:02 [ItemSync] ✅ ОТПРАВЛЕНО 1 элементов пиру 12D3KooWCcKHPX7EcvenMzzgw51qooDdTA4eUUZ59bcWzCEGHBDU
+2026/05/11 20:55:02 [ItemSync] ✅ ===============================================
+2026/05/11 20:55:02 [ItemSync] 🔔 ===============================================
+2026/05/11 20:55:02 [ItemSync] 🔔 ПОЛУЧЕН ЗАПРОС ЭЛЕМЕНТОВ ОТ: 12D3KooWCcKHPX7EcvenMzzgw51qooDdTA4eUUZ59bcWzCEGHBDU
+2026/05/11 20:55:02 [ItemSync] 🔔 ===============================================
+2026/05/11 20:55:02 [ItemSync] 📥 Прочитано 47 байт запроса
+2026/05/11 20:55:02 [ItemSync] 📄 RAW данные запроса (hex): 7b2268617368223a2230303030303034352d303030302d303030302d303030302d303030303030303030303435227d
+2026/05/11 20:55:02 [ItemSync] 📋 === ДЕТАЛИ ЗАПРОСА ===
+2026/05/11 20:55:02 [ItemSync] 📋 Hash/UUID: "00000045-0000-0000-0000-000000000045"
+2026/05/11 20:55:02 [ItemSync] 📋 ItemIDs: []
+2026/05/11 20:55:02 [ItemSync] 📋 All: false
+2026/05/11 20:55:02 [ItemSync] 📋 ОЖИДАНИЕ: Пир хочет получить элемент с UUID=00000045-0000-0000-0000-000000000045
+2026/05/11 20:55:02 [ItemSync] 🔍 Запрос по UUID/Hash: 00000045-0000-0000-0000-000000000045
+2026/05/11 20:55:02 [ItemSync] 🔍 Поиск элемента в БД по element_uuid=00000045-0000-0000-0000-000000000045...
+2026/05/11 20:55:02 [ItemSync] 📋 itemToResponse: ItemID=45, UUID=00000045, Title="Енот альбинос Лола", OwnerType=local
+2026/05/11 20:55:02 [ItemSync] 🔍 Извлечение file_hash из ContentMeta для элемента ID=45...
+2026/05/11 20:55:02 [ItemSync] 📋 ContentMeta: [{"type":"link","content":"https://www.youtube.com/shorts/gPQAlBZkmHo"}]
+2026/05/11 20:55:02 [ItemSync] ℹ️ file_hash не найден в ContentMeta (элемент без файла)
+2026/05/11 20:55:02 [ItemSync] ⚠️ Файл не будет включён в ответ (FileData=nil)
+2026/05/11 20:55:02 [ItemSync] ✅ Элемент НАЙДЕН в БД:
+2026/05/11 20:55:02 [ItemSync]    - ItemID: 45
+2026/05/11 20:55:02 [ItemSync]    - ElementUUID: 00000045-0000-0000-0000-000000000045
+2026/05/11 20:55:02 [ItemSync]    - Title: "Енот альбинос Лола"
+2026/05/11 20:55:02 [ItemSync]    - Type: element
+2026/05/11 20:55:02 [ItemSync]    - Hash: 51ca031c023790fb3f466973a7ccf3b45c926e424d499d077605c900e506195b
+2026/05/11 20:55:02 [ItemSync]    - Description: ""
+2026/05/11 20:55:02 [ItemSync]    - ContentMeta: "[{\"type\":\"link\",\"content\":\"https://www.youtube.com/shorts/gPQAlBZkmHo\"}]"
+2026/05/11 20:55:02 [ItemSync]    - FileData: false
+2026/05/11 20:55:02 [ItemSync] 📤 Отправка 1 ответов...
+2026/05/11 20:55:02 [ItemSync] 📤 === ОТПРАВКА ОТВЕТА ===
+2026/05/11 20:55:02 [ItemSync] 📤 Найдено элементов для отправки: 1
+2026/05/11 20:55:02 [ItemSync] 📤 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+2026/05/11 20:55:02 [ItemSync] 📤 ОТПРАВКА элемента #1/1:
+2026/05/11 20:55:02 [ItemSync] 📤    - ItemID: 45
+2026/05/11 20:55:02 [ItemSync] 📤    - ElementUUID: 00000045-0000-0000-0000-000000000045
+2026/05/11 20:55:02 [ItemSync] 📤    - Title: "Енот альбинос Лола"
+2026/05/11 20:55:02 [ItemSync] 📤    - Type: element
+2026/05/11 20:55:02 [ItemSync] 📤    - Hash: 51ca031c023790fb3f466973a7ccf3b45c926e424d499d077605c900e506195b
+2026/05/11 20:55:02 [ItemSync] 📤    - Description: ""
+2026/05/11 20:55:02 [ItemSync] 📤    - ContentMeta: [{"type":"link","content":"https://www.youtube.com/shorts/gPQAlBZkmHo"}]
+2026/05/11 20:55:02 [ItemSync] 📤    - Signature: 64 байт
+2026/05/11 20:55:02 [ItemSync] 📤    - ФАЙЛ: не прикреплён
+2026/05/11 20:55:02 [ItemSync] ✅ Элемент #1 отправлен в стрим
+2026/05/11 20:55:02 [ItemSync] ✅ ===============================================
+2026/05/11 20:55:02 [ItemSync] ✅ ОТПРАВЛЕНО 1 элементов пиру 12D3KooWCcKHPX7EcvenMzzgw51qooDdTA4eUUZ59bcWzCEGHBDU
+2026/05/11 20:55:02 [ItemSync] ✅ ===============================================
+2026/05/11 20:55:59 [connection/ping.go] Pong от 12D3KooW, latency: 10.8506ms
+2026/05/11 20:56:51 [SendDialog] 📤 Отправка в чат: chat_id=4, peer_id=12D3KooWCc, username="User_12D3KooW", element_uuid=00000044-0000-0000-0000-000000000044, type=element
+2026/05/11 20:56:51 [Chat] 🚀 Отправка сообщения пиру 12NCHWfmLXd: len=36, type=element
+2026/05/11 20:56:52 [Chat] ✅ Пир подключён, создаём сообщение
+2026/05/11 20:56:52 [Chat] 📎 Метка данных добавлена: 634 байт
+2026/05/11 20:56:52 [Chat] 🔐 Данные для подписи: 109 байт
+2026/05/11 20:56:52 [Chat] ✍️ Сообщение подписано: signature=64 байт
+2026/05/11 20:56:52 [Chat] ✍️ Сообщение подписано: signature=64 байт
+2026/05/11 20:56:52 [Chat] 🔐 Локальный ключ шифрования получен (len=32, key[0]=94)
+2026/05/11 20:56:52 [Chat] 🔒 Сообщение зашифровано: nonce=24 байт
+2026/05/11 20:56:52 [Chat] 📦 Сообщение сериализовано: 1631 байт
+2026/05/11 20:56:52 [Chat] 🔗 Стрим создан для отправки сообщения
+2026/05/11 20:56:52 [Chat] 📤 Сообщение отправлено в стрим
+2026/05/11 20:56:52 [Chat] ✅ Flush завершён, закрываем Write для сигнала получателю...
+2026/05/11 20:56:52 [Chat] ✅ CloseWrite завершён, ждём подтверждение...
+2026/05/11 20:56:52 [Chat] 📥 Чтение подтверждения...
+2026/05/11 20:56:52 [Chat] ✅ Подтверждение получено
+2026/05/11 20:56:52 [ItemSync] 🔔 ===============================================
+2026/05/11 20:56:52 [ItemSync] 🔔 ПОЛУЧЕН ЗАПРОС ЭЛЕМЕНТОВ ОТ: 12D3KooWCcKHPX7EcvenMzzgw51qooDdTA4eUUZ59bcWzCEGHBDU
+2026/05/11 20:56:52 [ItemSync] 🔔 ===============================================
+2026/05/11 20:56:52 [ItemSync] 📥 Прочитано 47 байт запроса
+2026/05/11 20:56:52 [ItemSync] 📄 RAW данные запроса (hex): 7b2268617368223a2230303030303034342d303030302d303030302d303030302d303030303030303030303434227d
+2026/05/11 20:56:52 [ItemSync] 📋 === ДЕТАЛИ ЗАПРОСА ===
+2026/05/11 20:56:52 [ItemSync] 📋 Hash/UUID: "00000044-0000-0000-0000-000000000044"
+2026/05/11 20:56:52 [ItemSync] 📋 ItemIDs: []
+2026/05/11 20:56:52 [ItemSync] 📋 All: false
+2026/05/11 20:56:52 [ItemSync] 📋 ОЖИДАНИЕ: Пир хочет получить элемент с UUID=00000044-0000-0000-0000-000000000044
+2026/05/11 20:56:52 [ItemSync] 🔍 Запрос по UUID/Hash: 00000044-0000-0000-0000-000000000044
+2026/05/11 20:56:52 [ItemSync] 🔍 Поиск элемента в БД по element_uuid=00000044-0000-0000-0000-000000000044...
+2026/05/11 20:56:52 [ItemSync] 📋 itemToResponse: ItemID=44, UUID=00000044, Title="", OwnerType=local
+2026/05/11 20:56:52 [ItemSync] 🔍 Извлечение file_hash из ContentMeta для элемента ID=44...
+2026/05/11 20:56:52 [ItemSync] 📋 ContentMeta: [{"type":"link","content":"https://www.youtube.com/shorts/EaDQXhfuGDE"},{"type":"link","content":"https://www.youtube.com/shorts/IRXwujSQZEs"},{"type":"link","content":"https://www.youtube.com/shorts/2pWdd7ezj40"},{"type":"link","content":"https://www.youtube.com/shorts/dL62wZFO7u8"},{"type":"link","content":"https://www.youtube.com/shorts/Lwpdtu4bCzs"}]
+2026/05/11 20:56:52 [ItemSync] ℹ️ file_hash не найден в ContentMeta (элемент без файла)
+2026/05/11 20:56:52 [ItemSync] ⚠️ Файл не будет включён в ответ (FileData=nil)
+2026/05/11 20:56:52 [ItemSync] ✅ Элемент НАЙДЕН в БД:
+2026/05/11 20:56:52 [ItemSync]    - ItemID: 44
+2026/05/11 20:56:52 [ItemSync]    - ElementUUID: 00000044-0000-0000-0000-000000000044
+2026/05/11 20:56:52 [ItemSync]    - Title: ""
+2026/05/11 20:56:52 [ItemSync]    - Type: element
+2026/05/11 20:56:52 [ItemSync]    - Hash: 41fe7307d101772696c11159e38d702201a79259f7ff107fc8b3bfd2aa013758
+2026/05/11 20:56:52 [ItemSync]    - Description: "Потом мб пригодится"
+2026/05/11 20:56:52 [ItemSync]    - ContentMeta: "[{\"type\":\"link\",\"content\":\"https://www.youtube.com/shorts/EaDQXhfuGDE\"},{\"type\":\"link\",\"content\":\"https://www.youtube.com/shorts/IRXwujSQZEs\"},{\"type\":\"link\",\"content\":\"https://www.youtube.com/shorts/2pWdd7ezj40\"},{\"type\":\"link\",\"content\":\"https://www.youtube.com/shorts/dL62wZFO7u8\"},{\"type\":\"link\",\"content\":\"https://www.youtube.com/shorts/Lwpdtu4bCzs\"}]"
+2026/05/11 20:56:52 [ItemSync]    - FileData: false
+2026/05/11 20:56:52 [ItemSync] 📤 Отправка 1 ответов...
+2026/05/11 20:56:52 [ItemSync] 📤 === ОТПРАВКА ОТВЕТА ===
+2026/05/11 20:56:52 [ItemSync] 📤 Найдено элементов для отправки: 1
+2026/05/11 20:56:52 [ItemSync] 📤 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+2026/05/11 20:56:52 [ItemSync] 📤 ОТПРАВКА элемента #1/1:
+2026/05/11 20:56:52 [ItemSync] 📤    - ItemID: 44
+2026/05/11 20:56:52 [ItemSync] 📤    - ElementUUID: 00000044-0000-0000-0000-000000000044
+2026/05/11 20:56:52 [ItemSync] 📤    - Title: ""
+2026/05/11 20:56:52 [ItemSync] 📤    - Type: element
+2026/05/11 20:56:52 [ItemSync] 📤    - Hash: 41fe7307d101772696c11159e38d702201a79259f7ff107fc8b3bfd2aa013758
+2026/05/11 20:56:52 [ItemSync] 📤    - Description: "Потом мб пригодится"
+2026/05/11 20:56:52 [ItemSync] 📤    - ContentMeta: [{"type":"link","content":"https://www.youtube.com/shorts/EaDQXhfuGDE"},{"type":"link","content":"https://www.youtube.com/shorts/IRXwujSQZEs"},{"type":"link","content":"https://www.youtube.com/shorts/2pWdd7ezj40"},{"type":"link","content":"https://www.youtube.com/shorts/dL62wZFO7u8"},{"type":"link","content":"https://www.youtube.com/shorts/Lwpdtu4bCzs"}]
+2026/05/11 20:56:52 [ItemSync] 📤    - Signature: 64 байт
+2026/05/11 20:56:52 [ItemSync] 📤    - ФАЙЛ: не прикреплён
+2026/05/11 20:56:52 [ItemSync] ✅ Элемент #1 отправлен в стрим
+2026/05/11 20:56:52 [ItemSync] ✅ ===============================================
+2026/05/11 20:56:52 [ItemSync] ✅ ОТПРАВЛЕНО 1 элементов пиру 12D3KooWCcKHPX7EcvenMzzgw51qooDdTA4eUUZ59bcWzCEGHBDU
+2026/05/11 20:56:52 [ItemSync] ✅ ===============================================
+2026/05/11 20:56:59 [connection/ping.go] Pong от 12D3KooW, latency: 2.4965ms
+2026/05/11 20:57:03 [SendDialog] 📤 Отправка в чат: chat_id=4, peer_id=12D3KooWCc, username="User_12D3KooW", element_uuid=00000003-0000-0000-0000-000000000003, type=folder
+2026/05/11 20:57:45 [P2P/Event] Пир отключён: 12D3KooWCcKHPX7EcvenMzzgw51qooDdTA4eUUZ59bcWzCEGHBDU

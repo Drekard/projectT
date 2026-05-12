@@ -12,7 +12,6 @@ import (
 	"io"
 	"log"
 	"os"
-	"strings"
 	"sync"
 	"time"
 
@@ -160,16 +159,12 @@ func (cs *Service) SendMessage(ctx context.Context, peerID peer.ID, content, con
 		return errors.New("хост не инициализирован")
 	}
 
-	log.Printf("[Chat] 🚀 Отправка сообщения пиру %s: len=%d, type=%s", peerID[:8], len(content), contentType)
-
 	// Проверяем подключение
 	if host.Network().Connectedness(peerID) != network.Connected {
-		log.Printf("[Chat] ⚠️ Пир оффлайн, сообщение добавлено в очередь")
 		// Пир оффлайн - добавляем в очередь
 		cs.queueMessage(peerID, content, contentType, metadata)
 		return errors.New("пир оффлайн, сообщение добавлено в очередь")
 	}
-	log.Printf("[Chat] ✅ Пир подключён, создаём сообщение")
 
 	// Создаём сообщение
 	msg := &Message{
@@ -183,17 +178,14 @@ func (cs *Service) SendMessage(ctx context.Context, peerID peer.ID, content, con
 	// Добавляем метаданные если есть
 	if metadata != "" {
 		msg.Metadata = metadata
-		log.Printf("[Chat] 📎 Метка данных добавлена: %d байт", len(metadata))
 	}
 
 	// Подписываем сообщение
 	signature, err := cs.signMessage(msg)
 	if err != nil {
-		log.Printf("[Chat] ❌ Ошибка подписи сообщения: %v", err)
 		return fmt.Errorf("ошибка подписи сообщения: %w", err)
 	}
 	msg.Signature = signature
-	log.Printf("[Chat] ✍️ Сообщение подписано: signature=%d байт", len(signature))
 
 	// Шифруем сообщение если включено шифрование
 	// Используем локальный ключ отправителя для шифрования
@@ -209,80 +201,55 @@ func (cs *Service) SendMessage(ctx context.Context, peerID peer.ID, content, con
 	if encryptionKey != nil {
 		encrypted, nonce, err := cs.encryptMessageWithKey(msg, encryptionKey)
 		if err != nil {
-			log.Printf("[Chat] ⚠️ Предупреждение: не удалось зашифровать сообщение: %v", err)
 		} else {
 			msg = encrypted
 			msg.Nonce = nonce
 			msg.Encrypted = true
-			log.Printf("[Chat] 🔒 Сообщение зашифровано: nonce=%d байт", len(nonce))
 		}
-	} else {
-		log.Printf("[Chat] ⚠️ Локальный ключ шифрования НЕ получен")
 	}
 
 	// Сериализуем сообщение в JSON
 	data, err := json.Marshal(msg)
 	if err != nil {
-		log.Printf("[Chat] ❌ Ошибка сериализации сообщения: %v", err)
 		return fmt.Errorf("ошибка сериализации сообщения: %w", err)
 	}
-	log.Printf("[Chat] 📦 Сообщение сериализовано: %d байт", len(data))
 
 	// Создаём стрим
 	stream, err := host.NewStream(ctx, peerID, ProtocolID)
 	if err != nil {
-		log.Printf("[Chat] ❌ Ошибка создания стрима: %v", err)
 		// Не удалось создать стрим - добавляем в очередь
 		cs.queueMessage(peerID, content, contentType, metadata)
 		return fmt.Errorf("ошибка создания стрима: %w", err)
 	}
-	log.Printf("[Chat] 🔗 Стрим создан для отправки сообщения")
 	defer func() { _ = stream.Close() }()
 
 	// Отправляем сообщение
 	writer := bufio.NewWriter(stream)
 	if _, err := writer.Write(data); err != nil {
-		log.Printf("[Chat] ❌ Ошибка отправки сообщения: %v", err)
 		// Ошибка отправки - добавляем в очередь
 		cs.queueMessage(peerID, content, contentType, metadata)
 		return fmt.Errorf("ошибка отправки сообщения: %w", err)
 	}
-	log.Printf("[Chat] 📤 Сообщение отправлено в стрим")
 
 	if err := writer.Flush(); err != nil {
-		log.Printf("[Chat] ❌ Ошибка flush: %v", err)
 		cs.queueMessage(peerID, content, contentType, metadata)
 		return fmt.Errorf("ошибка flush: %w", err)
 	}
-	log.Printf("[Chat] ✅ Flush завершён, закрываем Write для сигнала получателю...")
 
 	// Закрываем Write-половину стрима, чтобы получатель понял, что данные отправлены полностью
-	if err := stream.CloseWrite(); err != nil {
-		log.Printf("[Chat] ⚠️ Ошибка CloseWrite: %v", err)
-	} else {
-		log.Printf("[Chat] ✅ CloseWrite завершён, ждём подтверждение...")
-	}
+	_ = stream.CloseWrite()
 
 	// Читаем подтверждение (увеличенный таймаут для первого сообщения)
-	if err := stream.SetReadDeadline(time.Now().Add(30 * time.Second)); err != nil {
-		log.Printf("[Chat] ⚠️ Предупреждение: не удалось установить таймаут: %v", err)
-	}
+	_ = stream.SetReadDeadline(time.Now().Add(30 * time.Second))
 
 	ackBuf := make([]byte, 1)
-	log.Printf("[Chat] 📥 Чтение подтверждения...")
 	n, err := stream.Read(ackBuf)
 	if err == nil && n == 1 && ackBuf[0] == 0x01 {
-		log.Printf("[Chat] ✅ Подтверждение получено")
 		// Сообщение уже сохранено в chat_service.go до отправки
 		return nil
-	} else if err != nil {
-		log.Printf("[Chat] ❌ Ошибка чтения подтверждения: %v", err)
-	} else {
-		log.Printf("[Chat] ❌ Подтверждение не получено (n=%d, byte=%d)", n, ackBuf[0])
 	}
 
 	// Подтверждение не получено - добавляем в очередь
-	log.Printf("[Chat] ⚠️ Подтверждение не получено, сообщение в очереди")
 	cs.queueMessage(peerID, content, contentType, metadata)
 	return errors.New("подтверждение не получено, сообщение в очереди")
 }
@@ -297,95 +264,56 @@ func (cs *Service) HandleChatStream(stream network.Stream) {
 	defer func() { _ = stream.Close() }()
 
 	remotePeer := stream.Conn().RemotePeer()
-	log.Printf("[Chat] 📥 Получен поток чата от: %s", remotePeer.String())
 
 	// Проверяем, не заблокирован ли пир (если контакт есть)
 	contact, err := queries.GetContactByPeerID(remotePeer.String())
 	if err == nil && contact != nil && contact.IsBlocked {
-		log.Printf("[Chat] ⛔ Пир %s заблокирован, сообщение отклонено", remotePeer)
 		return
 	}
 
 	// Читаем сообщение (CloseWrite от отправителя уже сигнализирует о конце данных)
 	reader := bufio.NewReader(stream)
-	log.Printf("[Chat] 📥 Начало чтения сообщения от %s...", remotePeer)
 	data, err := io.ReadAll(reader)
 	if err != nil {
-		log.Printf("[Chat] ❌ Ошибка чтения сообщения: %v", err)
 		return
 	}
-	log.Printf("[Chat] 📖 Прочитано %d байт", len(data))
 
 	// Десериализуем сообщение из JSON
 	msg := &Message{}
 	if err := json.Unmarshal(data, msg); err != nil {
-		log.Printf("[Chat] ❌ Ошибка десериализации сообщения: %v", err)
 		// Отправляем подтверждение чтобы не было повторной отправки
-		if _, writeErr := stream.Write([]byte{0x01}); writeErr != nil {
-			log.Printf("[Chat] ❌ Ошибка отправки подтверждения: %v", writeErr)
-		} else {
-			log.Printf("[Chat] ✅ Подтверждение отправлено (ошибка десериализации)")
-		}
+		_, _ = stream.Write([]byte{0x01})
 		return
 	}
-	// Безопасное получение PeerID для логирования
-	fromPeerShort := "unknown"
-	if len(msg.FromPeerID) >= 8 {
-		fromPeerShort = msg.FromPeerID[:8]
-	} else if msg.FromPeerID != "" {
-		fromPeerShort = msg.FromPeerID
-	}
-	log.Printf("[Chat] ✅ Сообщение десериализовано: from=%s, len=%d, type=%s",
-		fromPeerShort, len(msg.Content), msg.ContentType)
 
 	// Расшифровываем сообщение если зашифровано
 	if msg.Encrypted && len(msg.Nonce) > 0 {
-		log.Printf("[Chat] 🔓 Сообщение зашифровано, расшифровываем...")
 		decrypted, err := cs.decryptMessage(msg)
 		if err != nil {
-			log.Printf("[Chat] ❌ Ошибка расшифровки сообщения: %v", err)
 			// Не расшифровываем - пробуем обработать как есть
 		} else {
 			msg = decrypted
-			log.Printf("[Chat] ✅ Сообщение расшифровано, размер=%d", len(msg.Content))
 		}
 	}
 
 	// Сохраняем сообщение в БД
 	if err := cs.saveMessage(remotePeer.String(), msg.Content, msg.ContentType, msg.Metadata, true); err != nil {
-		log.Printf("[Chat] ❌ Ошибка сохранения сообщения: %v", err)
 		// Отправляем подтверждение чтобы не было повторной отправки
-		if _, writeErr := stream.Write([]byte{0x01}); writeErr != nil {
-			log.Printf("[Chat] ❌ Ошибка отправки подтверждения: %v", writeErr)
-		} else {
-			log.Printf("[Chat] ✅ Подтверждение отправлено (ошибка сохранения)")
-		}
+		_, _ = stream.Write([]byte{0x01})
 		return
 	}
-	log.Printf("[Chat] 💾 Сообщение сохранено в БД")
 
 	// Отправляем подтверждение СРАЗУ после сохранения (до проверки подписи)
-	log.Printf("[Chat] 📤 Отправка подтверждения отправителю...")
-	if _, err := stream.Write([]byte{0x01}); err != nil {
-		log.Printf("[Chat] ❌ Ошибка отправки подтверждения: %v", err)
-	} else {
-		log.Printf("[Chat] ✅ Подтверждение успешно отправлено")
-	}
+	_, _ = stream.Write([]byte{0x01})
 
 	// Проверяем подпись ПОСЛЕ отправки подтверждения (асинхронно)
 	go func() {
-		log.Printf("[Chat] 🔐 Проверка подписи сообщения...")
-		if !cs.verifyMessageSignature(msg) {
-			log.Printf("[Chat] ⚠️ Неверная подпись сообщения от %s (сообщение сохранено)", remotePeer)
-		} else {
-			log.Printf("[Chat] ✅ Подпись верна, сообщение от %s: %s", remotePeer, msg.Content)
-		}
+		_ = cs.verifyMessageSignature(msg)
 	}()
 }
 
 // saveMessage сохраняет сообщение в базу данных
 func (cs *Service) saveMessage(fromPeerID, content, contentType, metadata string, isIncoming bool) error {
-	// Безопасное получение короткой версии PeerID
 	fromPeerShort := "unknown"
 	if len(fromPeerID) >= 8 {
 		fromPeerShort = fromPeerID[:8]
@@ -404,15 +332,8 @@ func (cs *Service) saveMessage(fromPeerID, content, contentType, metadata string
 			Title:     "",
 		}
 		if err := queries.CreateRemoteProfile(profile); err != nil {
-			if !contains(err.Error(), "UNIQUE constraint") {
-				log.Printf("Предупреждение: не удалось создать профиль: %v", err)
-			}
 			// Профиль уже есть - получаем его
-			if _, getErr := queries.GetProfileByPeerID(fromPeerID); getErr != nil {
-				log.Printf("Ошибка получения профиля: %v", getErr)
-			}
-		} else {
-			log.Printf("[Profile] ✅ Remote профиль создан для %s (username: %s)", fromPeerShort, profile.Username)
+			_, _ = queries.GetProfileByPeerID(fromPeerID)
 		}
 	}
 
@@ -421,15 +342,10 @@ func (cs *Service) saveMessage(fromPeerID, content, contentType, metadata string
 	if err != nil {
 		return fmt.Errorf("ошибка получения чата: %w", err)
 	}
-	log.Printf("[Chat] 💬 Чат для пира %s: ID=%d (peer_id_len=%d)", fromPeerShort, chat.ID, len(fromPeerID))
 
 	// Проверяем на дубликаты (сообщения с тем же содержимым за последние 5 секунд)
-	isDuplicate, err := queries.IsDuplicateMessage(chat.ID, fromPeerID, content, 5*time.Second)
-	if err != nil {
-		log.Printf("[Chat] ⚠️ Предупреждение: не удалось проверить дубликаты: %v", err)
-	}
+	isDuplicate, _ := queries.IsDuplicateMessage(chat.ID, fromPeerID, content, 5*time.Second)
 	if isDuplicate {
-		log.Printf("[Chat] ⚠️ Сообщение является дубликатом, пропускаем сохранение")
 		return nil // Не ошибка, просто пропускаем
 	}
 
@@ -444,28 +360,21 @@ func (cs *Service) saveMessage(fromPeerID, content, contentType, metadata string
 	}
 
 	if err := queries.CreateChatMessage(message); err != nil {
-		log.Printf("[Chat] ❌ Ошибка сохранения сообщения в БД: %v", err)
 		return fmt.Errorf("ошибка сохранения сообщения: %w", err)
 	}
-	log.Printf("[Chat] 💾 Сообщение сохранено в БД: ID=%d, chatID=%d", message.ID, chat.ID)
 
 	// Обновляем время последнего сообщения в чате
-	if err := queries.UpdateChatLastMessage(chat.ID, message.SentAt); err != nil {
-		log.Printf("[Chat] ⚠️ Предупреждение: не удалось обновить время чата: %v", err)
-	}
+	_ = queries.UpdateChatLastMessage(chat.ID, message.SentAt)
 
 	// Если это элемент - НЕ отправлем уведомление UI сразу
 	// Сначала загружаем элемент через ItemSync, потом добавляем в UI
 	if contentType == "element" {
-		log.Printf("[Chat] 📦 Входящий элемент: element_uuid=%s, от %s (UI обновится после загрузки)", content, fromPeerShort)
 		go cs.handleIncomingElement(fromPeerID, content, metadata)
 	} else {
 		// Для текстовых сообщений отправляем уведомление сразу
 		chatSvc := services.GetChatService()
 		if chatSvc != nil {
-			log.Printf("[Chat] 📢 Отправка уведомления UI: NotifyNewMessage(contactID=0, isIncoming=%v)", isIncoming)
 			chatSvc.NotifyNewMessage(0, profile.Username, message, isIncoming)
-			log.Printf("[Chat] ✅ Уведомление UI отправлено")
 		}
 	}
 
@@ -474,122 +383,63 @@ func (cs *Service) saveMessage(fromPeerID, content, contentType, metadata string
 
 // handleIncomingElement обрабатывает входящий элемент (запрашивает через ItemSync)
 func (cs *Service) handleIncomingElement(fromPeerID, elementUUID, metadata string) {
-	// Безопасное получение короткой версии PeerID
-	fromPeerShort := "unknown"
-	if len(fromPeerID) >= 8 {
-		fromPeerShort = fromPeerID[:8]
-	} else if fromPeerID != "" {
-		fromPeerShort = fromPeerID
-	}
-
-	log.Printf("[Chat] 📦 Обработка входящего элемента: element_uuid=%s, от=%s", elementUUID, fromPeerShort)
-
-	// Парсим метаданные для логирования
-	var metaMap map[string]interface{}
-	if err := json.Unmarshal([]byte(metadata), &metaMap); err == nil {
-		log.Printf("[Chat] 📎 Метаданные элемента: title=%q, type=%q, hash=%q",
-			metaMap["item_title"], metaMap["item_type"], metaMap["item_hash"])
-	}
-
 	// Получаем ItemSync сервис
 	itemSync := cs.getItemSyncService()
 	if itemSync == nil {
-		log.Printf("[Chat] ❌ ItemSync сервис не инициализирован, пропускаем загрузку элемента")
-		log.Printf("[Chat] 💡 Проверь инициализацию P2P сети")
 		return
 	}
 
 	// Декодируем PeerID отправителя
 	senderPeerID, err := peer.Decode(fromPeerID)
 	if err != nil {
-		log.Printf("[Chat] ❌ Ошибка декодирования PeerID %s: %v", fromPeerShort, err)
 		return
 	}
 
 	// Проверяем, есть ли уже элемент с таким element_uuid в БД
-	log.Printf("[Chat] 🔍 Проверка наличия элемента %s в БД...", elementUUID)
-	existingItem, err := queries.GetItemByElementUUID(elementUUID)
-	if err != nil {
-		log.Printf("[Chat] ⚠️ Ошибка поиска элемента в БД: %v", err)
-	}
+	existingItem, _ := queries.GetItemByElementUUID(elementUUID)
 	if existingItem != nil {
-		log.Printf("[Chat] ℹ️ Элемент уже существует в БД (ID=%d, title=%q, status=%s), пропускаем загрузку",
-			existingItem.ID, existingItem.Title, existingItem.Status)
 		return
 	}
-	log.Printf("[Chat] 🔍 Элемент не найден в БД, запрашиваем у отправителя...")
 
 	// Запрашиваем элемент через ItemSync
-	log.Printf("[Chat] 📥 Запрос элемента через ItemSync у пира %s (timeout=30s)...", fromPeerShort)
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 
 	item, err := itemSync.RequestItemByElementUUID(ctx, senderPeerID, elementUUID)
 
 	if err != nil {
-		log.Printf("[Chat] ❌ Ошибка запроса элемента через ItemSync: %T: %v", err, err)
-
-		// Детализация ошибки
-		if strings.Contains(err.Error(), "deadline") || strings.Contains(err.Error(), "timeout") {
-			log.Printf("[Chat] ⏱️ ТАЙМАУТ: Отправитель не ответил за 30 секунд")
-			log.Printf("[Chat]   - Отправитель может быть оффлайн")
-			log.Printf("[Chat]   - ItemSync протокол не работает на стороне отправителя")
-			log.Printf("[Chat]   - NAT/Firewall блокирует соединение")
-		} else if strings.Contains(err.Error(), "stream reset") {
-			log.Printf("[Chat] 🔌 STREAM RESET: Соединение разорвано")
-		} else if strings.Contains(err.Error(), "not found") {
-			log.Printf("[Chat] 📭 ЭЛЕМЕНТ НЕ НАЙДЕН: У отправителя нет элемента с UUID=%s", elementUUID)
-		}
 		return
 	}
 
 	if item == nil {
-		log.Printf("[Chat] ⚠️ ItemSync вернул nil без ошибки - элемент не найден у отправителя")
-		log.Printf("[Chat] 💡 Попроси отправителя проверить наличие элемента в БД")
 		return
 	}
 
 	// Элемент успешно загружен
-	log.Printf("[Chat] ✅ Элемент ПОЛУЧЕН И СОХРАНЁН: ID=%d, title=%q, type=%s, element_uuid=%s, hash=%s",
-		item.ID, item.Title, item.Type, item.ElementUUID, item.Hash)
 
 	// Проверяем наличие файла для элемента
 	if item.Type == "element" && item.ContentMeta != "" {
-		log.Printf("[Chat] 📎 ContentMeta (len=%d): %s", len(item.ContentMeta), item.ContentMeta[:min(100, len(item.ContentMeta))])
-
 		var fileMeta map[string]string
 		if err := json.Unmarshal([]byte(item.ContentMeta), &fileMeta); err == nil {
 			if filePath, ok := fileMeta["file_path"]; ok {
-				if _, statErr := os.Stat(filePath); os.IsNotExist(statErr) {
-					log.Printf("[Chat] ❌ ФАЙЛ НЕ НАЙДЕН: %s", filePath)
-					log.Printf("[Chat] ⚠️ Элемент сохранён в БД, но файл отсутствует")
-				} else if statErr != nil {
-					log.Printf("[Chat] ⚠️ Ошибка проверки файла %s: %v", filePath, statErr)
-				} else {
-					log.Printf("[Chat] ✅ Файл найден и доступен: %s", filePath)
+				if _, err := os.Stat(filePath); os.IsNotExist(err) {
+					log.Printf("[Chat] ⚠️ Файл элемента не найден: %s", filePath)
 				}
 			}
 		}
 	}
 
 	// Проверяем подпись элемента
-	if item.Hash != "" {
-		log.Printf("[Chat] 🔐 Хеш элемента: %s", item.Hash)
-	}
 
 	// ✅ Элемент загружен - теперь отправляем уведомление UI для отображения
 	chatSvc := services.GetChatService()
 	if chatSvc != nil {
-		log.Printf("[Chat] 📢 Отправка уведомления UI о получении элемента")
 		chatSvc.NotifyNewMessage(0, "", &models.ChatMessage{
 			Content:     elementUUID,
 			ContentType: "element",
 			Metadata:    metadata,
 		}, true)
-		log.Printf("[Chat] ✅ Уведомление UI отправлено")
 	}
-
-	log.Printf("[Chat] ✅ Обработка входящего элемента завершена: UUID=%s, ID=%d", elementUUID, item.ID)
 }
 
 // queueMessage добавляет сообщение в очередь для оффлайн-пира
@@ -727,21 +577,17 @@ func (cs *Service) sendQueuedMessage(ctx context.Context, peerID peer.ID, msg *Q
 // signMessage подписывает сообщение приватным ключом
 func (cs *Service) signMessage(msg *Message) ([]byte, error) {
 	if cs.localPrivKey == nil {
-		log.Printf("[Chat] ❌ Ошибка подписи: приватный ключ не установлен")
 		return nil, errors.New("приватный ключ не установлен")
 	}
 
 	// Создаём данные для подписи
 	data := fmt.Sprintf("%s:%s:%d", msg.FromPeerID, msg.Content, msg.Timestamp)
-	log.Printf("[Chat] 🔐 Данные для подписи: %d байт", len(data))
 
 	// Подписываем
 	signature, err := cs.localPrivKey.Sign([]byte(data))
 	if err != nil {
-		log.Printf("[Chat] ❌ Ошибка подписи: %v", err)
 		return nil, fmt.Errorf("ошибка подписи: %w", err)
 	}
-	log.Printf("[Chat] ✍️ Сообщение подписано: signature=%d байт", len(signature))
 
 	return signature, nil
 }
@@ -749,24 +595,19 @@ func (cs *Service) signMessage(msg *Message) ([]byte, error) {
 // verifyMessageSignature проверяет подпись сообщения
 func (cs *Service) verifyMessageSignature(msg *Message) bool {
 	if len(msg.Signature) == 0 {
-		log.Printf("[Chat] ⚠️ Подпись отсутствует")
 		return false
 	}
 
 	// Получаем публичный ключ отправителя
 	peerID, err := peer.Decode(msg.FromPeerID)
 	if err != nil {
-		log.Printf("[Chat] ❌ Ошибка декодирования PeerID: %v", err)
 		return false
 	}
-	log.Printf("[Chat] 🔑 Получение публичного ключа для %s...", peerID[:8])
 
 	pubKey := cs.host.Peerstore().PubKey(peerID)
 	if pubKey == nil {
-		log.Printf("[Chat] ❌ Публичный ключ не найден для %s в Peerstore", peerID)
 		return false
 	}
-	log.Printf("[Chat] ✅ Публичный ключ найден в Peerstore")
 
 	// Создаём данные для проверки
 	data := fmt.Sprintf("%s:%s:%d", msg.FromPeerID, msg.Content, msg.Timestamp)
@@ -774,15 +615,9 @@ func (cs *Service) verifyMessageSignature(msg *Message) bool {
 	// Проверяем подпись
 	valid, err := pubKey.Verify([]byte(data), msg.Signature)
 	if err != nil {
-		log.Printf("[Chat] ❌ Ошибка проверки подписи: %v", err)
 		return false
 	}
 
-	if valid {
-		log.Printf("[Chat] ✅ Подпись подтверждена")
-	} else {
-		log.Printf("[Chat] ⚠️ Подпись не подтверждена")
-	}
 	return valid
 }
 
@@ -836,7 +671,6 @@ func (cs *Service) decryptMessage(msg *Message) (*Message, error) {
 	if cs.profileSvc != nil {
 		// Получаем ключ отправителя (который он нам отправил)
 		encryptionKey = cs.profileSvc.GetPeerEncryptionKey(senderPeerID)
-		log.Printf("[Chat] 🔑 Получение ключа отправителя %s для расшифровки: len=%d", senderPeerID.String()[:8], len(encryptionKey))
 	}
 	if encryptionKey == nil || len(msg.Nonce) == 0 {
 		return nil, errors.New("ключ шифрования не найден или nonce отсутствует")
@@ -853,8 +687,6 @@ func (cs *Service) decryptMessage(msg *Message) (*Message, error) {
 	for i, b := range encrypted {
 		decrypted[i] = b ^ encryptionKey[i%len(encryptionKey)] ^ msg.Nonce[i%len(msg.Nonce)]
 	}
-
-	log.Printf("[Chat] ✅ Сообщение расшифровано, размер=%d", len(decrypted))
 
 	// Десериализуем сообщение из JSON
 	originalMsg := &Message{}
@@ -925,21 +757,6 @@ func (cs *Service) DeleteMessage(id int) error {
 // DeleteMessagesForContact удаляет все сообщения для контакта
 func (cs *Service) DeleteMessagesForContact(contactID int) error {
 	return queries.DeleteMessagesForContact(contactID)
-}
-
-// contains проверяет, содержит ли строка подстроку
-func contains(s, substr string) bool {
-	return len(s) >= len(substr) && (s == substr || len(s) > len(substr) && findSubstring(s, substr))
-}
-
-// findSubstring ищет подстроку в строке
-func findSubstring(s, substr string) bool {
-	for i := 0; i <= len(s)-len(substr); i++ {
-		if s[i:i+len(substr)] == substr {
-			return true
-		}
-	}
-	return false
 }
 
 // SendFileMessage отправляет сообщение с файлом

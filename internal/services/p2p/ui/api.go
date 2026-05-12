@@ -34,7 +34,6 @@ type P2PStatus struct {
 	RelayEnabled   bool   `json:"relay_enabled"`
 	DHTEnabled     bool   `json:"dht_enabled"`
 	MDNSEnabled    bool   `json:"mdns_enabled"`
-	HelperMode     bool   `json:"helper_mode"`
 }
 
 // PeerInfo информация о пире для UI
@@ -66,15 +65,16 @@ type FirewallInfo struct {
 
 // P2PSettings настройки P2P
 type P2PSettings struct {
-	ListenPort       int    `json:"listen_port"`
-	EnableNATPortMap bool   `json:"enable_nat_port_map"`
-	EnableRelay      bool   `json:"enable_relay"`
-	EnableAutoRelay  bool   `json:"enable_auto_relay"`
-	EnableDHT        bool   `json:"enable_dht"`
-	EnableMDNS       bool   `json:"enable_mdns"`
-	EnableSTUN       bool   `json:"enable_stun"`
-	STUNServer       string `json:"stun_server"`
-	EnableHelperMode bool   `json:"enable_helper_mode"`
+	ListenPort          int    `json:"listen_port"`
+	EnableNATPortMap    bool   `json:"enable_nat_port_map"`
+	EnableRelay         bool   `json:"enable_relay"`
+	EnableAutoRelay     bool   `json:"enable_auto_relay"`
+	EnableDHT           bool   `json:"enable_dht"`
+	EnableMDNS          bool   `json:"enable_mdns"`
+	EnableSTUN          bool   `json:"enable_stun"`
+	STUNServer          string `json:"stun_server"`
+	EnableAutoConnect   bool   `json:"enable_auto_connect"`
+	EnableAutoProfileEx bool   `json:"enable_auto_profile_ex"`
 }
 
 // OnProfileUpdated callback функция, вызываемая после обновления профиля пира
@@ -117,7 +117,6 @@ func (api *UIP2P) GetStatus() *P2PStatus {
 		RelayEnabled:   true,
 		DHTEnabled:     true,
 		MDNSEnabled:    true,
-		HelperMode:     false,
 		ListenPort:     8080,
 		ConnectedPeers: 0,
 	}
@@ -144,15 +143,16 @@ func (api *UIP2P) GetSettings() *P2PSettings {
 	cfg := api.network.Config()
 
 	return &P2PSettings{
-		ListenPort:       cfg.ListenPort,
-		EnableNATPortMap: cfg.EnableNATPortMap,
-		EnableRelay:      cfg.EnableRelay,
-		EnableAutoRelay:  cfg.EnableAutoRelay,
-		EnableDHT:        cfg.EnableDHT,
-		EnableMDNS:       cfg.EnableMDNS,
-		EnableSTUN:       cfg.EnableSTUNClient,
-		STUNServer:       cfg.STUNServer,
-		EnableHelperMode: cfg.EnableHelperMode,
+		ListenPort:          cfg.ListenPort,
+		EnableNATPortMap:    cfg.EnableNATPortMap,
+		EnableRelay:         cfg.EnableRelay,
+		EnableAutoRelay:     cfg.EnableAutoRelay,
+		EnableDHT:           cfg.EnableDHT,
+		EnableMDNS:          cfg.EnableMDNS,
+		EnableSTUN:          cfg.EnableSTUNClient,
+		STUNServer:          cfg.STUNServer,
+		EnableAutoConnect:   cfg.EnableAutoConnect,
+		EnableAutoProfileEx: cfg.EnableAutoProfileEx,
 	}
 }
 
@@ -551,6 +551,47 @@ func (api *UIP2P) RequestAllProfiles() {
 	defer cancel()
 
 	api.network.ProfileExchange().RequestProfilesForAllContacts(ctx)
+}
+
+// GetConnectedPeersCount возвращает количество подключённых пиров
+func (api *UIP2P) GetConnectedPeersCount() int {
+	return api.network.GetConnectedPeersCount()
+}
+
+// ConnectToAll подключается ко всем известным пирам
+func (api *UIP2P) ConnectToAll() {
+	if api.network.Autodial() == nil {
+		return
+	}
+
+	go func() {
+		results := api.network.Autodial().ConnectToAll()
+		for result := range results {
+			peerShort := "unknown"
+			if result.PeerID.String() != "" {
+				peerShort = result.PeerID.String()[:min(8, len(result.PeerID.String()))]
+			}
+			if result.Error != nil {
+				log.Printf("[P2P] ❌ Подключение к пиру %s не удалось: %v", peerShort, result.Error)
+			}
+		}
+	}()
+}
+
+// ExchangeProfileLists запускает синхронизацию профилей со всеми подключёнными пирами
+func (api *UIP2P) ExchangeProfileLists() {
+	if api.network.ProfileSync() == nil {
+		return
+	}
+
+	peers := api.network.Host().Network().Peers()
+	for _, peerID := range peers {
+		go func(pid peer.ID) {
+			ctx, cancel := context.WithTimeout(api.network.Ctx(), 30*time.Second)
+			defer cancel()
+			_ = api.network.ProfileSync().SyncWithPeer(ctx, pid)
+		}(peerID)
+	}
 }
 
 // GetPeerID декодирует PeerID из строки

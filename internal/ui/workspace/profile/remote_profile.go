@@ -40,6 +40,13 @@ func NewRemoteProfileUI(peerID string, p2pUI *network.UIP2P) *RemoteProfileUI {
 		peerID: peerID,
 		p2pUI:  p2pUI,
 	}
+
+	// Определяем тип профиля до создания UI, чтобы корректно отобразить кнопку
+	profile, err := queries.GetProfileByPeerID(peerID)
+	if err == nil && profile != nil {
+		ui.isLocal = profile.OwnerType == "local"
+	}
+
 	ui.createView()
 	ui.loadProfile()
 	return ui

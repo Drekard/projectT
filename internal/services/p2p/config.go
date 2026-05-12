@@ -71,8 +71,11 @@ type P2PConfig struct {
 	// EnableSTUNClient включить STUN клиент
 	EnableSTUNClient bool
 
-	// EnableHelperMode включить режим помощника (хранение адресов пиров)
-	EnableHelperMode bool
+	// EnableAutoConnect включить автоподключение ко всем известным пирам при запуске
+	EnableAutoConnect bool
+
+	// EnableAutoProfileEx включить автоматический обмен профилями с подключёнными пирами
+	EnableAutoProfileEx bool
 
 	// EnablePrometheusMetrics включить встроенные метрики libp2p в Prometheus
 	EnablePrometheusMetrics bool
@@ -99,6 +102,5 @@ func DefaultConfig() *P2PConfig {
 		MinConnections:    5,
 		BootstrapPeers:    []string{},
 		EnableSTUNClient:  false,
-		EnableHelperMode:  false,
 	}
 }

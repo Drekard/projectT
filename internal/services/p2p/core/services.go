@@ -11,7 +11,6 @@ import (
 	"projectT/internal/services/p2p/autodial"
 	"projectT/internal/services/p2p/connection"
 	"projectT/internal/services/p2p/discovery"
-	"projectT/internal/services/p2p/helper"
 	"projectT/internal/services/p2p/peerexchange"
 	"projectT/internal/services/p2p/protocols/avatar"
 	"projectT/internal/services/p2p/protocols/chat"
@@ -41,18 +40,6 @@ func (n *P2PNetwork) initConnections() error {
 
 	n.connections = connection.NewService(n.host, n.config)
 	return n.connections.Start()
-}
-
-// initHelper инициализирует режим помощника
-func (n *P2PNetwork) initHelper() error {
-	if n.host == nil {
-		return errors.New("хост не инициализирован")
-	}
-
-	n.helper = &HelperService{
-		helper: helper.NewHelper(n.host, nil),
-	}
-	return n.helper.helper.Start()
 }
 
 // initProfileExchange инициализирует сервис обмена профилями

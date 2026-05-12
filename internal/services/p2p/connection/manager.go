@@ -25,7 +25,6 @@ func (s *Service) MarkProfilePending(peerID peer.ID) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	s.pendingProfile[peerID] = time.Now()
-	log.Printf("[Profile] Пир %s отмечен как ожидающий обмена профиля", peerID.String()[:8])
 }
 
 // MarkProfileComplete отмечает завершение обмена профиля
@@ -37,7 +36,6 @@ func (s *Service) MarkProfileComplete(peerID peer.ID) {
 	if info, exists := s.peerStatus[peerID]; exists {
 		info.LastProfileExch = time.Now()
 	}
-	log.Printf("[Profile] Обмен профиля с %s завершён", peerID.String()[:8])
 }
 
 // CanRequestProfile проверяет, можно ли запросить профиль у пира
@@ -91,8 +89,8 @@ func (s *Service) initializeConnections() {
 
 	log.Printf("[connection/manager.go] Загружено %d адресов из БД для подключения", len(addresses))
 
-	// Проверяем лимит подключений
-	connectedCount := s.GetConnectedPeersCount()
+	// Проверяем лимит подключений (напрямую, без блокировки — Start() уже держит mu)
+	connectedCount := len(s.host.Network().Peers())
 	if connectedCount >= MaxConcurrentConnections {
 		log.Printf("[connection/manager.go] Достигнут лимит подключений: %d/%d", connectedCount, MaxConcurrentConnections)
 		return

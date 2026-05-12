@@ -46,6 +46,18 @@ func (n *P2PNetwork) onPeerConnected(peerID peer.ID) {
 			log.Printf("[ProfileSync] ⏳ Ждём входящую синхронизацию от %s (наш PeerID меньше)", peerID.String()[:8])
 		}
 	}
+
+	// Обмениваемся адресами пиров для расширения сети
+	if n.peerExchange != nil && n.host != nil {
+		go func() {
+			ctx, cancel := context.WithTimeout(n.ctx, 30*time.Second)
+			defer cancel()
+
+			if err := n.peerExchange.ExchangeWithPeer(ctx, peerID); err != nil {
+				log.Printf("[PeerExchange] ⚠️ Ошибка обмена с %s: %v", peerID.String()[:8], err)
+			}
+		}()
+	}
 	log.Printf("[P2P/Event] ========================================")
 }
 

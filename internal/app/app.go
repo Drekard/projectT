@@ -67,6 +67,10 @@ func NewApp() *App {
 		p2pNetwork.SetPort(cfg.P2P.Port)
 	}
 
+	// Устанавливаем настройки автоподключения и обмена профилями
+	p2pNetwork.SetAutoConnect(cfg.P2P.EnableAutoConnect)
+	p2pNetwork.SetAutoProfileEx(cfg.P2P.EnableAutoProfileEx)
+
 	// Инициализируем Prometheus метрики
 	metricsMgr := metrics.Init()
 

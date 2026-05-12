@@ -110,9 +110,22 @@ func NewFolderCardWithNavigation(item *models.Item, navigationHandler FolderCard
 
 	// Асинхронно обновляем счетчик элементов
 	go func() {
-		count, err := GetItemCount(item.ID)
+		var count int
+		var err error
+
+		// Для remote элементов ищем по ElementUUID в remote_items
+		if item.OwnerType == "remote" {
+			remoteItems, qErr := queries.GetRemoteItemsByParentUUID(item.ElementUUID)
+			if qErr == nil {
+				count = len(remoteItems)
+			} else {
+				err = qErr
+			}
+		} else {
+			count, err = GetItemCount(item.ID)
+		}
+
 		if err != nil {
-			// Обновляем сегмент с ошибкой
 			folderCard.countSegment.Text = "Ошибка загрузки"
 			folderCard.richText.Refresh()
 		} else {
@@ -122,7 +135,6 @@ func NewFolderCardWithNavigation(item *models.Item, navigationHandler FolderCard
 			} else if count > 1 && count < 5 {
 				elementText = "элемента"
 			}
-			// Обновляем сегмент с количеством
 			folderCard.countSegment.Text = fmt.Sprintf("%d %s", count, elementText)
 			folderCard.richText.Refresh()
 		}

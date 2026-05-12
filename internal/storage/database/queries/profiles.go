@@ -4,7 +4,6 @@ package queries
 import (
 	"database/sql"
 	"errors"
-	"log"
 	"time"
 
 	"projectT/internal/storage/database"
@@ -49,7 +48,6 @@ func GetLocalProfile() (*models.Profile, error) {
 
 // GetRemoteProfile возвращает чужой профиль по PeerID
 func GetRemoteProfile(peerID string) (*models.Profile, error) {
-	log.Printf("[DB] 🔍 GetRemoteProfile: поиск профиля для peer_id=%s...", peerID[:min(10, len(peerID))])
 	query := `
 		SELECT id, owner_type, peer_id, username, title,
 		       COALESCE(avatar_path, ''),
@@ -73,14 +71,10 @@ func GetRemoteProfile(peerID string) (*models.Profile, error) {
 	)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
-			log.Printf("[DB] ❌ GetRemoteProfile: профиль не найден для peer_id=%s", peerID[:min(10, len(peerID))])
 			return nil, errors.New("профиль пира не найден")
 		}
-		log.Printf("[DB] ❌ GetRemoteProfile: ошибка %v", err)
 		return nil, err
 	}
-
-	log.Printf("[DB] ✅ GetRemoteProfile: профиль найден, avatar_path=%q", profile.AvatarPath)
 
 	if cachedAt.Valid {
 		t, _ := time.Parse("2006-01-02 15:04:05", cachedAt.String)
@@ -201,8 +195,6 @@ func UpdateProfileBasic(profile *models.Profile) error {
 
 // UpdateRemoteProfile обновляет чужой профиль
 func UpdateRemoteProfile(profile *models.Profile) error {
-	log.Printf("[DB] 🔄 UpdateRemoteProfile: обновление профиля для peer_id=%s, avatar_path=%q",
-		profile.PeerID[:min(10, len(profile.PeerID))], profile.AvatarPath)
 	query := `
 		UPDATE profiles
 		SET username = ?, title = ?, avatar_path = ?, background_path = ?,
@@ -215,12 +207,11 @@ func UpdateRemoteProfile(profile *models.Profile) error {
 		profile.ContentChar, profile.PinnedUUIDs, profile.PeerID,
 	)
 	if err != nil {
-		log.Printf("[DB] ❌ UpdateRemoteProfile: ошибка %v", err)
 		return err
 	}
 
 	rowsAffected, _ := result.RowsAffected()
-	log.Printf("[DB] ✅ UpdateRemoteProfile: обновлено строк: %d", rowsAffected)
+	_ = rowsAffected
 	return nil
 }
 

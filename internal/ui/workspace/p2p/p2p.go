@@ -21,14 +21,10 @@ type UI struct {
 	onNavigate    func(contentType string)
 
 	// Элементы UI для настроек
-	portEntry       *widget.Entry
-	stunServerEntry *widget.Entry
-	natPortMapCheck *widget.Check
-	relayCheck      *widget.Check
-	autoRelayCheck  *widget.Check
-	dhtCheck        *widget.Check
-	mdnsCheck       *widget.Check
-	helperModeCheck *widget.Check
+	portEntry          *widget.Entry
+	p2pEnabledCheck    *widget.Check
+	autoConnectCheck   *widget.Check
+	autoProfileExCheck *widget.Check
 
 	// Адрес
 	addressLabel *widget.Label
@@ -37,6 +33,10 @@ type UI struct {
 	connectedPeersList  *fyne.Container
 	discoveredPeersList *fyne.Container
 	profilesList        *fyne.Container
+
+	// Счётчики
+	connectedCountLabel *widget.Label
+	profilesCountLabel  *widget.Label
 }
 
 // UIProvider интерфейс для доступа к функциям UI

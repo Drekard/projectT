@@ -56,6 +56,11 @@ func (ui *UI) createP2PSettingsSection() *fyne.Container {
 	sectionTitle := widget.NewLabel("Connection Settings")
 	sectionTitle.TextStyle = fyne.TextStyle{Bold: true}
 
+	// P2P enable/disable checkbox
+	ui.p2pEnabledCheck = widget.NewCheck("Enable P2P", func(checked bool) {
+		ui.toggleP2P(checked)
+	})
+
 	// Listen port with background
 	portLabel := widget.NewLabel("Listen Port:")
 	portBg := canvas.NewRectangle(color.RGBA{R: 50, G: 50, B: 50, A: 255})
@@ -64,21 +69,9 @@ func (ui *UI) createP2PSettingsSection() *fyne.Container {
 	portWrapper := container.NewStack(portBg, ui.portEntry)
 	portRow := container.NewHBox(portLabel, portWrapper)
 
-	// Setting checkboxes
-	ui.natPortMapCheck = widget.NewCheck("NAT Port Mapping (UPnP/NAT-PMP)", nil)
-	ui.relayCheck = widget.NewCheck("Relay (NAT traversal)", nil)
-	ui.autoRelayCheck = widget.NewCheck("Auto-detect Relay", nil)
-	ui.dhtCheck = widget.NewCheck("DHT (global discovery)", nil)
-	ui.mdnsCheck = widget.NewCheck("mDNS (local network)", nil)
-	ui.helperModeCheck = widget.NewCheck("Helper Mode", nil)
-
-	// STUN server with background
-	stunLabel := widget.NewLabel("STUN Server:")
-	stunBg := canvas.NewRectangle(color.RGBA{R: 50, G: 50, B: 50, A: 255})
-	stunBg.SetMinSize(fyne.NewSize(200, 30))
-	ui.stunServerEntry = widget.NewEntry()
-	stunWrapper := container.NewStack(stunBg, ui.stunServerEntry)
-	stunRow := container.NewHBox(stunLabel, stunWrapper)
+	// Checkboxes
+	ui.autoConnectCheck = widget.NewCheck("Auto-connect to all known peers on startup", nil)
+	ui.autoProfileExCheck = widget.NewCheck("Auto-exchange profile lists with connected peers", nil)
 
 	// Save and reset buttons
 	saveBtn := widget.NewButtonWithIcon("Save", theme.ConfirmIcon(), func() {
@@ -94,14 +87,10 @@ func (ui *UI) createP2PSettingsSection() *fyne.Container {
 
 	return container.NewVBox(
 		sectionTitle,
+		ui.p2pEnabledCheck,
 		portRow,
-		ui.natPortMapCheck,
-		ui.relayCheck,
-		ui.autoRelayCheck,
-		ui.dhtCheck,
-		ui.mdnsCheck,
-		stunRow,
-		ui.helperModeCheck,
+		ui.autoConnectCheck,
+		ui.autoProfileExCheck,
 		widget.NewSeparator(),
 		buttonsRow,
 	)
@@ -123,13 +112,8 @@ func (ui *UI) saveP2PSettings() {
 			log.Printf("Error parsing port: %v", err)
 		}
 	}
-	settings.EnableNATPortMap = ui.natPortMapCheck.Checked
-	settings.EnableRelay = ui.relayCheck.Checked
-	settings.EnableAutoRelay = ui.autoRelayCheck.Checked
-	settings.EnableDHT = ui.dhtCheck.Checked
-	settings.EnableMDNS = ui.mdnsCheck.Checked
-	settings.STUNServer = ui.stunServerEntry.Text
-	settings.EnableHelperMode = ui.helperModeCheck.Checked
+	settings.EnableAutoConnect = ui.autoConnectCheck.Checked
+	settings.EnableAutoProfileEx = ui.autoProfileExCheck.Checked
 
 	// Save settings via UpdateSettings
 	if err := ui.p2pUI.UpdateSettings(settings); err != nil {
@@ -148,26 +132,17 @@ func (ui *UI) resetP2PSettings() {
 
 	settings := ui.p2pUI.GetSettings()
 	ui.portEntry.SetText(fmt.Sprintf("%d", settings.ListenPort))
-	ui.natPortMapCheck.SetChecked(settings.EnableNATPortMap)
-	ui.relayCheck.SetChecked(settings.EnableRelay)
-	ui.autoRelayCheck.SetChecked(settings.EnableAutoRelay)
-	ui.dhtCheck.SetChecked(settings.EnableDHT)
-	ui.mdnsCheck.SetChecked(settings.EnableMDNS)
-	ui.stunServerEntry.SetText(settings.STUNServer)
-	ui.helperModeCheck.SetChecked(settings.EnableHelperMode)
+	ui.autoConnectCheck.SetChecked(settings.EnableAutoConnect)
+	ui.autoProfileExCheck.SetChecked(settings.EnableAutoProfileEx)
 }
 
 // loadP2PSettings loads P2P settings
 func (ui *UI) loadP2PSettings() {
 	if ui.p2pUI == nil {
-		log.Printf("[loadP2PSettings] p2pUI == nil")
 		return
 	}
 
-	log.Printf("[loadP2PSettings] Loading settings...")
 	settings := ui.p2pUI.GetSettings()
-	log.Printf("[loadP2PSettings] Got settings: Port=%d, NAT=%v, Relay=%v",
-		settings.ListenPort, settings.EnableNATPortMap, settings.EnableRelay)
 
 	// Set port (if 0 or not set - use 8080)
 	port := settings.ListenPort
@@ -176,19 +151,47 @@ func (ui *UI) loadP2PSettings() {
 	}
 	ui.portEntry.SetText(fmt.Sprintf("%d", port))
 
+	// Set P2P enabled state
+	status := ui.p2pUI.GetStatus()
+	ui.p2pEnabledCheck.SetChecked(status.IsRunning)
+
 	// Set checkboxes
-	ui.natPortMapCheck.SetChecked(settings.EnableNATPortMap)
-	ui.relayCheck.SetChecked(settings.EnableRelay)
-	ui.autoRelayCheck.SetChecked(settings.EnableAutoRelay)
-	ui.dhtCheck.SetChecked(settings.EnableDHT)
-	ui.mdnsCheck.SetChecked(settings.EnableMDNS)
-	ui.stunServerEntry.SetText(settings.STUNServer)
-	ui.helperModeCheck.SetChecked(settings.EnableHelperMode)
+	ui.autoConnectCheck.SetChecked(settings.EnableAutoConnect)
+	ui.autoProfileExCheck.SetChecked(settings.EnableAutoProfileEx)
 
 	// Update address display
 	ui.updateAddressDisplay()
+}
 
-	log.Printf("[loadP2PSettings] Settings loaded")
+// toggleP2P enables or disables P2P functionality
+func (ui *UI) toggleP2P(enabled bool) {
+	if ui.p2pUI == nil {
+		return
+	}
+
+	if enabled {
+		go func() {
+			if err := ui.p2pUI.Start(); err != nil {
+				log.Printf("[P2P] Error starting P2P: %v", err)
+				ui.p2pEnabledCheck.SetChecked(false)
+				ui.showErrorDialog("Error", "Failed to start P2P: "+err.Error())
+			} else {
+				log.Printf("[P2P] P2P started")
+				ui.updateAddressDisplay()
+			}
+		}()
+	} else {
+		go func() {
+			if err := ui.p2pUI.Stop(); err != nil {
+				log.Printf("[P2P] Error stopping P2P: %v", err)
+				ui.p2pEnabledCheck.SetChecked(true)
+				ui.showErrorDialog("Error", "Failed to stop P2P: "+err.Error())
+			} else {
+				log.Printf("[P2P] P2P stopped")
+				ui.updateAddressDisplay()
+			}
+		}()
+	}
 }
 
 // updateAddressDisplay обновляет отображение адреса

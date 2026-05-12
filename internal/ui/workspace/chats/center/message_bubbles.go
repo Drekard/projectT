@@ -2,7 +2,6 @@ package center
 
 import (
 	"encoding/json"
-	"fmt"
 	"image/color"
 
 	"projectT/internal/storage/database/models"
@@ -14,8 +13,6 @@ import (
 	"fyne.io/fyne/v2/canvas"
 	"fyne.io/fyne/v2/container"
 	"fyne.io/fyne/v2/layout"
-	"fyne.io/fyne/v2/theme"
-	"fyne.io/fyne/v2/widget"
 )
 
 // createBubbleForElement создаёт пузырёк для сообщения типа element
@@ -72,46 +69,33 @@ func (mb *MessageBubble) createBubbleForFolderBatch(message *models.ChatMessage,
 		return mb.createErrorBubble("Неверный формат папки")
 	}
 
-	var folderTitle string
-	var itemCount int
-	if message.Metadata != "" {
-		var meta map[string]interface{}
-		if err := json.Unmarshal([]byte(message.Metadata), &meta); err == nil {
-			if t, ok := meta["folder_title"].(string); ok {
-				folderTitle = t
-			}
-			if c, ok := meta["item_count"].(float64); ok {
-				itemCount = int(c)
+	// Загружаем папку из БД
+	item, err := queries.GetItemByElementUUID(folderUUID)
+	if err != nil || item == nil {
+		// Если папки нет в БД — создаём заглушку из метаданных
+		var folderTitle string
+		if message.Metadata != "" {
+			var meta map[string]interface{}
+			if err := json.Unmarshal([]byte(message.Metadata), &meta); err == nil {
+				if t, ok := meta["folder_title"].(string); ok {
+					folderTitle = t
+				}
 			}
 		}
-	}
-
-	if folderTitle == "" {
-		item, err := queries.GetItemByElementUUID(folderUUID)
-		if err == nil && item != nil {
-			folderTitle = item.Title
-		} else {
+		if folderTitle == "" {
 			folderTitle = "Folder"
 		}
+		item = &models.Item{
+			Type:         "folder",
+			Title:        folderTitle,
+			ElementUUID:  folderUUID,
+			OwnerType:    "remote",
+			SourcePeerID: &message.FromPeerID,
+		}
 	}
 
-	folderIcon := widget.NewIcon(theme.FolderIcon())
-
-	titleLabel := widget.NewLabel(folderTitle)
-	titleLabel.TextStyle = fyne.TextStyle{Bold: true}
-
-	countLabel := widget.NewLabel(fmt.Sprintf("%d elements", itemCount))
-	countLabel.TextStyle = fyne.TextStyle{Italic: true}
-
-	timeStr := message.SentAt.Format("15:04")
-	timeLabel := widget.NewLabel(timeStr)
-	timeLabel.TextStyle = fyne.TextStyle{Italic: true}
-
-	cardContent := container.NewVBox(
-		container.NewHBox(folderIcon, titleLabel),
-		countLabel,
-		timeLabel,
-	)
+	// Используем FolderCard из concrete для единообразного отображения
+	cardRenderer := concrete.NewFolderCard(item, true)
 
 	bgColor := color.RGBA{R: 144, G: 55, B: 255, A: 200}
 	if !isOutgoing {
@@ -120,9 +104,9 @@ func (mb *MessageBubble) createBubbleForFolderBatch(message *models.ChatMessage,
 
 	bg := canvas.NewRectangle(bgColor)
 	bg.CornerRadius = 10
-	bg.SetMinSize(fyne.NewSize(200, 80))
+	bg.SetMinSize(fyne.NewSize(200, 100))
 
-	messageContainer := container.NewStack(bg, container.NewPadded(cardContent))
+	messageContainer := container.NewStack(bg, container.NewPadded(cardRenderer.GetContainer()))
 
 	var bubbleContent fyne.CanvasObject
 	if isOutgoing {
@@ -131,9 +115,10 @@ func (mb *MessageBubble) createBubbleForFolderBatch(message *models.ChatMessage,
 		bubbleContent = container.NewHBox(messageContainer, layout.NewSpacer())
 	}
 
+	// Для входящих — клик открывает содержимое папки
 	if !isOutgoing && onOpenFolder != nil {
 		peerID := message.FromPeerID
-		clickableBubble := hover_preview.NewClickableCard(bubbleContent, func() {
+		clickableBubble := hover_preview.NewClickableCardWithDoubleTap(bubbleContent, onRightClick, func() {
 			onOpenFolder(folderUUID, peerID)
 		})
 		return clickableBubble

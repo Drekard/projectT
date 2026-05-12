@@ -49,12 +49,28 @@ func (ui *UI) createConnectedPeersSection() *fyne.Container {
 	sectionTitle := widget.NewLabel("Connected Peers")
 	sectionTitle.TextStyle = fyne.TextStyle{Bold: true}
 
+	ui.connectedCountLabel = widget.NewLabel("0/50")
+	ui.connectedCountLabel.TextStyle = fyne.TextStyle{Italic: true}
+
 	// Refresh button
 	refreshBtn := widget.NewButtonWithIcon("Refresh", theme.ViewRefreshIcon(), func() {
 		ui.loadConnectedPeers()
 	})
 
-	headerRow := container.NewHBox(sectionTitle, refreshBtn)
+	// Connect to all button
+	connectAllBtn := widget.NewButtonWithIcon("Connect to All", theme.FolderOpenIcon(), func() {
+		if ui.p2pUI == nil {
+			ui.showErrorDialog("Error", "P2P service not initialized")
+			return
+		}
+		ui.p2pUI.ConnectToAll()
+		ui.showInfoDialog("Connecting", "Attempting to connect to all known peers...")
+		time.AfterFunc(5*time.Second, func() {
+			ui.loadConnectedPeers()
+		})
+	})
+
+	headerRow := container.NewHBox(sectionTitle, ui.connectedCountLabel, refreshBtn, connectAllBtn)
 
 	ui.connectedPeersList = container.NewVBox()
 
@@ -83,12 +99,28 @@ func (ui *UI) createProfilesSection() *fyne.Container {
 	sectionTitle := widget.NewLabel("Peer Profiles")
 	sectionTitle.TextStyle = fyne.TextStyle{Bold: true}
 
+	ui.profilesCountLabel = widget.NewLabel("0")
+	ui.profilesCountLabel.TextStyle = fyne.TextStyle{Italic: true}
+
 	// Refresh button
 	refreshBtn := widget.NewButtonWithIcon("Refresh", theme.ViewRefreshIcon(), func() {
 		ui.loadProfiles()
 	})
 
-	headerRow := container.NewHBox(sectionTitle, refreshBtn)
+	// Exchange profile lists button
+	exchangeBtn := widget.NewButtonWithIcon("Exchange Profile Lists", theme.MailComposeIcon(), func() {
+		if ui.p2pUI == nil {
+			ui.showErrorDialog("Error", "P2P service not initialized")
+			return
+		}
+		ui.p2pUI.ExchangeProfileLists()
+		ui.showInfoDialog("Exchanging", "Requesting profile exchange with all connected peers...")
+		time.AfterFunc(5*time.Second, func() {
+			ui.loadProfiles()
+		})
+	})
+
+	headerRow := container.NewHBox(sectionTitle, ui.profilesCountLabel, refreshBtn, exchangeBtn)
 
 	ui.profilesList = container.NewVBox()
 
@@ -159,6 +191,12 @@ func (ui *UI) loadConnectedPeers() {
 	}
 
 	peers := ui.p2pUI.GetConnectedPeers()
+	count := ui.p2pUI.GetConnectedPeersCount()
+
+	// Обновляем счётчик
+	if ui.connectedCountLabel != nil {
+		ui.connectedCountLabel.SetText(fmt.Sprintf("%d/50", count))
+	}
 
 	if len(peers) == 0 {
 		emptyLabel := widget.NewLabel("No connected peers")
@@ -310,6 +348,11 @@ func (ui *UI) loadProfiles() {
 	}
 
 	profiles, _ := ui.p2pUI.GetProfiles()
+
+	// Обновляем счётчик
+	if ui.profilesCountLabel != nil {
+		ui.profilesCountLabel.SetText(fmt.Sprintf("%d", len(profiles)))
+	}
 
 	if len(profiles) == 0 {
 		emptyLabel := widget.NewLabel("No profiles")

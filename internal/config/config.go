@@ -82,6 +82,10 @@ type P2PConfig struct {
 	EnableRelay bool `yaml:"enable_relay" json:"enable_relay"`
 	// EnableRelayDiscovery использовать ли автообнаружение relay
 	EnableRelayDiscovery bool `yaml:"enable_relay_discovery" json:"enable_relay_discovery"`
+	// EnableAutoConnect автоподключение ко всем известным пирам при запуске
+	EnableAutoConnect bool `yaml:"enable_auto_connect" json:"enable_auto_connect"`
+	// EnableAutoProfileEx автоматический обмен профилями с подключёнными пирами
+	EnableAutoProfileEx bool `yaml:"enable_auto_profile_ex" json:"enable_auto_profile_ex"`
 }
 
 // PrometheusConfig настройки экспорта метрик Prometheus
@@ -123,6 +127,8 @@ func DefaultConfig() *Config {
 			Port:                 4000,
 			EnableRelay:          true,
 			EnableRelayDiscovery: true,
+			EnableAutoConnect:    true,
+			EnableAutoProfileEx:  true,
 		},
 		Prometheus: PrometheusConfig{
 			Enabled:          false,
@@ -184,19 +190,21 @@ func (l *Loader) Load() (*Config, error) {
 
 // parsedFlags хранит распарсенные флаги
 type parsedFlags struct {
-	configFile      string
-	dbPath          string
-	dbBusyTimeout   int
-	storagePath     string
-	storageFilesDir string
-	p2pEnabled      bool
-	p2pPort         int
-	p2pRelay        bool
-	p2pRelayDisc    bool
-	promEnabled     bool
-	promPort        int
-	promPath        string
-	promP2PMetrics  bool
+	configFile       string
+	dbPath           string
+	dbBusyTimeout    int
+	storagePath      string
+	storageFilesDir  string
+	p2pEnabled       bool
+	p2pPort          int
+	p2pRelay         bool
+	p2pRelayDisc     bool
+	p2pAutoConnect   bool
+	p2pAutoProfileEx bool
+	promEnabled      bool
+	promPort         int
+	promPath         string
+	promP2PMetrics   bool
 }
 
 // parseAllFlags парсит все флаги командной строки
@@ -213,6 +221,8 @@ func (l *Loader) parseAllFlags() *parsedFlags {
 	flagSet.IntVar(&flags.p2pPort, "p2p-port", 0, "Порт для P2P соединений")
 	flagSet.BoolVar(&flags.p2pRelay, "p2p-relay", false, "Использовать relay для обхода NAT")
 	flagSet.BoolVar(&flags.p2pRelayDisc, "p2p-relay-discovery", false, "Автообнаружение relay")
+	flagSet.BoolVar(&flags.p2pAutoConnect, "p2p-auto-connect", false, "Автоподключение ко всем известным пирам при запуске")
+	flagSet.BoolVar(&flags.p2pAutoProfileEx, "p2p-auto-profile-ex", false, "Автоматический обмен профилями с подключёнными пирами")
 	flagSet.BoolVar(&flags.promEnabled, "prometheus-enabled", false, "Включить экспорт метрик Prometheus")
 	flagSet.IntVar(&flags.promPort, "prometheus-port", 0, "Порт для HTTP сервера метрик Prometheus")
 	flagSet.StringVar(&flags.promPath, "prometheus-path", "", "Путь для endpoint метрик Prometheus")

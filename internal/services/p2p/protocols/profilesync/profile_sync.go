@@ -14,7 +14,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"log"
 	"sort"
 	"strings"
 	"time"
@@ -217,37 +216,25 @@ func (s *SyncService) handleSync(stream network.Stream) {
 	defer func() { _ = stream.Close() }()
 
 	remotePeer := stream.Conn().RemotePeer()
-	log.Printf("[profilesync/profile_sync.go] 📥 Входящий запрос синхронизации от %s", remotePeer.String()[:8])
 
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 
-	if err := s.runSyncProtocol(ctx, stream, remotePeer); err != nil {
-		log.Printf("[profilesync/profile_sync.go] ❌ Ошибка синхронизации с %s: %v", remotePeer.String()[:8], err)
-	} else {
-		log.Printf("[profilesync/profile_sync.go] ✅ Синхронизация с %s завершена успешно", remotePeer.String()[:8])
-	}
+	_ = s.runSyncProtocol(ctx, stream, remotePeer)
 }
 
 // SyncWithPeer запускает синхронизацию профилей с указанным пиром
 func (s *SyncService) SyncWithPeer(ctx context.Context, peerID peer.ID) error {
-	log.Printf("[profilesync/profile_sync.go] 🔌 Инициирована синхронизация профилей с %s", peerID.String()[:8])
-
 	stream, err := s.host.NewStream(ctx, peerID, ProtocolID)
 	if err != nil {
-		log.Printf("[profilesync/profile_sync.go] ❌ Не удалось создать стрим для синхронизации с %s: %v", peerID.String()[:8], err)
 		return fmt.Errorf("ошибка создания стрима: %w", err)
 	}
 	defer func() { _ = stream.Close() }()
 
-	log.Printf("[profilesync/profile_sync.go] 📡 Стрим создан для синхронизации с %s", peerID.String()[:8])
-
 	if err := s.runSyncProtocol(ctx, stream, peerID); err != nil {
-		log.Printf("[profilesync/profile_sync.go] ❌ Синхронизация с %s завершилась с ошибкой: %v", peerID.String()[:8], err)
 		return err
 	}
 
-	log.Printf("[profilesync/profile_sync.go] ✅ Синхронизация профилей с %s завершена", peerID.String()[:8])
 	return nil
 }
 
@@ -260,8 +247,6 @@ func (s *SyncService) runSyncProtocol(ctx context.Context, stream network.Stream
 	if err != nil {
 		return fmt.Errorf("ошибка вычисления хеша: %w", err)
 	}
-
-	log.Printf("[profilesync/profile_sync.go] Раунд 1: наш root_hash=%s... (первые 8 символов), наших профилей=%d", ourHash[:8], ourCount)
 
 	// Отправляем свой header
 	writer := bufio.NewWriter(stream)
@@ -280,24 +265,16 @@ func (s *SyncService) runSyncProtocol(ctx context.Context, stream network.Stream
 		return fmt.Errorf("ошибка чтения header: %w", err)
 	}
 
-	log.Printf("[profilesync/profile_sync.go] Раунд 1: их root_hash=%s... (первые 8 символов), их профилей=%d", theirHeader.RootHash[:8], theirHeader.Count)
-
 	// Если хеши и количество совпали — списки идентичны
 	if ourHash == theirHeader.RootHash && ourCount == theirHeader.Count {
-		log.Printf("[profilesync/profile_sync.go] Раунд 1: списки профилей идентичны, синхронизация завершена")
 		return nil
 	}
-
-	log.Printf("[profilesync/profile_sync.go] Раунд 1: списки различаются, переходим к раунду 2")
 
 	// === РАУНД 2: Обмен списками PeerID ===
 	// Определяем стратегию: если размеры близки (< 2x) — оба отправляют списки
 	// Если сильно отличаются — только меньший отправляет свой список
 	ratio := float64(ourCount) / float64(max(theirHeader.Count, 1))
 	similarSize := ratio >= 0.5 && ratio <= 2.0
-
-	log.Printf("[profilesync/profile_sync.go] Раунд 2: ratio=%.2f, similarSize=%v (размеры %s)",
-		ratio, similarSize, map[bool]string{true: "близки", false: "сильно различаются"}[similarSize])
 
 	var ourPeerIDs []string
 	var theirPeerIDs []string
@@ -323,8 +300,6 @@ func (s *SyncService) runSyncProtocol(ctx context.Context, stream network.Stream
 			return fmt.Errorf("ошибка чтения PeerID list: %w", err)
 		}
 		theirPeerIDs = theirList.PeerIDs
-
-		log.Printf("[profilesync/profile_sync.go] Раунд 2: обменялись списками — наши=%d, их=%d", len(ourPeerIDs), len(theirPeerIDs))
 	} else {
 		// Только меньший список отправляет свои ID
 		if ourCount <= theirHeader.Count {
@@ -400,22 +375,12 @@ func (s *SyncService) runSyncProtocol(ctx context.Context, stream network.Stream
 		theirSet[id] = true
 	}
 
-	missingForUs := make([]string, 0)
-	for _, id := range theirPeerIDs {
-		if !ourSet[id] {
-			missingForUs = append(missingForUs, id)
-		}
-	}
-
 	missingForThem := make([]string, 0)
 	for _, id := range ourPeerIDs {
 		if !theirSet[id] {
 			missingForThem = append(missingForThem, id)
 		}
 	}
-
-	log.Printf("[profilesync/profile_sync.go] Раунд 3: нам нужно %d профилей от них, им нужно %d профилей от нас",
-		len(missingForUs), len(missingForThem))
 
 	// Обмен missing lists и профилями через goroutines для избежания deadlock
 	missingForUsCh := make(chan []string, 1)
@@ -461,7 +426,6 @@ func (s *SyncService) runSyncProtocol(ctx context.Context, stream network.Stream
 		return fmt.Errorf("ошибка получения missing profiles: %w", err)
 	}
 
-	log.Printf("[profilesync/profile_sync.go] Синхронизация завершена успешно")
 	return nil
 }
 
@@ -471,8 +435,6 @@ func (s *SyncService) sendMissingProfiles(writer *bufio.Writer, peerIDs []string
 	if err != nil {
 		return fmt.Errorf("ошибка получения summaries: %w", err)
 	}
-
-	log.Printf("[profilesync/profile_sync.go] Отправка %d профилей пиру", len(summaries))
 
 	for _, summary := range summaries {
 		if err := json.NewEncoder(writer).Encode(summary); err != nil {
@@ -512,16 +474,12 @@ func (s *SyncService) receiveMissingProfiles(reader *bufio.Reader) error {
 		}
 
 		if err := s.provider.SaveProfileSummary(summary); err != nil {
-			log.Printf("[profilesync/profile_sync.go] Ошибка сохранения профиля %s (%s): %v",
-				summary.PeerID[:8], summary.Username, err)
 			continue
 		}
 
 		receivedCount++
-		log.Printf("[profilesync/profile_sync.go] Сохранён новый профиль: %s (%s)", summary.PeerID[:8], summary.Username)
 	}
 
-	log.Printf("[profilesync/profile_sync.go] Получено и сохранено %d новых профилей", receivedCount)
 	return nil
 }
 

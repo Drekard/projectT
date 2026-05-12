@@ -4,7 +4,6 @@ package core
 import (
 	"context"
 	"errors"
-	"log"
 	"time"
 
 	"github.com/libp2p/go-libp2p/core/host"
@@ -14,6 +13,7 @@ import (
 	pubsub "github.com/libp2p/go-libp2p-pubsub"
 
 	"projectT/internal/services/p2p/address"
+	"projectT/internal/services/p2p/autodial"
 	"projectT/internal/services/p2p/connection"
 	"projectT/internal/services/p2p/discovery"
 	"projectT/internal/services/p2p/helper"
@@ -208,13 +208,7 @@ func (n *P2PNetwork) SendMessage(ctx context.Context, peerID peer.ID, content, c
 
 // SendTextMessage отправляет текстовое сообщение
 func (n *P2PNetwork) SendTextMessage(ctx context.Context, peerID peer.ID, content string) error {
-	log.Printf("[Chat] 📤 P2PNetwork.SendTextMessage: пиру %s, len=%d", peerID[:8], len(content))
 	err := n.SendMessage(ctx, peerID, content, "text", "")
-	if err != nil {
-		log.Printf("[Chat] ❌ P2PNetwork.SendMessage ошибка: %v", err)
-	} else {
-		log.Printf("[Chat] ✅ P2PNetwork.SendMessage успешно")
-	}
 	return err
 }
 
@@ -389,6 +383,13 @@ func (n *P2PNetwork) ProfileSync() *profilesync.SyncService {
 	n.mu.RLock()
 	defer n.mu.RUnlock()
 	return n.profileSync
+}
+
+// Autodial возвращает менеджер автоподключения
+func (n *P2PNetwork) Autodial() *autodial.DialerManager {
+	n.mu.RLock()
+	defer n.mu.RUnlock()
+	return n.autodial
 }
 
 // SendBatch отправляет пакет элементов пиру

@@ -3,7 +3,6 @@ package hover_preview
 import (
 	"context"
 	"image/color"
-	"log"
 	"time"
 
 	"projectT/internal/services"
@@ -15,14 +14,6 @@ import (
 	"fyne.io/fyne/v2/dialog"
 	"fyne.io/fyne/v2/widget"
 )
-
-// min возвращает минимальное из двух чисел
-func min(a, b int) int {
-	if a < b {
-		return a
-	}
-	return b
-}
 
 // getTagsContainer возвращает контейнер с цветными кнопками тегов для элемента
 func getTagsContainer(item *models.Item, handler SearchHandler, cardPos fyne.Position, cardSize fyne.Size) fyne.CanvasObject {
@@ -172,9 +163,6 @@ func sendItemToChat(chat *models.ChatWithLastMessage, item *models.Item, window 
 		dialog.ShowError(err, window)
 		return
 	}
-
-	log.Printf("[SendDialog] 📤 Отправка в чат: chat_id=%d, peer_id=%s, username=%q, element_uuid=%s, type=%s",
-		chat.ID, chat.PeerID[:min(10, len(chat.PeerID))], chat.Username, item.ElementUUID, item.Type)
 
 	contactID := 0
 	if chat.PeerID != models.LocalChatPeerID && chat.ContactID != nil {

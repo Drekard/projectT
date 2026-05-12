@@ -375,10 +375,3 @@ func GetOrCreateLocalChat(localPeerID string) (*models.Chat, error) {
 func GetLocalChat(localPeerID string) (*models.Chat, error) {
 	return GetChatByPeerID(localPeerID)
 }
-
-func min(a, b int) int {
-	if a < b {
-		return a
-	}
-	return b
-}

@@ -142,6 +142,36 @@ func GetRemoteItemsByPeer(sourcePeerID string) ([]*models.Item, error) {
 	return items, rows.Err()
 }
 
+// GetRemoteItemsByParentUUID возвращает дочерние элементы remote папки по parent_uuid
+func GetRemoteItemsByParentUUID(parentUUID string) ([]*models.Item, error) {
+	query := `
+		SELECT id, element_uuid, hash,
+		       owner_type, source_peer_id,
+		       type, title, description, content_meta, parent_uuid,
+		       signature, version, status, cached_at,
+		       created_at, updated_at
+		FROM items
+		WHERE owner_type = 'remote' AND parent_uuid = ?
+		ORDER BY title
+	`
+	rows, err := database.DB.Query(query, parentUUID)
+	if err != nil {
+		return nil, err
+	}
+	defer func() { _ = rows.Close() }()
+
+	var items []*models.Item
+	for rows.Next() {
+		item := scanRemoteItemRow(rows)
+		if item == nil {
+			continue
+		}
+		items = append(items, item)
+	}
+
+	return items, rows.Err()
+}
+
 // GetRemoteItemsByElementUUIDs возвращает кэшированные элементы по списку element_uuid
 func GetRemoteItemsByElementUUIDs(sourcePeerID string, elementUUIDs []string) ([]*models.Item, error) {
 	if len(elementUUIDs) == 0 {

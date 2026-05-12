@@ -46,13 +46,12 @@ func GetPeerAddress(h host.Host) (*PeerAddress, error) {
 
 	peerID := h.ID().String()
 	addrs := h.Addrs()
-	log.Printf("[GetPeerAddress] Всего адресов: %d", len(addrs))
 
 	var multiaddrs []string
 	var bestAddrType string
 	bestPriority := 0
 
-	for i, addr := range addrs {
+	for _, addr := range addrs {
 		addrStr := addr.String()
 		addrType := "unknown"
 		priority := 0
@@ -81,8 +80,6 @@ func GetPeerAddress(h host.Host) (*PeerAddress, error) {
 		multiaddrs = append(multiaddrs, fullAddr)
 		bestAddrType = addrType
 
-		log.Printf("[GetPeerAddress]   [%d] %s (type=%s, priority=%d)", i, fullAddr, addrType, priority)
-
 		if priority > bestPriority {
 			bestPriority = priority
 			bestAddrType = addrType
@@ -92,8 +89,6 @@ func GetPeerAddress(h host.Host) (*PeerAddress, error) {
 	if len(multiaddrs) == 0 {
 		return nil, errors.New("нет доступных адресов")
 	}
-
-	log.Printf("[GetPeerAddress] ✅ Адресов для экспорта: %d, лучший тип: %s", len(multiaddrs), bestAddrType)
 
 	return &PeerAddress{
 		PeerID:      peerID,

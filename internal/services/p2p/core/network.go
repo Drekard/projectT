@@ -8,6 +8,7 @@ import (
 	"log"
 	"strings"
 	"sync"
+	"time"
 
 	pubsub "github.com/libp2p/go-libp2p-pubsub"
 	"github.com/libp2p/go-libp2p/core/crypto"
@@ -97,6 +98,20 @@ func (n *P2PNetwork) SetPort(port int) {
 	n.mu.Lock()
 	defer n.mu.Unlock()
 	n.config.ListenPort = port
+}
+
+// SetAutoConnect устанавливает флаг автоподключения
+func (n *P2PNetwork) SetAutoConnect(enabled bool) {
+	n.mu.Lock()
+	defer n.mu.Unlock()
+	n.config.EnableAutoConnect = enabled
+}
+
+// SetAutoProfileEx устанавливает флаг автоматического обмена профилями
+func (n *P2PNetwork) SetAutoProfileEx(enabled bool) {
+	n.mu.Lock()
+	defer n.mu.Unlock()
+	n.config.EnableAutoProfileEx = enabled
 }
 
 // Config возвращает текущую конфигурацию
@@ -232,18 +247,24 @@ func (n *P2PNetwork) Start() error {
 		_ = err // Ignore error
 	}
 
-	// ✅ Запускаем автоподключение к известным пирам
-	go func() {
-		log.Printf("[P2P] 🚀 Запуск автоподключения к известным пирам...")
-		results := n.autodial.ConnectToAll()
-		for result := range results {
-			if result.Success {
-				log.Printf("[P2P] ✅ Подключение к пиру %s успешно", result.PeerID.String()[:8])
-			} else {
-				log.Printf("[P2P] ❌ Подключение к пиру %s не удалось: %v", result.PeerID.String()[:8], result.Error)
+	// ✅ Запускаем автоподключение к известным пирам (если включено в настройках)
+	if n.config.EnableAutoConnect {
+		go func() {
+			log.Printf("[P2P] 🚀 Запуск автоподключения к известным пирам...")
+			results := n.autodial.ConnectToAll()
+			for result := range results {
+				peerShort := "unknown"
+				if result.PeerID.String() != "" {
+					peerShort = result.PeerID.String()[:8]
+				}
+				if result.Success {
+					log.Printf("[P2P] ✅ Подключение к пиру %s успешно", peerShort)
+				} else {
+					log.Printf("[P2P] ❌ Подключение к пиру %s не удалось: %v", peerShort, result.Error)
+				}
 			}
-		}
-	}()
+		}()
+	}
 
 	// ✅ Инициализируем сервис обмена пирами
 	if err := n.initPeerExchange(); err != nil {
@@ -255,11 +276,23 @@ func (n *P2PNetwork) Start() error {
 		_ = err // Ignore error
 	}
 
-	// Инициализируем режим помощника если включён
-	if n.config.EnableHelperMode {
-		if err := n.initHelper(); err != nil {
-			_ = err // Ignore error
-		}
+	// ✅ Автоматический обмен профилями с подключёнными пирами (если включено в настройках)
+	if n.config.EnableAutoProfileEx {
+		go func() {
+			// Ждём немного, чтобы пиры успели подключиться
+			time.Sleep(5 * time.Second)
+			peers := n.host.Network().Peers()
+			if len(peers) > 0 && n.profileSync != nil {
+				log.Printf("[P2P] 🔄 Запуск автоматического обмена профилями с %d пирами...", len(peers))
+				for _, peerID := range peers {
+					go func(pid peer.ID) {
+						ctx, cancel := context.WithTimeout(n.ctx, 30*time.Second)
+						defer cancel()
+						_ = n.profileSync.SyncWithPeer(ctx, pid)
+					}(peerID)
+				}
+			}
+		}()
 	}
 
 	return nil
