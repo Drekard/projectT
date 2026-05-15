@@ -24,6 +24,14 @@ jobs:
           cache: true
           check-latest: true
 
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            libgl1-mesa-dev xorg-dev \
+            libxcursor-dev libxinerama-dev libxi-dev libxxf86vm-dev \
+            libasound2-dev libpulse-dev
+
       - name: Run golangci-lint
         uses: golangci/golangci-lint-action@v7
         with:
