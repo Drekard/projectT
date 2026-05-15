@@ -42,6 +42,8 @@ type GridManager struct {
 	sortOptions       *services.FilterOptions                   // Настройки сортировки и фильтрации
 	lastScrollPos     fyne.Position                             // Последняя позиция скролла для оптимизации
 	scrollThreshold   float32                                   // Порог изменения скролла для обновления (в пикселях)
+	loadMu            sync.Mutex                                // Мьютекс для защиты от конкурентных загрузок
+	loadGeneration    int                                       // Счётчик поколения загрузки для отмены старых
 }
 
 // NewGridManager создает новый менеджер сетки
@@ -61,6 +63,7 @@ func NewGridManager() *GridManager {
 		sortOptions:     services.GlobalSortSettingsService.GetFilterOptions(), // Используем глобальные настройки сортировки
 		lastScrollPos:   fyne.Position{X: 0, Y: 0},                             // Инициализируем начальную позицию
 		scrollThreshold: utils.ScrollThreshold,                                 // Порог изменения скролла
+		loadGeneration:  0,
 	}
 
 	// Инициализация кэша размеров
@@ -192,9 +195,13 @@ func (gm *GridManager) updateLayout() {
 
 	// Вычисляем количество колонок на основе доступной ширины
 	scrollSize := gm.scroll.Size()
-	availableWidth := gm.sizeManager.CalculateColumnCount(scrollSize.Width)
+	availableWidth := scrollSize.Width
+	if availableWidth <= 0 {
+		availableWidth = gm.sizeManager.GetTotalWidth()
+	}
+	columnCount := gm.sizeManager.CalculateColumnCount(availableWidth)
 
-	positions := gm.layoutEngine.CalculatePositions(gm.cards, availableWidth)
+	positions := gm.layoutEngine.CalculatePositions(gm.cards, columnCount)
 
 	if len(positions) != len(gm.cards) {
 		return // Позиции будут пересчитаны при следующем обновлении
@@ -208,14 +215,11 @@ func (gm *GridManager) updateLayout() {
 
 	// Обновляем позиции и размеры карточек
 	// Оптимизация: используем кэш размеров для избежания лишних Resize()
-	resizeCount := 0
-	skipCount := 0
-
 	for i, pos := range positions {
 		cardInfo := gm.cards[i]
 		cardInfo.Position = pos
 
-		// Используем уже вычисленную ActualHeight из createCardsConcurrently
+		// Используем уже вычисленную ActualHeight
 		actualHeight := cardInfo.ActualHeight
 		if actualHeight <= 0 {
 			actualHeight = utils.DefaultMinHeight
@@ -230,9 +234,6 @@ func (gm *GridManager) updateLayout() {
 		if !hasCached || cachedSize != targetSize {
 			cardInfo.Widget.Resize(targetSize)
 			gm.widgetSizeCache[cardInfo.Item.ID] = targetSize // Кэшируем размер
-			resizeCount++
-		} else {
-			skipCount++
 		}
 
 		// Перемещаем виджет на новую позицию
@@ -274,16 +275,20 @@ func (gm *GridManager) updateContainerSize() {
 	maxX, maxY := gm.sizeManager.CalculateMaxDimensions(gm.cards)
 	scrollSize := gm.scroll.Size()
 
+	// Если scroll.Size() возвращает 0 (при первой отрисовке), используем дефолтную ширину
 	containerWidth := scrollSize.Width
+	if containerWidth <= 0 {
+		containerWidth = gm.sizeManager.GetTotalWidth()
+	}
 
-	// Если ширина скролла больше, используем ширину скролла, иначе вычисляем на основе количества колонок
+	// Вычисляем ширину на основе количества колонок
 	calculatedWidth := gm.sizeManager.CalculateColumnCount(containerWidth)*int(gm.sizeManager.GetFixedWidth()+gm.sizeManager.GetGapSize()) - int(gm.sizeManager.GetGapSize())
 
 	if containerWidth <= 0 || maxX > containerWidth {
 		containerWidth = float32(calculatedWidth)
 	}
 
-	containerHeight := maxY + utils.DefaultMinHeight + utils.GapSize // используем размер ячейки + промежуток
+	containerHeight := maxY + utils.DefaultMinHeight + utils.GapSize
 
 	// Обновляем размеры обоих элементов: контейнера и фона
 	gm.container.Resize(fyne.NewSize(containerWidth, containerHeight))
@@ -303,95 +308,173 @@ func (gm *GridManager) LoadItemsWithoutCreateElement(items []*db_models.Item) {
 // loadItems загружает элементы в сетку (внутренний метод)
 // if addCreateElement=true, добавляется элемент "Создать элемент"
 func (gm *GridManager) loadItems(items []*db_models.Item, addCreateElement bool) {
+	// Блокируем мьютекс — если уже идёт загрузка, ждём её завершения
+	gm.loadMu.Lock()
+
+	// Увеличиваем поколение — предыдущая загрузка (если ещё работает) будет отменена
+	gm.loadGeneration++
+	currentGeneration := gm.loadGeneration
+
 	gm.clear()
 
-	// НЕ очищаем кэш размеров виджетов — он используется для ускорения повторных загрузок
-	// Кэш очищается только при явном вызове Clear() или перезапуске приложения
+	// Отпускаем мьютекс, чтобы UI не блокировался
+	gm.loadMu.Unlock()
 
-	// Предвыделяем память для карточек
-	capacity := len(items)
-	if addCreateElement {
-		capacity++
-	}
-	gm.cards = make([]*ui_models.CardInfo, 0, capacity)
-
-	// Добавляем переданные элементы параллельно с использованием worker pool
-	gm.createCardsConcurrently(items)
-
-	// Добавляем элемент "Создать элемент" если требуется (последовательно, т.к. это один элемент)
-	if addCreateElement {
-		// Здесь можно добавить логику создания элемента "Создать элемент"
-		// Например: gm.cards = append(gm.cards, gm.createCreateElementCard())
-		_ = struct{}{} //nolint:staticcheck
-	}
-
-	// Обновляем макет один раз после добавления всех элементов
-	// Расчёт позиций остается последовательным
-	gm.updateLayout()
-
-	// Вызываем canvas.Refresh() асинхронно через Go, чтобы избежать
-	// цепной реакции перерисовок через onSizeChanged()
-	go canvas.Refresh(gm.container)
+	// Запускаем асинхронную загрузку с прогрессивной отрисовкой
+	go gm.loadItemsAsync(items, addCreateElement, currentGeneration)
 }
 
-// createCardsConcurrently создает карточки параллельно с использованием worker pool
-func (gm *GridManager) createCardsConcurrently(items []*db_models.Item) {
+// loadItemsAsync загружает элементы асинхронно с прогрессивной отрисовкой
+func (gm *GridManager) loadItemsAsync(items []*db_models.Item, addCreateElement bool, generation int) {
 	if len(items) == 0 {
 		return
 	}
 
-	// Создаем канал для результатов и WaitGroup
+	// === ФАЗА 1: Создание карточек параллельно (без UI) ===
 	resultChan := make(chan rendering.CardCreationResult, len(items))
 	var wg sync.WaitGroup
 
-	// Предвыделяем результат для сохранения в правильном порядке
-	results := make([]*ui_models.CardInfo, len(items))
-
-	// Запускаем воркеров - создание виджетов происходит параллельно
 	wg.Add(len(items))
 	for i, item := range items {
-		itemIndex := i // Сохраняем индекс для горутины
+		itemIndex := i
 		go func(it *db_models.Item, idx int) {
 			gm.renderFactory.CreateCardInfoConcurrent(idx, it, gm.navigationHandler, resultChan, &wg)
 		}(item, itemIndex)
 	}
 
-	// Закрываем канал результатов после завершения всех воркеров
+	// Закрываем канал после завершения всех воркеров
 	go func() {
 		wg.Wait()
 		close(resultChan)
 	}()
 
-	// Собираем результаты (порядок сохраняется по индексу)
+	// Собираем ВСЕ результаты в массив по индексам (порядок сохраняется)
+	results := make([]*ui_models.CardInfo, len(items))
+	receivedCount := 0
+
 	for result := range resultChan {
 		if result.Error != nil {
 			continue
 		}
+		if result.CardInfo == nil {
+			continue
+		}
 		results[result.Index] = result.CardInfo
+		receivedCount++
 	}
 
-	// Вычисляем размеры и делаем refresh в main goroutine (требуется Fyne)
-	// Это делается последовательно, но быстро - только MinSize и Refresh
-	for _, cardInfo := range results {
-		if cardInfo != nil {
+	// Проверяем поколение — если за это время началась новая загрузка, выходим
+	if generation != gm.loadGeneration {
+		return
+	}
+
+	// === ФАЗА 2: Прогрессивная отрисовка БАТЧАМИ ===
+	// Используем ЛОКАЛЬНЫЙ срез для карточек, чтобы избежать гонки с другими поколениями
+	localCards := make([]*ui_models.CardInfo, 0, len(items))
+	const batchSize = 10
+
+	for batchStart := 0; batchStart < len(results); batchStart += batchSize {
+		// Проверяем поколение перед каждым батчем
+		if generation != gm.loadGeneration {
+			return
+		}
+
+		batchEnd := batchStart + batchSize
+		if batchEnd > len(results) {
+			batchEnd = len(results)
+		}
+
+		// Шаг 1: Подготавливаем карточки батча (MinSize, размеры) — БЕЗ UI
+		batchCards := make([]*ui_models.CardInfo, 0, batchEnd-batchStart)
+		for i := batchStart; i < batchEnd; i++ {
+			cardInfo := results[i]
+			if cardInfo == nil {
+				continue
+			}
+
 			// Применяем размеры из кэша
 			widthCells, heightCells := gm.getCardSize(cardInfo.Item)
 			cardInfo.WidthCells = widthCells
 			cardInfo.HeightCells = heightCells
 
-			// Вычисляем фактическую высоту в main goroutine
-			// НЕ вызываем Refresh() - карточки уже созданы в createCardsConcurrently
+			// Вычисляем фактическую высоту
 			if cardInfo.Widget != nil {
 				minSize := cardInfo.Widget.MinSize()
-
 				cardInfo.ActualHeight = minSize.Height
 				if cardInfo.ActualHeight < utils.DefaultMinHeight {
 					cardInfo.ActualHeight = utils.DefaultMinHeight
 				}
 			}
 
-			gm.cards = append(gm.cards, cardInfo)
+			// Добавляем в ЛОКАЛЬНЫЙ срез, НЕ в gm.cards
+			localCards = append(localCards, cardInfo)
+			batchCards = append(batchCards, cardInfo)
 		}
+
+		// Шаг 2: Пересчитываем позиции для ЛОКАЛЬНОГО среза
+		scrollSize := gm.scroll.Size()
+		availableWidth := scrollSize.Width
+		if availableWidth <= 0 {
+			availableWidth = gm.sizeManager.GetTotalWidth()
+		}
+		columnCount := gm.sizeManager.CalculateColumnCount(availableWidth)
+		positions := gm.layoutEngine.CalculatePositions(localCards, columnCount)
+
+		if len(positions) != len(localCards) {
+			continue
+		}
+
+		// Шаг 3: Выполняем ВСЕ UI-операции в main goroutine через DoFromGoroutine
+		uiDone := make(chan struct{})
+		fyne.CurrentApp().Driver().DoFromGoroutine(func() {
+			defer close(uiDone)
+
+			// Проверяем поколение ещё раз в main goroutine
+			if generation != gm.loadGeneration {
+				return
+			}
+
+			// ТОЛЬКО здесь записываем в gm.cards — под мьютексом и с проверкой поколения
+			gm.loadMu.Lock()
+			gm.cards = localCards
+			gm.loadMu.Unlock()
+
+			width := gm.sizeManager.GetFixedWidth()
+
+			for i, cardInfo := range batchCards {
+				if cardInfo == nil || cardInfo.Widget == nil {
+					continue
+				}
+
+				pos := positions[batchStart+i]
+				cardInfo.Position = pos
+
+				actualHeight := cardInfo.ActualHeight
+				if actualHeight <= 0 {
+					actualHeight = utils.DefaultMinHeight
+				}
+
+				targetSize := fyne.NewSize(width, actualHeight)
+				cardInfo.Widget.Resize(targetSize)
+				gm.widgetSizeCache[cardInfo.Item.ID] = targetSize
+
+				x, _ := gm.sizeManager.CalculatePixelPosition(pos.X, pos.Y)
+				cardInfo.Widget.Move(fyne.NewPos(x, float32(pos.Y)))
+
+				gm.container.Objects = append(gm.container.Objects, cardInfo.Widget)
+			}
+
+			gm.updateContainerSize()
+			canvas.Refresh(gm.container)
+		}, false)
+
+		// Ждём завершения UI-операций
+		<-uiDone
+	}
+
+	// Проверяем поколение ещё раз перед завершением
+	if generation != gm.loadGeneration {
+		return
 	}
 }
 
@@ -494,7 +577,6 @@ func (gm *GridManager) clear() {
 	gm.container.Objects = gm.container.Objects[:0]
 	// Очищаем кэш размеров при полной очистке сетки
 	gm.widgetSizeCache = make(map[int]fyne.Size)
-	// НЕ вызываем container.Refresh() - Fyne сам перерисует после возврата
 }
 
 // getCardSize возвращает размер карточки в ячейках

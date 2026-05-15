@@ -164,7 +164,11 @@ func (ui *UI) setupControllerCallbacks() {
 		// Проверяем, открыт ли чат с этим контактом
 		// Для P2P чатов (contactID=0) сравниваем по PeerID
 		chatIsOpen := false
+		currentContactID := -1
+		currentPeerID := ""
 		if ui.currentContact != nil {
+			currentContactID = ui.currentContact.ID
+			currentPeerID = ui.currentContact.PeerID
 			if ui.currentContact.ID == event.ContactID {
 				chatIsOpen = true
 			} else if ui.currentContact.ID == 0 && event.ContactID == 0 {
@@ -176,9 +180,15 @@ func (ui *UI) setupControllerCallbacks() {
 			}
 		}
 
+		log.Printf("[ChatUI] 📨 Message: contactID=%d, fromPeerID=%s, chatIsOpen=%v (currentContactID=%d, currentPeerID=%s)",
+			event.ContactID, event.Message.FromPeerID, chatIsOpen, currentContactID, currentPeerID)
+
 		if chatIsOpen {
 			if ui.chatPanel != nil {
+				log.Printf("[ChatUI] ➕ Adding message to chat panel")
 				ui.chatPanel.AddMessage(event.Message, event.IsOutgoing)
+			} else {
+				log.Printf("[ChatUI] ⚠️ chatPanel is nil")
 			}
 		}
 

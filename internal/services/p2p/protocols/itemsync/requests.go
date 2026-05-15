@@ -57,6 +57,11 @@ func (iss *Service) RequestItems(ctx context.Context, peerID peer.ID, itemIDs []
 			break
 		}
 
+		// Пропускаем пустые ответы (элемент не найден)
+		if resp.ItemID == 0 {
+			continue
+		}
+
 		remoteItem, err := iss.saveRemoteItem(peerID.String(), &resp)
 		if err != nil {
 			log.Printf("Ошибка сохранения элемента: %v", err)
@@ -98,6 +103,10 @@ func (iss *Service) RequestItemByHash(ctx context.Context, peerID peer.ID, hash 
 
 	if err := json.NewDecoder(reader).Decode(&resp); err != nil {
 		return nil, fmt.Errorf("ошибка чтения ответа: %w", err)
+	}
+
+	if resp.ItemID == 0 {
+		return nil, fmt.Errorf("элемент с хешем %s не найден у пира", hash[:8])
 	}
 
 	return iss.saveRemoteItem(peerID.String(), &resp)
@@ -149,6 +158,13 @@ func (iss *Service) RequestItemByElementUUID(ctx context.Context, peerID peer.ID
 		log.Printf("[ItemSync] ❌ Ошибка чтения ответа: %v", err)
 		return nil, fmt.Errorf("ошибка чтения ответа: %w", err)
 	}
+
+	// Проверяем, что элемент найден (ItemID > 0)
+	if resp.ItemID == 0 {
+		log.Printf("[ItemSync] ❌ Элемент %s не найден у пира", elementUUID[:8])
+		return nil, fmt.Errorf("элемент %s не найден у пира", elementUUID)
+	}
+
 	log.Printf("[ItemSync] ✅ Ответ получен: ItemID=%d, UUID=%s, Title=%q", resp.ItemID, resp.ElementUUID[:8], resp.Title)
 
 	log.Printf("[ItemSync] 💾 Сохранение элемента в БД...")
@@ -195,6 +211,11 @@ func (iss *Service) RequestAllItems(ctx context.Context, peerID peer.ID) ([]*mod
 			}
 			log.Printf("Ошибка чтения ответа: %v", err)
 			break
+		}
+
+		// Пропускаем пустые ответы (элемент не найден)
+		if resp.ItemID == 0 {
+			continue
 		}
 
 		remoteItem, err := iss.saveRemoteItem(peerID.String(), &resp)
@@ -255,6 +276,11 @@ func (iss *Service) RequestBatchByUUIDs(ctx context.Context, peerID peer.ID, ele
 			}
 			log.Printf("Ошибка чтения ответа: %v", err)
 			break
+		}
+
+		// Пропускаем пустые ответы (элемент не найден)
+		if resp.ItemID == 0 {
+			continue
 		}
 
 		remoteItem, err := iss.saveRemoteItem(peerID.String(), &resp)

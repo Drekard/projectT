@@ -168,6 +168,7 @@ func (pes *ExchangeService) handleProfileRequest(stream network.Stream) {
 	defer func() { _ = stream.Close() }()
 
 	remotePeer := stream.Conn().RemotePeer()
+	log.Printf("[ProfileExchange/Server] 📥 Входящий запрос профиля от %s", remotePeer.String()[:8])
 
 	// Читаем запрос с помощью json.Decoder (не читаем весь стрим)
 	reader := bufio.NewReader(stream)
@@ -175,13 +176,17 @@ func (pes *ExchangeService) handleProfileRequest(stream network.Stream) {
 
 	req := ProfileRequest{}
 	if err := decoder.Decode(&req); err != nil {
+		log.Printf("[ProfileExchange/Server] ❌ Ошибка чтения запроса от %s: %v", remotePeer.String()[:8], err)
 		return
 	}
+	log.Printf("[ProfileExchange/Server] 📋 Запрос получен (IsInitiator=%v)", req.IsInitiator)
 
 	// Отправляем свой профиль (Роль 2 - СЕРВЕР, isInitiator=false)
 	if err := pes.sendLocalProfile(stream, false); err != nil {
+		log.Printf("[ProfileExchange/Server] ❌ Ошибка отправки профиля %s: %v", remotePeer.String()[:8], err)
 		return
 	}
+	log.Printf("[ProfileExchange/Server] 📤 Свой профиль отправлен")
 
 	// Читаем профиль инициатора в ответ
 	// Увеличиваем таймаут до 60 секунд для соединений с большими аватарами
@@ -189,8 +194,10 @@ func (pes *ExchangeService) handleProfileRequest(stream network.Stream) {
 
 	response := &ProfileResponse{}
 	if err := json.NewDecoder(reader).Decode(response); err != nil {
+		log.Printf("[ProfileExchange/Server] ❌ Ошибка чтения профиля инициатора от %s: %v", remotePeer.String()[:8], err)
 		return
 	}
+	log.Printf("[ProfileExchange/Server] ✅ Профиль инициатора получен: %s", response.Username)
 
 	// Сохраняем профиль инициатора
 	profile := &models.Profile{

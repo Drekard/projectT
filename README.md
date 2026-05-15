@@ -152,9 +152,9 @@ More details — in [FEATURES.md](FEATURES.md#-p2p-chat-and-exchange).
 
 ## 👨‍💻 Author
 
-**ProjectT** is a diploma project for the portfolio of a student programmer in their final year of study, which is me.
+**ProjectT** is my personal project that I want to bring to the level of a full-fledged and independent network
 
-I'm simultaneously looking for a developer position. I can design architecture, work with GUIs and databases, and have implemented a full P2P messenger on libp2p with encryption and data synchronization.
+Always looking for a job. Strong in both backend and layout
 
 Have ideas, suggestions, or just a question? Feel free to reach out via my personal messages
 

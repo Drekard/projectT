@@ -1,6 +1,7 @@
 package controllers
 
 import (
+	"log"
 	"projectT/internal/services"
 	network "projectT/internal/services/p2p/ui"
 	"projectT/internal/storage/database/models"
@@ -84,6 +85,8 @@ func (cc *ChatController) SetOnPinnedElementsLoaded(handler func(peerID string))
 // handleMessageEvents обрабатывает события новых сообщений
 func (cc *ChatController) handleMessageEvents() {
 	for event := range cc.messageChannel {
+		log.Printf("[ChatController] 📨 Event received: contactID=%d, fromPeerID=%s, contentType=%s",
+			event.ContactID, event.Message.FromPeerID, event.Message.ContentType)
 		if cc.onMessageReceived != nil {
 			cc.onMessageReceived(event)
 		}

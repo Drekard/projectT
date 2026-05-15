@@ -4,10 +4,12 @@ package p2p
 import (
 	"fmt"
 	"image/color"
+	"os"
 	"time"
 
 	network "projectT/internal/services/p2p/ui"
 	"projectT/internal/storage/database/models"
+	"projectT/internal/storage/database/queries"
 
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/canvas"
@@ -214,17 +216,33 @@ func (ui *UI) loadConnectedPeers() {
 
 // createConnectedPeerItem creates a connected peer item
 func (ui *UI) createConnectedPeerItem(peer *network.PeerInfo) *fyne.Container {
+	// Avatar icon
+	var avatarIcon *canvas.Image
+	profile, err := queries.GetProfileByPeerID(peer.PeerID)
+	if err == nil && profile != nil && profile.AvatarPath != "" {
+		if _, statErr := os.Stat(profile.AvatarPath); statErr == nil {
+			avatarIcon = canvas.NewImageFromFile(profile.AvatarPath)
+			avatarIcon.FillMode = canvas.ImageFillContain
+			avatarIcon.SetMinSize(fyne.NewSize(40, 40))
+		}
+	}
+	if avatarIcon == nil {
+		avatarIcon = canvas.NewImageFromResource(theme.AccountIcon())
+		avatarIcon.FillMode = canvas.ImageFillContain
+		avatarIcon.SetMinSize(fyne.NewSize(40, 40))
+	}
+
 	// Peer name
 	nameLabel := widget.NewLabel(peer.Username)
 	nameLabel.TextStyle = fyne.TextStyle{Bold: true}
 
-	// PeerID (shortened)
-	peerIDShort := peer.PeerID
-	if len(peerIDShort) > 8 {
-		peerIDShort = peerIDShort[:8]
-	}
-	peerIDLabel := widget.NewLabel(fmt.Sprintf("ID: %s", peerIDShort))
+	// PeerID (full)
+	peerIDLabel := widget.NewLabel(fmt.Sprintf("PeerID: %s", peer.PeerID))
 	peerIDLabel.TextStyle = fyne.TextStyle{Italic: true}
+
+	// Address (full)
+	addressLabel := widget.NewLabel(fmt.Sprintf("Address: %s", peer.Address))
+	addressLabel.TextStyle = fyne.TextStyle{Italic: true}
 
 	// Latency
 	latencyLabel := widget.NewLabel(fmt.Sprintf("Ping: %d ms", peer.LatencyMs))
@@ -253,9 +271,11 @@ func (ui *UI) createConnectedPeerItem(peer *network.PeerInfo) *fyne.Container {
 		ui.disconnectFromPeer(peer.PeerID)
 	})
 
+	leftContent := container.NewHBox(avatarIcon, container.NewVBox(nameLabel, peerIDLabel, addressLabel))
+
 	content := container.NewBorder(
 		nil, nil,
-		container.NewHBox(statusInd, container.NewVBox(nameLabel, peerIDLabel)),
+		container.NewHBox(statusInd, leftContent),
 		container.NewHBox(latencyLabel, chatBtn, profileBtn, addContactBtn, disconnectBtn),
 		widget.NewSeparator(),
 	)
@@ -297,20 +317,17 @@ func (ui *UI) loadDiscoveredPeers() {
 
 // createDiscoveredPeerItem creates a discovered peer item
 func (ui *UI) createDiscoveredPeerItem(peerID string, lastSeen time.Time) *fyne.Container {
-	// Peer name (use shortened PeerID as name)
-	peerIDShort := peerID
-	if len(peerIDShort) > 8 {
-		peerIDShort = peerIDShort[:8]
-	}
-	nameLabel := widget.NewLabel(fmt.Sprintf("Peer: %s", peerIDShort))
+	// Peer name (use full PeerID as name)
+	nameLabel := widget.NewLabel(fmt.Sprintf("Peer: %s", peerID))
 	nameLabel.TextStyle = fyne.TextStyle{Bold: true}
+	nameLabel.Wrapping = fyne.TextWrapWord
 
 	// Full PeerID
-	peerIDLabel := widget.NewLabel(fmt.Sprintf("ID: %s", peerID))
+	peerIDLabel := widget.NewLabel(fmt.Sprintf("PeerID: %s", peerID))
 	peerIDLabel.TextStyle = fyne.TextStyle{Italic: true}
 
-	// Last seen time
-	lastSeenLabel := widget.NewLabel(fmt.Sprintf("Seen: %s", lastSeen.Format("15:04:05")))
+	// Last seen time (date and time)
+	lastSeenLabel := widget.NewLabel(fmt.Sprintf("Seen: %s", lastSeen.Format("2006-01-02 15:04:05")))
 	lastSeenLabel.TextStyle = fyne.TextStyle{Italic: true}
 
 	// Status indicator (yellow - not connected)
@@ -370,24 +387,37 @@ func (ui *UI) loadProfiles() {
 
 // createProfileItem creates a profile item
 func (ui *UI) createProfileItem(profile *models.Profile) *fyne.Container {
+	// Avatar icon
+	var avatarIcon *canvas.Image
+	if profile.AvatarPath != "" {
+		if _, statErr := os.Stat(profile.AvatarPath); statErr == nil {
+			avatarIcon = canvas.NewImageFromFile(profile.AvatarPath)
+			avatarIcon.FillMode = canvas.ImageFillContain
+			avatarIcon.SetMinSize(fyne.NewSize(40, 40))
+		}
+	}
+	if avatarIcon == nil {
+		avatarIcon = canvas.NewImageFromResource(theme.AccountIcon())
+		avatarIcon.FillMode = canvas.ImageFillContain
+		avatarIcon.SetMinSize(fyne.NewSize(40, 40))
+	}
+
 	// Username
 	usernameLabel := widget.NewLabel(profile.Username)
 	usernameLabel.TextStyle = fyne.TextStyle{Bold: true}
 
-	// PeerID (shortened)
-	peerIDShort := profile.PeerID
-	if len(peerIDShort) > 8 {
-		peerIDShort = peerIDShort[:8]
-	}
-	peerIDLabel := widget.NewLabel(fmt.Sprintf("ID: %s", peerIDShort))
+	// PeerID (full)
+	peerIDLabel := widget.NewLabel(fmt.Sprintf("PeerID: %s", profile.PeerID))
 	peerIDLabel.TextStyle = fyne.TextStyle{Italic: true}
 
-	// Cache time
+	// Updated time (date and time)
 	cachedAtLabel := widget.NewLabel("")
-	if profile.CachedAt != nil {
-		cachedAtLabel.SetText(fmt.Sprintf("Updated: %s", profile.CachedAt.Format("15:04:05")))
-		cachedAtLabel.TextStyle = fyne.TextStyle{Italic: true}
+	if profile.UpdatedAt.IsZero() {
+		cachedAtLabel.SetText("Updated: never")
+	} else {
+		cachedAtLabel.SetText(fmt.Sprintf("Updated: %s", profile.UpdatedAt.Format("2006-01-02 15:04:05")))
 	}
+	cachedAtLabel.TextStyle = fyne.TextStyle{Italic: true}
 
 	// Status indicator (blue - cached profile)
 	statusInd := canvas.NewCircle(color.RGBA{R: 0, G: 150, B: 255, A: 255})
@@ -407,9 +437,11 @@ func (ui *UI) createProfileItem(profile *models.Profile) *fyne.Container {
 		ui.deleteProfile(profile.PeerID, profile.Username)
 	})
 
+	leftContent := container.NewHBox(avatarIcon, container.NewVBox(usernameLabel, peerIDLabel))
+
 	content := container.NewBorder(
 		nil, nil,
-		container.NewHBox(statusInd, container.NewVBox(usernameLabel, peerIDLabel)),
+		container.NewHBox(statusInd, leftContent),
 		container.NewHBox(cachedAtLabel, chatBtn, profileBtn, deleteBtn),
 		widget.NewSeparator(),
 	)

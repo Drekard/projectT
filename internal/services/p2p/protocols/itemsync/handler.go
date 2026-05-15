@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"encoding/json"
 	"io"
+	"log"
 	"net/http"
 	"time"
 
@@ -18,6 +19,8 @@ import (
 func (iss *Service) handleItemRequest(stream network.Stream) {
 	defer func() { _ = stream.Close() }()
 
+	remotePeer := stream.Conn().RemotePeer()
+
 	reader := bufio.NewReader(stream)
 	reqData, err := io.ReadAll(reader)
 	if err != nil {
@@ -29,31 +32,44 @@ func (iss *Service) handleItemRequest(stream network.Stream) {
 		return
 	}
 
-	var responses []*ItemResponse
+	writer := bufio.NewWriter(stream)
+	encoder := json.NewEncoder(writer)
 
 	if req.Hash != "" {
-		resp, err := iss.getItemByElementUUID(req.Hash)
-		if err != nil {
-		} else if resp != nil {
-			responses = append(responses, resp)
+		// Запрос одного элемента по UUID или хешу
+		var resp *ItemResponse
+		var err error
+		resp, err = iss.getItemByElementUUID(req.Hash)
+		if err != nil || resp == nil {
+			resp, _ = iss.getItemByHash(req.Hash)
+		}
+		if resp != nil {
+			_ = encoder.Encode(resp)
 		} else {
-			resp, err = iss.getItemByHash(req.Hash)
-			if err != nil {
-			} else if resp != nil {
-				responses = append(responses, resp)
-			}
+			// Элемент не найден — отправляем пустой ответ чтобы клиент не получил EOF
+			log.Printf("[ItemSync] ⚠️ Элемент %s не найден для пира %s", req.Hash[:min(len(req.Hash), 8)], remotePeer.String()[:8])
+			_ = encoder.Encode(&ItemResponse{ItemID: 0})
 		}
 	} else if len(req.ItemIDs) > 0 {
+		// Запрос нескольких элементов по ID
+		found := false
 		for _, itemID := range req.ItemIDs {
 			resp, err := iss.getItemByID(itemID)
 			if err != nil {
 				continue
 			}
 			if resp != nil {
-				responses = append(responses, resp)
+				if err := encoder.Encode(resp); err != nil {
+					break
+				}
+				found = true
 			}
 		}
+		if !found {
+			_ = encoder.Encode(&ItemResponse{ItemID: 0})
+		}
 	} else if req.All {
+		// Запрос всех элементов
 		items, err := queries.GetAllItems()
 		if err != nil {
 			return
@@ -65,22 +81,26 @@ func (iss *Service) handleItemRequest(stream network.Stream) {
 				continue
 			}
 			if resp != nil {
-				responses = append(responses, resp)
+				if err := encoder.Encode(resp); err != nil {
+					break
+				}
 			}
 		}
-	}
-
-	writer := bufio.NewWriter(stream)
-	encoder := json.NewEncoder(writer)
-
-	for _, resp := range responses {
-		if err := encoder.Encode(resp); err != nil {
-			break
-		}
+	} else {
+		// Неизвестный запрос — отправляем пустой ответ
+		_ = encoder.Encode(&ItemResponse{ItemID: 0})
 	}
 
 	_ = writer.Flush()
 	_ = stream.CloseWrite()
+}
+
+// min возвращает меньшее из двух чисел
+func min(a, b int) int {
+	if a < b {
+		return a
+	}
+	return b
 }
 
 // getItemByID возвращает элемент по ID для отправки

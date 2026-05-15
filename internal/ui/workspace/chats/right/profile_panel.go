@@ -20,6 +20,7 @@ import (
 type Panel struct {
 	container                *fyne.Container
 	profileAvatar            *canvas.Image
+	connectionStatus         *widget.Label
 	profileName              *widget.Label
 	profileStatus            *widget.Label
 	characteristicsContainer *fyne.Container
@@ -27,6 +28,7 @@ type Panel struct {
 	profileMoreButton        *widget.Button
 	chatsUI                  UIProvider
 	currentContact           *models.Contact
+	isLocal                  bool
 }
 
 // UIProvider interface for accessing chat UI functions
@@ -75,9 +77,39 @@ func (p *Panel) UpdateProfile(contact *models.Contact) {
 		p.profileMoreButton.Show()
 	}
 
+	// Determine if this is a local profile
+	p.isLocal = false
+	if contact.PeerID != "" {
+		profile, err := queries.GetProfileByPeerID(contact.PeerID)
+		if err == nil && profile != nil {
+			p.isLocal = profile.OwnerType == "local"
+		}
+	}
+
 	// Update name
 	if p.profileName != nil {
 		p.profileName.SetText(contact.Username)
+	}
+
+	// Update connection status
+	if p.connectionStatus != nil {
+		if p.isLocal {
+			p.connectionStatus.SetText("В сети")
+		} else if contact.PeerID != "" && p.chatsUI != nil {
+			p2p := p.chatsUI.GetP2PService()
+			if p2p != nil {
+				peerInfo := p2p.GetPeerInfo(contact.PeerID)
+				if peerInfo != nil && peerInfo.IsConnected {
+					p.connectionStatus.SetText("В сети")
+				} else {
+					p.connectionStatus.SetText("Не подключен")
+				}
+			} else {
+				p.connectionStatus.SetText("Не подключен")
+			}
+		} else {
+			p.connectionStatus.SetText("")
+		}
 	}
 
 	// Update status (text, from profile)
@@ -184,6 +216,9 @@ func (p *Panel) createProfileArea() *fyne.Container {
 	p.profileAvatar = canvas.NewImageFromResource(nil)
 	p.profileAvatar.FillMode = canvas.ImageFillContain
 
+	// Connection status label (above avatar)
+	p.connectionStatus = widget.NewLabel("")
+
 	// Black background 100x100 for avatar
 	avatarBg := canvas.NewRectangle(color.RGBA{R: 0, G: 0, B: 0, A: 255})
 	avatarBg.SetMinSize(fyne.NewSize(100, 100))
@@ -212,6 +247,7 @@ func (p *Panel) createProfileArea() *fyne.Container {
 
 	// Container for avatar and name
 	headerContainer := container.NewVBox(
+		container.NewPadded(p.connectionStatus),
 		container.NewCenter(avatarStack),
 		container.NewCenter(
 			container.NewHBox(

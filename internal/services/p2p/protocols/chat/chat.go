@@ -159,8 +159,9 @@ func (cs *Service) SendMessage(ctx context.Context, peerID peer.ID, content, con
 		return errors.New("хост не инициализирован")
 	}
 
-	// Проверяем подключение
-	if host.Network().Connectedness(peerID) != network.Connected {
+	// Проверяем подключение (Connectedness + ConnsToPeer для надёжности)
+	isConnected := host.Network().Connectedness(peerID) == network.Connected || len(host.Network().ConnsToPeer(peerID)) > 0
+	if !isConnected {
 		// Пир оффлайн - добавляем в очередь
 		cs.queueMessage(peerID, content, contentType, metadata)
 		return errors.New("пир оффлайн, сообщение добавлено в очередь")
@@ -368,9 +369,12 @@ func (cs *Service) saveMessage(fromPeerID, content, contentType, metadata string
 
 	// Если это элемент - НЕ отправлем уведомление UI сразу
 	// Сначала загружаем элемент через ItemSync, потом добавляем в UI
-	if contentType == "element" {
+	switch contentType {
+	case "element":
 		go cs.handleIncomingElement(fromPeerID, content, metadata)
-	} else {
+	case "folder_batch":
+		go cs.handleIncomingFolderBatch(fromPeerID, content, metadata)
+	default:
 		// Для текстовых сообщений отправляем уведомление сразу
 		chatSvc := services.GetChatService()
 		if chatSvc != nil {
@@ -442,6 +446,78 @@ func (cs *Service) handleIncomingElement(fromPeerID, elementUUID, metadata strin
 	}
 }
 
+// handleIncomingFolderBatch обрабатывает входящую папку (ждёт batch transfer, создаёт папку, уведомляет UI)
+func (cs *Service) handleIncomingFolderBatch(fromPeerID, folderUUID, metadata string) {
+	var meta map[string]interface{}
+	var folderTitle string
+	var itemCount int
+	if metadata != "" {
+		if err := json.Unmarshal([]byte(metadata), &meta); err == nil {
+			if t, ok := meta["folder_title"].(string); ok {
+				folderTitle = t
+			}
+			if c, ok := meta["item_count"].(float64); ok {
+				itemCount = int(c)
+			}
+		}
+	}
+	if folderTitle == "" {
+		folderTitle = "Folder"
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
+	defer cancel()
+
+	// Ждём появления дочерних элементов в БД (batch transfer завершён или в процессе)
+	ticker := time.NewTicker(500 * time.Millisecond)
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <-ctx.Done():
+			log.Printf("[Chat] ⏱️ Таймаут ожидания папки %s", folderUUID[:8])
+			return
+		case <-ticker.C:
+			children, err := queries.GetRemoteItemsByParentUUID(folderUUID)
+			if err != nil {
+				continue
+			}
+
+			// Ждём хотя бы часть элементов или таймаут если папка пустая
+			if len(children) > 0 || itemCount == 0 {
+				// Проверяем, есть ли уже сама папка в БД
+				existingFolder, _ := queries.GetItemByElementUUID(folderUUID)
+				if existingFolder == nil {
+					// Создаём папку-заглушку
+					folderItem := &models.Item{
+						Type:         "folder",
+						Title:        folderTitle,
+						ElementUUID:  folderUUID,
+						OwnerType:    models.OwnerTypeRemote,
+						SourcePeerID: &fromPeerID,
+						Status:       models.ItemStatusPreview,
+					}
+					if err := queries.CreateRemoteItem(folderItem); err != nil {
+						log.Printf("[Chat] ⚠️ Ошибка создания папки %s: %v", folderUUID[:8], err)
+						return
+					}
+				}
+
+				// Папка готова — уведомляем UI
+				chatSvc := services.GetChatService()
+				if chatSvc != nil {
+					chatSvc.NotifyNewMessage(0, "", &models.ChatMessage{
+						Content:     folderUUID,
+						ContentType: "folder_batch",
+						Metadata:    metadata,
+					}, true)
+				}
+				return
+			}
+		}
+	}
+}
+
 // queueMessage добавляет сообщение в очередь для оффлайн-пира
 func (cs *Service) queueMessage(peerID peer.ID, content, contentType, metadata string) {
 	cs.mu.Lock()
@@ -485,8 +561,9 @@ func (cs *Service) retryQueuedMessages() {
 			continue
 		}
 
-		// Проверяем подключение
-		if cs.host.Network().Connectedness(peerID) != network.Connected {
+		// Проверяем подключение (Connectedness + ConnsToPeer для надёжности)
+		isConnected := cs.host.Network().Connectedness(peerID) == network.Connected || len(cs.host.Network().ConnsToPeer(peerID)) > 0
+		if !isConnected {
 			continue
 		}
 

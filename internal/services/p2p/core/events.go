@@ -9,14 +9,31 @@ import (
 
 	"github.com/libp2p/go-libp2p/core/network"
 	"github.com/libp2p/go-libp2p/core/peer"
+	"github.com/libp2p/go-libp2p/core/peerstore"
+	"github.com/multiformats/go-multiaddr"
 
 	"projectT/internal/storage/database/queries"
 )
 
 // onPeerConnected вызывается при подключении пира
-func (n *P2PNetwork) onPeerConnected(peerID peer.ID) {
+func (n *P2PNetwork) onPeerConnected(peerID peer.ID, remoteAddr multiaddr.Multiaddr) {
 	log.Printf("[P2P/Event] ========================================")
 	log.Printf("[P2P/Event] Пир подключён: %s", peerID.String())
+
+	// Сохраняем адрес пира в Peerstore, чтобы Connectedness() работал корректно
+	if n.host != nil && remoteAddr != nil {
+		n.host.Peerstore().AddAddr(peerID, remoteAddr, peerstore.PermanentAddrTTL)
+		log.Printf("[P2P/Event] 📌 Адрес пира сохранён в Peerstore: %s", remoteAddr.String())
+
+		// ✅ Сохраняем адрес пира в БД для восстановления после перезапуска
+		// Формируем полный multiaddr с PeerID
+		fullAddr := remoteAddr.String() + "/p2p/" + peerID.String()
+		if err := queries.AddPeerAddressWithProfile(peerID.String(), fullAddr, "discovered", "auto_connect", ""); err != nil {
+			log.Printf("[P2P/Event] ⚠️ Не удалось сохранить адрес в БД: %v", err)
+		} else {
+			log.Printf("[P2P/Event] 💾 Адрес пира сохранён в БД: %s", fullAddr)
+		}
+	}
 
 	// Определяем тип соединения и логируем детали
 	n.logConnectionDetails(peerID)
@@ -45,6 +62,29 @@ func (n *P2PNetwork) onPeerConnected(peerID peer.ID) {
 		} else {
 			log.Printf("[ProfileSync] ⏳ Ждём входящую синхронизацию от %s (наш PeerID меньше)", peerID.String()[:8])
 		}
+	}
+
+	// Всегда обмениваемся ключами шифрования через ProfileExchange
+	// Чтобы избежать race condition, только пир с БОЛЬШИМ PeerID инициирует обмен
+	if n.profileExchange != nil && n.host != nil {
+		ourID := n.host.ID()
+		if ourID > peerID {
+			log.Printf("[ProfileExchange] 📤 Инициируем обмен профилями с %s (наш PeerID больше)", peerID.String()[:8])
+			go func() {
+				ctx, cancel := context.WithTimeout(n.ctx, 60*time.Second)
+				defer cancel()
+
+				if _, err := n.profileExchange.RequestPeerProfile(ctx, peerID); err != nil {
+					log.Printf("[ProfileExchange] ⚠️ Ошибка обмена профилями с %s: %v", peerID.String()[:8], err)
+				} else {
+					log.Printf("[ProfileExchange] ✅ Обмен профилями с %s завершён", peerID.String()[:8])
+				}
+			}()
+		} else {
+			log.Printf("[ProfileExchange] ⏳ Ждём обмен профилями от %s (наш PeerID меньше)", peerID.String()[:8])
+		}
+	} else {
+		log.Printf("[ProfileExchange] ⚠️ profileExchange не инициализирован, обмен невозможен")
 	}
 
 	// Обмениваемся адресами пиров для расширения сети

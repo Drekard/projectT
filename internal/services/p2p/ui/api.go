@@ -333,11 +333,6 @@ func (api *UIP2P) ConnectToContact(addrStr string) error {
 		return fmt.Errorf("ошибка извлечения PeerID: %w", err)
 	}
 
-	decodedPeerID, err := peer.Decode(peerID)
-	if err != nil {
-		return fmt.Errorf("ошибка декодирования PeerID: %w", err)
-	}
-
 	// Сохраняем адрес пира в БД для автоподключения при следующем запуске
 	if err := queries.AddPeerAddressWithProfile(peerID, addrStr, "contact", "manual_connect", ""); err != nil {
 		log.Printf("[ConnectToContact] ⚠️ Не удалось сохранить адрес пира в БД: %v", err)
@@ -345,32 +340,8 @@ func (api *UIP2P) ConnectToContact(addrStr string) error {
 		log.Printf("[ConnectToContact] ✅ Адрес пира сохранён в peer_addresses: %s", peerID[:8])
 	}
 
-	// Запрашиваем профиль после подключения
-	go func() {
-		log.Printf("[ConnectToContact] Подключение к %s успешно, запрашиваем профиль...", peerID[:8])
-		profileCtx, profileCancel := context.WithTimeout(context.Background(), 30*time.Second)
-		defer profileCancel()
-
-		if api.network.ProfileExchange() == nil {
-			log.Printf("[ConnectToContact] ❌ profileExchange не инициализирован!")
-			return
-		}
-
-		profileWithSig, err := api.network.ProfileExchange().RequestPeerProfile(profileCtx, decodedPeerID)
-		if err != nil {
-			log.Printf("[ConnectToContact] ❌ Не удалось получить профиль у пира %s: %v", peerID, err)
-			return
-		}
-
-		// Обновляем remote профиль в БД (если существует)
-		if profileWithSig != nil && profileWithSig.Profile != nil {
-			if err := queries.UpdateRemoteProfile(profileWithSig.Profile); err != nil {
-				log.Printf("[ConnectToContact] Не удалось обновить профиль пира %s: %v", peerID, err)
-			} else {
-				log.Printf("[ConnectToContact] ✅ Профиль пира %s получен: %s", peerID, profileWithSig.Profile.Username)
-			}
-		}
-	}()
+	// Профиль будет запрошен автоматически через onPeerConnected (events.go)
+	// чтобы избежать race condition с дублирующими стримами
 
 	return nil
 }

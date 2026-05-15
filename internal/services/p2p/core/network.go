@@ -180,7 +180,7 @@ func (n *P2PNetwork) Start() error {
 	n.host.SetStreamHandler(chat.ProtocolID, n.handleChatStream)
 	n.host.Network().Notify(&network.NotifyBundle{
 		ConnectedF: func(net network.Network, conn network.Conn) {
-			n.onPeerConnected(conn.RemotePeer())
+			n.onPeerConnected(conn.RemotePeer(), conn.RemoteMultiaddr())
 		},
 		DisconnectedF: func(net network.Network, conn network.Conn) {
 			n.onPeerDisconnected(conn.RemotePeer())

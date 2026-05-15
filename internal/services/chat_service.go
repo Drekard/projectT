@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"log"
 	"projectT/internal/metrics"
 	"projectT/internal/storage/database/models"
 	"projectT/internal/storage/database/queries"
@@ -421,6 +422,8 @@ func (cs *ChatService) SendFolderMessage(contactID int, recipientPeerID, fromPee
 // NotifyNewMessage отправляет уведомление о новом сообщении всем подписчикам
 // Используется P2P сервисом при получении входящих сообщений
 func (cs *ChatService) NotifyNewMessage(contactID int, contactName string, message *models.ChatMessage, isIncoming bool) {
+	log.Printf("[ChatService] 🔔 NotifyNewMessage: contactID=%d, fromPeerID=%s, contentType=%s, isIncoming=%v",
+		contactID, message.FromPeerID, message.ContentType, isIncoming)
 	select {
 	case cs.messageChannel <- &ChatMessageEvent{
 		ContactID:   contactID,
@@ -436,5 +439,6 @@ func (cs *ChatService) NotifyNewMessage(contactID int, contactName string, messa
 		}
 	default:
 		// Канал переполнен, пропускаем
+		log.Printf("[ChatService] ⚠️ Message channel full, dropping notification")
 	}
 }

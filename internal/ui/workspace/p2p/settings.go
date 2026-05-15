@@ -228,7 +228,7 @@ func (ui *UI) copyMyAddress() {
 	}
 
 	// Copy to clipboard
-	clipboard := ui.window.Clipboard()
+	clipboard := fyne.CurrentApp().Clipboard()
 	clipboard.SetContent(addr)
 
 	ui.showInfoDialog("Success", "Address copied to clipboard")

@@ -50,7 +50,9 @@ func (ws *Workspace) createRemoteSavedContent() fyne.CanvasObject {
 
 	ws.gridManager.LoadItemsWithoutCreateElement(items)
 
-	if len(items) == 0 && ws.p2pNetwork != nil {
+	// Всегда запрашиваем элементы у пира (не только если БД пуста)
+	// Потому что в БД могут быть только pinned items, а не все элементы
+	if ws.p2pNetwork != nil {
 		go ws.requestRemoteFolderFromPeer(ws.remoteProfilePeerID, ws.remoteFolderUUID)
 	}
 
@@ -73,8 +75,11 @@ func (ws *Workspace) requestRemoteFolderFromPeer(peerID, folderUUID string) {
 	}
 
 	if len(items) == 0 {
+		log.Printf("[Workspace] Пир %s не вернул элементов для folderUUID=%s", peerID[:8], folderUUID)
 		return
 	}
+
+	log.Printf("[Workspace] Получено %d элементов от пира %s", len(items), peerID[:8])
 
 	for _, item := range items {
 		item.OwnerType = "remote"
@@ -82,7 +87,27 @@ func (ws *Workspace) requestRemoteFolderFromPeer(peerID, folderUUID string) {
 		_ = queries.CreateRemoteItem(item)
 	}
 
-	ws.gridManager.LoadItemsWithoutCreateElement(items)
+	// После сохранения запрашиваем ВСЕ элементы из БД для обновления UI
+	var allItems []*models.Item
+	remoteItems, err := queries.GetRemoteItemsByPeer(peerID)
+	if err == nil {
+		if folderUUID == "" {
+			for _, item := range remoteItems {
+				if item.ParentUUID == nil || *item.ParentUUID == "" {
+					allItems = append(allItems, item)
+				}
+			}
+		} else {
+			for _, item := range remoteItems {
+				if item.ParentUUID != nil && *item.ParentUUID == folderUUID {
+					allItems = append(allItems, item)
+				}
+			}
+		}
+	}
+
+	log.Printf("[Workspace] Обновление UI: %d элементов из БД для peerID=%s", len(allItems), peerID[:8])
+	ws.gridManager.LoadItemsWithoutCreateElement(allItems)
 }
 
 // OpenRemoteProfile открывает профиль удалённого пользователя
