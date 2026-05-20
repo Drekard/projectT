@@ -19,21 +19,24 @@ func CreateItem(item *models.Item) error {
 	if item.Status == "" {
 		item.Status = models.ItemStatusSaved
 	}
+	if item.Visibility == "" {
+		item.Visibility = models.ItemVisibilityPublic
+	}
 
 	query := `
 		INSERT INTO items (
 			element_uuid, hash,
 			owner_type, source_peer_id,
 			type, title, description, content_meta, parent_id, parent_uuid,
-			signature, version, status, cached_at, created_at, updated_at
+			signature, version, status, visibility, cached_at, created_at, updated_at
 		)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 	`
 	result, err := database.DB.Exec(query,
 		item.ElementUUID, item.Hash,
 		item.OwnerType, item.SourcePeerID,
 		item.Type, item.Title, item.Description, item.ContentMeta, item.ParentID, item.ParentUUID,
-		item.Signature, item.Version, item.Status, item.CachedAt, time.Now(), time.Now(),
+		item.Signature, item.Version, item.Status, item.Visibility, item.CachedAt, time.Now(), time.Now(),
 	)
 	if err != nil {
 		return err
@@ -54,7 +57,7 @@ func GetItemByID(id int) (*models.Item, error) {
 		SELECT id, element_uuid, hash,
 		       owner_type, source_peer_id,
 		       type, title, description, content_meta, parent_id, parent_uuid,
-		       signature, version, status, cached_at, created_at, updated_at
+		       signature, version, status, visibility, cached_at, created_at, updated_at
 		FROM items
 		WHERE id = ?
 	`
@@ -63,13 +66,13 @@ func GetItemByID(id int) (*models.Item, error) {
 	var parentUUID sql.NullString
 	var sourcePeerID sql.NullString
 	var cachedAt, createdAt, updatedAt sql.NullTime
-	var status string
+	var status, visibility string
 
 	err := database.DB.QueryRow(query, id).Scan(
 		&item.ID, &item.ElementUUID, &item.Hash,
 		&item.OwnerType, &sourcePeerID,
 		&item.Type, &item.Title, &item.Description, &item.ContentMeta, &parentID, &parentUUID,
-		&item.Signature, &item.Version, &status, &cachedAt, &createdAt, &updatedAt,
+		&item.Signature, &item.Version, &status, &visibility, &cachedAt, &createdAt, &updatedAt,
 	)
 	if err != nil {
 		return nil, err
@@ -95,6 +98,7 @@ func GetItemByID(id int) (*models.Item, error) {
 	item.CreatedAt = createdAt.Time
 	item.UpdatedAt = updatedAt.Time
 	item.Status = models.ItemStatus(status)
+	item.Visibility = models.ItemVisibility(visibility)
 
 	return &item, nil
 }
@@ -105,7 +109,7 @@ func GetItemByHash(hash string) (*models.Item, error) {
 		SELECT id, element_uuid, hash,
 		       owner_type, source_peer_id,
 		       type, title, description, content_meta, parent_id, parent_uuid,
-		       signature, version, status, cached_at, created_at, updated_at
+		       signature, version, status, visibility, cached_at, created_at, updated_at
 		FROM items
 		WHERE hash = ?
 	`
@@ -114,13 +118,13 @@ func GetItemByHash(hash string) (*models.Item, error) {
 	var parentUUID sql.NullString
 	var sourcePeerID sql.NullString
 	var cachedAt, createdAt, updatedAt sql.NullTime
-	var status string
+	var status, visibility string
 
 	err := database.DB.QueryRow(query, hash).Scan(
 		&item.ID, &item.ElementUUID, &item.Hash,
 		&item.OwnerType, &sourcePeerID,
 		&item.Type, &item.Title, &item.Description, &item.ContentMeta, &parentID, &parentUUID,
-		&item.Signature, &item.Version, &status, &cachedAt, &createdAt, &updatedAt,
+		&item.Signature, &item.Version, &status, &visibility, &cachedAt, &createdAt, &updatedAt,
 	)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
@@ -149,6 +153,7 @@ func GetItemByHash(hash string) (*models.Item, error) {
 	item.CreatedAt = createdAt.Time
 	item.UpdatedAt = updatedAt.Time
 	item.Status = models.ItemStatus(status)
+	item.Visibility = models.ItemVisibility(visibility)
 
 	return &item, nil
 }
@@ -159,7 +164,7 @@ func GetItemByElementUUID(elementUUID string) (*models.Item, error) {
 		SELECT id, element_uuid, hash,
 		       owner_type, source_peer_id,
 		       type, title, description, content_meta, parent_id, parent_uuid,
-		       signature, version, status, cached_at, created_at, updated_at
+		       signature, version, status, visibility, cached_at, created_at, updated_at
 		FROM items
 		WHERE element_uuid = ?
 	`
@@ -168,13 +173,13 @@ func GetItemByElementUUID(elementUUID string) (*models.Item, error) {
 	var parentUUID sql.NullString
 	var sourcePeerID sql.NullString
 	var cachedAt, createdAt, updatedAt sql.NullTime
-	var status string
+	var status, visibility string
 
 	err := database.DB.QueryRow(query, elementUUID).Scan(
 		&item.ID, &item.ElementUUID, &item.Hash,
 		&item.OwnerType, &sourcePeerID,
 		&item.Type, &item.Title, &item.Description, &item.ContentMeta, &parentID, &parentUUID,
-		&item.Signature, &item.Version, &status, &cachedAt, &createdAt, &updatedAt,
+		&item.Signature, &item.Version, &status, &visibility, &cachedAt, &createdAt, &updatedAt,
 	)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
@@ -203,6 +208,7 @@ func GetItemByElementUUID(elementUUID string) (*models.Item, error) {
 	item.CreatedAt = createdAt.Time
 	item.UpdatedAt = updatedAt.Time
 	item.Status = models.ItemStatus(status)
+	item.Visibility = models.ItemVisibility(visibility)
 
 	return &item, nil
 }
@@ -219,14 +225,14 @@ func UpdateItem(item *models.Item) error {
 	SET element_uuid = ?, hash = ?,
 	    owner_type = ?, source_peer_id = ?,
 	    type = ?, title = ?, description = ?, content_meta = ?, parent_id = ?, parent_uuid = ?,
-	    signature = ?, version = ?, status = ?, cached_at = ?, updated_at = ?
+	    signature = ?, version = ?, status = ?, visibility = ?, cached_at = ?, updated_at = ?
 	WHERE id = ?
 	`
 	_, err := database.DB.Exec(query,
 		item.ElementUUID, item.Hash,
 		item.OwnerType, item.SourcePeerID,
 		item.Type, item.Title, item.Description, item.ContentMeta, item.ParentID, item.ParentUUID,
-		item.Signature, item.Version, item.Status, item.CachedAt, time.Now(), item.ID,
+		item.Signature, item.Version, item.Status, item.Visibility, item.CachedAt, time.Now(), item.ID,
 	)
 	return err
 }

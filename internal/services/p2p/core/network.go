@@ -162,16 +162,29 @@ func (n *P2PNetwork) Start() error {
 	n.mu.Lock()
 	defer n.mu.Unlock()
 
+	startTime := time.Now()
+	log.Printf("[P2P/Start] 🚀 Запуск P2P сети...")
+
+	// Проверка на повторный запуск
+	if n.host != nil {
+		log.Printf("[P2P/Start] ⚠️ Start вызван повторно! Хост уже существует (PeerID: %s). Пропускаю.", n.host.ID().String())
+		return nil
+	}
+
 	// Загружаем или создаём профиль
+	profileStart := time.Now()
 	profile, err := n.profileMgr.LoadOrCreateProfile()
 	if err != nil {
 		return fmt.Errorf("ошибка загрузки профиля: %w", err)
 	}
+	log.Printf("[P2P/Start] Профиль загружен за %v", time.Since(profileStart))
 
 	// Создаём хост
+	hostStart := time.Now()
 	if err := n.createHost(profile); err != nil {
 		return fmt.Errorf("ошибка создания хоста: %w", err)
 	}
+	log.Printf("[P2P/Start] Хост создан за %v (PeerID: %s)", time.Since(hostStart), n.host.ID().String()[:8])
 
 	// Автоматически открываем порт в брандмауэре Windows
 	n.openFirewallPort()
@@ -194,6 +207,8 @@ func (n *P2PNetwork) Start() error {
 			_ = err // Ignore error
 		}
 	}
+
+	servicesStart := time.Now()
 
 	// Инициализируем сервис соединений (должен быть до profileExchange)
 	if err := n.initConnections(); err != nil {
@@ -247,6 +262,8 @@ func (n *P2PNetwork) Start() error {
 		_ = err // Ignore error
 	}
 
+	log.Printf("[P2P/Start] Сервисы инициализированы за %v", time.Since(servicesStart))
+
 	// ✅ Запускаем автоподключение к известным пирам (если включено в настройках)
 	if n.config.EnableAutoConnect {
 		go func() {
@@ -294,6 +311,9 @@ func (n *P2PNetwork) Start() error {
 			}
 		}()
 	}
+
+	totalElapsed := time.Since(startTime)
+	log.Printf("[P2P/Start] ✅ P2P сеть запущена за %v (подключения идут в фоне)", totalElapsed)
 
 	return nil
 }

@@ -14,6 +14,7 @@ import (
 	"projectT/internal/services/p2p/connection"
 	"projectT/internal/services/p2p/core"
 	"projectT/internal/services/p2p/helper"
+	"projectT/internal/services/p2p/protocols/itemsync"
 	"projectT/internal/services/p2p/protocols/transfer"
 	"projectT/internal/storage/database/models"
 	"projectT/internal/storage/database/queries"
@@ -84,6 +85,10 @@ type OnProfileUpdated func(peerID string)
 type UIP2P struct {
 	network          *core.P2PNetwork
 	onProfileUpdated OnProfileUpdated
+
+	// Кэш публичного адреса (чтобы не делать HTTP-запрос каждый раз)
+	publicAddress     string
+	publicAddressTime time.Time
 }
 
 // NewUIP2P создаёт UI API для P2P
@@ -125,17 +130,44 @@ func (api *UIP2P) GetStatus() *P2PStatus {
 		status.PeerID = api.network.Host().ID().String()
 		status.ConnectedPeers = len(api.network.Host().Network().Peers())
 
-		// Получаем публичный адрес
-		if addrInfo, err := address.GeneratePublicAddress(api.network.Host(), 8080); err == nil {
-			status.PublicAddress = addrInfo.FullAddress
-		}
+		status.PublicAddress = api.getCachedPublicAddress()
 
-		// Получаем NAT статус
 		natStatus := address.GetNATStatus(api.network.Host())
 		status.NATStatus = natStatus.Message
 	}
 
 	return status
+}
+
+// getCachedPublicAddress возвращает кэшированный публичный адрес или пустую строку
+func (api *UIP2P) getCachedPublicAddress() string {
+	// Кэш действителен 5 минут
+	if api.publicAddress != "" && time.Since(api.publicAddressTime) < 5*time.Minute {
+		return api.publicAddress
+	}
+	return ""
+}
+
+// RefreshPublicAddress обновляет публичный адрес (HTTP-запрос к внешнему API)
+func (api *UIP2P) RefreshPublicAddress() string {
+	if api.network.Host() == nil {
+		return ""
+	}
+
+	port := 8080
+	cfg := api.network.Config()
+	if cfg.ListenPort > 0 {
+		port = cfg.ListenPort
+	}
+
+	t0 := time.Now()
+	if addrInfo, err := address.GeneratePublicAddress(api.network.Host(), port); err == nil {
+		api.publicAddress = addrInfo.FullAddress
+		api.publicAddressTime = time.Now()
+		log.Printf("[P2P/API] RefreshPublicAddress заняло %v", time.Since(t0))
+		return api.publicAddress
+	}
+	return ""
 }
 
 // GetSettings возвращает текущие настройки P2P
@@ -212,12 +244,7 @@ func (api *UIP2P) GetPeerAddress() (string, error) {
 	if err != nil {
 		return "", err
 	}
-	formatted := address.FormatPeerAddress(addr.PeerID, addr.Multiaddrs)
-	log.Printf("[GetPeerAddress] PeerID: %s", addr.PeerID)
-	log.Printf("[GetPeerAddress] Multiaddrs: %v", addr.Multiaddrs)
-	log.Printf("[GetPeerAddress] Тип адреса: %s", addr.AddressType)
-	log.Printf("[GetPeerAddress] Форматированный адрес: %s", formatted)
-	return formatted, nil
+	return address.FormatPeerAddress(addr.PeerID, addr.Multiaddrs), nil
 }
 
 // CopyPeerAddress копирует адрес пира в буфер обмена
@@ -903,11 +930,25 @@ func (api *UIP2P) RequestBatchByUUIDs(peerID peer.ID, elementUUIDs []string) ([]
 	return api.network.RequestBatchByUUIDs(ctx, peerID, elementUUIDs)
 }
 
+// RequestBatchByUUIDsAsync запрашивает батч элементов асинхронно с коллбэками
+func (api *UIP2P) RequestBatchByUUIDsAsync(peerID peer.ID, elementUUIDs []string, callbacks itemsync.BatchRequestCallbacks) {
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Minute)
+	defer cancel()
+	api.network.RequestBatchByUUIDsAsync(ctx, peerID, elementUUIDs, callbacks)
+}
+
 // RequestFolder запрашивает папку у пира
 func (api *UIP2P) RequestFolder(peerID peer.ID, parentUUID string) ([]*models.Item, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Minute)
 	defer cancel()
 	return api.network.RequestFolder(ctx, peerID, parentUUID)
+}
+
+// RequestRandomItemsAsync запрашивает случайные элементы у пира асинхронно
+func (api *UIP2P) RequestRandomItemsAsync(peerID peer.ID, count int, callbacks itemsync.BatchRequestCallbacks) {
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
+	defer cancel()
+	api.network.RequestRandomItemsAsync(ctx, peerID, count, callbacks)
 }
 
 // GetPinnedItemUUIDs возвращает список UUID закреплённых элементов

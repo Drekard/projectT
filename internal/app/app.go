@@ -100,12 +100,12 @@ func (a *App) Run() {
 	a.fyneApp.Settings().SetTheme(theme.GetFyneTheme())
 	a.UI = ui.NewUI(a.mainWindow, a.p2pNetwork)
 
-	// Запускаем P2P сеть
-	if err := a.p2pNetwork.Start(); err != nil {
-		log.Printf("[P2P] Ошибка запуска P2P сети: %v", err)
-	} else {
-		log.Printf("[P2P] ✅ P2P сеть запущена")
-	}
+	// Запускаем P2P сеть асинхронно, чтобы UI не зависал
+	go func() {
+		if err := a.p2pNetwork.Start(); err != nil {
+			log.Printf("[P2P] Ошибка запуска P2P сети: %v", err)
+		}
+	}()
 
 	a.mainWindow.ShowAndRun()
 }

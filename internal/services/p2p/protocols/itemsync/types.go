@@ -12,6 +12,8 @@ type ItemRequest struct {
 	ItemIDs []int  `json:"item_ids,omitempty"`
 	All     bool   `json:"all,omitempty"`
 	Hash    string `json:"hash,omitempty"`
+	Random  bool   `json:"random,omitempty"`
+	Count   int    `json:"count,omitempty"`
 }
 
 // ItemResponse ответ с элементом

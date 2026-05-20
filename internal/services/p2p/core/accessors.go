@@ -464,6 +464,21 @@ func (n *P2PNetwork) RequestBatchByUUIDs(ctx context.Context, peerID peer.ID, el
 	return itemSyncSvc.RequestBatchByUUIDs(ctx, peerID, elementUUIDs)
 }
 
+// RequestBatchByUUIDsAsync запрашивает батч элементов асинхронно с коллбэками
+func (n *P2PNetwork) RequestBatchByUUIDsAsync(ctx context.Context, peerID peer.ID, elementUUIDs []string, callbacks itemsync.BatchRequestCallbacks) {
+	n.mu.RLock()
+	itemSyncSvc := n.itemSync
+	n.mu.RUnlock()
+
+	if itemSyncSvc == nil {
+		if callbacks.OnDone != nil {
+			callbacks.OnDone(nil, errors.New("ItemSyncService не инициализирован"))
+		}
+		return
+	}
+	itemSyncSvc.RequestBatchByUUIDsAsync(ctx, peerID, elementUUIDs, callbacks)
+}
+
 // RequestFolder запрашивает папку у пира
 func (n *P2PNetwork) RequestFolder(ctx context.Context, peerID peer.ID, parentUUID string) ([]*models.Item, error) {
 	n.mu.RLock()
@@ -474,4 +489,19 @@ func (n *P2PNetwork) RequestFolder(ctx context.Context, peerID peer.ID, parentUU
 		return nil, errors.New("ItemSyncService не инициализирован")
 	}
 	return itemSyncSvc.RequestFolder(ctx, peerID, parentUUID)
+}
+
+// RequestRandomItemsAsync запрашивает случайные элементы у пира асинхронно
+func (n *P2PNetwork) RequestRandomItemsAsync(ctx context.Context, peerID peer.ID, count int, callbacks itemsync.BatchRequestCallbacks) {
+	n.mu.RLock()
+	itemSyncSvc := n.itemSync
+	n.mu.RUnlock()
+
+	if itemSyncSvc == nil {
+		if callbacks.OnDone != nil {
+			callbacks.OnDone(nil, errors.New("ItemSyncService не инициализирован"))
+		}
+		return
+	}
+	itemSyncSvc.RequestRandomItemsAsync(ctx, peerID, count, callbacks)
 }

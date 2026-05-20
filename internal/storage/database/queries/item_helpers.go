@@ -25,7 +25,7 @@ func GetItemsByParentUUIDs(parentUUIDs []string) ([]*models.Item, error) {
 		SELECT id, element_uuid, hash,
 		       owner_type, source_peer_id,
 		       type, title, description, content_meta, parent_id, parent_uuid,
-		       signature, version, status, cached_at, created_at, updated_at
+		       signature, version, status, visibility, cached_at, created_at, updated_at
 		FROM items
 		WHERE parent_uuid IN (%s)
 		ORDER BY parent_uuid, updated_at DESC
@@ -91,20 +91,20 @@ func GetElementUUIDsByIDs(ids []int) ([]string, error) {
 	return uuids, nil
 }
 
-// scanItemRowFull сканирует полную строку элемента (со status)
+// scanItemRowFull сканирует полную строку элемента (со status и visibility)
 func scanItemRowFull(rows *sql.Rows) *models.Item {
 	var item models.Item
 	var parentID sql.NullInt64
 	var parentUUID sql.NullString
 	var sourcePeerID sql.NullString
 	var cachedAt, createdAt, updatedAt sql.NullTime
-	var status string
+	var status, visibility string
 
 	err := rows.Scan(
 		&item.ID, &item.ElementUUID, &item.Hash,
 		&item.OwnerType, &sourcePeerID,
 		&item.Type, &item.Title, &item.Description, &item.ContentMeta, &parentID, &parentUUID,
-		&item.Signature, &item.Version, &status, &cachedAt, &createdAt, &updatedAt,
+		&item.Signature, &item.Version, &status, &visibility, &cachedAt, &createdAt, &updatedAt,
 	)
 	if err != nil {
 		return nil
@@ -130,6 +130,7 @@ func scanItemRowFull(rows *sql.Rows) *models.Item {
 	item.CreatedAt = createdAt.Time
 	item.UpdatedAt = updatedAt.Time
 	item.Status = models.ItemStatus(status)
+	item.Visibility = models.ItemVisibility(visibility)
 
 	return &item
 }

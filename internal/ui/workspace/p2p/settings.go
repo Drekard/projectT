@@ -144,22 +144,24 @@ func (ui *UI) loadP2PSettings() {
 
 	settings := ui.p2pUI.GetSettings()
 
-	// Set port (if 0 or not set - use 8080)
 	port := settings.ListenPort
 	if port <= 0 {
 		port = 8080
 	}
-	ui.portEntry.SetText(fmt.Sprintf("%d", port))
 
-	// Set P2P enabled state
+	// Обновляем UI в главном потоке
+	fyne.CurrentApp().Driver().DoFromGoroutine(func() {
+		ui.portEntry.SetText(fmt.Sprintf("%d", port))
+	}, false)
+
 	status := ui.p2pUI.GetStatus()
-	ui.p2pEnabledCheck.SetChecked(status.IsRunning)
+	fyne.CurrentApp().Driver().DoFromGoroutine(func() {
+		ui.p2pEnabledCheck.SetChecked(status.IsRunning)
+	}, false)
 
-	// Set checkboxes
 	ui.autoConnectCheck.SetChecked(settings.EnableAutoConnect)
 	ui.autoProfileExCheck.SetChecked(settings.EnableAutoProfileEx)
 
-	// Update address display
 	ui.updateAddressDisplay()
 }
 
@@ -200,18 +202,32 @@ func (ui *UI) updateAddressDisplay() {
 		return
 	}
 
-	addr, err := ui.p2pUI.GetPeerAddress()
-	if err != nil {
-		ui.addressLabel.SetText("Your address: (not available)")
-		return
-	}
+	// Сначала показываем placeholder
+	fyne.CurrentApp().Driver().DoFromGoroutine(func() {
+		ui.addressLabel.SetText("Your address: (loading...)")
+	}, false)
 
-	// Show shortened address in the label
-	shortAddr := addr
-	if len(shortAddr) > 60 {
-		shortAddr = shortAddr[:57] + "..."
-	}
-	ui.addressLabel.SetText("Your address: " + shortAddr)
+	// Загружаем публичный адрес асинхронно
+	go func() {
+		addr := ui.p2pUI.RefreshPublicAddress()
+		if addr == "" {
+			// Fallback: используем GetPeerAddress (без HTTP-запроса)
+			if peerAddr, err := ui.p2pUI.GetPeerAddress(); err == nil {
+				addr = peerAddr
+			}
+		}
+
+		displayAddr := addr
+		if displayAddr == "" {
+			displayAddr = "(not available)"
+		} else if len(displayAddr) > 60 {
+			displayAddr = displayAddr[:57] + "..."
+		}
+
+		fyne.CurrentApp().Driver().DoFromGoroutine(func() {
+			ui.addressLabel.SetText("Your address: " + displayAddr)
+		}, false)
+	}()
 }
 
 // copyMyAddress copies my address to clipboard

@@ -18,10 +18,10 @@ type NavigationHandler interface {
 
 // CreateNavigation создает навигационные кнопки
 func CreateNavigation(handler NavigationHandler) *fyne.Container {
-	var profileButton, savedButton, previewButton, tagsButton, chatsButton, contactsButton, p2pButton *widget.Button
+	var profileButton, savedButton, previewButton, tagsButton, chatsButton, contactsButton, p2pButton, compilationButton *widget.Button
 
 	updateButtonState := func(clickedButton *widget.Button, contentType string) {
-		buttons := []*widget.Button{profileButton, savedButton, previewButton, tagsButton, chatsButton, contactsButton, p2pButton}
+		buttons := []*widget.Button{profileButton, savedButton, previewButton, tagsButton, chatsButton, contactsButton, p2pButton, compilationButton}
 		for _, btn := range buttons {
 			btn.Importance = widget.LowImportance
 			btn.Refresh()
@@ -29,14 +29,13 @@ func CreateNavigation(handler NavigationHandler) *fyne.Container {
 		clickedButton.Importance = widget.MediumImportance
 		clickedButton.Refresh()
 
-		// Уведомляем обработчик о смене контента
 		if handler != nil {
 			handler.OnNavigationChanged(contentType)
 		}
 	}
 
 	updateButtonStateSimple := func(clickedButton *widget.Button) {
-		buttons := []*widget.Button{profileButton, savedButton, previewButton, tagsButton, chatsButton, contactsButton, p2pButton}
+		buttons := []*widget.Button{profileButton, savedButton, previewButton, tagsButton, chatsButton, contactsButton, p2pButton, compilationButton}
 		for _, btn := range buttons {
 			btn.Importance = widget.LowImportance
 			btn.Refresh()
@@ -76,6 +75,10 @@ func CreateNavigation(handler NavigationHandler) *fyne.Container {
 		updateButtonState(p2pButton, "p2p")
 	})
 
+	compilationButton = createCustomNavButton("Compilation", theme.GridIcon(), func() {
+		updateButtonState(compilationButton, "compilation")
+	})
+
 	// Устанавливаем начальное состояние
 	updateButtonState(savedButton, "saved")
 
@@ -89,6 +92,7 @@ func CreateNavigation(handler NavigationHandler) *fyne.Container {
 		chatsButton,
 		contactsButton,
 		p2pButton,
+		compilationButton,
 		separator,
 	)
 }

@@ -101,8 +101,8 @@ func (p *Panel) createLeftPanel() *fyne.Container {
 	// Список чатов
 	p.chatsList = container.NewVBox()
 
-	// Загружаем чаты из БД
-	p.loadChatsList()
+	// Загружаем чаты асинхронно, чтобы не блокировать UI
+	go p.loadChatsList()
 
 	// Вертикальная компоновка
 	content := container.NewVBox(header, p.chatsList)
@@ -123,7 +123,6 @@ func (p *Panel) loadChatsList() {
 
 	chatsData, err := queries.GetChatsWithLastMessages()
 	if err != nil {
-		// Показываем сообщение об ошибке
 		emptyLabel := widget.NewLabel("Error loading chats")
 		emptyLabel.TextStyle = fyne.TextStyle{Italic: true}
 		p.chatsList.Add(emptyLabel)

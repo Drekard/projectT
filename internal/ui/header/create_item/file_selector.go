@@ -1,50 +1,33 @@
 package create_item
 
 import (
+	"bytes"
 	"fmt"
+	"image/color"
+	"os"
+	"os/exec"
 	"strings"
+	"unicode/utf8"
 
 	"fyne.io/fyne/v2"
+	"fyne.io/fyne/v2/canvas"
 	"fyne.io/fyne/v2/container"
-	"fyne.io/fyne/v2/dialog"
-	"fyne.io/fyne/v2/storage"
 	"fyne.io/fyne/v2/widget"
+	"golang.org/x/text/encoding/charmap"
 )
+
+// FileUploadConfig содержит конфигурацию для загрузки файлов
+type FileUploadConfig struct {
+	Label           string
+	Filter          []string
+	BackgroundColor color.Color
+	MinSize         fyne.Size
+}
 
 // FileUploadState содержит состояние для загрузки файлов
 type FileUploadState struct {
 	SelectedFiles *[]string
 	UpdateDisplay func()
-}
-
-// openFileDialog открывает диалог выбора файлов (кроссплатформенная версия)
-func openFileDialog(parentWindow fyne.Window, filter []string, multiSelect bool) ([]string, error) {
-	var selectedFiles []string
-
-	fd := dialog.NewFileOpen(func(reader fyne.URIReadCloser, err error) {
-		if err != nil {
-			return
-		}
-		if reader != nil {
-			selectedFiles = append(selectedFiles, reader.URI().Path())
-			_ = reader.Close()
-		}
-	}, parentWindow)
-
-	// Устанавливаем фильтр если указан
-	if len(filter) > 0 {
-		extensions := make([]string, len(filter))
-		for i, ext := range filter {
-			extensions[i] = strings.TrimPrefix(ext, ".")
-		}
-		fd.SetFilter(storage.NewExtensionFileFilter(extensions))
-	}
-
-	fd.Show()
-
-	// Ждём завершения диалога (простая реализация)
-	// В идеале нужно использовать каналы или callback'и
-	return selectedFiles, nil
 }
 
 // IsImageFile проверяет, является ли файл изображением по его расширению
@@ -61,28 +44,139 @@ func IsImageFile(filename string) bool {
 	return false
 }
 
-// CreateFileSelector создает элемент управления для выбора файлов
-func CreateFileSelector(fileState *FileUploadState) fyne.CanvasObject {
-	// Кнопка для выбора файла
-	fileSelectorButton := widget.NewButton("Select file/image/video", nil)
+// openWindowsFileDialog открывает стандартный диалог выбора файлов Windows
+func openWindowsFileDialog(filter []string, multiSelect bool) ([]string, error) {
+	psScript := `
+		[Console]::OutputEncoding = [System.Text.Encoding]::UTF8
+		Add-Type -AssemblyName System.Windows.Forms
+		$dialog = New-Object System.Windows.Forms.OpenFileDialog
+		$dialog.Title = "Select files"
+		$dialog.Multiselect = $true
+		`
 
-	// Контейнер для отображения выбранного файла с кнопкой удаления
-	fileDisplayContainer := container.NewVBox()
+	if len(filter) > 0 {
+		filterExtensions := []string{}
 
-	// Назначаем обработчик событий для кнопки выбора файла
-	fileSelectorButton.OnTapped = func() {
-		// Получаем окно для диалога
-		windows := fyne.CurrentApp().Driver().AllWindows()
-		if len(windows) == 0 {
-			return
+		for _, ext := range filter {
+			cleanExt := strings.TrimPrefix(ext, ".")
+			filterExtensions = append(filterExtensions, "*."+cleanExt)
 		}
-		parentWindow := windows[0]
 
-		// Открываем кроссплатформенный диалог
-		selectedFiles, err := openFileDialog(parentWindow, nil, true)
+		filterStr := strings.Join(filterExtensions, ";")
+		displayName := "Files"
+
+		if len(filter) == 1 && (strings.Contains(filter[0], "jpg") ||
+			strings.Contains(filter[0], "jpeg") ||
+			strings.Contains(filter[0], "png") ||
+			strings.Contains(filter[0], "gif") ||
+			strings.Contains(filter[0], "bmp")) {
+			displayName = "Image files"
+		} else if len(filter) == 1 && (strings.Contains(filter[0], "pdf") ||
+			strings.Contains(filter[0], "doc") ||
+			strings.Contains(filter[0], "txt")) {
+			displayName = "Document files"
+		}
+
+		psScript += fmt.Sprintf(`$dialog.Filter = "%s (%s)|%s"`,
+			displayName,
+			strings.Join(filterExtensions, ", "),
+			filterStr)
+
+		psScript += fmt.Sprintf(`
+$dialog.FilterIndex = 1
+$dialog.DefaultExt = "%s"`, filterExtensions[0])
+	}
+
+	psScript += `
+$result = $dialog.ShowDialog()
+if ($result -eq [System.Windows.Forms.DialogResult]::OK) {
+    $dialog.FileNames | ForEach-Object {
+        Write-Output $_
+    }
+} else {
+    Write-Output ""
+}
+`
+
+	cmd := exec.Command("powershell", "-Command", psScript)
+
+	cmd.Env = append(os.Environ(),
+		"PYTHONIOENCODING=utf-8",
+		"LANG=en_US.UTF-8",
+	)
+
+	var stdout, stderr bytes.Buffer
+	cmd.Stdout = &stdout
+	cmd.Stderr = &stderr
+
+	err := cmd.Run()
+	if err != nil {
+		if exitErr, ok := err.(*exec.ExitError); ok && exitErr.ExitCode() == 0 {
+			return []string{}, nil
+		}
+		return nil, fmt.Errorf("dialog error: %v\nstderr: %s", err, stderr.String())
+	}
+
+	outputBytes := stdout.Bytes()
+
+	var outputStr string
+	if utf8.Valid(outputBytes) {
+		outputStr = string(outputBytes)
+	} else {
+		if dec, err := charmap.Windows1251.NewDecoder().Bytes(outputBytes); err == nil {
+			outputStr = string(dec)
+		} else {
+			outputStr = string(outputBytes)
+		}
+	}
+
+	outputStr = strings.TrimSpace(outputStr)
+	if outputStr == "" {
+		return []string{}, nil
+	}
+
+	lines := strings.ReplaceAll(outputStr, "\r\n", "\n")
+	files := strings.Split(lines, "\n")
+
+	var cleanFiles []string
+	for _, file := range files {
+		cleanFile := strings.TrimSpace(file)
+		if cleanFile != "" && cleanFile != "\"" {
+			if _, err := os.Stat(cleanFile); err == nil {
+				cleanFiles = append(cleanFiles, cleanFile)
+			} else {
+				_ = err
+			}
+		}
+	}
+
+	return cleanFiles, nil
+}
+
+// CreateFileUploadArea создает область для загрузки файлов
+func CreateFileUploadArea(config FileUploadConfig, state *FileUploadState, parentWindow fyne.Window) *fyne.Container {
+	if state.SelectedFiles == nil {
+		emptySlice := []string{}
+		state.SelectedFiles = &emptySlice
+	}
+
+	if state.UpdateDisplay == nil {
+		state.UpdateDisplay = func() {}
+	}
+
+	box := canvas.NewRectangle(config.BackgroundColor)
+	box.CornerRadius = 8
+	box.SetMinSize(config.MinSize)
+
+	filesContainer := container.NewVBox()
+
+	contentContainer := container.NewVBox(filesContainer)
+
+	containerWithContent := container.NewStack(box, contentContainer)
+
+	clickButton := widget.NewButton(config.Label, func() {
+		selectedFiles, err := openWindowsFileDialog(config.Filter, true)
 		if err != nil {
-			// В случае ошибки показываем сообщение
-			canvas := fyne.CurrentApp().Driver().CanvasForObject(fileSelectorButton)
 			errorLabel := widget.NewLabel(fmt.Sprintf("Error selecting files:\n%v", err))
 			errorLabel.Wrapping = fyne.TextWrapWord
 
@@ -93,34 +187,31 @@ func CreateFileSelector(fileState *FileUploadState) fyne.CanvasObject {
 				container.NewCenter(closeButton),
 			)
 
-			popup := widget.NewModalPopUp(popupContent, canvas)
-
-			closeButton.OnTapped = func() {
-				popup.Hide()
+			if parentWindow != nil {
+				dialog := widget.NewModalPopUp(popupContent, parentWindow.Canvas())
+				closeButton.OnTapped = func() {
+					dialog.Hide()
+				}
+				dialog.Show()
 			}
-
-			popup.Show()
 			return
 		}
 
 		if len(selectedFiles) > 0 {
-			// Добавляем выбранные файлы к уже существующим
-			*fileState.SelectedFiles = append(*fileState.SelectedFiles, selectedFiles...)
-			fileState.UpdateDisplay()
+			*state.SelectedFiles = append(*state.SelectedFiles, selectedFiles...)
+			state.UpdateDisplay()
 		}
-	}
-	fileSelectorButton.Importance = widget.LowImportance
+	})
+	clickButton.Importance = widget.LowImportance
 
-	// Переопределяем функцию обновления отображения
-	fileState.UpdateDisplay = func() {
-		// Очищаем контейнер отображения файла
-		fileDisplayContainer.Objects = nil
+	containerWithClick := container.NewStack(clickButton, containerWithContent)
 
-		// Если файлы выбраны, показываем их все с кнопками удаления
-		selectedFiles := *fileState.SelectedFiles
+	state.UpdateDisplay = func() {
+		filesContainer.Objects = []fyne.CanvasObject{}
+
+		selectedFiles := *state.SelectedFiles
 
 		for i, filepath := range selectedFiles {
-			// Извлекаем только имя файла из полного пути
 			filename := filepath
 			if lastSlash := strings.LastIndex(filepath, "\\"); lastSlash != -1 {
 				filename = filepath[lastSlash+1:]
@@ -128,7 +219,6 @@ func CreateFileSelector(fileState *FileUploadState) fyne.CanvasObject {
 				filename = filepath[lastSlash+1:]
 			}
 
-			// Определяем тип файла и устанавливаем соответствующий эмодзи
 			var emoji string
 			if IsImageFile(filename) {
 				emoji = "🖼️ "
@@ -136,38 +226,36 @@ func CreateFileSelector(fileState *FileUploadState) fyne.CanvasObject {
 				emoji = "📎 "
 			}
 
-			// Создаем метку с именем файла
 			fileLabel := widget.NewLabel(emoji + filename)
 
-			// Кнопка удаления файла
 			removeButton := widget.NewButton("❌", func(index int) func() {
 				return func() {
-					// Удаляем файл по индексу из списка
-					currentFiles := *fileState.SelectedFiles
+					currentFiles := *state.SelectedFiles
 					newSelectedFiles := make([]string, 0, len(currentFiles)-1)
-					for j, file := range currentFiles {
+					for j, name := range currentFiles {
 						if j != index {
-							newSelectedFiles = append(newSelectedFiles, file)
+							newSelectedFiles = append(newSelectedFiles, name)
 						}
 					}
-					*fileState.SelectedFiles = newSelectedFiles
-					fileState.UpdateDisplay() // Обновляем отображение
+					*state.SelectedFiles = newSelectedFiles
+					state.UpdateDisplay()
 				}
 			}(i))
 			removeButton.Importance = widget.LowImportance
 
-			// Добавляем метку и кнопку удаления в контейнер
-			fileDisplayContainer.Add(container.NewHBox(fileLabel, removeButton))
+			hBox := container.NewHBox(fileLabel, container.NewPadded(removeButton))
 
-			// Добавляем разделитель между файлами
+			filesContainer.Add(hBox)
 			if i < len(selectedFiles)-1 {
-				fileDisplayContainer.Add(widget.NewSeparator())
+				filesContainer.Add(widget.NewSeparator())
 			}
 		}
+
+		contentContainer.Objects = []fyne.CanvasObject{filesContainer}
+		contentContainer.Refresh()
 	}
 
-	// Объединяем кнопку выбора файла и контейнер отображения в один контейнер
-	fileSelectorContainer := container.NewVBox(fileDisplayContainer, fileSelectorButton)
+	state.UpdateDisplay()
 
-	return fileSelectorContainer
+	return containerWithClick
 }

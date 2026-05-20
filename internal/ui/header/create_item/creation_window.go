@@ -93,10 +93,18 @@ func (nrm *NewRectangleManager) ShowNewRectangle(trigger fyne.CanvasObject, onCl
 	if menuPos.Y+popupSize.Height > windowSize.Height {
 		// Если выходит, показываем над триггером
 		menuPos.Y = triggerPos.Y - popupSize.Height - 5
+		// Если всё равно не влезает сверху, показываем от верхнего края окна
+		if menuPos.Y < 0 {
+			menuPos.Y = 0
+		}
 	}
 
 	// Центрируем по горизонтали относительно триггера
 	menuPos.X += (trigger.Size().Width - popupSize.Width) / 2
+	// Не даём уйти за левый край
+	if menuPos.X < 0 {
+		menuPos.X = 0
+	}
 
 	nrm.popup.ShowAtPosition(menuPos)
 }
@@ -119,42 +127,59 @@ func createNewRectangleContent(breadcrumbManager BreadcrumbManagerInterface, onC
 func createInputForm(breadcrumbManager BreadcrumbManagerInterface, onClose func()) fyne.CanvasObject {
 	titleEntry := widget.NewEntry()
 	titleEntry.PlaceHolder = "Title"
-	titleEntry.Resize(fyne.NewSize(300, 30)) // Устанавливаем размер для стабильности
+	titleEntry.Resize(fyne.NewSize(300, 30))
 
 	descriptionEntry := widget.NewMultiLineEntry()
 	descriptionEntry.PlaceHolder = "Description or links"
-	descriptionEntry.Resize(fyne.NewSize(300, 60)) // Устанавливаем размер для стабильности
+	descriptionEntry.Resize(fyne.NewSize(300, 60))
 
 	tagsEntry := widget.NewEntry()
 	tagsEntry.PlaceHolder = "Tags (comma separated)"
-	tagsEntry.Resize(fyne.NewSize(300, 30)) // Устанавливаем размер для стабильности
+	tagsEntry.Resize(fyne.NewSize(300, 30))
 
-	// Создаем состояние для файла
+	// Получаем окно для диалогов
+	var parentWindow fyne.Window
+	windows := fyne.CurrentApp().Driver().AllWindows()
+	if len(windows) > 0 {
+		parentWindow = windows[0]
+	} else {
+		return container.NewCenter(widget.NewLabel("Error: no window available"))
+	}
+
+	// Создаем состояние для файлов
 	fileState := &FileUploadState{
 		SelectedFiles: &[]string{},
 		UpdateDisplay: func() {},
 	}
 
-	// Используем функции из file_selector.go
-	fileSelectorContainer := CreateFileSelector(fileState)
+	// Создаем область для загрузки файлов
+	fileConfig := FileUploadConfig{
+		Label:           "Add a file/image",
+		Filter:          nil,
+		BackgroundColor: color.RGBA{R: 30, G: 30, B: 30, A: 25},
+		MinSize:         fyne.NewSize(150, 30),
+	}
+
+	fileUploadArea := CreateFileUploadArea(fileConfig, fileState, parentWindow)
 
 	// Кнопка создания
 	createButton := widget.NewButton("Create", func() {
 		// Логика сохранения элемента
 		err := saveNewItemExtended(titleEntry.Text, descriptionEntry.Text, tagsEntry.Text, fileState.SelectedFiles, []string{}, nil)
 		if err == nil {
-			// Закрываем окно после успешного создания
 			if onClose != nil {
 				onClose()
 			}
 
-			// Обновляем рабочую область через хлебные крошки
 			if breadcrumbManager != nil {
 				breadcrumbManager.Refresh()
 			}
 		}
 	})
 	createButton.Importance = widget.HighImportance
+
+	// Создаем контейнер с областью загрузки
+	fileSelectorContainer := container.NewVBox(fileUploadArea)
 
 	// Создаем вкладки для переключения типа элемента
 	tabs := container.NewAppTabs(
@@ -188,15 +213,19 @@ func createInputForm(breadcrumbManager BreadcrumbManagerInterface, onClose func(
 	)
 
 	// Оборачиваем в контейнер с отступами и фоном
-	bgRect := canvas.NewRectangle(color.RGBA{0, 0, 0, 255}) // Черный фон
+	bgRect := canvas.NewRectangle(color.RGBA{0, 0, 0, 255})
 	bgRect.CornerRadius = 5
-	bgRect.StrokeColor = color.RGBA{48, 48, 255, 255} // Темно-серая обводка
+	bgRect.StrokeColor = color.RGBA{48, 48, 255, 255}
 	bgRect.StrokeWidth = 1
-	bgRect.SetMinSize(fyne.NewSize(300, 300)) // Устанавливаем минимальный размер фона
+	bgRect.SetMinSize(fyne.NewSize(300, 300))
 
 	outerContainer := container.NewStack(bgRect, container.NewPadded(formContainer))
 
-	return outerContainer
+	// Оборачиваем в прокрутку, если форма не влезает в окно
+	scrollContainer := container.NewScroll(outerContainer)
+	scrollContainer.SetMinSize(fyne.NewSize(320, 500))
+
+	return scrollContainer
 }
 
 // createElementForm создает форму для элемента

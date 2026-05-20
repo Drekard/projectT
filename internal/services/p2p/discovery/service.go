@@ -68,15 +68,13 @@ func (ds *DiscoveryService) Start() error {
 	log.Printf("[discovery/service.go] ЗАПУСК: DiscoveryService — загрузка известных пиров")
 	log.Printf("[discovery/service.go] ========================================")
 
-	// Загружаем все адреса пиров из БД
+	// Загружаем все адреса пиров из БД (для DHT/mDNS обнаружения)
 	if err := ds.loadPeerAddresses(); err != nil {
 		log.Printf("[discovery/service.go] Предупреждение: не удалось загрузить адреса пиров: %v", err)
 	}
 
-	// АВТОПОДКЛЮЧЕНИЕ: подключаемся ко всем известным пирам (ОДНОКРАТНО)
-	if err := ds.connectToKnownPeers(); err != nil {
-		log.Printf("[discovery/service.go] Предупреждение: не удалось подключиться к известным пирам: %v", err)
-	}
+	// Подключение к известным пирам происходит через connection.Service и autodial
+	// (избегаем дублирования и блокировки старта)
 
 	// Запускаем mDNS обнаружение если включено (только локальная сеть)
 	if ds.config.EnableMDNS {

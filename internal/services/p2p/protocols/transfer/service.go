@@ -138,3 +138,98 @@ func (ts *Service) RemoveBatch(batchID string) {
 	defer ts.mu.Unlock()
 	delete(ts.activeBatches, batchID)
 }
+
+// StartReceiveBatch начинает трекинг входящего батча
+func (ts *Service) StartReceiveBatch(batchID string, totalItems int, totalBytes int64) {
+	ts.mu.Lock()
+	defer ts.mu.Unlock()
+
+	batchProg := &BatchProgress{
+		BatchID:    batchID,
+		Type:       "receive",
+		TotalItems: totalItems,
+		Status:     TransferStatusInProgress,
+		TotalBytes: totalBytes,
+	}
+	ts.activeBatches[batchID] = batchProg
+
+	// Отправляем начальное состояние
+	select {
+	case ts.batchProgress <- batchProg:
+	default:
+	}
+}
+
+// UpdateReceiveBatchItem обновляет прогресс по одному элементу входящего батча
+func (ts *Service) UpdateReceiveBatchItem(batchID string, itemTitle string, completed int, failed int) {
+	ts.mu.Lock()
+	batchProg, exists := ts.activeBatches[batchID]
+	if !exists {
+		ts.mu.Unlock()
+		return
+	}
+
+	batchProg.Completed = completed
+	batchProg.Failed = failed
+	batchProg.CurrentItem = itemTitle
+	if batchProg.TotalItems > 0 {
+		batchProg.OverallPercent = float64(completed) / float64(batchProg.TotalItems) * 100
+	}
+
+	// Копируем для отправки
+	progCopy := &BatchProgress{
+		BatchID:          batchProg.BatchID,
+		Type:             batchProg.Type,
+		TotalItems:       batchProg.TotalItems,
+		Completed:        batchProg.Completed,
+		Failed:           batchProg.Failed,
+		TotalBytes:       batchProg.TotalBytes,
+		TransferredBytes: batchProg.TransferredBytes,
+		OverallPercent:   batchProg.OverallPercent,
+		Status:           batchProg.Status,
+		CurrentItem:      batchProg.CurrentItem,
+	}
+	ts.mu.Unlock()
+
+	select {
+	case ts.batchProgress <- progCopy:
+	default:
+	}
+}
+
+// CompleteReceiveBatch завершает трекинг входящего батча
+func (ts *Service) CompleteReceiveBatch(batchID string, status TransferStatus, errMsg string) {
+	ts.mu.Lock()
+	batchProg, exists := ts.activeBatches[batchID]
+	if !exists {
+		ts.mu.Unlock()
+		return
+	}
+
+	batchProg.Status = status
+	batchProg.Error = errMsg
+	if status == TransferStatusCompleted {
+		batchProg.Completed = batchProg.TotalItems
+		batchProg.OverallPercent = 100
+	}
+
+	progCopy := &BatchProgress{
+		BatchID:          batchProg.BatchID,
+		Type:             batchProg.Type,
+		TotalItems:       batchProg.TotalItems,
+		Completed:        batchProg.Completed,
+		Failed:           batchProg.Failed,
+		TotalBytes:       batchProg.TotalBytes,
+		TransferredBytes: batchProg.TransferredBytes,
+		OverallPercent:   batchProg.OverallPercent,
+		Status:           batchProg.Status,
+		CurrentItem:      batchProg.CurrentItem,
+		Error:            batchProg.Error,
+	}
+	ts.mu.Unlock()
+
+	select {
+	case ts.batchProgress <- progCopy:
+	default:
+	}
+}

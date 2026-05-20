@@ -295,6 +295,127 @@ func (iss *Service) RequestBatchByUUIDs(ctx context.Context, peerID peer.ID, ele
 	return remoteItems, nil
 }
 
+// BatchRequestCallbacks коллбэки для асинхронного батч-запроса
+type BatchRequestCallbacks struct {
+	OnItem     func(item *models.Item, index int, total int)      // вызывается для каждого полученного элемента
+	OnDone     func(items []*models.Item, err error)              // вызывается когда все элементы получены
+	OnProgress func(completed int, total int, currentItem string) // вызывается для обновления прогресса
+}
+
+// RequestBatchByUUIDsAsync запрашивает батч элементов асинхронно с коллбэками
+func (iss *Service) RequestBatchByUUIDsAsync(ctx context.Context, peerID peer.ID, elementUUIDs []string, callbacks BatchRequestCallbacks) {
+	if len(elementUUIDs) == 0 {
+		if callbacks.OnDone != nil {
+			callbacks.OnDone([]*models.Item{}, nil)
+		}
+		return
+	}
+
+	go func() {
+		stream, err := iss.host.NewStream(ctx, peerID, ProtocolID)
+		if err != nil {
+			if callbacks.OnDone != nil {
+				callbacks.OnDone(nil, fmt.Errorf("ошибка создания стрима: %w", err))
+			}
+			return
+		}
+		defer func() { _ = stream.Close() }()
+
+		req := &ItemRequest{Hash: elementUUIDs[0]}
+		reqData, _ := json.Marshal(req)
+
+		writer := bufio.NewWriter(stream)
+		if _, err := writer.Write(reqData); err != nil {
+			if callbacks.OnDone != nil {
+				callbacks.OnDone(nil, fmt.Errorf("ошибка отправки запроса: %w", err))
+			}
+			return
+		}
+		if err := writer.Flush(); err != nil {
+			if callbacks.OnDone != nil {
+				callbacks.OnDone(nil, fmt.Errorf("ошибка flush: %w", err))
+			}
+			return
+		}
+		if err := stream.CloseWrite(); err != nil {
+			if callbacks.OnDone != nil {
+				callbacks.OnDone(nil, fmt.Errorf("ошибка CloseWrite: %w", err))
+			}
+			return
+		}
+
+		timeout := 30 * time.Second
+		if len(elementUUIDs) > 10 {
+			timeout = time.Duration(len(elementUUIDs)*3) * time.Second
+		}
+		if err := stream.SetReadDeadline(time.Now().Add(timeout)); err != nil {
+			log.Printf("Предупреждение: не удалось установить таймаут: %v", err)
+		}
+
+		reader := bufio.NewReader(stream)
+		decoder := json.NewDecoder(reader)
+
+		var remoteItems []*models.Item
+		totalItems := len(elementUUIDs)
+		completedCount := 0
+
+		for {
+			select {
+			case <-ctx.Done():
+				if callbacks.OnDone != nil {
+					callbacks.OnDone(remoteItems, ctx.Err())
+				}
+				return
+			default:
+			}
+
+			var resp ItemResponse
+			if err := decoder.Decode(&resp); err != nil {
+				if err.Error() == "EOF" {
+					break
+				}
+				log.Printf("Ошибка чтения ответа: %v", err)
+				break
+			}
+
+			// Пропускаем пустые ответы (элемент не найден)
+			if resp.ItemID == 0 {
+				completedCount++
+				if callbacks.OnProgress != nil {
+					callbacks.OnProgress(completedCount, totalItems, resp.ElementUUID[:min(8, len(resp.ElementUUID))])
+				}
+				continue
+			}
+
+			remoteItem, err := iss.saveRemoteItem(peerID.String(), &resp)
+			if err != nil {
+				log.Printf("Ошибка сохранения элемента %s: %v", resp.ElementUUID[:8], err)
+				completedCount++
+				if callbacks.OnProgress != nil {
+					callbacks.OnProgress(completedCount, totalItems, resp.Title)
+				}
+				continue
+			}
+
+			remoteItems = append(remoteItems, remoteItem)
+			completedCount++
+
+			// Вызываем коллбэк для каждого элемента — UI может обновляться прогрессивно
+			if callbacks.OnItem != nil {
+				callbacks.OnItem(remoteItem, len(remoteItems)-1, totalItems)
+			}
+
+			if callbacks.OnProgress != nil {
+				callbacks.OnProgress(completedCount, totalItems, resp.Title)
+			}
+		}
+
+		if callbacks.OnDone != nil {
+			callbacks.OnDone(remoteItems, nil)
+		}
+	}()
+}
+
 // RequestFolder запрашивает все элементы папки по parent_uuid
 func (iss *Service) RequestFolder(ctx context.Context, peerID peer.ID, parentUUID string) ([]*models.Item, error) {
 	if parentUUID == "" {
@@ -394,4 +515,105 @@ func (iss *Service) saveRemoteItem(sourcePeerID string, resp *ItemResponse) (*mo
 
 	log.Printf("[ItemSync] ✅ Сохранён элемент %d от пира %s (hash: %s)", item.ID, sourcePeerID, resp.Hash[:16])
 	return item, nil
+}
+
+// RequestRandomItemsAsync запрашивает случайные элементы у пира асинхронно
+func (iss *Service) RequestRandomItemsAsync(ctx context.Context, peerID peer.ID, count int, callbacks BatchRequestCallbacks) {
+	if count <= 0 {
+		count = 10
+	}
+	if count > 50 {
+		count = 50
+	}
+
+	go func() {
+		stream, err := iss.host.NewStream(ctx, peerID, ProtocolID)
+		if err != nil {
+			if callbacks.OnDone != nil {
+				callbacks.OnDone(nil, fmt.Errorf("ошибка создания стрима: %w", err))
+			}
+			return
+		}
+		defer func() { _ = stream.Close() }()
+
+		req := &ItemRequest{Random: true, Count: count}
+		reqData, _ := json.Marshal(req)
+
+		writer := bufio.NewWriter(stream)
+		if _, err := writer.Write(reqData); err != nil {
+			if callbacks.OnDone != nil {
+				callbacks.OnDone(nil, fmt.Errorf("ошибка отправки запроса: %w", err))
+			}
+			return
+		}
+		if err := writer.Flush(); err != nil {
+			if callbacks.OnDone != nil {
+				callbacks.OnDone(nil, fmt.Errorf("ошибка flush: %w", err))
+			}
+			return
+		}
+		if err := stream.CloseWrite(); err != nil {
+			if callbacks.OnDone != nil {
+				callbacks.OnDone(nil, fmt.Errorf("ошибка CloseWrite: %w", err))
+			}
+			return
+		}
+
+		if err := stream.SetReadDeadline(time.Now().Add(30 * time.Second)); err != nil {
+			log.Printf("Предупреждение: не удалось установить таймаут: %v", err)
+		}
+
+		reader := bufio.NewReader(stream)
+		decoder := json.NewDecoder(reader)
+
+		var remoteItems []*models.Item
+		totalExpected := count
+		receivedCount := 0
+
+		for {
+			select {
+			case <-ctx.Done():
+				if callbacks.OnDone != nil {
+					callbacks.OnDone(remoteItems, ctx.Err())
+				}
+				return
+			default:
+			}
+
+			var resp ItemResponse
+			if err := decoder.Decode(&resp); err != nil {
+				if err.Error() == "EOF" {
+					break
+				}
+				log.Printf("Ошибка чтения ответа: %v", err)
+				break
+			}
+
+			if resp.ItemID == 0 {
+				break
+			}
+
+			remoteItem, err := iss.saveRemoteItem(peerID.String(), &resp)
+			if err != nil {
+				log.Printf("Ошибка сохранения элемента %s: %v", resp.ElementUUID[:8], err)
+				receivedCount++
+				continue
+			}
+
+			remoteItems = append(remoteItems, remoteItem)
+			receivedCount++
+
+			if callbacks.OnItem != nil {
+				callbacks.OnItem(remoteItem, len(remoteItems)-1, totalExpected)
+			}
+
+			if callbacks.OnProgress != nil {
+				callbacks.OnProgress(receivedCount, totalExpected, resp.Title)
+			}
+		}
+
+		if callbacks.OnDone != nil {
+			callbacks.OnDone(remoteItems, nil)
+		}
+	}()
 }

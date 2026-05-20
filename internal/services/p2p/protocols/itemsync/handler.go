@@ -43,11 +43,15 @@ func (iss *Service) handleItemRequest(stream network.Stream) {
 		if err != nil || resp == nil {
 			resp, _ = iss.getItemByHash(req.Hash)
 		}
-		if resp != nil {
+		if resp != nil && iss.isItemShareable(resp) {
 			_ = encoder.Encode(resp)
 		} else {
-			// Элемент не найден — отправляем пустой ответ чтобы клиент не получил EOF
-			log.Printf("[ItemSync] ⚠️ Элемент %s не найден для пира %s", req.Hash[:min(len(req.Hash), 8)], remotePeer.String()[:8])
+			// Элемент не найден или приватный — отправляем пустой ответ
+			if resp != nil {
+				log.Printf("[ItemSync] 🔒 Элемент %s приватный, не отправляем пиру %s", req.Hash[:min(len(req.Hash), 8)], remotePeer.String()[:8])
+			} else {
+				log.Printf("[ItemSync] ⚠️ Элемент %s не найден для пира %s", req.Hash[:min(len(req.Hash), 8)], remotePeer.String()[:8])
+			}
 			_ = encoder.Encode(&ItemResponse{ItemID: 0})
 		}
 	} else if len(req.ItemIDs) > 0 {
@@ -58,24 +62,29 @@ func (iss *Service) handleItemRequest(stream network.Stream) {
 			if err != nil {
 				continue
 			}
-			if resp != nil {
+			if resp != nil && iss.isItemShareable(resp) {
 				if err := encoder.Encode(resp); err != nil {
 					break
 				}
 				found = true
+			} else if resp != nil {
+				log.Printf("[ItemSync] 🔒 Элемент ID=%d приватный, пропускаем", itemID)
 			}
 		}
 		if !found {
 			_ = encoder.Encode(&ItemResponse{ItemID: 0})
 		}
 	} else if req.All {
-		// Запрос всех элементов
+		// Запрос всех элементов (только public)
 		items, err := queries.GetAllItems()
 		if err != nil {
 			return
 		}
 
 		for _, item := range items {
+			if !item.IsPublic() {
+				continue
+			}
 			resp, err := iss.itemToResponse(item)
 			if err != nil {
 				continue
@@ -84,6 +93,51 @@ func (iss *Service) handleItemRequest(stream network.Stream) {
 				if err := encoder.Encode(resp); err != nil {
 					break
 				}
+			}
+		}
+	} else if req.Random {
+		// Запрос случайных элементов (только public)
+		count := req.Count
+		if count <= 0 {
+			count = 10
+		}
+		if count > 50 {
+			count = 50
+		}
+
+		items, err := queries.GetRandomItems(count * 3) // Запрашиваем больше чтобы компенсировать фильтрацию
+		if err != nil {
+			log.Printf("[ItemSync] Ошибка получения случайных элементов: %v", err)
+			_ = encoder.Encode(&ItemResponse{ItemID: 0})
+			_ = writer.Flush()
+			_ = stream.CloseWrite()
+			return
+		}
+
+		sentCount := 0
+		if len(items) == 0 {
+			_ = encoder.Encode(&ItemResponse{ItemID: 0})
+		} else {
+			for _, item := range items {
+				if sentCount >= count {
+					break
+				}
+				if !item.IsPublic() {
+					continue
+				}
+				resp, err := iss.itemToResponse(item)
+				if err != nil {
+					continue
+				}
+				if resp != nil {
+					if err := encoder.Encode(resp); err != nil {
+						break
+					}
+					sentCount++
+				}
+			}
+			if sentCount == 0 {
+				_ = encoder.Encode(&ItemResponse{ItemID: 0})
 			}
 		}
 	} else {
@@ -101,6 +155,19 @@ func min(a, b int) int {
 		return a
 	}
 	return b
+}
+
+// isItemShareable проверяет, можно ли отправить элемент другому пиру
+func (iss *Service) isItemShareable(resp *ItemResponse) bool {
+	if resp == nil {
+		return false
+	}
+	// Получаем элемент из БД для проверки visibility
+	item, err := queries.GetItemByID(resp.ItemID)
+	if err != nil {
+		return false
+	}
+	return item.IsPublic()
 }
 
 // getItemByID возвращает элемент по ID для отправки

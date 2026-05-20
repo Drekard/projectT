@@ -19,25 +19,34 @@ const (
 	ItemStatusArchived ItemStatus = "archived" // Архивированный элемент
 )
 
+// ItemVisibility определяет видимость элемента для P2P
+type ItemVisibility string
+
+const (
+	ItemVisibilityPublic  ItemVisibility = "public"  // Элемент доступен другим пирам
+	ItemVisibilityPrivate ItemVisibility = "private" // Элемент не передаётся другим пирам
+)
+
 // Item представляет элемент в системе (локальный или кэшированный от другого пира)
 type Item struct {
-	ID           int        `json:"-"`                        // Внутренний ID для FK в SQLite (скрыт из JSON)
-	ElementUUID  string     `json:"element_uuid"`             // Основной уникальный ID для P2P (UUID v4)
-	Hash         string     `json:"hash"`                     // Хеш содержимого (title|description|content_meta) для дедупликации
-	OwnerType    OwnerType  `json:"owner_type"`               // 'local' или 'remote'
-	SourcePeerID *string    `json:"source_peer_id,omitempty"` // PeerID владельца (для remote)
-	Type         ItemType   `json:"type"`
-	Title        string     `json:"title"`
-	Description  string     `json:"description,omitempty"`
-	ContentMeta  string     `json:"content_meta,omitempty"` // JSON для составных элементов
-	ParentID     *int       `json:"parent_id,omitempty"`    // ID родительского элемента (legacy, используйте ParentUUID)
-	ParentUUID   *string    `json:"parent_uuid,omitempty"`  // UUID родительского элемента для P2P
-	Signature    []byte     `json:"signature,omitempty"`    // Подпись владельца (для remote)
-	Version      int        `json:"version"`                // Версия элемента
-	Status       ItemStatus `json:"status"`                 // Статус просмотра: 'saved', 'preview', 'archived'
-	CachedAt     *time.Time `json:"cached_at,omitempty"`    // Время кэширования (для remote)
-	CreatedAt    time.Time  `json:"created_at"`
-	UpdatedAt    time.Time  `json:"updated_at"`
+	ID           int            `json:"-"`                        // Внутренний ID для FK в SQLite (скрыт из JSON)
+	ElementUUID  string         `json:"element_uuid"`             // Основной уникальный ID для P2P (UUID v4)
+	Hash         string         `json:"hash"`                     // Хеш содержимого (title|description|content_meta) для дедупликации
+	OwnerType    OwnerType      `json:"owner_type"`               // 'local' или 'remote'
+	SourcePeerID *string        `json:"source_peer_id,omitempty"` // PeerID владельца (для remote)
+	Type         ItemType       `json:"type"`
+	Title        string         `json:"title"`
+	Description  string         `json:"description,omitempty"`
+	ContentMeta  string         `json:"content_meta,omitempty"` // JSON для составных элементов
+	ParentID     *int           `json:"parent_id,omitempty"`    // ID родительского элемента (legacy, используйте ParentUUID)
+	ParentUUID   *string        `json:"parent_uuid,omitempty"`  // UUID родительского элемента для P2P
+	Signature    []byte         `json:"signature,omitempty"`    // Подпись владельца (для remote)
+	Version      int            `json:"version"`                // Версия элемента
+	Status       ItemStatus     `json:"status"`                 // Статус просмотра: 'saved', 'preview', 'archived'
+	Visibility   ItemVisibility `json:"visibility"`             // Видимость: 'public' или 'private'
+	CachedAt     *time.Time     `json:"cached_at,omitempty"`    // Время кэширования (для remote)
+	CreatedAt    time.Time      `json:"created_at"`
+	UpdatedAt    time.Time      `json:"updated_at"`
 }
 
 // IsLocal возвращает true, если элемент локальный
@@ -78,4 +87,14 @@ func (i *Item) IsPreview() bool {
 // IsArchived возвращает true, если элемент архивирован
 func (i *Item) IsArchived() bool {
 	return i.Status == ItemStatusArchived
+}
+
+// IsPublic возвращает true, если элемент публичный (доступен другим пирам)
+func (i *Item) IsPublic() bool {
+	return i.Visibility == "" || i.Visibility == ItemVisibilityPublic
+}
+
+// IsPrivate возвращает true, если элемент приватный (не передаётся другим пирам)
+func (i *Item) IsPrivate() bool {
+	return i.Visibility == ItemVisibilityPrivate
 }

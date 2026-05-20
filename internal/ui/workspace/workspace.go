@@ -6,6 +6,7 @@ import (
 	"projectT/internal/storage/database/models"
 	"projectT/internal/storage/database/queries"
 	"projectT/internal/ui/workspace/chats"
+	"projectT/internal/ui/workspace/compilation"
 	"projectT/internal/ui/workspace/contacts"
 	"projectT/internal/ui/workspace/p2p"
 	"projectT/internal/ui/workspace/profile"
@@ -13,6 +14,7 @@ import (
 	"projectT/internal/ui/workspace/tags"
 
 	p2p_network "projectT/internal/services/p2p/core"
+	p2p_ui "projectT/internal/services/p2p/ui"
 
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/canvas"
@@ -35,6 +37,7 @@ const (
 	ContentTypeP2P           ContentType = "p2p"
 	ContentTypeRemoteProfile ContentType = "remote_profile"
 	ContentTypeRemoteSaved   ContentType = "remote_saved"
+	ContentTypeCompilation   ContentType = "compilation"
 )
 
 // PreviewMode определяет режим отображения элементов
@@ -68,8 +71,10 @@ type Workspace struct {
 	chatsUI             *chats.UI
 	contactsUI          *contacts.UI
 	p2pUI               *p2p.UI
+	compilationUI       *compilation.CompilationUI
 	window              fyne.Window
 	p2pNetwork          *p2p_network.P2PNetwork
+	p2pUIShared         *p2p_ui.UIP2P // Общий экземпляр UIP2P для всех вкладок
 	tagsInitialized     bool
 	chatsInitialized    bool
 	contactsInitialized bool
@@ -134,22 +139,57 @@ func (ws *Workspace) UpdateContent(contentType string, param ...interface{}) {
 		return
 	case ContentTypeChats:
 		ws.initializeChatsUI()
-		ws.chatsUI.Refresh()
-		ws.contentCache[ct] = ws.createChatsContent()
-		ws.container.Objects = []fyne.CanvasObject{ws.contentCache[ct]}
-		ws.container.Refresh()
+		// Используем кэш если контент уже создан
+		if cached, exists := ws.contentCache[ct]; exists {
+			ws.container.Objects = []fyne.CanvasObject{cached}
+			ws.container.Refresh()
+			// Обновляем список чатов асинхронно
+			go func() {
+				if ws.chatsUI != nil {
+					ws.chatsUI.Refresh()
+				}
+			}()
+		} else {
+			// При первом создании контент уже загружается асинхронно в initializeChatsUI
+			ws.contentCache[ct] = ws.createChatsContent()
+			ws.container.Objects = []fyne.CanvasObject{ws.contentCache[ct]}
+			ws.container.Refresh()
+		}
 		return
 	case ContentTypeContacts:
 		ws.initializeContactsUI()
-		ws.contactsUI.Refresh()
-		ws.contentCache[ct] = ws.createContactsContent()
-		ws.container.Objects = []fyne.CanvasObject{ws.contentCache[ct]}
-		ws.container.Refresh()
+		// Используем кэш если контент уже создан
+		if cached, exists := ws.contentCache[ct]; exists {
+			ws.container.Objects = []fyne.CanvasObject{cached}
+			ws.container.Refresh()
+		} else {
+			ws.contactsUI.Refresh()
+			ws.contentCache[ct] = ws.createContactsContent()
+			ws.container.Objects = []fyne.CanvasObject{ws.contentCache[ct]}
+			ws.container.Refresh()
+		}
 		return
 	case ContentTypeP2P:
 		ws.initializeP2PUI()
-		ws.p2pUI.Refresh()
-		ws.contentCache[ct] = ws.createP2PContent()
+		// Используем кэш если контент уже создан
+		if cached, exists := ws.contentCache[ct]; exists {
+			ws.container.Objects = []fyne.CanvasObject{cached}
+			ws.container.Refresh()
+			// Обновляем P2P данные асинхронно
+			go func() {
+				if ws.p2pUI != nil {
+					ws.p2pUI.Refresh()
+				}
+			}()
+		} else {
+			// При первом создании настройки загружаются асинхронно в SetP2PService
+			ws.contentCache[ct] = ws.createP2PContent()
+			ws.container.Objects = []fyne.CanvasObject{ws.contentCache[ct]}
+			ws.container.Refresh()
+		}
+		return
+	case ContentTypeCompilation:
+		ws.contentCache[ct] = ws.createCompilationContent()
 		ws.container.Objects = []fyne.CanvasObject{ws.contentCache[ct]}
 		ws.container.Refresh()
 		return

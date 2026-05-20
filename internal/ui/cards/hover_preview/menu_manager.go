@@ -6,6 +6,7 @@ import (
 	"projectT/internal/services/favorites"
 	"projectT/internal/services/pinned"
 	"projectT/internal/storage/database/models"
+	"projectT/internal/storage/database/queries"
 	"projectT/internal/ui/edit_item"
 	"projectT/internal/ui/workspace/chats/dialogs"
 
@@ -207,6 +208,54 @@ func (mm *MenuManager) ShowSimpleMenu(item *models.Item, cont fyne.CanvasObject,
 						}
 
 						buttons = append([]fyne.CanvasObject{favButton}, buttons...)
+					}
+
+					// Visibility toggle button (only for local items)
+					if item.IsLocal() {
+						var visButton *widget.Button
+						var createVisHandler func(isPublic bool) func()
+
+						createVisHandler = func(isPublic bool) func() {
+							if isPublic {
+								return func() {
+									newVis, err := queries.ToggleItemVisibility(item.ID)
+									if err != nil {
+										return
+									}
+									item.Visibility = newVis
+									if newVis == models.ItemVisibilityPrivate {
+										visButton.SetText("🔒")
+										visButton.OnTapped = createVisHandler(false)
+									} else {
+										visButton.SetText("🌐")
+										visButton.OnTapped = createVisHandler(true)
+									}
+								}
+							} else {
+								return func() {
+									newVis, err := queries.ToggleItemVisibility(item.ID)
+									if err != nil {
+										return
+									}
+									item.Visibility = newVis
+									if newVis == models.ItemVisibilityPrivate {
+										visButton.SetText("🔒")
+										visButton.OnTapped = createVisHandler(false)
+									} else {
+										visButton.SetText("🌐")
+										visButton.OnTapped = createVisHandler(true)
+									}
+								}
+							}
+						}
+
+						if item.IsPublic() {
+							visButton = widget.NewButton("🌐", createVisHandler(true))
+						} else {
+							visButton = widget.NewButton("🔒", createVisHandler(false))
+						}
+
+						buttons = append([]fyne.CanvasObject{visButton}, buttons...)
 					}
 
 					sendButton := widget.NewButton("Send", func() {

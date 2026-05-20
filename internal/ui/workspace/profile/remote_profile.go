@@ -6,7 +6,10 @@ import (
 	"image/color"
 	"log"
 	"os"
+	"sync"
 
+	"projectT/internal/services/p2p/protocols/itemsync"
+	"projectT/internal/services/p2p/protocols/transfer"
 	network "projectT/internal/services/p2p/ui"
 	"projectT/internal/storage/database/models"
 	"projectT/internal/storage/database/queries"
@@ -32,6 +35,13 @@ type RemoteProfileUI struct {
 	isLocal                  bool
 	p2pUI                    *network.UIP2P
 	onOpenElements           func()
+
+	// Loading state
+	rightPanelContent *fyne.Container
+	loadingIndicator  *widget.ProgressBar
+	loadingLabel      *widget.Label
+	loadingContainer  *fyne.Container
+	currentBatchID    string
 }
 
 // NewRemoteProfileUI создаёт новый read-only профиль удалённого пользователя
@@ -158,15 +168,34 @@ func (ui *RemoteProfileUI) createRightPanel() fyne.CanvasObject {
 
 	pinnedGridContainer := ui.gridManager.GetContainer()
 
-	content := container.NewBorder(
-		widget.NewLabel("Showcase"),
-		nil,
-		nil,
-		nil,
-		pinnedGridContainer,
+	// Loading indicator
+	ui.loadingLabel = widget.NewLabel("")
+	ui.loadingLabel.TextStyle = fyne.TextStyle{Italic: true}
+	ui.loadingLabel.Alignment = fyne.TextAlignCenter
+
+	ui.loadingIndicator = widget.NewProgressBar()
+	ui.loadingIndicator.Hide()
+
+	loadingContent := container.NewVBox(
+		container.NewCenter(ui.loadingLabel),
+		ui.loadingIndicator,
+	)
+	ui.loadingContainer = container.NewPadded(loadingContent)
+	ui.loadingContainer.Hide()
+
+	// Основной контент с overlay для загрузки
+	ui.rightPanelContent = container.NewStack(
+		container.NewBorder(
+			widget.NewLabel("Showcase"),
+			nil,
+			nil,
+			nil,
+			pinnedGridContainer,
+		),
+		ui.loadingContainer,
 	)
 
-	return content
+	return ui.rightPanelContent
 }
 
 func (ui *RemoteProfileUI) loadProfile() {
@@ -350,15 +379,112 @@ func (ui *RemoteProfileUI) requestPinnedItemsFromPeer(pinnedUUIDs []string) {
 		return
 	}
 
-	items, err := ui.p2pUI.RequestBatchByUUIDs(peer.ID(p.PeerID), pinnedUUIDs)
-	if err != nil {
-		log.Printf("[RemoteProfile] Ошибка запроса pinned items у пира %s: %v", ui.peerID[:min(10, len(ui.peerID))], err)
+	// Показываем индикатор загрузки
+	ui.showLoading(len(pinnedUUIDs))
+
+	// Создаём batch ID для трекинга прогресса
+	batchID := fmt.Sprintf("receive_batch_%s_%d", ui.peerID[:8], len(pinnedUUIDs))
+	ui.currentBatchID = batchID
+
+	// Регистрируем батч в transfer service для отображения в sidebar
+	transferSvc := ui.p2pUI.GetNetwork().Transfer()
+	if transferSvc != nil {
+		transferSvc.StartReceiveBatch(batchID, len(pinnedUUIDs), 0)
+	}
+
+	var loadedItems []*models.Item
+	var mu sync.Mutex
+
+	callbacks := itemsync.BatchRequestCallbacks{
+		OnItem: func(item *models.Item, index int, total int) {
+			mu.Lock()
+			loadedItems = append(loadedItems, item)
+			mu.Unlock()
+
+			// Прогрессивно добавляем элемент в grid
+			if err := ui.gridManager.AddItem(item); err != nil {
+				log.Printf("[RemoteProfile] Ошибка добавления элемента в grid: %v", err)
+			}
+
+			// Обновляем прогресс батча
+			if transferSvc != nil {
+				transferSvc.UpdateReceiveBatchItem(batchID, item.Title, index+1, total)
+			}
+
+			// Обновляем локальный прогресс
+			ui.updateLoadingProgress(index+1, total, item.Title)
+		},
+		OnProgress: func(completed int, total int, currentItem string) {
+			ui.updateLoadingProgress(completed, total, currentItem)
+			if transferSvc != nil {
+				transferSvc.UpdateReceiveBatchItem(batchID, currentItem, completed, total)
+			}
+		},
+		OnDone: func(items []*models.Item, doneErr error) {
+			ui.hideLoading()
+
+			if transferSvc != nil {
+				if doneErr != nil {
+					transferSvc.CompleteReceiveBatch(batchID, transfer.TransferStatusFailed, doneErr.Error())
+				} else {
+					transferSvc.CompleteReceiveBatch(batchID, transfer.TransferStatusCompleted, "")
+				}
+			}
+
+			if doneErr != nil {
+				log.Printf("[RemoteProfile] Ошибка запроса pinned items у пира %s: %v", ui.peerID[:min(10, len(ui.peerID))], doneErr)
+				return
+			}
+
+			// Если элементов не было добавлено прогрессивно (fallback), загружаем все сразу
+			mu.Lock()
+			hasItems := len(loadedItems) > 0
+			mu.Unlock()
+
+			if hasItems && len(items) > 0 {
+				// Элементы уже добавлены прогрессивно, просто убеждаемся что grid обновлён
+				ui.gridManager.UpdateLayout()
+			}
+		},
+	}
+
+	ui.p2pUI.RequestBatchByUUIDsAsync(peer.ID(p.PeerID), pinnedUUIDs, callbacks)
+}
+
+func (ui *RemoteProfileUI) showLoading(total int) {
+	if ui.loadingLabel == nil || ui.loadingIndicator == nil || ui.loadingContainer == nil {
 		return
 	}
 
-	if len(items) > 0 {
-		ui.gridManager.LoadItemsWithoutCreateElement(items)
+	ui.loadingLabel.SetText(fmt.Sprintf("Loading %d elements...", total))
+	ui.loadingIndicator.SetValue(0)
+	ui.loadingIndicator.Show()
+	ui.loadingContainer.Show()
+	ui.rightPanelContent.Refresh()
+}
+
+func (ui *RemoteProfileUI) updateLoadingProgress(completed int, total int, currentItem string) {
+	if ui.loadingLabel == nil || ui.loadingIndicator == nil {
+		return
 	}
+
+	if total > 0 {
+		progress := float64(completed) / float64(total)
+		ui.loadingIndicator.SetValue(progress)
+		ui.loadingLabel.SetText(fmt.Sprintf("Loading %d/%d: %s", completed, total, currentItem))
+		ui.loadingContainer.Refresh()
+	}
+}
+
+func (ui *RemoteProfileUI) hideLoading() {
+	if ui.loadingContainer == nil {
+		return
+	}
+
+	ui.loadingIndicator.Hide()
+	ui.loadingLabel.SetText("")
+	ui.loadingContainer.Hide()
+	ui.rightPanelContent.Refresh()
 }
 
 // LoadPinnedItemsFromRemote загружает pinned items через ItemSync (вызывается извне)

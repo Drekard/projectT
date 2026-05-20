@@ -65,9 +65,9 @@ func (ui *UI) SetWindow(window fyne.Window) {
 // SetP2PService устанавливает P2P сервис
 func (ui *UI) SetP2PService(p2pUI *network.UIP2P) {
 	ui.p2pUI = p2pUI
-	// Загружаем настройки после установки p2pUI
+	// Загружаем настройки асинхронно, чтобы не блокировать UI
 	if ui.portEntry != nil {
-		ui.loadP2PSettings()
+		go ui.loadP2PSettings()
 	}
 }
 
@@ -79,7 +79,6 @@ func (ui *UI) GetContent() fyne.CanvasObject {
 // Refresh обновляет UI
 func (ui *UI) Refresh() {
 	ui.loadConnectedPeers()
-	// ui.loadBootstrapPeers() // ❌ Удалено - bootstrap пиры не используются
 	ui.loadDiscoveredPeers()
 	ui.loadProfiles()
 	if ui.content != nil {

@@ -73,6 +73,7 @@ func createItemsTable() {
 			signature       BLOB,
 			version         INTEGER DEFAULT 1,
 			status          TEXT DEFAULT 'saved' CHECK (status IN ('saved', 'preview', 'archived')),
+			visibility      TEXT DEFAULT 'public' CHECK (visibility IN ('public', 'private')),
 			cached_at       DATETIME,
 			created_at      DATETIME DEFAULT CURRENT_TIMESTAMP,
 			updated_at      DATETIME DEFAULT CURRENT_TIMESTAMP,
@@ -86,6 +87,11 @@ func createItemsTable() {
 	// Миграция: добавляем parent_uuid если колонка отсутствует (для существующих БД)
 	_, _ = DB.Exec(`
 		ALTER TABLE items ADD COLUMN parent_uuid TEXT
+	`)
+
+	// Миграция: добавляем visibility если колонка отсутствует (по умолчанию 'public')
+	_, _ = DB.Exec(`
+		ALTER TABLE items ADD COLUMN visibility TEXT DEFAULT 'public' CHECK (visibility IN ('public', 'private'))
 	`)
 }
 

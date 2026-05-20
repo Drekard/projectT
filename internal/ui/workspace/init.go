@@ -10,6 +10,14 @@ import (
 	p2p_ui "projectT/internal/services/p2p/ui"
 )
 
+// getP2PUIShared возвращает или создаёт общий экземпляр UIP2P
+func (ws *Workspace) getP2PUIShared() *p2p_ui.UIP2P {
+	if ws.p2pUIShared == nil && ws.p2pNetwork != nil {
+		ws.p2pUIShared = p2p_ui.NewUIP2P(ws.p2pNetwork)
+	}
+	return ws.p2pUIShared
+}
+
 // initializeTagsUI инициализирует UI тегов при первом обращении
 func (ws *Workspace) initializeTagsUI() {
 	if !ws.tagsInitialized {
@@ -35,7 +43,7 @@ func (ws *Workspace) initializeChatsUI() {
 		})
 
 		if ws.p2pNetwork != nil {
-			p2pUI := p2p_ui.NewUIP2P(ws.p2pNetwork)
+			p2pUI := ws.getP2PUIShared()
 			p2pUI.SetOnProfileUpdated(func(peerID string) {
 				ws.chatsUI.RefreshRightPanel(peerID)
 			})
@@ -65,7 +73,7 @@ func (ws *Workspace) initializeContactsUI() {
 		ws.contactsUI.SetWindow(ws.window)
 
 		if ws.p2pNetwork != nil {
-			p2pUI := p2p_ui.NewUIP2P(ws.p2pNetwork)
+			p2pUI := ws.getP2PUIShared()
 			ws.contactsUI.SetP2PService(p2pUI)
 		}
 	}
@@ -77,6 +85,7 @@ func (ws *Workspace) initializeP2PUI() {
 		if ws.chatsUI == nil {
 			ws.initializeChatsUI()
 		}
+
 		ws.p2pUI = p2p.New(ws.chatsUI, func(contentType string) {
 			ws.UpdateContent(contentType)
 		})
@@ -85,7 +94,7 @@ func (ws *Workspace) initializeP2PUI() {
 		ws.p2pUI.SetWindow(ws.window)
 
 		if ws.p2pNetwork != nil {
-			p2pUI := p2p_ui.NewUIP2P(ws.p2pNetwork)
+			p2pUI := ws.getP2PUIShared()
 			ws.p2pUI.SetP2PService(p2pUI)
 		}
 	}
