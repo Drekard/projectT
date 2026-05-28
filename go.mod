@@ -9,6 +9,7 @@ require (
 )
 
 require (
+	github.com/google/uuid v1.3.0
 	github.com/gopxl/beep/v2 v2.1.1
 	github.com/libp2p/go-libp2p v0.32.0
 	github.com/libp2p/go-libp2p-kad-dht v0.25.0
@@ -55,7 +56,6 @@ require (
 	github.com/golang/protobuf v1.5.3 // indirect
 	github.com/google/gopacket v1.1.19 // indirect
 	github.com/google/pprof v0.0.0-20231023181126-ff6d637d2a7b // indirect
-	github.com/google/uuid v1.3.0 // indirect
 	github.com/gopherjs/gopherjs v1.17.2 // indirect
 	github.com/gorilla/websocket v1.5.0 // indirect
 	github.com/hack-pad/go-indexeddb v0.3.2 // indirect

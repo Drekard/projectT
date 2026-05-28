@@ -2,12 +2,14 @@ package create_item
 
 import (
 	"image/color"
+	"strings"
 
 	"projectT/internal/storage/database/models"
 
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/canvas"
 	"fyne.io/fyne/v2/container"
+	"fyne.io/fyne/v2/dialog"
 	"fyne.io/fyne/v2/widget"
 )
 
@@ -170,6 +172,12 @@ func createInputForm(breadcrumbManager BreadcrumbManagerInterface, onClose func(
 
 	// Кнопка создания
 	createButton := widget.NewButton("Create", func() {
+		// Проверка на наличие хотя бы одного тега
+		if strings.TrimSpace(tagsEntry.Text) == "" {
+			dialog.ShowInformation("Validation Error", "Please add at least one tag", parentWindow)
+			return
+		}
+
 		if multiFileMode && len(*fileState.SelectedFiles) > 1 {
 			// Режим создания отдельных элементов для каждого файла
 			for _, filePath := range *fileState.SelectedFiles {

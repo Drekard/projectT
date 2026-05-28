@@ -23,6 +23,12 @@ func RunMigrations() {
 	createChatsTable()
 	createChatMessagesTable()
 	createPeerAddressesTable()
+	createGroupChatsTable()
+	createGroupMembersTable()
+	createGroupMessagesTable()
+	createGroupMembershipProofsTable()
+	createGroupInvitationsTable()
+	createGroupBlocksTable()
 
 	// ============================================================
 	// ЧАСТЬ 2: СОЗДАНИЕ ИНДЕКСОВ
@@ -38,6 +44,12 @@ func RunMigrations() {
 	createChatsIndexes()
 	createChatMessagesIndexes()
 	createPeerAddressesIndexes()
+	createGroupChatsIndexes()
+	createGroupMembersIndexes()
+	createGroupMessagesIndexes()
+	createGroupMembershipProofsIndexes()
+	createGroupInvitationsIndexes()
+	createGroupBlocksIndexes()
 
 	// ============================================================
 	// ЧАСТЬ 3: ТРИГГЕРЫ И ОГРАНИЧЕНИЯ
@@ -317,6 +329,118 @@ func createPeerAddressesTable() {
 	}
 }
 
+func createGroupChatsTable() {
+	_, err := DB.Exec(`
+		CREATE TABLE IF NOT EXISTS group_chats (
+			id                INTEGER PRIMARY KEY AUTOINCREMENT,
+			group_uuid        TEXT UNIQUE NOT NULL,
+			name              TEXT NOT NULL,
+			description       TEXT DEFAULT '',
+			creator_peer_id   TEXT NOT NULL,
+			avatar_hash       TEXT DEFAULT '',
+			chat_type         TEXT NOT NULL DEFAULT 'group' CHECK (chat_type IN ('group', 'channel')),
+			max_invite_depth  INTEGER DEFAULT 3,
+			created_at        DATETIME DEFAULT CURRENT_TIMESTAMP,
+			updated_at        DATETIME DEFAULT CURRENT_TIMESTAMP
+		);
+	`)
+	if err != nil {
+		panic("Ошибка при создании таблицы group_chats:" + err.Error())
+	}
+}
+
+func createGroupMembersTable() {
+	_, err := DB.Exec(`
+		CREATE TABLE IF NOT EXISTS group_members (
+			id              INTEGER PRIMARY KEY AUTOINCREMENT,
+			group_uuid      TEXT NOT NULL REFERENCES group_chats(group_uuid) ON DELETE CASCADE,
+			peer_id         TEXT NOT NULL,
+			role            TEXT NOT NULL DEFAULT 'member' CHECK (role IN ('creator', 'admin', 'moderator', 'member', 'subscriber')),
+			invited_by      TEXT NOT NULL,
+			invite_depth    INTEGER DEFAULT 0,
+			joined_at       DATETIME DEFAULT CURRENT_TIMESTAMP,
+			left_at         DATETIME,
+			UNIQUE(group_uuid, peer_id)
+		);
+	`)
+	if err != nil {
+		panic("Ошибка при создании таблицы group_members:" + err.Error())
+	}
+}
+
+func createGroupMessagesTable() {
+	_, err := DB.Exec(`
+		CREATE TABLE IF NOT EXISTS group_messages (
+			id              INTEGER PRIMARY KEY AUTOINCREMENT,
+			group_uuid      TEXT NOT NULL REFERENCES group_chats(group_uuid) ON DELETE CASCADE,
+			message_uuid    TEXT UNIQUE NOT NULL,
+			from_peer_id    TEXT NOT NULL,
+			content         TEXT NOT NULL,
+			content_type    TEXT NOT NULL DEFAULT 'text',
+			metadata        TEXT,
+			timestamp       INTEGER NOT NULL,
+			lamport_clock   INTEGER NOT NULL DEFAULT 0,
+			signature       BLOB NOT NULL
+		);
+	`)
+	if err != nil {
+		panic("Ошибка при создании таблицы group_messages:" + err.Error())
+	}
+}
+
+func createGroupMembershipProofsTable() {
+	_, err := DB.Exec(`
+		CREATE TABLE IF NOT EXISTS group_membership_proofs (
+			id              INTEGER PRIMARY KEY AUTOINCREMENT,
+			group_uuid      TEXT NOT NULL,
+			peer_id         TEXT NOT NULL,
+			role            TEXT NOT NULL,
+			granted_by      TEXT NOT NULL,
+			timestamp       INTEGER NOT NULL,
+			admin_signature BLOB NOT NULL,
+			UNIQUE(group_uuid, peer_id)
+		);
+	`)
+	if err != nil {
+		panic("Ошибка при создании таблицы group_membership_proofs:" + err.Error())
+	}
+}
+
+func createGroupInvitationsTable() {
+	_, err := DB.Exec(`
+		CREATE TABLE IF NOT EXISTS group_invitations (
+			id              INTEGER PRIMARY KEY AUTOINCREMENT,
+			group_uuid      TEXT NOT NULL REFERENCES group_chats(group_uuid) ON DELETE CASCADE,
+			invite_token    TEXT UNIQUE NOT NULL,
+			invited_by      TEXT NOT NULL,
+			target_peer_id  TEXT,
+			depth           INTEGER NOT NULL DEFAULT 0,
+			status          TEXT NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'accepted', 'rejected', 'expired')),
+			created_at      DATETIME DEFAULT CURRENT_TIMESTAMP
+		);
+	`)
+	if err != nil {
+		panic("Ошибка при создании таблицы group_invitations:" + err.Error())
+	}
+}
+
+func createGroupBlocksTable() {
+	_, err := DB.Exec(`
+		CREATE TABLE IF NOT EXISTS group_blocks (
+			id              INTEGER PRIMARY KEY AUTOINCREMENT,
+			group_uuid      TEXT NOT NULL,
+			peer_id         TEXT NOT NULL,
+			blocked_by      TEXT NOT NULL,
+			reason          TEXT DEFAULT '',
+			created_at      DATETIME DEFAULT CURRENT_TIMESTAMP,
+			UNIQUE(group_uuid, peer_id)
+		);
+	`)
+	if err != nil {
+		panic("Ошибка при создании таблицы group_blocks:" + err.Error())
+	}
+}
+
 // ============================================================
 // ЧАСТЬ 2: ФУНКЦИИ СОЗДАНИЯ ИНДЕКСОВ
 // ============================================================
@@ -423,6 +547,69 @@ func createPeerAddressesIndexes() {
 		`CREATE INDEX IF NOT EXISTS idx_peer_addresses_priority ON peer_addresses(priority DESC)`,
 	}
 
+	for _, sql := range indexes {
+		_, _ = DB.Exec(sql)
+	}
+}
+
+func createGroupChatsIndexes() {
+	indexes := []string{
+		`CREATE INDEX IF NOT EXISTS idx_group_chats_creator ON group_chats(creator_peer_id)`,
+		`CREATE INDEX IF NOT EXISTS idx_group_chats_type ON group_chats(chat_type)`,
+	}
+	for _, sql := range indexes {
+		_, _ = DB.Exec(sql)
+	}
+}
+
+func createGroupMembersIndexes() {
+	indexes := []string{
+		`CREATE INDEX IF NOT EXISTS idx_group_members_group ON group_members(group_uuid)`,
+		`CREATE INDEX IF NOT EXISTS idx_group_members_peer ON group_members(peer_id)`,
+		`CREATE INDEX IF NOT EXISTS idx_group_members_active ON group_members(group_uuid, peer_id) WHERE left_at IS NULL`,
+	}
+	for _, sql := range indexes {
+		_, _ = DB.Exec(sql)
+	}
+}
+
+func createGroupMessagesIndexes() {
+	indexes := []string{
+		`CREATE INDEX IF NOT EXISTS idx_group_messages_group ON group_messages(group_uuid)`,
+		`CREATE INDEX IF NOT EXISTS idx_group_messages_timestamp ON group_messages(timestamp)`,
+		`CREATE INDEX IF NOT EXISTS idx_group_messages_lamport ON group_messages(group_uuid, lamport_clock)`,
+	}
+	for _, sql := range indexes {
+		_, _ = DB.Exec(sql)
+	}
+}
+
+func createGroupMembershipProofsIndexes() {
+	indexes := []string{
+		`CREATE INDEX IF NOT EXISTS idx_group_proofs_group ON group_membership_proofs(group_uuid)`,
+		`CREATE INDEX IF NOT EXISTS idx_group_proofs_peer ON group_membership_proofs(peer_id)`,
+	}
+	for _, sql := range indexes {
+		_, _ = DB.Exec(sql)
+	}
+}
+
+func createGroupInvitationsIndexes() {
+	indexes := []string{
+		`CREATE INDEX IF NOT EXISTS idx_group_invites_group ON group_invitations(group_uuid)`,
+		`CREATE INDEX IF NOT EXISTS idx_group_invites_token ON group_invitations(invite_token)`,
+		`CREATE INDEX IF NOT EXISTS idx_group_invites_status ON group_invitations(status)`,
+	}
+	for _, sql := range indexes {
+		_, _ = DB.Exec(sql)
+	}
+}
+
+func createGroupBlocksIndexes() {
+	indexes := []string{
+		`CREATE INDEX IF NOT EXISTS idx_group_blocks_group ON group_blocks(group_uuid)`,
+		`CREATE INDEX IF NOT EXISTS idx_group_blocks_peer ON group_blocks(peer_id)`,
+	}
 	for _, sql := range indexes {
 		_, _ = DB.Exec(sql)
 	}

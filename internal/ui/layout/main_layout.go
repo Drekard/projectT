@@ -161,8 +161,10 @@ func (ml *MainLayout) setChatMode(isChatMode bool, chatName string, onToggleRigh
 	ml.sidebarState.ChatMode = isChatMode
 
 	if isChatMode {
-		// Сохраняем состояние sidebar до входа в чат
-		ml.sidebarBeforeChat = ml.sidebarState.Collapsed
+		// Сохраняем состояние sidebar до входа в чат (только при первом входе)
+		if !ml.headerState.ChatMode {
+			ml.sidebarBeforeChat = ml.sidebarState.Collapsed
+		}
 
 		// Получаем chats UI из workspace
 		if chatsUI := ml.workspace.GetChatsUI(); chatsUI != nil {

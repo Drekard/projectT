@@ -14,6 +14,7 @@ import (
 	"projectT/internal/services/p2p/peerexchange"
 	"projectT/internal/services/p2p/protocols/avatar"
 	"projectT/internal/services/p2p/protocols/chat"
+	"projectT/internal/services/p2p/protocols/groupchat"
 	"projectT/internal/services/p2p/protocols/itemsync"
 	"projectT/internal/services/p2p/protocols/profile"
 	"projectT/internal/services/p2p/protocols/profilesync"
@@ -153,6 +154,44 @@ func (n *P2PNetwork) initProfileSync() error {
 
 	n.profileSync = profilesync.NewSyncService(n.host, nil)
 	return n.profileSync.Start()
+}
+
+// initGroupChat инициализирует сервис групповых чатов
+func (n *P2PNetwork) initGroupChat() error {
+	if n.host == nil {
+		return errors.New("хост не инициализирован")
+	}
+	if n.pubsub == nil {
+		return errors.New("pubsub не инициализирован")
+	}
+
+	localProfile, err := queries.GetLocalProfile()
+	if err != nil {
+		return fmt.Errorf("ошибка получения профиля: %w", err)
+	}
+
+	keys, err := queries.GetProfileKeys(localProfile.ID)
+	if err != nil {
+		return fmt.Errorf("ошибка получения ключей: %w", err)
+	}
+
+	privKey, err := crypto.UnmarshalPrivateKey(keys.PrivateKey)
+	if err != nil {
+		return fmt.Errorf("ошибка восстановления приватного ключа: %w", err)
+	}
+
+	rawPrivKey, err := privKey.Raw()
+	if err != nil {
+		return fmt.Errorf("ошибка получения raw приватного ключа: %w", err)
+	}
+
+	n.groupChat = groupchat.NewService(n.ctx, n.host, n.pubsub, n.host.ID().String(), rawPrivKey)
+	return nil
+}
+
+// GroupChat возвращает сервис групповых чатов
+func (n *P2PNetwork) GroupChat() *groupchat.Service {
+	return n.groupChat
 }
 
 // AutodialProvider адаптер для получения адресов пиров

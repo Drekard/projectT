@@ -31,6 +31,7 @@ import (
 	"projectT/internal/services/p2p/peerexchange"
 	"projectT/internal/services/p2p/protocols/avatar"
 	"projectT/internal/services/p2p/protocols/chat"
+	"projectT/internal/services/p2p/protocols/groupchat"
 	"projectT/internal/services/p2p/protocols/itemsync"
 	"projectT/internal/services/p2p/protocols/profile"
 	"projectT/internal/services/p2p/protocols/profilesync"
@@ -60,6 +61,7 @@ type P2PNetwork struct {
 	peerExchange       *peerexchange.ExchangeService // ✅ Сервис обмена пирами
 	profileSync        *profilesync.SyncService      // ✅ Сервис синхронизации профилей
 	helper             *HelperService
+	groupChat          *groupchat.Service
 	config             *p2p.P2PConfig
 	prometheusRegistry prometheus.Registerer // Prometheus registry для libp2p метрик
 	ctx                context.Context
@@ -240,6 +242,11 @@ func (n *P2PNetwork) Start() error {
 		_ = err // Ignore error
 	}
 
+	// Инициализируем сервис групповых чатов
+	if err := n.initGroupChat(); err != nil {
+		_ = err // Ignore error
+	}
+
 	// Связываем сервис чата с сервисом передачи файлов
 	if n.chat != nil && n.transfer != nil {
 		n.chat.SetTransferService(n.transfer)
@@ -382,6 +389,9 @@ func (n *P2PNetwork) Stop() error {
 			errs = append(errs, fmt.Sprintf("ProfileSync: %v", err))
 		}
 	}
+
+	// Останавливаем сервис групповых чатов
+	// GroupChat сервис не требует явной остановки, все горутины используют ctx
 
 	if n.dht != nil {
 		if err := n.dht.Close(); err != nil {
