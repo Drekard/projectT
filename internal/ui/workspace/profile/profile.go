@@ -2,6 +2,7 @@ package profile
 
 import (
 	"image/color"
+	"projectT/internal/config"
 	"projectT/internal/services/pinned"
 	"projectT/internal/storage/database/models"
 	"projectT/internal/storage/database/queries"
@@ -11,6 +12,7 @@ import (
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/canvas"
 	"fyne.io/fyne/v2/container"
+	"fyne.io/fyne/v2/theme"
 	"fyne.io/fyne/v2/widget"
 )
 
@@ -36,6 +38,8 @@ type BackgroundUpdater interface {
 	SetBackgroundColor(c color.Color)
 }
 
+type LayoutChangeHandler func()
+
 type UI struct {
 	content                  fyne.CanvasObject
 	userNameEntry            *widget.Entry
@@ -48,6 +52,7 @@ type UI struct {
 	backgroundButton         *widget.Button
 	avatarButton             *widget.Button
 	themeButton              *widget.Button
+	layoutToggleButton       *widget.Button
 	addCharacteristicButton  *widget.Button
 	loadCharacteristicsJSON  string
 	nextID                   int
@@ -58,6 +63,10 @@ type UI struct {
 	userNameTimer            *time.Timer
 	userTitleTimer           *time.Timer
 	backgroundUpdater        BackgroundUpdater
+	layoutMode               string // "horizontal" or "vertical"
+	onLayoutChange           LayoutChangeHandler
+	config                   *config.Config
+	onSave                   func()
 }
 
 func New() *UI {
@@ -79,6 +88,9 @@ func New() *UI {
 	// Initialize gridManager before creating the view
 	ui.gridManager = saved.NewGridManager()
 
+	// Default layout mode (will be overridden by config if available)
+	ui.layoutMode = "horizontal"
+
 	ui.createView()
 
 	// Load characteristics after components are created
@@ -95,17 +107,8 @@ func (p *UI) createView() {
 	// Create main components
 	p.createComponents()
 
-	// Create left panel (avatar, name, title, buttons, characteristics)
-	leftPanel := p.createLeftPanel()
-
-	// Create right panel (pinned items)
-	rightPanel := p.createRightPanel()
-
-	// Split into left and right parts using SplitContainer
-	split := container.NewHSplit(leftPanel, rightPanel)
-	split.SetOffset(0.35) // Left panel takes 35% of width
-
-	p.content = split
+	// Build content based on layout mode
+	p.buildContent()
 }
 
 func (p *UI) createComponents() {
@@ -159,25 +162,12 @@ func (p *UI) createComponents() {
 	p.themeButton = widget.NewButton("Theme", func() {
 		p.showThemeDialog()
 	})
-}
 
-// createLeftPanel creates the left profile panel (avatar, name, title, buttons, characteristics)
-func (p *UI) createLeftPanel() fyne.CanvasObject {
-	// Transparent rectangles for input field backgrounds (400px width)
-	nameBg := canvas.NewRectangle(color.Transparent)
-	nameBg.SetMinSize(fyne.NewSize(250, 40))
-	titleBg := canvas.NewRectangle(color.Transparent)
-	titleBg.SetMinSize(fyne.NewSize(250, 40))
+	p.layoutToggleButton = widget.NewButtonWithIcon("", theme.MediaReplayIcon(), func() {
+		p.toggleLayoutMode()
+	})
 
-	// Avatar, name, title, buttons
-	avatarSection := container.NewVBox(
-		container.NewCenter(p.avatarContainer),
-		container.NewStack(nameBg, p.userNameEntry),
-		container.NewStack(titleBg, p.userTitleEntry),
-		container.NewCenter(container.NewHBox(p.backgroundButton, p.avatarButton, p.themeButton)),
-	)
-
-	// Characteristics
+	// Characteristics container (created once, reused across layout switches)
 	p.characteristicsContainer = container.NewVBox()
 	p.characteristicsScroll = container.NewScroll(p.characteristicsContainer)
 	p.characteristicsScroll.SetMinSize(fyne.NewSize(0, 200))
@@ -186,16 +176,54 @@ func (p *UI) createLeftPanel() fyne.CanvasObject {
 		p.AddCharacteristic()
 	})
 	p.addCharacteristicButton.Importance = widget.LowImportance
+}
 
-	characteristicsSection := container.NewVBox(
-		widget.NewLabel("Characteristics"),
+func (p *UI) buildContent() {
+	if p.layoutMode == "horizontal" {
+		leftPanel := p.createLeftPanel()
+		rightPanel := p.createRightPanel()
+		hsplit := container.NewHSplit(leftPanel, rightPanel)
+		hsplit.SetOffset(0.35)
+		p.content = hsplit
+	} else {
+		topPanel := p.createTopPanel()
+		bottomPanel := p.createRightPanel()
+		vsplit := container.NewVSplit(topPanel, bottomPanel)
+		vsplit.SetOffset(0.5)
+		p.content = vsplit
+	}
+}
+
+func (p *UI) createAvatarSection() fyne.CanvasObject {
+	nameBg := canvas.NewRectangle(color.Transparent)
+	nameBg.SetMinSize(fyne.NewSize(250, 40))
+	titleBg := canvas.NewRectangle(color.Transparent)
+	titleBg.SetMinSize(fyne.NewSize(250, 40))
+
+	return container.NewVBox(
+		container.NewCenter(p.avatarContainer),
+		container.NewStack(nameBg, p.userNameEntry),
+		container.NewStack(titleBg, p.userTitleEntry),
+		container.NewCenter(container.NewHBox(p.backgroundButton, p.avatarButton, p.themeButton, p.layoutToggleButton)),
+	)
+}
+
+func (p *UI) createCharacteristicsSection() fyne.CanvasObject {
+	return container.NewVBox(
 		p.characteristicsScroll,
 		p.addCharacteristicButton,
 	)
+}
+
+// createLeftPanel creates the left profile panel (avatar, name, title, buttons, characteristics)
+func (p *UI) createLeftPanel() fyne.CanvasObject {
+	avatarSection := p.createAvatarSection()
 
 	// Horizontal separator
 	separator := canvas.NewRectangle(color.Gray{Y: 128})
 	separator.SetMinSize(fyne.NewSize(0, 1))
+
+	characteristicsSection := p.createCharacteristicsSection()
 
 	content := container.NewVBox(
 		avatarSection,
@@ -204,6 +232,27 @@ func (p *UI) createLeftPanel() fyne.CanvasObject {
 	)
 
 	return container.NewScroll(content)
+}
+
+// createTopPanel creates the top panel for vertical mode (left: avatar/info/buttons, right: characteristics)
+// Characteristics are anchored to the bottom edge so the "+ Add characteristic" button is always visible
+func (p *UI) createTopPanel() fyne.CanvasObject {
+	avatarSection := p.createAvatarSection()
+
+	charScroll := container.NewScroll(p.characteristicsContainer)
+	charScroll.SetMinSize(fyne.NewSize(0, 100))
+
+	characteristicsSection := container.NewBorder(
+		nil,                       // Top
+		p.addCharacteristicButton, // Bottom (anchored to bottom edge)
+		nil, nil,                  // Left, Right
+		charScroll, // Center
+	)
+
+	hsplit := container.NewHSplit(avatarSection, characteristicsSection)
+	hsplit.SetOffset(0.4)
+
+	return hsplit
 }
 
 // createRightPanel creates the right profile panel (pinned items)
@@ -233,11 +282,11 @@ func (p *UI) createRightPanel() fyne.CanvasObject {
 	// Use Border layout to fill available space without horizontal scrolling
 	// Title at top, grid takes all remaining space
 	content := container.NewBorder(
-		widget.NewLabel("Showcase"), // Top
-		nil,                         // Bottom
-		nil,                         // Left
-		nil,                         // Right
-		pinnedGridContainer,         // Content
+		nil,                 // Top
+		nil,                 // Bottom
+		nil,                 // Left
+		nil,                 // Right
+		pinnedGridContainer, // Content
 	)
 
 	return content
@@ -253,4 +302,50 @@ func (p *UI) updatePinnedItems(gridManager *saved.GridManager) {
 
 	// Update items in GridManager
 	gridManager.LoadItemsWithoutCreateElement(pinnedItems)
+}
+
+// toggleLayoutMode switches between horizontal and vertical layout modes
+func (p *UI) toggleLayoutMode() {
+	if p.layoutMode == "horizontal" {
+		p.layoutMode = "vertical"
+	} else {
+		p.layoutMode = "horizontal"
+	}
+
+	// Сохраняем layout mode в конфиг
+	if p.config != nil {
+		p.config.UISettings.LayoutMode = p.layoutMode
+		if p.onSave != nil {
+			p.onSave()
+		}
+	}
+
+	p.buildContent()
+
+	if p.onLayoutChange != nil {
+		p.onLayoutChange()
+	}
+}
+
+// SetLayoutChangeHandler sets the callback for layout mode changes
+func (p *UI) SetLayoutChangeHandler(handler LayoutChangeHandler) {
+	p.onLayoutChange = handler
+}
+
+// SetConfig sets the config for saving UI settings
+func (p *UI) SetConfig(cfg *config.Config) {
+	p.config = cfg
+}
+
+// SetOnSave sets the callback for saving config
+func (p *UI) SetOnSave(onSave func()) {
+	p.onSave = onSave
+}
+
+// RestoreLayoutMode restores layout mode from config
+func (p *UI) RestoreLayoutMode() {
+	if p.config != nil && p.config.UISettings.LayoutMode != "" {
+		p.layoutMode = p.config.UISettings.LayoutMode
+		p.buildContent()
+	}
 }

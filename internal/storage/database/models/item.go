@@ -29,24 +29,25 @@ const (
 
 // Item представляет элемент в системе (локальный или кэшированный от другого пира)
 type Item struct {
-	ID           int            `json:"-"`                        // Внутренний ID для FK в SQLite (скрыт из JSON)
-	ElementUUID  string         `json:"element_uuid"`             // Основной уникальный ID для P2P (UUID v4)
-	Hash         string         `json:"hash"`                     // Хеш содержимого (title|description|content_meta) для дедупликации
-	OwnerType    OwnerType      `json:"owner_type"`               // 'local' или 'remote'
-	SourcePeerID *string        `json:"source_peer_id,omitempty"` // PeerID владельца (для remote)
-	Type         ItemType       `json:"type"`
-	Title        string         `json:"title"`
-	Description  string         `json:"description,omitempty"`
-	ContentMeta  string         `json:"content_meta,omitempty"` // JSON для составных элементов
-	ParentID     *int           `json:"parent_id,omitempty"`    // ID родительского элемента (legacy, используйте ParentUUID)
-	ParentUUID   *string        `json:"parent_uuid,omitempty"`  // UUID родительского элемента для P2P
-	Signature    []byte         `json:"signature,omitempty"`    // Подпись владельца (для remote)
-	Version      int            `json:"version"`                // Версия элемента
-	Status       ItemStatus     `json:"status"`                 // Статус просмотра: 'saved', 'preview', 'archived'
-	Visibility   ItemVisibility `json:"visibility"`             // Видимость: 'public' или 'private'
-	CachedAt     *time.Time     `json:"cached_at,omitempty"`    // Время кэширования (для remote)
-	CreatedAt    time.Time      `json:"created_at"`
-	UpdatedAt    time.Time      `json:"updated_at"`
+	ID              int            `json:"-"`                        // Внутренний ID для FK в SQLite (скрыт из JSON)
+	ElementUUID     string         `json:"element_uuid"`             // Основной уникальный ID для P2P (UUID v4)
+	Hash            string         `json:"hash"`                     // Хеш содержимого (title|description|content_meta) для дедупликации
+	OwnerType       OwnerType      `json:"owner_type"`               // 'local' или 'remote'
+	SourcePeerID    *string        `json:"source_peer_id,omitempty"` // PeerID владельца (для remote)
+	Type            ItemType       `json:"type"`
+	Title           string         `json:"title"`
+	Description     string         `json:"description,omitempty"`
+	ContentMeta     string         `json:"content_meta,omitempty"` // JSON для составных элементов
+	ShowDescription bool           `json:"show_description"`       // Показывать описание на карточке
+	ParentID        *int           `json:"parent_id,omitempty"`    // ID родительского элемента (legacy, используйте ParentUUID)
+	ParentUUID      *string        `json:"parent_uuid,omitempty"`  // UUID родительского элемента для P2P
+	Signature       []byte         `json:"signature,omitempty"`    // Подпись владельца (для remote)
+	Version         int            `json:"version"`                // Версия элемента
+	Status          ItemStatus     `json:"status"`                 // Статус просмотра: 'saved', 'preview', 'archived'
+	Visibility      ItemVisibility `json:"visibility"`             // Видимость: 'public' или 'private'
+	CachedAt        *time.Time     `json:"cached_at,omitempty"`    // Время кэширования (для remote)
+	CreatedAt       time.Time      `json:"created_at"`
+	UpdatedAt       time.Time      `json:"updated_at"`
 }
 
 // IsLocal возвращает true, если элемент локальный

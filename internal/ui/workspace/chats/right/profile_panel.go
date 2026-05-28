@@ -35,6 +35,8 @@ type Panel struct {
 type UIProvider interface {
 	GetP2PService() *network.UIP2P
 	OpenRemoteProfile(peerID string)
+	GetCurrentContactPeerID() string
+	OnBackToNormalMode()
 }
 
 // New creates a new right panel
@@ -49,6 +51,14 @@ func New(chatsUI UIProvider) *Panel {
 // Container returns the panel container
 func (p *Panel) Container() *fyne.Container {
 	return p.container
+}
+
+// GetCurrentContactPeerID возвращает peerID текущего контакта в панели
+func (p *Panel) GetCurrentContactPeerID() string {
+	if p.currentContact != nil {
+		return p.currentContact.PeerID
+	}
+	return ""
 }
 
 // Refresh updates the panel
@@ -234,7 +244,13 @@ func (p *Panel) createProfileArea() *fyne.Container {
 	// "⋯" button for opening full remote profile
 	p.profileMoreButton = widget.NewButtonWithIcon("", theme.MoreHorizontalIcon(), func() {
 		if p.currentContact != nil && p.currentContact.PeerID != "" && !p.currentContact.IsLocalChat() {
-			p.chatsUI.OpenRemoteProfile(p.currentContact.PeerID)
+			peerID := p.currentContact.PeerID
+			if p.chatsUI != nil {
+				p.chatsUI.OnBackToNormalMode()
+			}
+			if p.chatsUI != nil {
+				p.chatsUI.OpenRemoteProfile(peerID)
+			}
 		}
 	})
 	p.profileMoreButton.Importance = widget.LowImportance

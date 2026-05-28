@@ -81,20 +81,6 @@ func NewCompositeCard(item *models.Item, noButtons ...bool) interfaces.CardRende
 		sections = append(sections, titleLabel)
 	}
 
-	// 2. Секция текста (если есть текст и отсутствуют другие элементы)
-	if item.Description != "" && len(imageBlocks) == 0 && len(fileBlocks) == 0 && len(linkBlocks) == 0 {
-		// Создаем временную модель данных для текста
-		tempItem := *item
-		// Используем Description для текстовой карточки
-		tempItem.ContentMeta = ""
-
-		// Создаем карточку текста и получаем ее контейнер
-		textCard := NewTextCardWithCallback(&tempItem, nil, compositeCard.noButtonsMode)
-		if textCard.GetContainer() != nil {
-			sections = append(sections, textCard.GetContainer())
-		}
-	}
-
 	// 3. Секция изображений (если есть)
 	if len(imageBlocks) > 0 {
 		// Создаем временную модель данных для изображений
@@ -105,6 +91,21 @@ func NewCompositeCard(item *models.Item, noButtons ...bool) interfaces.CardRende
 		imageCard := NewImageCardWithCallback(&tempItem, nil, compositeCard.noButtonsMode)
 		if imageCard.GetContainer() != nil {
 			sections = append(sections, imageCard.GetContainer())
+		}
+	}
+
+	// 3.5. Секция описания (если включено и есть медиа блоки)
+	// Секция текста (если есть текст и отсутствуют другие элементы)
+	if item.Description != "" && (item.ShowDescription || (len(imageBlocks) == 0 && len(fileBlocks) == 0 && len(linkBlocks) == 0)) {
+		// Создаем временную модель данных для текста
+		tempItem := *item
+		// Используем Description для текстовой карточки
+		tempItem.ContentMeta = ""
+
+		// Создаем карточку текста и получаем ее контейнер
+		textCard := NewTextCardWithCallback(&tempItem, nil, compositeCard.noButtonsMode)
+		if textCard.GetContainer() != nil {
+			sections = append(sections, textCard.GetContainer())
 		}
 	}
 

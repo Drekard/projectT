@@ -83,7 +83,6 @@ func (il *ItemLoader) LoadAndSortItemsBySearch(query string, options *services.F
 		return items, err
 	}
 
-	// Сортируем элементы по настройкам
 	sortedItems := il.sortingManager.GetSortedItems(items, options)
 	return sortedItems, nil
 }

@@ -50,10 +50,7 @@ func NewChatPanel(contact *models.Contact, onSend func(), onClose func(), localP
 
 	cp.messageInput = NewMessageInput(onSend)
 
-	inputRow := container.NewHBox(
-		cp.messageInput.Container(),
-		cp.messageInput.button,
-	)
+	inputRow := container.NewBorder(nil, nil, nil, cp.messageInput.button, cp.messageInput.Container())
 
 	content := container.NewBorder(
 		nil,

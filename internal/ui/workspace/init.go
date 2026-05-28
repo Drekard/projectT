@@ -33,6 +33,9 @@ func (ws *Workspace) initializeChatsUI() {
 		ws.chatsInitialized = true
 
 		ws.chatsUI.SetWindow(ws.window)
+		ws.chatsUI.SetConfig(ws.config)
+		ws.chatsUI.SetOnSave(ws.onSave)
+		ws.chatsUI.RestoreRightPanelState()
 
 		ws.chatsUI.SetOnOpenRemoteProfile(func(peerID string) {
 			ws.OpenRemoteProfile(peerID)
@@ -40,6 +43,12 @@ func (ws *Workspace) initializeChatsUI() {
 
 		ws.chatsUI.SetOnOpenFolderFromChat(func(peerID, folderUUID string) {
 			ws.OpenRemoteFolderFromChat(peerID, folderUUID)
+		})
+
+		ws.chatsUI.SetOnChatModeChanged(func(isChatMode bool, chatName string, onBack, onOpenProfile, onAttach, onToggleRight func()) {
+			if ws.onChatModeChanged != nil {
+				ws.onChatModeChanged(isChatMode, chatName, onBack, onOpenProfile, onAttach, onToggleRight)
+			}
 		})
 
 		if ws.p2pNetwork != nil {

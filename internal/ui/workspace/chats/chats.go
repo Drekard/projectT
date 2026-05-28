@@ -1,15 +1,13 @@
 package chats
 
 import (
-	"log"
-
+	"projectT/internal/config"
 	"projectT/internal/controllers"
 	network "projectT/internal/services/p2p/ui"
 	"projectT/internal/storage/database/models"
 	"projectT/internal/storage/database/queries"
 	"projectT/internal/ui/workspace/chats/center"
 	"projectT/internal/ui/workspace/chats/dialogs"
-	"projectT/internal/ui/workspace/chats/left"
 	"projectT/internal/ui/workspace/chats/right"
 
 	"fyne.io/fyne/v2"
@@ -28,9 +26,10 @@ type UI struct {
 	chatPanel      *center.ChatPanel
 
 	// Компоненты панелей
-	leftPanel   *left.Panel
-	rightPanel  *right.Panel
-	chatAreaObj *fyne.Container
+	rightPanel    *right.Panel
+	rightVisible  bool
+	chatAreaObj   *fyne.Container
+	mainContainer *fyne.Container
 
 	// Менеджеры
 	chatMenuManager *dialogs.ChatMenuManager
@@ -39,6 +38,12 @@ type UI struct {
 	onOpenRemoteProfile func(peerID string)
 	// Callback для открытия папки из чата
 	onOpenFolderFromChat func(peerID, folderUUID string)
+	// Callback для переключения режима чата
+	onChatModeChanged func(isChatMode bool, chatName string, onBack, onOpenProfile, onAttach, onToggleRight func())
+
+	// Конфиг и сохранение
+	config *config.Config
+	onSave func()
 }
 
 // SetOnOpenRemoteProfile устанавливает callback для открытия remote профиля
@@ -46,14 +51,74 @@ func (ui *UI) SetOnOpenRemoteProfile(callback func(peerID string)) {
 	ui.onOpenRemoteProfile = callback
 }
 
+// GetCurrentContactPeerID возвращает peerID текущего открытого контакта
+func (ui *UI) GetCurrentContactPeerID() string {
+	if ui.currentContact != nil {
+		return ui.currentContact.PeerID
+	}
+	// Если контакт не выбран, берём из правой панели (локальный профиль)
+	if ui.rightPanel != nil && ui.rightPanel.GetCurrentContactPeerID() != "" {
+		return ui.rightPanel.GetCurrentContactPeerID()
+	}
+	return ""
+}
+
+// IsCurrentChatLocal возвращает true, если текущий чат локальный
+func (ui *UI) IsCurrentChatLocal() bool {
+	return ui.currentContact != nil && ui.currentContact.IsLocalChat()
+}
+
+// OnBackToNormalMode переключает из режима чата в нормальный режим
+func (ui *UI) OnBackToNormalMode() {
+	if ui.onChatModeChanged != nil {
+		ui.onChatModeChanged(false, "", nil, nil, nil, nil)
+	}
+}
+
+func (ui *UI) OpenRemoteProfile(peerID string) {
+	if ui.onOpenRemoteProfile != nil {
+		ui.onOpenRemoteProfile(peerID)
+	}
+}
+
 // SetOnOpenFolderFromChat устанавливает callback для открытия папки из чата
 func (ui *UI) SetOnOpenFolderFromChat(callback func(peerID, folderUUID string)) {
 	ui.onOpenFolderFromChat = callback
 }
 
+// SetOnChatModeChanged устанавливает callback для переключения режима чата
+func (ui *UI) SetOnChatModeChanged(callback func(isChatMode bool, chatName string, onBack, onOpenProfile, onAttach, onToggleRight func())) {
+	ui.onChatModeChanged = callback
+}
+
+// SetConfig устанавливает конфиг для сохранения настроек
+func (ui *UI) SetConfig(cfg *config.Config) {
+	ui.config = cfg
+}
+
+// SetOnSave устанавливает callback для сохранения конфига
+func (ui *UI) SetOnSave(onSave func()) {
+	ui.onSave = onSave
+}
+
+// RestoreRightPanelState восстанавливает состояние правой панели из конфига
+func (ui *UI) RestoreRightPanelState() {
+	if ui.config != nil && ui.config.UISettings.RightPanelVisible {
+		ui.rightVisible = true
+		if ui.rightPanel != nil && ui.rightPanel.Container() != nil {
+			ui.rightPanel.Container().Show()
+			if ui.mainContainer != nil {
+				ui.mainContainer.Refresh()
+			}
+		}
+	}
+}
+
 // New создает и возвращает новый UI чатов
 func New() *UI {
-	ui := &UI{}
+	ui := &UI{
+		rightVisible: false,
+	}
 	ui.content = ui.createViewContent()
 	return ui
 }
@@ -65,37 +130,29 @@ func (ui *UI) SetWindow(window fyne.Window) {
 
 // createViewContent создает основное представление UI чатов
 func (ui *UI) createViewContent() fyne.CanvasObject {
-	// Левая панель со списком чатов
-	ui.leftPanel = left.New(ui)
-	leftPanelContainer := ui.leftPanel.Container()
-
 	// Центральная область с чатом (пустая по умолчанию)
 	ui.chatAreaObj = ui.createChatArea()
 
-	// Правая панель с профилем
+	// Правая панель с профилем (скрыта по умолчанию)
 	ui.rightPanel = right.New(ui)
 	rightPanelContainer := ui.rightPanel.Container()
+	rightPanelContainer.Hide()
 
-	// Основная компоновка: левая панель | чат | профиль
-	mainContent := container.NewBorder(
+	// Основная компоновка: чат | правая панель
+	ui.mainContainer = container.NewBorder(
 		nil, nil,
-		leftPanelContainer,
+		nil,
 		rightPanelContainer,
 		ui.chatAreaObj,
 	)
 
-	return mainContent
+	return ui.mainContainer
 }
 
 // Refresh обновляет UI
 func (ui *UI) Refresh() {
 	if ui.content != nil {
 		ui.content.Refresh()
-	}
-
-	// Обновляем левую панель
-	if ui.leftPanel != nil {
-		ui.leftPanel.Refresh()
 	}
 
 	// Обновляем правую панель
@@ -142,6 +199,13 @@ func (ui *UI) setupControllerCallbacks() {
 		if ui.rightPanel != nil {
 			ui.rightPanel.UpdateProfile(contact)
 		}
+
+		// Переключаем шапку в режим чата
+		chatName := contact.Username
+		if chatName == "" {
+			chatName = contact.PeerID
+		}
+		ui.notifyChatModeChanged(true, chatName, nil, nil, nil, nil)
 	})
 
 	// Callback при закрытии чата
@@ -150,61 +214,49 @@ func (ui *UI) setupControllerCallbacks() {
 		emptyPanel := ui.createEmptyPanel()
 		ui.chatAreaObj.Objects = []fyne.CanvasObject{emptyPanel}
 		ui.chatAreaObj.Refresh()
+
+		// Возвращаем шапку в нормальный режим
+		ui.notifyChatModeChanged(false, "", nil, nil, nil, nil)
 	})
 
 	// Callback при обновлении контактов
 	ui.chatController.SetOnContactsRefreshed(func() {
-		if ui.leftPanel != nil {
-			ui.leftPanel.Refresh()
-		}
+		// Список чатов теперь в sidebar, уведомляем workspace
 	})
 
 	// Callback при получении сообщения
 	ui.chatController.SetOnMessageReceived(func(event *controllers.ChatMessageEvent) {
-		// Проверяем, открыт ли чат с этим контактом
-		// Для P2P чатов (contactID=0) сравниваем по PeerID
 		chatIsOpen := false
-		currentContactID := -1
-		currentPeerID := ""
 		if ui.currentContact != nil {
-			currentContactID = ui.currentContact.ID
-			currentPeerID = ui.currentContact.PeerID
 			if ui.currentContact.ID == event.ContactID {
 				chatIsOpen = true
 			} else if ui.currentContact.ID == 0 && event.ContactID == 0 {
-				// Для временных контактов сравниваем по PeerID
-				// Сообщение может быть от пира (FromPeerID) или нашему пиру (исходящее)
 				if ui.currentContact.PeerID == event.Message.FromPeerID {
 					chatIsOpen = true
 				}
 			}
 		}
 
-		log.Printf("[ChatUI] 📨 Message: contactID=%d, fromPeerID=%s, chatIsOpen=%v (currentContactID=%d, currentPeerID=%s)",
-			event.ContactID, event.Message.FromPeerID, chatIsOpen, currentContactID, currentPeerID)
-
 		if chatIsOpen {
 			if ui.chatPanel != nil {
-				log.Printf("[ChatUI] ➕ Adding message to chat panel")
 				ui.chatPanel.AddMessage(event.Message, event.IsOutgoing)
-			} else {
-				log.Printf("[ChatUI] ⚠️ chatPanel is nil")
 			}
-		}
-
-		// Обновляем левую панель
-		if ui.leftPanel != nil {
-			ui.leftPanel.Refresh()
 		}
 	})
 
 	// Callback при загрузке закреплённых элементов пира
 	ui.chatController.SetOnPinnedElementsLoaded(func(peerID string) {
-		// Обновляем витрину элементов в правой панели
 		if ui.rightPanel != nil {
 			ui.rightPanel.RefreshDemoElementsAfterSync(peerID)
 		}
 	})
+}
+
+// notifyChatModeChanged уведомляет о смене режима чата
+func (ui *UI) notifyChatModeChanged(isChatMode bool, chatName string, onBack, onOpenProfile, onAttach, onToggleRight func()) {
+	if ui.onChatModeChanged != nil {
+		ui.onChatModeChanged(isChatMode, chatName, onBack, onOpenProfile, onAttach, onToggleRight)
+	}
 }
 
 // selectChat выбирает чат с пиром (устарел, использовать через контроллер)
@@ -212,12 +264,10 @@ func (ui *UI) selectChat(contact *models.Contact) {
 	ui.currentContact = contact
 	ui.currentChatID = contact.ID
 
-	// Создаём панель чата
 	chatPanel := ui.createChatPanel(contact)
 	ui.chatAreaObj.Objects = []fyne.CanvasObject{chatPanel}
 	ui.chatAreaObj.Refresh()
 
-	// Обновляем профиль (для локального чата показываем свой профиль)
 	if ui.rightPanel != nil {
 		ui.rightPanel.UpdateProfile(contact)
 	}
@@ -225,29 +275,15 @@ func (ui *UI) selectChat(contact *models.Contact) {
 
 // OpenPeerChat открывает чат с пиром (публичный метод для вызова из p2p_panel)
 func (ui *UI) OpenPeerChat(peerID, username string) {
-	// Используем контроллер для открытия чата
 	if ui.chatController != nil {
-		if err := ui.chatController.OpenPeerChat(peerID, username); err != nil {
-			log.Printf("Error opening peer chat: %v", err)
-		}
+		_ = ui.chatController.OpenPeerChat(peerID, username)
 	} else {
-		// Fallback для обратной совместимости
 		ui.openPeerChatLegacy(peerID, username)
-	}
-}
-
-// OpenRemoteProfile открывает профиль удалённого пользователя
-func (ui *UI) OpenRemoteProfile(peerID string) {
-	// Переключаемся на workspace для отображения remote профиля
-	// Это будет вызвано через callback из main_layout
-	if ui.onOpenRemoteProfile != nil {
-		ui.onOpenRemoteProfile(peerID)
 	}
 }
 
 // openPeerChatLegacy открывает чат по-старому (для обратной совместимости)
 func (ui *UI) openPeerChatLegacy(peerID, username string) {
-	// Получаем профиль пира из БД для корректного отображения
 	profile, err := queries.GetProfileByPeerID(peerID)
 	if err == nil && profile != nil {
 		username = profile.Username
@@ -291,7 +327,6 @@ func (ui *UI) SubscribeToMessages() {
 
 // createChatArea создает центральную область чата
 func (ui *UI) createChatArea() *fyne.Container {
-	// По умолчанию показываем пустую панель
 	emptyPanel := ui.createEmptyPanel()
 	ui.chatAreaObj = container.NewStack(emptyPanel)
 	return ui.chatAreaObj
@@ -299,16 +334,13 @@ func (ui *UI) createChatArea() *fyne.Container {
 
 // createEmptyPanel создает пустую панель с подсказкой
 func (ui *UI) createEmptyPanel() *fyne.Container {
-	// Иконка
 	icon := fyne.CurrentApp().Icon()
 
-	// Заголовок
 	title := widget.NewLabel("Chats")
 	title.TextStyle = fyne.TextStyle{Bold: true}
 	title.Alignment = fyne.TextAlignCenter
 
-	// Подзаголовок
-	subtitle := widget.NewLabel("Select a chat from the left panel")
+	subtitle := widget.NewLabel("Select a chat from the sidebar")
 	subtitle.Alignment = fyne.TextAlignCenter
 	subtitle.TextStyle = fyne.TextStyle{Italic: true}
 
@@ -325,7 +357,6 @@ func (ui *UI) createEmptyPanel() *fyne.Container {
 
 // createChatPanel создает панель чата с сообщениями и полем ввода
 func (ui *UI) createChatPanel(contact *models.Contact) fyne.CanvasObject {
-	// Получаем локальный PeerID
 	localPeerID := ""
 	if ui.p2pUI != nil {
 		status := ui.p2pUI.GetStatus()
@@ -334,7 +365,6 @@ func (ui *UI) createChatPanel(contact *models.Contact) fyne.CanvasObject {
 		}
 	}
 
-	// Если P2P не вернул PeerID, используем локальный профиль
 	if localPeerID == "" {
 		localProfile, err := queries.GetLocalProfile()
 		if err == nil && localProfile != nil {
@@ -342,7 +372,6 @@ func (ui *UI) createChatPanel(contact *models.Contact) fyne.CanvasObject {
 		}
 	}
 
-	// Создаём панель чата с использованием нового компонента
 	ui.chatPanel = center.NewChatPanel(
 		contact,
 		ui.sendMessage,
@@ -365,10 +394,8 @@ func (ui *UI) sendMessage() {
 		return
 	}
 
-	// Очищаем поле ввода
 	ui.chatPanel.MessageInput().Clear()
 
-	// Отправляем сообщение через контроллер
 	if ui.chatController != nil {
 		_ = ui.chatController.SendMessage(text)
 	}
@@ -380,16 +407,13 @@ func (ui *UI) loadMessagesForPeer(peerID string) {
 		return
 	}
 
-	// Очищаем текущие сообщения
 	ui.chatPanel.Clear()
 
-	// Получаем сообщения через контроллер
 	messages, err := ui.chatController.LoadMessages()
 	if err != nil {
 		return
 	}
 
-	// Загружаем сообщения в панель
 	ui.chatPanel.LoadMessages(messages, ui.chatController.GetLocalPeerID())
 }
 
@@ -400,34 +424,26 @@ func (ui *UI) closeChat() {
 	}
 }
 
-// ShowChatMenu показывает меню действий для чата (реализация для left.UIProvider)
+// ShowChatMenu показывает меню действий для чата
 func (ui *UI) ShowChatMenu(chatID int, peerID string, username string, cont fyne.CanvasObject) {
-	// Создаём менеджер меню если не существует
 	if ui.chatMenuManager == nil {
 		ui.chatMenuManager = dialogs.NewChatMenuManager(ui, ui.OnChatDeleted)
 	}
 	ui.chatMenuManager.ShowChatMenu(chatID, peerID, username, cont)
 }
 
-// OnChatDeleted обработчик удаления чата (реализация для left.UIProvider)
+// OnChatDeleted обработчик удаления чата
 func (ui *UI) OnChatDeleted(chatID int, peerID string) {
-	// Удаляем контакт через контроллер
 	if ui.chatController != nil {
-		if err := ui.chatController.DeleteContact(chatID, peerID); err != nil {
-			log.Printf("Error deleting contact: %v", err)
-		}
+		_ = ui.chatController.DeleteContact(chatID, peerID)
 	}
 }
 
-// OpenLocalChat открывает локальный чат с самим собой (реализация для left.UIProvider)
+// OpenLocalChat открывает локальный чат с самим собой
 func (ui *UI) OpenLocalChat() {
-	// Используем контроллер для открытия локального чата
 	if ui.chatController != nil {
-		if err := ui.chatController.OpenLocalChat(); err != nil {
-			log.Printf("Error opening local chat: %v", err)
-		}
+		_ = ui.chatController.OpenLocalChat()
 	} else {
-		// Fallback для обратной совместимости
 		ui.openLocalChatLegacy()
 	}
 }
@@ -468,43 +484,58 @@ func (ui *UI) loadMessagesForChat(chatID int) {
 		return
 	}
 
-	// Очищаем текущие сообщения
 	ui.chatPanel.Clear()
 
-	// Загружаем сообщения через контроллер
 	messages, err := ui.chatController.LoadMessagesForChat(chatID)
 	if err != nil {
 		return
 	}
 
-	// Загружаем сообщения в панель
 	ui.chatPanel.LoadMessages(messages, ui.chatController.GetLocalPeerID())
 }
 
-// RefreshContactsList обновляет список чатов (публичный метод для вызова извне)
+// RefreshContactsList обновляет список чатов
 func (ui *UI) RefreshContactsList() {
-	if ui.leftPanel != nil {
-		ui.leftPanel.Refresh()
+	// Список чатов теперь в sidebar
+}
+
+// ToggleRightPanel переключает видимость правой панели
+func (ui *UI) ToggleRightPanel() {
+	ui.rightVisible = !ui.rightVisible
+
+	if ui.rightPanel != nil {
+		if ui.rightVisible {
+			ui.rightPanel.Container().Show()
+		} else {
+			ui.rightPanel.Container().Hide()
+		}
+	}
+
+	// Сохраняем состояние правой панели в конфиг
+	if ui.config != nil {
+		ui.config.UISettings.RightPanelVisible = ui.rightVisible
+		if ui.onSave != nil {
+			ui.onSave()
+		}
+	}
+
+	if ui.mainContainer != nil {
+		ui.mainContainer.Refresh()
 	}
 }
 
-// RefreshRightPanel обновляет правую панель с профилем пира (вызывается из callback после загрузки профиля)
+// RefreshRightPanel обновляет правую панель с профилем пира
 func (ui *UI) RefreshRightPanel(peerID string) {
-	// Используем контроллер для получения информации о пире
 	if ui.chatController != nil {
 		contact, err := ui.chatController.GetContactByPeerID(peerID)
 		if err == nil && contact != nil {
 			if ui.rightPanel != nil {
 				ui.rightPanel.UpdateProfile(contact)
 			}
-			if ui.leftPanel != nil {
-				ui.leftPanel.Refresh()
-			}
 			return
 		}
 	}
 
-	// Fallback: получаем профиль напрямую из БД
 	profile, err := queries.GetProfileByPeerID(peerID)
 	if err != nil || profile == nil {
 		return
@@ -519,9 +550,6 @@ func (ui *UI) RefreshRightPanel(peerID string) {
 
 	if ui.rightPanel != nil {
 		ui.rightPanel.UpdateProfile(contact)
-	}
-	if ui.leftPanel != nil {
-		ui.leftPanel.Refresh()
 	}
 }
 

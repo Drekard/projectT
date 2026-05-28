@@ -20,6 +20,28 @@ type Config struct {
 	P2P P2PConfig `yaml:"p2p" json:"p2p"`
 	// Prometheus настройки экспорта метрик
 	Prometheus PrometheusConfig `yaml:"prometheus" json:"prometheus"`
+	// UISettings настройки пользовательского интерфейса
+	UISettings UISettings `yaml:"ui_settings" json:"ui_settings"`
+}
+
+// UISettings настройки пользовательского интерфейса
+type UISettings struct {
+	// Theme имя выбранной темы (Dark, Light, Blue, Green, Purple)
+	Theme string `yaml:"theme" json:"theme"`
+	// LayoutMode режим расположения панелей (horizontal, vertical)
+	LayoutMode string `yaml:"layout_mode" json:"layout_mode"`
+	// SidebarCollapsed состояние боковой панели (свёрнута/развёрнута)
+	SidebarCollapsed bool `yaml:"sidebar_collapsed" json:"sidebar_collapsed"`
+	// RightPanelVisible состояние правой панели в чате
+	RightPanelVisible bool `yaml:"right_panel_visible" json:"right_panel_visible"`
+	// WindowX позиция окна по X
+	WindowX float32 `yaml:"window_x" json:"window_x"`
+	// WindowY позиция окна по Y
+	WindowY float32 `yaml:"window_y" json:"window_y"`
+	// WindowWidth ширина окна
+	WindowWidth float32 `yaml:"window_width" json:"window_width"`
+	// WindowHeight высота окна
+	WindowHeight float32 `yaml:"window_height" json:"window_height"`
 }
 
 // DatabaseConfig настройки базы данных
@@ -135,6 +157,16 @@ func DefaultConfig() *Config {
 			Port:             9090,
 			Path:             "/metrics",
 			EnableP2PMetrics: true,
+		},
+		UISettings: UISettings{
+			Theme:             "Purple",
+			LayoutMode:        "horizontal",
+			SidebarCollapsed:  false,
+			RightPanelVisible: false,
+			WindowX:           0,
+			WindowY:           0,
+			WindowWidth:       1200,
+			WindowHeight:      600,
 		},
 	}
 }

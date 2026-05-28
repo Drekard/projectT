@@ -10,13 +10,35 @@ import (
 	"fyne.io/fyne/v2/widget"
 )
 
-// CreateSidebar создает боковую панель с навигацией
-func CreateSidebar(width float32, handler NavigationHandler, transferSvc *transfer.Service) *fyne.Container {
-	// Навигационные кнопки с передачей обработчика
-	navigation := CreateNavigation(handler)
+// ChatUIProvider интерфейс для доступа к функциям UI чатов
+type ChatUIProvider interface {
+	OpenPeerChat(peerID, username string)
+	RefreshContactsList()
+	ShowChatMenu(chatID int, peerID string, username string, cont fyne.CanvasObject)
+	OnChatDeleted(chatID int, peerID string)
+	OpenLocalChat()
+	IsCurrentChatLocal() bool
+}
 
-	// Создаем область "Часто используемые" с кликабельным текстом
-	frequentContainer := createFrequentlyUsedSection(handler)
+// SidebarState управляет состоянием боковой панели
+type SidebarState struct {
+	Collapsed     bool
+	Width         float32
+	ChatMode      bool
+	ActiveSection string
+	ChatUI        ChatUIProvider
+	OnBackToNav   func()
+	NavButtons    *NavigationButtons
+}
+
+// CreateSidebar создает боковую панель с навигацией
+func CreateSidebar(state *SidebarState, handler NavigationHandler, transferSvc *transfer.Service) *fyne.Container {
+	if state.ChatMode && state.ChatUI != nil {
+		return createChatSidebar(state)
+	}
+
+	navigation, navButtons := CreateNavigation(state, handler)
+	state.NavButtons = navButtons
 
 	// Создаем виджет прогресса передачи файлов
 	var transferProgress *TransferProgressWidget
@@ -25,12 +47,19 @@ func CreateSidebar(width float32, handler NavigationHandler, transferSvc *transf
 	}
 
 	// Основной контент sidebar
-	mainContent := container.NewVBox(
-		navigation,
-		frequentContainer,
-	)
+	var mainContent *fyne.Container
+	if state.Collapsed {
+		favoritesContainer := createCollapsedFavoritesSection(state, handler)
+		mainContent = container.NewVBox(navigation, favoritesContainer)
+	} else {
+		frequentContainer := createFrequentlyUsedSection(state, handler)
 
-	// Используем Border для добавления прогресса передачи вниз
+		mainContent = container.NewVBox(
+			navigation,
+			frequentContainer,
+		)
+	}
+
 	if transferProgress != nil {
 		sidebarContainer := container.NewBorder(
 			nil,                          // Top
@@ -39,24 +68,17 @@ func CreateSidebar(width float32, handler NavigationHandler, transferSvc *transf
 			nil,                          // Right
 			mainContent,
 		)
-		sidebarContainer.Resize(fyne.NewSize(width, 0))
+		sidebarContainer.Resize(fyne.NewSize(state.Width, 0))
 		return sidebarContainer
 	}
 
-	sidebarContainer := container.NewVBox(
-		navigation,
-		frequentContainer,
-	)
-	sidebarContainer.Resize(fyne.NewSize(width, 0))
-
-	return sidebarContainer
+	mainContent.Resize(fyne.NewSize(state.Width, 0))
+	return mainContent
 }
 
 // createFrequentlyUsedSection создает секцию "Часто используемые" (избранные элементы)
-func createFrequentlyUsedSection(handler NavigationHandler) *fyne.Container {
-	frequentContainer := container.NewVBox()
-
-	updateContent := func() {
+func createFrequentlyUsedSection(state *SidebarState, handler NavigationHandler) *fyne.Container {
+	buildObjects := func() []fyne.CanvasObject {
 		frequentLabel := widget.NewLabel("Favorites")
 		frequentLabel.TextStyle = fyne.TextStyle{Bold: true}
 
@@ -104,66 +126,84 @@ func createFrequentlyUsedSection(handler NavigationHandler) *fyne.Container {
 			buttons = append(buttons, infoLabel)
 		}
 
-		frequentContainer.Objects = append([]fyne.CanvasObject{frequentLabel}, buttons...)
-		frequentContainer.Refresh()
+		return append([]fyne.CanvasObject{frequentLabel}, buttons...)
 	}
 
-	updateContent()
+	frequentContainer := container.NewVBox(buildObjects()...)
 
 	eventChan := favorites.GetEventManager().Subscribe()
 	go func() {
 		for range eventChan {
-			frequentLabel := widget.NewLabel("Favorites")
-			frequentLabel.TextStyle = fyne.TextStyle{Bold: true}
-
-			buttons := make([]fyne.CanvasObject, 0)
-
-			favoriteFolders, err := queries.GetFavoriteFolders()
-			if err == nil {
-				for _, folder := range favoriteFolders {
-					buttonText := "📁 " + folder.Title
-					btn := widget.NewButton(buttonText, func(folderID int) func() {
-						return func() {
-							if handler != nil {
-								_ = handler.NavigateToFolder(folderID)
-							}
-						}
-					}(folder.ID))
-
-					btn.Alignment = widget.ButtonAlignLeading
-					btn.Importance = widget.LowImportance
-					buttons = append(buttons, btn)
-				}
+			if state.Collapsed {
+				continue
 			}
 
-			favoriteTags, err := queries.GetFavoriteTags()
-			if err == nil {
-				for _, tag := range favoriteTags {
-					buttonText := "# " + tag.Name
-					btn := widget.NewButton(buttonText, func(tagName string) func() {
-						return func() {
-							if handler != nil {
-								_ = handler.SetSearchQuery(tagName)
-							}
-						}
-					}(tag.Name))
-
-					btn.Alignment = widget.ButtonAlignLeading
-					btn.Importance = widget.LowImportance
-					buttons = append(buttons, btn)
-				}
-			}
-
-			if len(buttons) == 0 {
-				infoLabel := widget.NewLabel("No favorite items")
-				infoLabel.TextStyle = fyne.TextStyle{Italic: true}
-				buttons = append(buttons, infoLabel)
-			}
-
-			frequentContainer.Objects = append([]fyne.CanvasObject{frequentLabel}, buttons...)
-			frequentContainer.Refresh()
+			fyne.Do(func() {
+				frequentContainer.Objects = buildObjects()
+				frequentContainer.Refresh()
+			})
 		}
 	}()
 
 	return frequentContainer
+}
+
+// createCollapsedFavoritesSection создает секцию избранных для свернутого sidebar (только иконки)
+func createCollapsedFavoritesSection(state *SidebarState, handler NavigationHandler) *fyne.Container {
+	separator := widget.NewSeparator()
+
+	buildObjects := func() []fyne.CanvasObject {
+		buttons := make([]fyne.CanvasObject, 0)
+
+		favoriteFolders, err := queries.GetFavoriteFolders()
+		if err == nil {
+			for _, folder := range favoriteFolders {
+				btn := widget.NewButton("📁", func(folderID int) func() {
+					return func() {
+						if handler != nil {
+							_ = handler.NavigateToFolder(folderID)
+						}
+					}
+				}(folder.ID))
+				btn.Importance = widget.LowImportance
+				buttons = append(buttons, btn)
+			}
+		}
+
+		favoriteTags, err := queries.GetFavoriteTags()
+		if err == nil {
+			for _, tag := range favoriteTags {
+				btn := widget.NewButton("#", func(tagName string) func() {
+					return func() {
+						if handler != nil {
+							_ = handler.SetSearchQuery(tagName)
+						}
+					}
+				}(tag.Name))
+				btn.Importance = widget.LowImportance
+				buttons = append(buttons, btn)
+			}
+		}
+
+		if len(buttons) > 0 {
+			return append([]fyne.CanvasObject{separator}, buttons...)
+		}
+		return []fyne.CanvasObject{separator}
+	}
+
+	favoritesContainer := container.NewVBox(buildObjects()...)
+
+	eventChan := favorites.GetEventManager().Subscribe()
+	go func() {
+		for range eventChan {
+			if state.Collapsed {
+				fyne.Do(func() {
+					favoritesContainer.Objects = buildObjects()
+					favoritesContainer.Refresh()
+				})
+			}
+		}
+	}()
+
+	return favoritesContainer
 }

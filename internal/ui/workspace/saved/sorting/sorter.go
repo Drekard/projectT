@@ -27,7 +27,6 @@ func (is *ItemSorter) SortItems(items []*models.Item, options *services.FilterOp
 		return items
 	}
 
-	// Сначала применяем фильтрацию по типу
 	filteredItems := is.filterByType(items, options.ItemType)
 
 	// Затем сортируем по заданным критериям

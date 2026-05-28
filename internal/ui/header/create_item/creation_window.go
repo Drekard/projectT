@@ -31,6 +31,12 @@ var selectedType ItemType = ItemTypeElement
 // Global переменная для хранения выбранной папки
 var selectedFolder *SelectedFolder = &SelectedFolder{ID: nil, Name: "Saved"}
 
+// Global переменная для режима создания отдельных элементов из файлов
+var multiFileMode bool = false
+
+// Global переменная для отображения описания на карточке
+var showDescriptionOnCard bool = false
+
 // setCurrentFolder устанавливает текущую выбранную папку
 func setCurrentFolder(id *int, name string) {
 	selectedFolder = &SelectedFolder{ID: id, Name: name}
@@ -164,13 +170,34 @@ func createInputForm(breadcrumbManager BreadcrumbManagerInterface, onClose func(
 
 	// Кнопка создания
 	createButton := widget.NewButton("Create", func() {
-		// Логика сохранения элемента
-		err := saveNewItemExtended(titleEntry.Text, descriptionEntry.Text, tagsEntry.Text, fileState.SelectedFiles, []string{}, nil)
-		if err == nil {
+		if multiFileMode && len(*fileState.SelectedFiles) > 1 {
+			// Режим создания отдельных элементов для каждого файла
+			for _, filePath := range *fileState.SelectedFiles {
+				singleFileSlice := []string{filePath}
+				err := saveNewItemExtended("", "", tagsEntry.Text, &singleFileSlice, []string{}, nil, false)
+				if err != nil {
+					break
+				}
+			}
+		} else {
+			// Обычный режим создания одного элемента
+			err := saveNewItemExtended(titleEntry.Text, descriptionEntry.Text, tagsEntry.Text, fileState.SelectedFiles, []string{}, nil, showDescriptionOnCard)
+			if err == nil {
+				if onClose != nil {
+					onClose()
+				}
+
+				if breadcrumbManager != nil {
+					breadcrumbManager.Refresh()
+				}
+			}
+		}
+
+		// Закрываем popup и обновляем после создания всех элементов
+		if multiFileMode {
 			if onClose != nil {
 				onClose()
 			}
-
 			if breadcrumbManager != nil {
 				breadcrumbManager.Refresh()
 			}
@@ -183,7 +210,7 @@ func createInputForm(breadcrumbManager BreadcrumbManagerInterface, onClose func(
 
 	// Создаем вкладки для переключения типа элемента
 	tabs := container.NewAppTabs(
-		container.NewTabItem("Element", createElementForm(titleEntry, descriptionEntry, tagsEntry, fileSelectorContainer)),
+		container.NewTabItem("Element", createElementForm(titleEntry, descriptionEntry, tagsEntry, fileSelectorContainer, &multiFileMode)),
 		container.NewTabItem("Folder", createFolderForm(titleEntry, descriptionEntry, tagsEntry, fileSelectorContainer)),
 	)
 	tabs.SetTabLocation(container.TabLocationTop)
@@ -229,12 +256,23 @@ func createInputForm(breadcrumbManager BreadcrumbManagerInterface, onClose func(
 }
 
 // createElementForm создает форму для элемента
-func createElementForm(titleEntry *widget.Entry, descriptionEntry *widget.Entry, tagsEntry *widget.Entry, fileSelectorContainer fyne.CanvasObject) *fyne.Container {
+func createElementForm(titleEntry *widget.Entry, descriptionEntry *widget.Entry, tagsEntry *widget.Entry, fileSelectorContainer fyne.CanvasObject, multiFileMode *bool) *fyne.Container {
+	multiFileCheck := widget.NewCheck("Create separate items for each file", func(checked bool) {
+		*multiFileMode = checked
+	})
+
+	showDescCheck := widget.NewCheck("Show description on card", func(checked bool) {
+		showDescriptionOnCard = checked
+	})
+	showDescCheck.Checked = false
+
 	form := &widget.Form{
 		Items: []*widget.FormItem{
 			{Widget: titleEntry},
 			{Widget: descriptionEntry},
 			{Widget: tagsEntry},
+			{Widget: showDescCheck},
+			{Widget: multiFileCheck},
 		},
 	}
 	return container.NewPadded(container.NewVBox(form, fileSelectorContainer))
@@ -253,7 +291,7 @@ func createFolderForm(titleEntry *widget.Entry, descriptionEntry *widget.Entry, 
 }
 
 // saveNewItemExtended сохраняет новый элемент в базу данных с расширенной обработкой
-func saveNewItemExtended(title, description, tags string, selectedFiles *[]string, linkEntries []string, canvas fyne.Canvas) error {
+func saveNewItemExtended(title, description, tags string, selectedFiles *[]string, linkEntries []string, canvas fyne.Canvas, showDescription bool) error {
 	// Используем функцию из нового обработчика
 	var window fyne.Window
 	if canvas != nil {
@@ -283,5 +321,5 @@ func saveNewItemExtended(title, description, tags string, selectedFiles *[]strin
 		itemType = models.ItemTypeElement
 	}
 
-	return CreateItem(title, description, tags, selectedFiles, linkEntries, parentID, itemType, window)
+	return CreateItem(title, description, tags, selectedFiles, linkEntries, parentID, itemType, window, showDescription)
 }

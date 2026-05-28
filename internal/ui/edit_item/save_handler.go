@@ -265,7 +265,7 @@ func SaveItem(viewModel *CreateItemViewModel, formWidgets *FormWidgets, parentWi
 		// Режим редактирования - обновляем существующий элемент
 
 		// Обновляем элемент
-		updatedItem, reallyOldBlocks, err := contentService.UpdateItemWithTransaction(ctx, viewModel.ID, viewModel.Title, viewModel.Description, itemType, contentMeta, viewModel.ParentID)
+		updatedItem, reallyOldBlocks, err := contentService.UpdateItemWithTransaction(ctx, viewModel.ID, viewModel.Title, viewModel.Description, itemType, contentMeta, viewModel.ParentID, viewModel.ShowDescription)
 		if err != nil {
 			dialog.ShowError(fmt.Errorf("ошибка БД: %v", err), parentWindow)
 			return
@@ -286,7 +286,7 @@ func SaveItem(viewModel *CreateItemViewModel, formWidgets *FormWidgets, parentWi
 	} else {
 		// Режим создания - создаем новый элемент
 
-		item, err := contentService.CreateItemWithTransaction(ctx, viewModel.Title, viewModel.Description, itemType, contentMeta, viewModel.ParentID)
+		item, err := contentService.CreateItemWithTransaction(ctx, viewModel.Title, viewModel.Description, itemType, contentMeta, viewModel.ParentID, viewModel.ShowDescription)
 		if err != nil {
 			dialog.ShowError(fmt.Errorf("ошибка БД: %v", err), parentWindow)
 			return

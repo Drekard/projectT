@@ -1,11 +1,13 @@
 package concrete
 
 import (
+	"image/color"
 	"projectT/internal/storage/database/models"
 	"projectT/internal/ui/cards"
 	"projectT/internal/ui/cards/interfaces"
 
 	"fyne.io/fyne/v2"
+	"fyne.io/fyne/v2/canvas"
 	"fyne.io/fyne/v2/container"
 	"fyne.io/fyne/v2/widget"
 )
@@ -34,19 +36,47 @@ func NewTextCardWithCallback(item *models.Item, clickCallback func(), noButtons 
 		noButtonsMode: noButtonsMode,
 	}
 
-	// Создаем метку для описания (меньший шрифт, с отступами)
-	descriptionLabel := widget.NewRichTextFromMarkdown(item.Description)
-	descriptionLabel.Wrapping = fyne.TextWrapWord
+	// Создаем RichText для поддержки абзацев и переносов
+	richText := widget.NewRichTextFromMarkdown(item.Description)
+	richText.Wrapping = fyne.TextWrapWord
 
-	// Если длина описания больше 500 символов, оборачиваем в прокручиваемый контейнер
+	// Динамический размер: ~34 символа на строку, ~15px высота строки
+	const charsPerLine = 34
+	const lineHeight = 15
+	const maxVisibleLines = 5
+
+	lineCount := 1
+	if len(item.Description) > 0 {
+		lines := 0
+		currentLineLen := 0
+		for _, ch := range item.Description {
+			if ch == '\n' {
+				lines++
+				currentLineLen = 0
+			} else {
+				currentLineLen++
+				if currentLineLen > charsPerLine {
+					lines++
+					currentLineLen = 0
+				}
+			}
+		}
+		if currentLineLen > 0 {
+			lines++
+		}
+		lineCount = lines
+	}
+
 	var descriptionContainer fyne.CanvasObject
-	if len(item.Description) > 1000 {
-		// Оборачиваем в прокручиваемый контейнер
-		scrollContainer := container.NewScroll(descriptionLabel)
-		scrollContainer.SetMinSize(fyne.NewSize(200, 400))
+	if lineCount > maxVisibleLines {
+		scrollContainer := container.NewScroll(richText)
+		scrollContainer.SetMinSize(fyne.NewSize(200, 300))
 		descriptionContainer = scrollContainer
 	} else {
-		descriptionContainer = descriptionLabel
+		bgContainer := canvas.NewRectangle(color.Transparent)
+		bgContainer.SetMinSize(fyne.NewSize(100, float32(maxVisibleLines*lineHeight)))
+		st := container.NewStack(bgContainer, richText)
+		descriptionContainer = st
 	}
 
 	// Контейнер без фона, рамки и отступов, так как будет использоваться внутри другой карточки

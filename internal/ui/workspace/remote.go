@@ -2,7 +2,6 @@ package workspace
 
 import (
 	"context"
-	"log"
 	"projectT/internal/storage/database/models"
 	"projectT/internal/storage/database/queries"
 	"projectT/internal/ui/workspace/profile"
@@ -21,8 +20,16 @@ func (ws *Workspace) createRemoteProfileContent() fyne.CanvasObject {
 			p2pUI = p2p_ui.NewUIP2P(ws.p2pNetwork)
 		}
 		ws.remoteProfileUI = profile.NewRemoteProfileUI(ws.remoteProfilePeerID, p2pUI)
+		ws.remoteProfileUI.SetConfig(ws.config)
+		ws.remoteProfileUI.SetOnSave(ws.onSave)
+		ws.remoteProfileUI.RestoreLayoutMode()
 		ws.remoteProfileUI.SetOnOpenElements(func() {
 			ws.OpenRemoteSaved(ws.remoteProfilePeerID, ws.remoteProfileName, "")
+		})
+		ws.remoteProfileUI.SetLayoutChangeHandler(func() {
+			ws.contentCache[ContentTypeRemoteProfile] = ws.remoteProfileUI.Container()
+			ws.container.Objects = []fyne.CanvasObject{ws.contentCache[ContentTypeRemoteProfile]}
+			ws.container.Refresh()
 		})
 	}
 	return ws.remoteProfileUI.Container()
@@ -63,23 +70,18 @@ func (ws *Workspace) createRemoteSavedContent() fyne.CanvasObject {
 func (ws *Workspace) requestRemoteFolderFromPeer(peerID, folderUUID string) {
 	peerIDObj, err := peer.Decode(peerID)
 	if err != nil {
-		log.Printf("[Workspace] Ошибка декодирования peerID: %v", err)
 		return
 	}
 
 	ctx := context.Background()
 	items, err := ws.p2pNetwork.ItemSync().RequestFolder(ctx, peerIDObj, folderUUID)
 	if err != nil {
-		log.Printf("[Workspace] Ошибка запроса элементов у пира: %v", err)
 		return
 	}
 
 	if len(items) == 0 {
-		log.Printf("[Workspace] Пир %s не вернул элементов для folderUUID=%s", peerID[:8], folderUUID)
 		return
 	}
-
-	log.Printf("[Workspace] Получено %d элементов от пира %s", len(items), peerID[:8])
 
 	for _, item := range items {
 		item.OwnerType = "remote"
@@ -106,11 +108,9 @@ func (ws *Workspace) requestRemoteFolderFromPeer(peerID, folderUUID string) {
 		}
 	}
 
-	log.Printf("[Workspace] Обновление UI: %d элементов из БД для peerID=%s", len(allItems), peerID[:8])
 	ws.gridManager.LoadItemsWithoutCreateElement(allItems)
 }
 
-// OpenRemoteProfile открывает профиль удалённого пользователя
 func (ws *Workspace) OpenRemoteProfile(peerID string) {
 	ws.remoteProfilePeerID = peerID
 	ws.remoteFolderUUID = ""

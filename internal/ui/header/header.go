@@ -18,22 +18,46 @@ type HeaderSearchHandler interface {
 	ClearSearch() error
 }
 
+// ChatHeaderState состояние шапки в режиме чата
+type ChatHeaderState struct {
+	ChatName            string
+	OnBack              func()
+	OnOpenProfile       func()
+	OnAttach            func()
+	OnToggleRight       func()
+	OnOpenRemoteProfile func(peerID string)
+	OnBackToNav         func()
+	GetCurrentPeerID    func() string
+	OnProfileClicked    func()
+	IsLocalChat         func() bool
+}
+
+// HeaderState общее состояние шапки
+type HeaderState struct {
+	SidebarVisible  *bool
+	OnToggleSidebar func()
+	ChatMode        bool
+	ChatHeader      *ChatHeaderState
+}
+
 // CreateHeader создает основную шапку приложения
-func CreateHeader(sidebarVisible *bool, onToggle func(), width float32, searchHandler HeaderSearchHandler) (*fyne.Container, *BreadcrumbManager, *widget.Entry) {
-	// Кнопка меню (бургер)
+func CreateHeader(state *HeaderState, width float32, searchHandler HeaderSearchHandler) (*fyne.Container, *BreadcrumbManager, *widget.Entry) {
+	if state.ChatMode && state.ChatHeader != nil {
+		return createChatHeader(state, width, searchHandler)
+	}
+	return createNormalHeader(state, width, searchHandler)
+}
+
+// createNormalHeader создает шапку для нормального режима
+func createNormalHeader(state *HeaderState, width float32, searchHandler HeaderSearchHandler) (*fyne.Container, *BreadcrumbManager, *widget.Entry) {
+	// Кнопка меню (бургер) - сворачивание sidebar
 	menuButton := widget.NewButtonWithIcon("", theme.MenuIcon(), func() {
-		*sidebarVisible = !*sidebarVisible
-		onToggle()
+		state.OnToggleSidebar()
 	})
 	menuButton.Importance = widget.LowImportance
 
 	// Иконка приложения
 	appIcon := LoadAppIcon()
-
-	// Текст "ProjectT"
-	appLabel := widget.NewLabel("ProjectT")
-	// Увеличиваем размер шрифта
-	appLabel.TextStyle = fyne.TextStyle{Bold: true}
 
 	// Хлебные крошки
 	breadcrumbs, breadcrumbManager := CreateBreadcrumbs()
@@ -42,52 +66,36 @@ func CreateHeader(sidebarVisible *bool, onToggle func(), width float32, searchHa
 	var filterButton *widget.Button
 	filterButton = widget.NewButtonWithIcon("", theme.ListIcon(), func() {
 		manager := NewFilterWindowManager(
+			func(opts services.FilterOptions) {},
 			func(opts services.FilterOptions) {
-				// Обработка изменений фильтров (оставляем для совместимости)
-			},
-			func(opts services.FilterOptions) {
-				// Обработка применения фильтров - здесь будет вызов обновления сетки
-				// Обновляем сетку элементов в рабочей области
 				if filterHandler, ok := searchHandler.(interface{ ApplyFilters(services.FilterOptions) }); ok {
-					// Если интерфейс поддерживает применение фильтров, вызываем его
 					filterHandler.ApplyFilters(opts)
 				} else {
-					// Если не поддерживает, просто обновляем текущую папку
 					if workspaceHandler, ok := searchHandler.(interface{ RefreshCurrentFolder() error }); ok {
 						_ = workspaceHandler.RefreshCurrentFolder()
 					}
 				}
 			},
 		)
-
 		manager.ShowFilterWindow(filterButton)
 	})
 	filterButton.Importance = widget.LowImportance
 
-	// Поле поиска
-	searchBarContainer, searchEntry := CreateSearchBar(searchHandler)
+	// Кнопка поиска
+	var searchButton *widget.Button
+	searchManager := NewSearchWindowManager(searchHandler)
+	searchButton = widget.NewButtonWithIcon("", theme.SearchIcon(), func() {
+		searchManager.ShowSearchPopup(searchButton)
+	})
+	searchButton.Importance = widget.LowImportance
 
-	// Создаем прямоугольник для задания минимального размера
-	searchWrapper := canvas.NewRectangle(color.Transparent)
-	searchWrapper.SetMinSize(fyne.NewSize(300, 40))
+	searchEntry := searchManager.GetSearchEntry()
 
-	// Используем Stack, чтобы прямоугольник был фоном
-	// и контейнер поиска занимал всю доступную ширину
-	searchContainer := container.NewStack(
-		searchWrapper,
-		container.NewPadded(searchBarContainer), // Padded чтобы был небольшой отступ от краев
-	)
-
-	// Кнопка [+] - объявляем здесь, чтобы избежать проблемы с областью видимости
+	// Кнопка [+]
 	var addButton *widget.Button
 	addButton = widget.NewButton("[+]", func() {
-		// Создаем экземпляр NewRectangleManager
 		manager := create_item.NewNewRectangleManager(breadcrumbManager)
-
-		// Отображаем NewRectangle под кнопкой
-		manager.ShowNewRectangle(addButton, func() {
-			// Функция обратного вызова при закрытии
-		})
+		manager.ShowNewRectangle(addButton, func() {})
 	})
 
 	// Spacer между иконкой и лейблом
@@ -96,39 +104,90 @@ func CreateHeader(sidebarVisible *bool, onToggle func(), width float32, searchHa
 	iconLabelContainer := container.NewHBox(
 		appIcon,
 		spacer,
-		appLabel,
 	)
-	// Фиксируем ширину контейнера с иконкой и названием
 	iconLabelContainer = container.NewPadded(iconLabelContainer)
 	leftWrapper := canvas.NewRectangle(color.Black)
 	leftWrapper.SetMinSize(fyne.NewSize(140, 40))
 	iconLabelWrapper := container.NewStack(
 		leftWrapper,
+		container.NewCenter(addButton),
 		iconLabelContainer,
 	)
 
-	// Теперь создаем основной контейнер с двумя частями
+	// Левая часть: бургер + иконка/название + [+]
 	leftContainer := container.NewHBox(
-		iconLabelWrapper,               // Контейнер с иконкой и названием (ширина 165)
-		container.NewCenter(addButton), // Квадратная кнопка рядом
+		menuButton,
+		iconLabelWrapper,
 	)
 
-	// Обертка для всего блока
 	fullWrapper := canvas.NewRectangle(color.Transparent)
-	fullWrapper.SetMinSize(fyne.NewSize(140+40, 40)) // 165 + ширина кнопки
+	fullWrapper.SetMinSize(fyne.NewSize(140+40+40, 40))
 
-	// Стек для фона и содержимого
 	leftContainer = container.NewStack(
 		fullWrapper,
 		leftContainer,
 	)
 
-	// Центральная часть (хлебные крошки и кнопка фильтра)
 	centerContainer := container.NewPadded(breadcrumbs)
-	searchWithFilter := container.NewHBox(filterButton, searchContainer)
+	searchWithFilter := container.NewHBox(filterButton, searchButton)
 
-	// Компоновка шапки
 	header := container.NewBorder(nil, nil, leftContainer, searchWithFilter, centerContainer)
 
 	return header, breadcrumbManager, searchEntry
+}
+
+// createChatHeader создает шапку для режима чата
+func createChatHeader(state *HeaderState, width float32, searchHandler HeaderSearchHandler) (*fyne.Container, *BreadcrumbManager, *widget.Entry) {
+	chatState := state.ChatHeader
+
+	// Иконка приложения
+	appIcon := LoadAppIcon()
+
+	// Левая часть: иконка приложения
+	leftContainer := container.NewHBox(appIcon)
+
+	// Имя чата по центру
+	chatName := chatState.ChatName
+	if chatState.IsLocalChat != nil && chatState.IsLocalChat() {
+		chatName = "Избранное"
+	}
+	chatNameLabel := widget.NewLabel(chatName)
+	chatNameLabel.TextStyle = fyne.TextStyle{Bold: true}
+
+	// Кнопка ℹ️ - открыть правую панель
+	infoButton := widget.NewButtonWithIcon("", theme.InfoIcon(), func() {
+		if chatState.OnToggleRight != nil {
+			chatState.OnToggleRight()
+		}
+	})
+	infoButton.Importance = widget.LowImportance
+
+	// Кнопка аккаунта - перейти в normal mode и открыть профиль
+	profilehButton := widget.NewButtonWithIcon("", theme.AccountIcon(), func() {
+		if chatState.OnProfileClicked != nil {
+			chatState.OnProfileClicked()
+		}
+	})
+	profilehButton.Importance = widget.LowImportance
+
+	// Кнопка поиска
+	var searchButton *widget.Button
+	searchManager := NewSearchWindowManager(searchHandler)
+	searchButton = widget.NewButtonWithIcon("", theme.SearchIcon(), func() {
+		searchManager.ShowSearchPopup(searchButton)
+	})
+	searchButton.Importance = widget.LowImportance
+
+	searchEntry := searchManager.GetSearchEntry()
+
+	// Правая часть: поиск + 📎 + ℹ️
+	rightContainer := container.NewHBox(searchButton, profilehButton, infoButton)
+
+	// Центральная часть: имя чата
+	centerContainer := container.NewCenter(chatNameLabel)
+
+	// Компоновка шапки: слева иконка, справа кнопки, центр имя
+	header := container.NewBorder(nil, nil, leftContainer, rightContainer, centerContainer)
+
+	return header, nil, searchEntry
 }

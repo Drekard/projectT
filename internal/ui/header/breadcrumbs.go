@@ -85,10 +85,10 @@ func CreateBreadcrumbs() (*fyne.Container, *BreadcrumbManager) {
 	bm.AddItem("Saved", 0)
 
 	// Оборачиваем все в Stack: фон + контент с отступами
-	padded := container.NewHBox(
-		buttons,
-		container.NewPadded(content),
-	)
+	// Контент прокручивается горизонтально, если элементов слишком много
+	// Border layout позволяет scroll занимать всё оставшееся пространство
+	scroll := container.NewHScroll(content)
+	padded := container.NewBorder(nil, nil, buttons, nil, container.NewPadded(scroll))
 	breadcrumbs := container.NewStack(bg, padded)
 	breadcrumbs.Resize(fyne.NewSize(400, 36))
 

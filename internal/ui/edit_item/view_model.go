@@ -9,17 +9,18 @@ import (
 )
 
 type CreateItemViewModel struct {
-	ID          int // ID элемента при редактировании (0 для создания)
-	Title       string
-	Description string
-	Tags        string
-	Images      []string
-	Files       []string
-	Links       []string
-	ItemType    models.ItemType
-	ContentMeta string
-	ParentID    *int // ID родительской папки
-	EditMode    bool // Режим редактирования
+	ID              int // ID элемента при редактировании (0 для создания)
+	Title           string
+	Description     string
+	Tags            string
+	Images          []string
+	Files           []string
+	Links           []string
+	ItemType        models.ItemType
+	ContentMeta     string
+	ParentID        *int // ID родительской папки
+	EditMode        bool // Режим редактирования
+	ShowDescription bool // Показывать описание на карточке
 }
 
 // Методы для работы с ViewModel
@@ -35,11 +36,12 @@ func (vm *CreateItemViewModel) Clear() {
 
 func NewCreateItemViewModel() *CreateItemViewModel {
 	return &CreateItemViewModel{
-		ID:       0, // 0 означает создание нового элемента
-		ItemType: models.ItemTypeElement,
-		Links:    []string{},
-		ParentID: nil,   // Изначально без родителя
-		EditMode: false, // По умолчанию режим создания
+		ID:              0, // 0 означает создание нового элемента
+		ItemType:        models.ItemTypeElement,
+		Links:           []string{},
+		ParentID:        nil,   // Изначально без родителя
+		EditMode:        false, // По умолчанию режим создания
+		ShowDescription: false,
 	}
 }
 
@@ -84,17 +86,18 @@ func NewCreateItemViewModelForEdit(itemID int) (*CreateItemViewModel, error) {
 	}
 
 	viewModel := &CreateItemViewModel{
-		ID:          item.ID,
-		Title:       item.Title,
-		Description: item.Description,
-		Tags:        strings.Join(tagNames, ", "),
-		Images:      images,
-		Files:       files,
-		Links:       links,
-		ItemType:    item.Type,
-		ContentMeta: item.ContentMeta,
-		ParentID:    item.ParentID,
-		EditMode:    true, // Режим редактирования
+		ID:              item.ID,
+		Title:           item.Title,
+		Description:     item.Description,
+		Tags:            strings.Join(tagNames, ", "),
+		Images:          images,
+		Files:           files,
+		Links:           links,
+		ItemType:        item.Type,
+		ContentMeta:     item.ContentMeta,
+		ParentID:        item.ParentID,
+		EditMode:        true, // Режим редактирования
+		ShowDescription: item.ShowDescription,
 	}
 
 	return viewModel, nil

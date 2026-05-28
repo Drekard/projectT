@@ -12,17 +12,18 @@ import (
 
 // FormWidgets хранит ссылки на виджеты формы
 type FormWidgets struct {
-	TitleEntry          *widget.Entry
-	BackgraundRectangle *canvas.Rectangle
-	DescriptionEntry    *widget.Entry
-	TagsEntry           *widget.Entry
-	LinksContainer      *fyne.Container
-	LinkEntries         []*widget.Entry
-	AddLinkButton       *widget.Button
-	Tabs                *container.AppTabs
-	ImageUploadArea     *fyne.Container // Область загрузки изображений
-	FileUploadArea      *fyne.Container // Область загрузки файлов
-	CloseDialog         func()          // Функция для закрытия диалога
+	TitleEntry           *widget.Entry
+	BackgraundRectangle  *canvas.Rectangle
+	DescriptionEntry     *widget.Entry
+	TagsEntry            *widget.Entry
+	LinksContainer       *fyne.Container
+	LinkEntries          []*widget.Entry
+	AddLinkButton        *widget.Button
+	Tabs                 *container.AppTabs
+	ImageUploadArea      *fyne.Container // Область загрузки изображений
+	FileUploadArea       *fyne.Container // Область загрузки файлов
+	CloseDialog          func()          // Функция для закрытия диалога
+	ShowDescriptionCheck *widget.Check   // Галочка "Вывести описание"
 }
 
 // CreateRightColumn создает правую колонку с привязкой к ViewModel
@@ -46,6 +47,12 @@ func CreateRightColumn(viewModel *CreateItemViewModel) (*fyne.Container, *FormWi
 	widgets.TagsEntry.PlaceHolder = "Enter tags (comma separated)"
 	// Устанавливаем начальное значение из ViewModel
 	widgets.TagsEntry.SetText(viewModel.Tags)
+
+	// Создаем галочку "Вывести описание"
+	widgets.ShowDescriptionCheck = widget.NewCheck("Show description on card", func(checked bool) {
+		viewModel.ShowDescription = checked
+	})
+	widgets.ShowDescriptionCheck.Checked = viewModel.ShowDescription
 
 	// Создаем контейнер для ссылок
 	widgets.LinksContainer = container.NewVBox()
@@ -123,6 +130,7 @@ func createElementForm(widgets *FormWidgets) *fyne.Container {
 			{Text: "Title", Widget: widgets.TitleEntry},
 			{Text: "Description", Widget: widgets.DescriptionEntry},
 			{Text: "Tags", Widget: widgets.TagsEntry},
+			{Text: "", Widget: widgets.ShowDescriptionCheck},
 		},
 	}
 	return container.NewPadded(container.NewVBox(form, widgets.LinksContainer, widgets.AddLinkButton))

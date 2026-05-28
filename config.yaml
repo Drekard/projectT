@@ -1,18 +1,29 @@
 database:
-    path: C:\Users\egors\Desktop\projectT\storage\projectT.db
+    path: C:/Users/egors/Desktop/projectT/storage/projectT.db
     busy_timeout: 30000
     max_open_conns: 1
     max_idle_conns: 1
 storage:
-    path: C:\Users\egors\Desktop\projectT\storage
+    path: C:/Users/egors/Desktop/projectT/storage
     files_dir: files
 p2p:
     enabled: true
     port: 8079
     enable_relay: true
     enable_relay_discovery: true
+    enable_auto_connect: true
+    enable_auto_profile_ex: true
 prometheus:
     enabled: true
     port: 9090
     path: /metrics
     enable_p2p_metrics: true
+ui_settings:
+    theme: Purple
+    layout_mode: vertical
+    sidebar_collapsed: true
+    right_panel_visible: false
+    window_x: 0
+    window_y: 0
+    window_width: 690
+    window_height: 830

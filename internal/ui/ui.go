@@ -1,6 +1,7 @@
 package ui
 
 import (
+	"projectT/internal/config"
 	"projectT/internal/services/p2p/core"
 	"projectT/internal/ui/layout"
 
@@ -14,11 +15,11 @@ type UI struct {
 }
 
 // NewUI создает новый экземпляр UI
-func NewUI(window fyne.Window, p2pNetwork *core.P2PNetwork) *UI {
+func NewUI(window fyne.Window, p2pNetwork *core.P2PNetwork, cfg *config.Config, onSave func()) *UI {
 	window.SetPadded(false)
 
 	ui := &UI{
-		mainLayout: layout.CreateMainLayout(window, p2pNetwork),
+		mainLayout: layout.CreateMainLayout(window, p2pNetwork, cfg, onSave),
 		window:     window,
 	}
 

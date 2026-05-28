@@ -8,6 +8,7 @@ import (
 	"os"
 	"sync"
 
+	"projectT/internal/config"
 	"projectT/internal/services/p2p/protocols/itemsync"
 	"projectT/internal/services/p2p/protocols/transfer"
 	network "projectT/internal/services/p2p/ui"
@@ -30,11 +31,15 @@ type RemoteProfileUI struct {
 	profileName              *widget.Label
 	profileTitle             *widget.Label
 	characteristicsContainer *fyne.Container
+	characteristicsScroll    *container.Scroll
 	gridManager              *saved.GridManager
 	peerID                   string
 	isLocal                  bool
 	p2pUI                    *network.UIP2P
 	onOpenElements           func()
+	openElementsButton       *widget.Button
+	layoutMode               string // "horizontal" or "vertical"
+	onLayoutChange           func()
 
 	// Loading state
 	rightPanelContent *fyne.Container
@@ -42,13 +47,18 @@ type RemoteProfileUI struct {
 	loadingLabel      *widget.Label
 	loadingContainer  *fyne.Container
 	currentBatchID    string
+
+	// Конфиг и сохранение
+	config *config.Config
+	onSave func()
 }
 
 // NewRemoteProfileUI создаёт новый read-only профиль удалённого пользователя
 func NewRemoteProfileUI(peerID string, p2pUI *network.UIP2P) *RemoteProfileUI {
 	ui := &RemoteProfileUI{
-		peerID: peerID,
-		p2pUI:  p2pUI,
+		peerID:     peerID,
+		p2pUI:      p2pUI,
+		layoutMode: "horizontal",
 	}
 
 	// Определяем тип профиля до создания UI, чтобы корректно отобразить кнопку
@@ -94,28 +104,15 @@ func (ui *RemoteProfileUI) GetProfileName() string {
 }
 
 func (ui *RemoteProfileUI) createView() {
-	// Левая панель (аватар, имя, title, характеристики)
-	leftPanel := ui.createLeftPanel()
-
-	// Правая панель (pinned items)
-	rightPanel := ui.createRightPanel()
-
-	// Split
-	split := container.NewHSplit(leftPanel, rightPanel)
-	split.SetOffset(0.35)
-
-	ui.content = split
+	ui.createComponents()
+	ui.buildContent()
 }
 
-func (ui *RemoteProfileUI) createLeftPanel() fyne.CanvasObject {
+func (ui *RemoteProfileUI) createComponents() {
 	// Аватар
 	ui.profileAvatar = canvas.NewImageFromFile("storage/files/avatars/local/ProjctT_true.png")
 	ui.profileAvatar.FillMode = canvas.ImageFillContain
 	ui.profileAvatar.SetMinSize(fyne.NewSize(100, 100))
-
-	avatarBg := canvas.NewRectangle(color.RGBA{R: 0, G: 0, B: 0, A: 255})
-	avatarBg.SetMinSize(fyne.NewSize(100, 100))
-	avatarStack := container.NewStack(avatarBg, ui.profileAvatar)
 
 	// Имя (read-only)
 	ui.profileName = widget.NewLabel("")
@@ -126,47 +123,21 @@ func (ui *RemoteProfileUI) createLeftPanel() fyne.CanvasObject {
 	ui.profileTitle.TextStyle = fyne.TextStyle{Italic: true}
 
 	// Кнопка "Открыть элементы" — только для remote профилей
-	openElementsBtn := widget.NewButton("Open Elements", func() {
+	ui.openElementsButton = widget.NewButton("Open Elements", func() {
 		if ui.onOpenElements != nil {
 			ui.onOpenElements()
 		}
 	})
-	openElementsBtn.Importance = widget.HighImportance
+	ui.openElementsButton.Importance = widget.HighImportance
 
-	// Характеристики
+	// Характеристики (создаются один раз)
 	ui.characteristicsContainer = container.NewVBox()
-	charScroll := container.NewScroll(ui.characteristicsContainer)
-	charScroll.SetMinSize(fyne.NewSize(0, 150))
+	ui.characteristicsScroll = container.NewScroll(ui.characteristicsContainer)
+	ui.characteristicsScroll.SetMinSize(fyne.NewSize(0, 150))
 
-	// Разделитель
-	separator := canvas.NewRectangle(color.Gray{Y: 128})
-	separator.SetMinSize(fyne.NewSize(0, 1))
-
-	leftContent := container.NewVBox(
-		container.NewCenter(avatarStack),
-		ui.profileName,
-		ui.profileTitle,
-	)
-
-	// Для remote профилей добавляем кнопку "Open Elements"
-	if !ui.isLocal {
-		fmt.Printf("Creating openElementsBtn for remote profile: %s\n", ui.peerID)
-		leftContent.Add(container.NewCenter(openElementsBtn))
-	}
-
-	leftContent.Add(separator)
-	leftContent.Add(widget.NewLabel("Characteristics"))
-	leftContent.Add(charScroll)
-
-	return container.NewScroll(leftContent)
-}
-
-func (ui *RemoteProfileUI) createRightPanel() fyne.CanvasObject {
-	// GridManager для pinned items (как в profile.go)
+	// GridManager для pinned items
 	ui.gridManager = saved.NewGridManager()
 	ui.gridManager.SetColumnCount(2)
-
-	pinnedGridContainer := ui.gridManager.GetContainer()
 
 	// Loading indicator
 	ui.loadingLabel = widget.NewLabel("")
@@ -182,11 +153,85 @@ func (ui *RemoteProfileUI) createRightPanel() fyne.CanvasObject {
 	)
 	ui.loadingContainer = container.NewPadded(loadingContent)
 	ui.loadingContainer.Hide()
+}
+
+func (ui *RemoteProfileUI) buildContent() {
+	if ui.layoutMode == "horizontal" {
+		leftPanel := ui.createLeftPanel()
+		rightPanel := ui.createRightPanel()
+		hsplit := container.NewHSplit(leftPanel, rightPanel)
+		hsplit.SetOffset(0.35)
+		ui.content = hsplit
+	} else {
+		topPanel := ui.createTopPanel()
+		bottomPanel := ui.createRightPanel()
+		vsplit := container.NewVSplit(topPanel, bottomPanel)
+		vsplit.SetOffset(0.5)
+		ui.content = vsplit
+	}
+}
+
+func (ui *RemoteProfileUI) createAvatarSection() fyne.CanvasObject {
+	avatarBg := canvas.NewRectangle(color.RGBA{R: 0, G: 0, B: 0, A: 255})
+	avatarBg.SetMinSize(fyne.NewSize(100, 100))
+	avatarStack := container.NewStack(avatarBg, ui.profileAvatar)
+
+	return container.NewVBox(
+		container.NewCenter(avatarStack),
+		ui.profileName,
+		ui.profileTitle,
+	)
+}
+
+func (ui *RemoteProfileUI) createCharacteristicsSection() fyne.CanvasObject {
+	return container.NewVBox(
+		ui.characteristicsScroll,
+	)
+}
+
+func (ui *RemoteProfileUI) createLeftPanel() fyne.CanvasObject {
+	avatarSection := ui.createAvatarSection()
+
+	// Разделитель
+	separator := canvas.NewRectangle(color.Gray{Y: 128})
+	separator.SetMinSize(fyne.NewSize(0, 1))
+
+	characteristicsSection := ui.createCharacteristicsSection()
+
+	leftContent := container.NewVBox(
+		avatarSection,
+		separator,
+		characteristicsSection,
+	)
+
+	return container.NewScroll(leftContent)
+}
+
+// createTopPanel creates the top panel for vertical mode (left: avatar/info/buttons, right: characteristics)
+// Characteristics are anchored to the bottom edge so the scroll area adjusts properly
+func (ui *RemoteProfileUI) createTopPanel() fyne.CanvasObject {
+	avatarSection := ui.createAvatarSection()
+
+	characteristicsSection := container.NewBorder(
+		nil,      // Top
+		nil,      // Bottom
+		nil, nil, // Left, Right
+		ui.characteristicsScroll, // Center
+	)
+
+	hsplit := container.NewHSplit(avatarSection, characteristicsSection)
+	hsplit.SetOffset(0.4)
+
+	return hsplit
+}
+
+func (ui *RemoteProfileUI) createRightPanel() fyne.CanvasObject {
+	pinnedGridContainer := ui.gridManager.GetContainer()
 
 	// Основной контент с overlay для загрузки
 	ui.rightPanelContent = container.NewStack(
 		container.NewBorder(
-			widget.NewLabel("Showcase"),
+			nil,
 			nil,
 			nil,
 			nil,
@@ -511,4 +556,27 @@ func (ui *RemoteProfileUI) GetPinnedUUIDs() ([]string, error) {
 	}
 
 	return uuids, nil
+}
+
+// SetLayoutChangeHandler sets the callback for layout mode changes
+func (ui *RemoteProfileUI) SetLayoutChangeHandler(handler func()) {
+	ui.onLayoutChange = handler
+}
+
+// SetConfig устанавливает конфиг для сохранения настроек
+func (ui *RemoteProfileUI) SetConfig(cfg *config.Config) {
+	ui.config = cfg
+}
+
+// SetOnSave устанавливает callback для сохранения конфига
+func (ui *RemoteProfileUI) SetOnSave(onSave func()) {
+	ui.onSave = onSave
+}
+
+// RestoreLayoutMode восстанавливает layout mode из конфига
+func (ui *RemoteProfileUI) RestoreLayoutMode() {
+	if ui.config != nil && ui.config.UISettings.LayoutMode != "" {
+		ui.layoutMode = ui.config.UISettings.LayoutMode
+		ui.buildContent()
+	}
 }

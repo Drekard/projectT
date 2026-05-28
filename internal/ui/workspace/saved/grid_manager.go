@@ -308,7 +308,6 @@ func (gm *GridManager) LoadItemsWithoutCreateElement(items []*db_models.Item) {
 // loadItems загружает элементы в сетку (внутренний метод)
 // if addCreateElement=true, добавляется элемент "Создать элемент"
 func (gm *GridManager) loadItems(items []*db_models.Item, addCreateElement bool) {
-	// Блокируем мьютекс — если уже идёт загрузка, ждём её завершения
 	gm.loadMu.Lock()
 
 	// Увеличиваем поколение — предыдущая загрузка (если ещё работает) будет отменена
@@ -363,7 +362,6 @@ func (gm *GridManager) loadItemsAsync(items []*db_models.Item, addCreateElement 
 		receivedCount++
 	}
 
-	// Проверяем поколение — если за это время началась новая загрузка, выходим
 	if generation != gm.loadGeneration {
 		return
 	}

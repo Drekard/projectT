@@ -2,6 +2,7 @@ package workspace
 
 import (
 	"image/color"
+	"projectT/internal/config"
 	"projectT/internal/services"
 	"projectT/internal/storage/database/models"
 	"projectT/internal/storage/database/queries"
@@ -88,10 +89,13 @@ type Workspace struct {
 	remoteProfileName   string
 	remoteFolderPath    []*models.Item
 	onRemoteModeChanged func(isRemote bool, peerID, peerName string, path []*models.Item)
+	onChatModeChanged   func(isChatMode bool, chatName string, onBack, onOpenProfile, onAttach, onToggleRight func())
+	config              *config.Config
+	onSave              func()
 }
 
 // CreateWorkspace создает и возвращает рабочую область
-func CreateWorkspace(window fyne.Window, p2pNetwork *p2p_network.P2PNetwork) *Workspace {
+func CreateWorkspace(window fyne.Window, p2pNetwork *p2p_network.P2PNetwork, cfg *config.Config, onSave func()) *Workspace {
 	ws := &Workspace{
 		container:          container.NewStack(),
 		currentType:        ContentTypeSaved,
@@ -99,6 +103,8 @@ func CreateWorkspace(window fyne.Window, p2pNetwork *p2p_network.P2PNetwork) *Wo
 		contentCache:       make(map[ContentType]fyne.CanvasObject),
 		window:             window,
 		p2pNetwork:         p2pNetwork,
+		config:             cfg,
+		onSave:             onSave,
 	}
 
 	ws.profileUI = profile.New()
@@ -107,6 +113,15 @@ func CreateWorkspace(window fyne.Window, p2pNetwork *p2p_network.P2PNetwork) *Wo
 
 	ws.profileUI.SetWindow(window)
 	ws.profileUI.SetBackgroundUpdater(ws)
+	ws.profileUI.SetConfig(cfg)
+	ws.profileUI.SetOnSave(onSave)
+	ws.profileUI.RestoreLayoutMode()
+	ws.contentCache[ContentTypeProfile] = ws.profileUI.CreateView()
+	ws.profileUI.SetLayoutChangeHandler(func() {
+		ws.contentCache[ContentTypeProfile] = ws.profileUI.CreateView()
+		ws.container.Objects = []fyne.CanvasObject{ws.contentCache[ContentTypeProfile]}
+		ws.container.Refresh()
+	})
 
 	ws.gridManager = saved.NewGridManager()
 	ws.navigationManager = NewNavigationManager()
@@ -146,7 +161,9 @@ func (ws *Workspace) UpdateContent(contentType string, param ...interface{}) {
 			// Обновляем список чатов асинхронно
 			go func() {
 				if ws.chatsUI != nil {
-					ws.chatsUI.Refresh()
+					fyne.Do(func() {
+						ws.chatsUI.Refresh()
+					})
 				}
 			}()
 		} else {
@@ -178,7 +195,9 @@ func (ws *Workspace) UpdateContent(contentType string, param ...interface{}) {
 			// Обновляем P2P данные асинхронно
 			go func() {
 				if ws.p2pUI != nil {
-					ws.p2pUI.Refresh()
+					fyne.Do(func() {
+						ws.p2pUI.Refresh()
+					})
 				}
 			}()
 		} else {
@@ -290,4 +309,24 @@ func (ws *Workspace) loadBackground() {
 func (ws *Workspace) SetBackgroundColor(c color.Color) {
 	ws.backgroundRect.FillColor = c
 	ws.backgroundRect.Refresh()
+}
+
+// SetOnChatModeChanged устанавливает callback для переключения режима чата
+func (ws *Workspace) SetOnChatModeChanged(callback func(isChatMode bool, chatName string, onBack, onOpenProfile, onAttach, onToggleRight func())) {
+	ws.onChatModeChanged = callback
+}
+
+// GetP2PNetwork возвращает P2P сеть
+func (ws *Workspace) GetP2PNetwork() *p2p_network.P2PNetwork {
+	return ws.p2pNetwork
+}
+
+// GetWindow возвращает окно
+func (ws *Workspace) GetWindow() fyne.Window {
+	return ws.window
+}
+
+// GetChatsUI возвращает UI чатов
+func (ws *Workspace) GetChatsUI() *chats.UI {
+	return ws.chatsUI
 }

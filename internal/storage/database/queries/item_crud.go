@@ -27,15 +27,15 @@ func CreateItem(item *models.Item) error {
 		INSERT INTO items (
 			element_uuid, hash,
 			owner_type, source_peer_id,
-			type, title, description, content_meta, parent_id, parent_uuid,
+			type, title, description, content_meta, show_description, parent_id, parent_uuid,
 			signature, version, status, visibility, cached_at, created_at, updated_at
 		)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 	`
 	result, err := database.DB.Exec(query,
 		item.ElementUUID, item.Hash,
 		item.OwnerType, item.SourcePeerID,
-		item.Type, item.Title, item.Description, item.ContentMeta, item.ParentID, item.ParentUUID,
+		item.Type, item.Title, item.Description, item.ContentMeta, item.ShowDescription, item.ParentID, item.ParentUUID,
 		item.Signature, item.Version, item.Status, item.Visibility, item.CachedAt, time.Now(), time.Now(),
 	)
 	if err != nil {
@@ -56,7 +56,7 @@ func GetItemByID(id int) (*models.Item, error) {
 	query := `
 		SELECT id, element_uuid, hash,
 		       owner_type, source_peer_id,
-		       type, title, description, content_meta, parent_id, parent_uuid,
+		       type, title, description, content_meta, show_description, parent_id, parent_uuid,
 		       signature, version, status, visibility, cached_at, created_at, updated_at
 		FROM items
 		WHERE id = ?
@@ -71,7 +71,7 @@ func GetItemByID(id int) (*models.Item, error) {
 	err := database.DB.QueryRow(query, id).Scan(
 		&item.ID, &item.ElementUUID, &item.Hash,
 		&item.OwnerType, &sourcePeerID,
-		&item.Type, &item.Title, &item.Description, &item.ContentMeta, &parentID, &parentUUID,
+		&item.Type, &item.Title, &item.Description, &item.ContentMeta, &item.ShowDescription, &parentID, &parentUUID,
 		&item.Signature, &item.Version, &status, &visibility, &cachedAt, &createdAt, &updatedAt,
 	)
 	if err != nil {
@@ -108,7 +108,7 @@ func GetItemByHash(hash string) (*models.Item, error) {
 	query := `
 		SELECT id, element_uuid, hash,
 		       owner_type, source_peer_id,
-		       type, title, description, content_meta, parent_id, parent_uuid,
+		       type, title, description, content_meta, show_description, parent_id, parent_uuid,
 		       signature, version, status, visibility, cached_at, created_at, updated_at
 		FROM items
 		WHERE hash = ?
@@ -123,7 +123,7 @@ func GetItemByHash(hash string) (*models.Item, error) {
 	err := database.DB.QueryRow(query, hash).Scan(
 		&item.ID, &item.ElementUUID, &item.Hash,
 		&item.OwnerType, &sourcePeerID,
-		&item.Type, &item.Title, &item.Description, &item.ContentMeta, &parentID, &parentUUID,
+		&item.Type, &item.Title, &item.Description, &item.ContentMeta, &item.ShowDescription, &parentID, &parentUUID,
 		&item.Signature, &item.Version, &status, &visibility, &cachedAt, &createdAt, &updatedAt,
 	)
 	if err != nil {
@@ -163,7 +163,7 @@ func GetItemByElementUUID(elementUUID string) (*models.Item, error) {
 	query := `
 		SELECT id, element_uuid, hash,
 		       owner_type, source_peer_id,
-		       type, title, description, content_meta, parent_id, parent_uuid,
+		       type, title, description, content_meta, show_description, parent_id, parent_uuid,
 		       signature, version, status, visibility, cached_at, created_at, updated_at
 		FROM items
 		WHERE element_uuid = ?
@@ -178,7 +178,7 @@ func GetItemByElementUUID(elementUUID string) (*models.Item, error) {
 	err := database.DB.QueryRow(query, elementUUID).Scan(
 		&item.ID, &item.ElementUUID, &item.Hash,
 		&item.OwnerType, &sourcePeerID,
-		&item.Type, &item.Title, &item.Description, &item.ContentMeta, &parentID, &parentUUID,
+		&item.Type, &item.Title, &item.Description, &item.ContentMeta, &item.ShowDescription, &parentID, &parentUUID,
 		&item.Signature, &item.Version, &status, &visibility, &cachedAt, &createdAt, &updatedAt,
 	)
 	if err != nil {
@@ -224,14 +224,14 @@ func UpdateItem(item *models.Item) error {
 	UPDATE items
 	SET element_uuid = ?, hash = ?,
 	    owner_type = ?, source_peer_id = ?,
-	    type = ?, title = ?, description = ?, content_meta = ?, parent_id = ?, parent_uuid = ?,
+	    type = ?, title = ?, description = ?, content_meta = ?, show_description = ?, parent_id = ?, parent_uuid = ?,
 	    signature = ?, version = ?, status = ?, visibility = ?, cached_at = ?, updated_at = ?
 	WHERE id = ?
 	`
 	_, err := database.DB.Exec(query,
 		item.ElementUUID, item.Hash,
 		item.OwnerType, item.SourcePeerID,
-		item.Type, item.Title, item.Description, item.ContentMeta, item.ParentID, item.ParentUUID,
+		item.Type, item.Title, item.Description, item.ContentMeta, item.ShowDescription, item.ParentID, item.ParentUUID,
 		item.Signature, item.Version, item.Status, item.Visibility, item.CachedAt, time.Now(), item.ID,
 	)
 	return err

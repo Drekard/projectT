@@ -1,0 +1,641 @@
+﻿C:\Users\egors\Desktop\projectT>go run cmd/main.go
+2026/05/28 14:56:30 [Layout] CreateMainLayout: ml.sidebarState pointer=0x1a8b5135b040
+2026/05/28 14:56:30 [Layout] CreateMainLayout: initial Collapsed=true, Width=50
+2026/05/28 14:56:30 [Grid] loadItems called with 3 items, addCreateElement=false
+2026/05/28 14:56:30 [Grid] loadItemsAsync started: 3 items, generation=1
+2026/05/28 14:56:30 [Grid] Card creation completed: received 3/3 cards, generation=1
+2026/05/28 14:56:30 [Grid] loadItems called with 3 items, addCreateElement=false
+2026/05/28 14:56:30 [Grid] loadItemsAsync started: 3 items, generation=1
+2026/05/28 14:56:30 [Grid] loadItems called with 12 items, addCreateElement=true
+2026/05/28 14:56:30 [Layout] CreateMainLayout: headerState created, pointer=0x1a8b522f4440
+2026/05/28 14:56:30 [Layout] CreateMainLayout: calling CreateHeader
+2026/05/28 14:56:30 [Header] CreateHeader: ChatMode=false
+2026/05/28 14:56:30 [Header] Creating normal header
+2026/05/28 14:56:30 [Grid] loadItemsAsync started: 12 items, generation=1
+2026/05/28 14:56:30 [Grid] Card creation completed: received 3/3 cards, generation=1
+2026/05/28 14:56:30 [Layout] CreateMainLayout: CreateHeader done, appHeader pointer=0x1a8b52905b00
+2026/05/28 14:56:30 [Layout] CreateMainLayout: setting global search entry
+2026/05/28 14:56:30 [Layout] CreateMainLayout: creating handler
+2026/05/28 14:56:30 [Layout] CreateMainLayout: handler created, pointer=0x1a8b52914a98
+2026/05/28 14:56:30 [Layout] CreateMainLayout: getting transfer service
+2026/05/28 14:56:30 [Layout] CreateMainLayout: transfer service ready
+2026/05/28 14:56:30 [Layout] CreateMainLayout: calling CreateSidebar
+2026/05/28 14:56:30 [Sidebar] CreateSidebar: state pointer=0x1a8b5135b040
+2026/05/28 14:56:30 [Sidebar] CreateSidebar: ChatMode=false, Collapsed=true, Width=50, ChatUI=false
+2026/05/28 14:56:30 [Sidebar] Creating normal sidebar
+2026/05/28 14:56:30 [Sidebar] Calling CreateNavigation
+2026/05/28 14:56:30 [Nav] CreateNavigation START: state pointer=0x1a8b5135b040, Collapsed=true, ActiveSection=""
+2026/05/28 14:56:30 [Nav] createCustomNavButton: NOT setting text (collapsed)
+2026/05/28 14:56:30 [Nav] createCustomNavButton: returning button for "Profile"
+2026/05/28 14:56:30 [Nav] createCustomNavButton: NOT setting text (collapsed)
+2026/05/28 14:56:30 [Nav] createCustomNavButton: returning button for "Saved"
+2026/05/28 14:56:30 [Nav] createCustomNavButton: NOT setting text (collapsed)
+2026/05/28 14:56:30 [Nav] createCustomNavButton: returning button for "Downloads"
+2026/05/28 14:56:30 [Nav] createCustomNavButton: NOT setting text (collapsed)
+2026/05/28 14:56:30 [Nav] createCustomNavButton: returning button for "My Tags"
+2026/05/28 14:56:30 [Nav] createCustomNavButton: NOT setting text (collapsed)
+2026/05/28 14:56:30 [Nav] createCustomNavButton: returning button for "Chats"
+2026/05/28 14:56:30 [Nav] createCustomNavButton: NOT setting text (collapsed)
+2026/05/28 14:56:30 [Nav] createCustomNavButton: returning button for "Contacts"
+2026/05/28 14:56:30 [Nav] createCustomNavButton: NOT setting text (collapsed)
+2026/05/28 14:56:30 [Nav] createCustomNavButton: returning button for "P2P"
+2026/05/28 14:56:30 [Nav] createCustomNavButton: NOT setting text (collapsed)
+2026/05/28 14:56:30 [Nav] createCustomNavButton: returning button for "Compilation"
+2026/05/28 14:56:30 [Grid] Card creation completed: received 12/12 cards, generation=1
+2026/05/28 14:56:30 [Nav] CreateNavigation: returning collapsed layout (no separator)
+2026/05/28 14:56:30 [Nav] CreateNavigation END: result pointer=0x1a8b53b5ce80
+2026/05/28 14:56:30 [Sidebar] CreateNavigation done, navigation pointer=0x1a8b53b5ce80
+2026/05/28 14:56:30 [Sidebar] Creating collapsed mainContent (navigation + favorites icons)
+2026/05/28 14:56:30 [Sidebar] mainContent created, pointer=0x1a8b53b5cfc0
+2026/05/28 14:56:30 [Sidebar] Creating sidebarContainer without transfer progress
+2026/05/28 14:56:30 [Sidebar] Returning sidebarContainer without transfer progress, pointer=0x1a8b53b5d000
+2026/05/28 14:56:30 [Layout] CreateMainLayout: CreateSidebar done, appSidebar pointer=0x1a8b53b5d000
+2026/05/28 14:56:30 [Layout] CreateMainLayout: initializing default content (saved)
+2026/05/28 14:56:30 [Workspace] UpdateContent called: contentType=saved
+2026/05/28 14:56:30 [Workspace] UpdateContent: ContentType=saved
+2026/05/28 14:56:30 [Grid] loadItems called with 12 items, addCreateElement=true
+2026/05/28 14:56:30 [Grid] loadItemsAsync started: 12 items, generation=2
+2026/05/28 14:56:30 [Layout] CreateMainLayout: setting up borders
+2026/05/28 14:56:30 [Layout] CreateMainLayout: borders created
+2026/05/28 14:56:30 [Layout] CreateMainLayout: subscribing to theme change
+2026/05/28 14:56:30 [Layout] CreateMainLayout: theme subscription done
+2026/05/28 14:56:30 [Layout] CreateMainLayout: creating headerWithBorder
+2026/05/28 14:56:30 [Layout] CreateMainLayout: headerWithBorder created, pointer=0x1a8b53628380
+2026/05/28 14:56:30 [Layout] CreateMainLayout: creating sidebarWithBorder
+2026/05/28 14:56:30 [Layout] CreateMainLayout: sidebarWithBorder created, pointer=0x1a8b53628400
+2026/05/28 14:56:30 [Layout] CreateMainLayout: creating sidebarContainer
+2026/05/28 14:56:30 [Layout] CreateMainLayout: ml.sidebarContainer created, pointer=0x1a8b53628440
+2026/05/28 14:56:30 [Layout] CreateMainLayout: creating mainBorderLayout
+2026/05/28 14:56:30 [Layout] CreateMainLayout: mainBorderLayout created, pointer=0x1a8b53628540
+2026/05/28 14:56:30 [Layout] CreateMainLayout: ml.mainContainer created, pointer=0x1a8b53628580
+2026/05/28 14:56:30 [Layout] CreateMainLayout: setting up breadcrumbs
+2026/05/28 14:56:30 [Layout] CreateMainLayout: breadcrumbs setup done
+2026/05/28 14:56:30 [Layout] CreateMainLayout: setting up remote mode callback
+2026/05/28 14:56:30 [Layout] CreateMainLayout: remote mode callback setup done
+2026/05/28 14:56:30 [Layout] CreateMainLayout: navigation callbacks setup done
+2026/05/28 14:56:30 [Layout] CreateMainLayout: setting up chat mode callback
+2026/05/28 14:56:30 [Layout] CreateMainLayout: chat mode callback setup done
+2026/05/28 14:56:30 [Grid] Card creation completed: received 12/12 cards, generation=2
+2026/05/28 14:56:30 [P2P/Start] 🚀 Запуск P2P сети...
+2026/05/28 14:56:30 [P2P/Start] Профиль загружен за 527.8µs
+2026/05/28 14:56:30 [P2P/Host] ========================================
+2026/05/28 14:56:30 [P2P/Host] Хост создан, PeerID: 12D3KooWJyZ283MgjARck96rPQSDWsXS27qtxxP5Xu5cH8Fghyxe
+2026/05/28 14:56:30 [P2P/Host] Слушаемые адреса (ListenAddrs):
+2026/05/28 14:56:30 [P2P/Host]   - /ip4/127.0.0.1/tcp/8079/p2p/12D3KooWJyZ283MgjARck96rPQSDWsXS27qtxxP5Xu5cH8Fghyxe
+2026/05/28 14:56:30 [P2P/Host]   - /ip4/192.168.0.20/tcp/8079/p2p/12D3KooWJyZ283MgjARck96rPQSDWsXS27qtxxP5Xu5cH8Fghyxe
+2026/05/28 14:56:30 [P2P/Host]   - /ip6/::1/tcp/8079/p2p/12D3KooWJyZ283MgjARck96rPQSDWsXS27qtxxP5Xu5cH8Fghyxe
+2026/05/28 14:56:30 [P2P/Host]   ✅ Обнаружен публичный адрес: /ip6/::1/tcp/8079
+2026/05/28 14:56:30 [P2P/Host] NAT Port Map: true
+2026/05/28 14:56:30 [P2P/Host] Relay: true, AutoRelay: true
+2026/05/28 14:56:30 [P2P/Host] Hole Punching: enabled (always)
+2026/05/28 14:56:30 [P2P/Host] RelayService: enabled (always)
+2026/05/28 14:56:30 [P2P/Host] Bootstrap релеи: 0 загружено
+2026/05/28 14:56:30 [P2P/Host] ========================================
+2026/05/28 14:56:30 [P2P/Start] Хост создан за 200.3331ms (PeerID: 12D3KooW)
+2026/05/28 14:56:30 [Firewall] Проверка порта 8079 в брандмауэре...
+2026/05/28 14:56:30 [Firewall] ⚠️ Не удалось открыть порт: Требуются права администратора. Запустите от имени администратора или выполните команду вручную.
+2026/05/28 14:56:30 [Firewall] 💡 Выполните от имени администратора:
+2026/05/28 14:56:30 [Firewall] 💡   New-NetFirewallRule -DisplayName "ProjectT P2P" -Direction Inbound -LocalPort 8079 -Protocol TCP -Action Allow
+2026/05/28 14:56:30 [connection/manager.go] ========================================
+2026/05/28 14:56:30 [connection/manager.go] ЗАПУСК: Однократное подключение к известным пирам
+2026/05/28 14:56:30 [connection/manager.go] ========================================
+2026/05/28 14:56:30 [connection/manager.go] Загружено 1 адресов из БД для подключения
+2026/05/28 14:56:30 [connection/manager.go] Лимит: 50 одновременных подключений, уже подключено: 0, можно подключить: 50
+2026/05/28 14:56:30 [connection/manager.go] Инициировано 1 подключений из 1 известных пиров (лимит: 50)
+2026/05/28 14:56:30 [connection/manager.go] ========================================
+2026/05/28 14:56:30 [connection/manager] [1/1] Попытка подключения к 12D3KooW (тип: discovered, адрес: /ip4/192.168.0.13/tcp/4000/p2p/12D3KooWNgpMbornvZzPLTsbs1fZAjEPqKVgXao2b5aWZkCCs2n5)...
+2026/05/28 14:56:30 [discovery/service.go] ========================================
+2026/05/28 14:56:30 [discovery/service.go] ЗАПУСК: DiscoveryService — загрузка известных пиров
+2026/05/28 14:56:30 [discovery/service.go] ========================================
+2026/05/28 14:56:30 [discovery/service.go] loadPeerAddresses: получено 1 записей из БД
+2026/05/28 14:56:30 [discovery/service.go] loadPeerAddresses: [1/1] пир 12D3KooW (тип: discovered, username: )
+2026/05/28 14:56:30 [discovery/service.go] loadPeerAddresses: успешно загружено 1 из 1 адресов пиров
+2026/05/28 14:56:30 [P2P/Start] Сервисы инициализированы за 2.2418ms
+2026/05/28 14:56:30 [P2P/Start] ✅ P2P сеть запущена за 271.9625ms (подключения идут в фоне)
+2026/05/28 14:56:30 [P2P] 🚀 Запуск автоподключения к известным пирам...
+2026/05/28 14:56:30 [Autodial] Подключение к 1 пирам (лимит: 50)
+2026/05/28 14:56:30 [Autodial] Подключение к 12D3KooW (discovered) через /ip4/192.168.0.13/tcp/4000/p2p/12D3KooWNgpMbornvZzPLTsbs1fZAjEPqKVgXao2b5aWZkCCs2n5...
+2026/05/28 14:56:31 [Grid] loadItemsAsync completed: generation=1
+2026/05/28 14:56:31 [Grid] loadItemsAsync completed: generation=1
+2026/05/28 14:56:31 [Grid] loadItemsAsync completed: generation=2
+2026/05/28 14:56:35 [connection/manager] [1/1] FAILED подключение к 12D3KooW (discovered) за 5.0266424s: failed to dial: failed to dial 12D3KooWNgpMbornvZzPLTsbs1fZAjEPqKVgXao2b5aWZkCCs2n5: all dials failed
+  * [/ip4/192.168.0.13/tcp/4000] dial tcp4 0.0.0.0:8079->192.168.0.13:4000: i/o timeout
+2026/05/28 14:56:35 [connection/manager]   💡 Timeout: пир может быть за NAT или офлайн
+2026/05/28 14:56:35 [Autodial] ❌ Подключение к 12D3KooW (discovered) за 5.0244724s: failed to dial: failed to dial 12D3KooWNgpMbornvZzPLTsbs1fZAjEPqKVgXao2b5aWZkCCs2n5: all dials failed
+  * [/ip4/192.168.0.13/tcp/4000] dial tcp4 0.0.0.0:8079->192.168.0.13:4000: i/o timeout
+2026/05/28 14:56:35 [Autodial]   💡 Timeout: пир может быть за NAT или офлайн
+2026/05/28 14:56:35 [P2P] ❌ Подключение к пиру 12D3KooW не удалось: failed to dial: failed to dial 12D3KooWNgpMbornvZzPLTsbs1fZAjEPqKVgXao2b5aWZkCCs2n5: all dials failed
+  * [/ip4/192.168.0.13/tcp/4000] dial tcp4 0.0.0.0:8079->192.168.0.13:4000: i/o timeout
+2026/05/28 14:57:18 [Nav] Profile clicked
+2026/05/28 14:57:18 [Workspace] UpdateContent called: contentType=profile
+2026/05/28 14:57:18 [Workspace] UpdateContent: default case, contentType=profile
+2026/05/28 14:57:20 [Nav] Downloads clicked
+2026/05/28 14:57:20 [Workspace] UpdateContent called: contentType=preview
+2026/05/28 14:57:20 [Workspace] UpdateContent: ContentType=preview
+2026/05/28 14:57:20 [Grid] loadItems called with 0 items, addCreateElement=true
+2026/05/28 14:57:20 [Grid] loadItemsAsync started: 0 items, generation=3
+2026/05/28 14:57:20 [Grid] loadItemsAsync: no items to load, returning
+2026/05/28 14:57:21 [Nav] My Tags clicked
+2026/05/28 14:57:21 [Workspace] UpdateContent called: contentType=tags
+2026/05/28 14:57:22 [Nav] Chats clicked, setting ChatMode=true
+2026/05/28 14:57:22 [Layout] OnSidebarStateChanged called
+2026/05/28 14:57:22 [Layout] OnSidebarStateChanged: sidebarState.ChatMode=true, headerState.ChatMode=false
+2026/05/28 14:57:22 [Layout] OnSidebarStateChanged: switching to chat mode
+2026/05/28 14:57:22 [Workspace] UpdateContent called: contentType=chats
+2026/05/28 14:57:22 [Layout] setChatMode called: isChatMode=true, chatName="Chats"
+2026/05/28 14:57:22 [Layout] setChatMode: before - headerState.ChatMode=false, sidebarState.ChatMode=true
+2026/05/28 14:57:22 [Layout] setChatMode: ChatUI set
+2026/05/28 14:57:22 [Layout] setChatMode: ChatMode enabled, Width=180
+2026/05/28 14:57:22 [Layout] setChatMode: calling rebuildAll
+2026/05/28 14:57:22 [Layout] rebuildAll START: ChatMode=true, Collapsed=false, Width=180, ActiveSection="chats"
+2026/05/28 14:57:22 [Layout] rebuildAll: sidebarState pointer=0x1a8b5135b040
+2026/05/28 14:57:22 [Layout] rebuildAll: headerState.ChatMode=true, headerState.ChatHeader=true
+2026/05/28 14:57:22 [Layout] rebuildAll: calling CreateSidebar with Collapsed=false
+2026/05/28 14:57:22 [Sidebar] CreateSidebar: state pointer=0x1a8b5135b040
+2026/05/28 14:57:22 [Sidebar] CreateSidebar: ChatMode=true, Collapsed=false, Width=180, ChatUI=true
+2026/05/28 14:57:22 [Sidebar] Creating chat sidebar
+2026/05/28 14:57:22 [Sidebar] createChatSidebar START
+2026/05/28 14:57:22 [Sidebar] createChatSidebar: creating content
+2026/05/28 14:57:22 [Layout] rebuildAll: CreateSidebar done, newSidebar pointer=0x1a8b575c8240
+2026/05/28 14:57:22 [Layout] rebuildAll: calling CreateHeader with ChatMode=true
+2026/05/28 14:57:22 [Header] CreateHeader: ChatMode=true
+2026/05/28 14:57:22 [Header] Creating chat header for: "Chats"
+2026/05/28 14:57:22 [Layout] rebuildAll: CreateHeader done
+2026/05/28 14:57:22 [Layout] rebuildAll: newSidebarContainer created, pointer=0x1a8b5540ec00
+2026/05/28 14:57:22 [Layout] rebuildAll: creating mainBorderLayout
+2026/05/28 14:57:22 [Layout] rebuildAll: mainBorderLayout created, pointer=0x1a8b5540ed00
+2026/05/28 14:57:22 [Layout] rebuildAll: creating newMainContainer
+2026/05/28 14:57:22 [Layout] rebuildAll: newMainContainer created, pointer=0x1a8b5540ed40
+2026/05/28 14:57:22 [Layout] rebuildAll: replacing containers
+2026/05/28 14:57:22 [Layout] rebuildAll: containers replaced, ml.mainContainer=0x1a8b5540ed40, ml.sidebarContainer=0x1a8b5540ec00
+2026/05/28 14:57:22 [Layout] rebuildAll: calling SetContent
+2026/05/28 14:57:23 [Layout] rebuildAll: calling Resize
+2026/05/28 14:57:23 [Layout] rebuildAll: SetContent done
+2026/05/28 14:57:23 [Layout] rebuildAll: Refresh done
+2026/05/28 14:57:23 [Layout] rebuildAll END: headerState.ChatMode=true, headerState.ChatHeader=true
+2026/05/28 14:57:23 [Layout] setChatMode: rebuildAll done, headerState.ChatMode=true
+2026/05/28 14:57:24 [Sidebar] Back button clicked
+2026/05/28 14:57:24 [Sidebar] Calling OnBackToNav
+2026/05/28 14:57:24 [Layout] backToNormalMode called
+2026/05/28 14:57:24 [Layout] backToNormalMode: calling UpdateContent(saved)
+2026/05/28 14:57:24 [Workspace] UpdateContent called: contentType=saved
+2026/05/28 14:57:24 [Workspace] UpdateContent: ContentType=saved
+2026/05/28 14:57:24 [Grid] loadItems called with 12 items, addCreateElement=true
+2026/05/28 14:57:24 [Grid] loadItemsAsync started: 12 items, generation=4
+2026/05/28 14:57:24 [Layout] rebuildAll START: ChatMode=false, Collapsed=true, Width=50, ActiveSection="saved"
+2026/05/28 14:57:24 [Layout] rebuildAll: sidebarState pointer=0x1a8b5135b040
+2026/05/28 14:57:24 [Layout] rebuildAll: headerState.ChatMode=false, headerState.ChatHeader=false
+2026/05/28 14:57:24 [Layout] rebuildAll: calling CreateSidebar with Collapsed=true
+2026/05/28 14:57:24 [Sidebar] CreateSidebar: state pointer=0x1a8b5135b040
+2026/05/28 14:57:24 [Sidebar] CreateSidebar: ChatMode=false, Collapsed=true, Width=50, ChatUI=false
+2026/05/28 14:57:24 [Sidebar] Creating normal sidebar
+2026/05/28 14:57:24 [Sidebar] Calling CreateNavigation
+2026/05/28 14:57:24 [Nav] CreateNavigation START: state pointer=0x1a8b5135b040, Collapsed=true, ActiveSection="saved"
+2026/05/28 14:57:24 [Nav] createCustomNavButton: NOT setting text (collapsed)
+2026/05/28 14:57:24 [Nav] createCustomNavButton: returning button for "Profile"
+2026/05/28 14:57:24 [Nav] createCustomNavButton: NOT setting text (collapsed)
+2026/05/28 14:57:24 [Nav] createCustomNavButton: returning button for "Saved"
+2026/05/28 14:57:24 [Nav] createCustomNavButton: NOT setting text (collapsed)
+2026/05/28 14:57:24 [Nav] createCustomNavButton: returning button for "Downloads"
+2026/05/28 14:57:24 [Nav] createCustomNavButton: NOT setting text (collapsed)
+2026/05/28 14:57:24 [Nav] createCustomNavButton: returning button for "My Tags"
+2026/05/28 14:57:24 [Nav] createCustomNavButton: NOT setting text (collapsed)
+2026/05/28 14:57:24 [Nav] createCustomNavButton: returning button for "Chats"
+2026/05/28 14:57:24 [Nav] createCustomNavButton: NOT setting text (collapsed)
+2026/05/28 14:57:24 [Nav] createCustomNavButton: returning button for "Contacts"
+2026/05/28 14:57:24 [Nav] createCustomNavButton: NOT setting text (collapsed)
+2026/05/28 14:57:24 [Nav] createCustomNavButton: returning button for "P2P"
+2026/05/28 14:57:24 [Nav] createCustomNavButton: NOT setting text (collapsed)
+2026/05/28 14:57:24 [Nav] createCustomNavButton: returning button for "Compilation"
+2026/05/28 14:57:24 [Grid] Card creation completed: received 12/12 cards, generation=4
+2026/05/28 14:57:24 [Nav] CreateNavigation: returning collapsed layout (no separator)
+2026/05/28 14:57:24 [Nav] CreateNavigation END: result pointer=0x1a8b5965ecc0
+2026/05/28 14:57:24 [Sidebar] CreateNavigation done, navigation pointer=0x1a8b5965ecc0
+2026/05/28 14:57:24 [Sidebar] Creating collapsed mainContent (navigation + favorites icons)
+2026/05/28 14:57:24 [Sidebar] mainContent created, pointer=0x1a8b5965f140
+2026/05/28 14:57:24 [Sidebar] Creating sidebarContainer with transfer progress
+2026/05/28 14:57:24 [Sidebar] Returning sidebarContainer with transfer progress, pointer=0x1a8b5965f1c0
+2026/05/28 14:57:24 [Layout] rebuildAll: CreateSidebar done, newSidebar pointer=0x1a8b5965f1c0
+2026/05/28 14:57:24 [Layout] rebuildAll: calling CreateHeader with ChatMode=false
+2026/05/28 14:57:24 [Header] CreateHeader: ChatMode=false
+2026/05/28 14:57:24 [Header] Creating normal header
+2026/05/28 14:57:24 [Layout] rebuildAll: CreateHeader done
+2026/05/28 14:57:24 [Layout] rebuildAll: newSidebarContainer created, pointer=0x1a8b5898d940
+2026/05/28 14:57:24 [Layout] rebuildAll: creating mainBorderLayout
+2026/05/28 14:57:24 [Layout] rebuildAll: mainBorderLayout created, pointer=0x1a8b5898da80
+2026/05/28 14:57:24 [Layout] rebuildAll: creating newMainContainer
+2026/05/28 14:57:24 [Layout] rebuildAll: newMainContainer created, pointer=0x1a8b5898dac0
+2026/05/28 14:57:24 [Layout] rebuildAll: replacing containers
+2026/05/28 14:57:24 [Layout] rebuildAll: containers replaced, ml.mainContainer=0x1a8b5898dac0, ml.sidebarContainer=0x1a8b5898d940
+2026/05/28 14:57:24 [Layout] rebuildAll: calling SetContent
+2026/05/28 14:57:24 [Layout] rebuildAll: calling Resize
+2026/05/28 14:57:24 [Layout] rebuildAll: SetContent done
+2026/05/28 14:57:24 [Layout] rebuildAll: Refresh done
+2026/05/28 14:57:24 [Layout] rebuildAll END: headerState.ChatMode=false, headerState.ChatHeader=false
+2026/05/28 14:57:24 [Grid] loadItemsAsync completed: generation=4
+2026/05/28 14:57:25 [Nav] P2P clicked
+2026/05/28 14:57:25 [Workspace] UpdateContent called: contentType=p2p
+2026/05/28 14:57:25 [P2P/Start] 🚀 Запуск P2P сети...
+2026/05/28 14:57:25 [P2P/Start] ⚠️ Start вызван повторно! Хост уже существует (PeerID: 12D3KooWJyZ283MgjARck96rPQSDWsXS27qtxxP5Xu5cH8Fghyxe). Пропускаю.
+2026/05/28 14:57:25 [P2P] P2P started
+2026/05/28 14:57:26 [P2P/API] RefreshPublicAddress заняло 460.3292ms
+2026/05/28 14:57:26 [P2P/API] RefreshPublicAddress заняло 443.7336ms
+2026/05/28 14:57:27 [Nav] Compilation clicked
+2026/05/28 14:57:27 [Workspace] UpdateContent called: contentType=compilation
+2026/05/28 14:57:30 [Header] Menu button clicked, calling OnToggleSidebar
+2026/05/28 14:57:30 [Layout] toggleSidebar: ml.sidebarState pointer=0x1a8b5135b040
+2026/05/28 14:57:30 [Layout] toggleSidebar called, current Collapsed=true, ChatMode=false
+2026/05/28 14:57:30 [Layout] toggleSidebar: new Collapsed=false, ml.sidebarState pointer=0x1a8b5135b040
+2026/05/28 14:57:30 [Layout] toggleSidebar: new Width=180
+2026/05/28 14:57:30 [Layout] toggleSidebar: calling rebuildAll
+2026/05/28 14:57:30 [Layout] rebuildAll START: ChatMode=false, Collapsed=false, Width=180, ActiveSection="compilation"
+2026/05/28 14:57:30 [Layout] rebuildAll: sidebarState pointer=0x1a8b5135b040
+2026/05/28 14:57:30 [Layout] rebuildAll: headerState.ChatMode=false, headerState.ChatHeader=false
+2026/05/28 14:57:30 [Layout] rebuildAll: calling CreateSidebar with Collapsed=false
+2026/05/28 14:57:30 [Sidebar] CreateSidebar: state pointer=0x1a8b5135b040
+2026/05/28 14:57:30 [Sidebar] CreateSidebar: ChatMode=false, Collapsed=false, Width=180, ChatUI=false
+2026/05/28 14:57:30 [Sidebar] Creating normal sidebar
+2026/05/28 14:57:30 [Sidebar] Calling CreateNavigation
+2026/05/28 14:57:30 [Nav] CreateNavigation START: state pointer=0x1a8b5135b040, Collapsed=false, ActiveSection="compilation"
+2026/05/28 14:57:30 [Nav] createCustomNavButton: setting text to "Profile"
+2026/05/28 14:57:30 [Nav] createCustomNavButton: returning button for "Profile"
+2026/05/28 14:57:30 [Nav] createCustomNavButton: setting text to "Saved"
+2026/05/28 14:57:30 [Nav] createCustomNavButton: returning button for "Saved"
+2026/05/28 14:57:30 [Nav] createCustomNavButton: setting text to "Downloads"
+2026/05/28 14:57:30 [Nav] createCustomNavButton: returning button for "Downloads"
+2026/05/28 14:57:30 [Nav] createCustomNavButton: setting text to "My Tags"
+2026/05/28 14:57:30 [Nav] createCustomNavButton: returning button for "My Tags"
+2026/05/28 14:57:30 [Nav] createCustomNavButton: setting text to "Chats"
+2026/05/28 14:57:30 [Nav] createCustomNavButton: returning button for "Chats"
+2026/05/28 14:57:30 [Nav] createCustomNavButton: setting text to "Contacts"
+2026/05/28 14:57:30 [Nav] createCustomNavButton: returning button for "Contacts"
+2026/05/28 14:57:30 [Nav] createCustomNavButton: setting text to "P2P"
+2026/05/28 14:57:30 [Nav] createCustomNavButton: returning button for "P2P"
+2026/05/28 14:57:30 [Nav] createCustomNavButton: setting text to "Compilation"
+2026/05/28 14:57:30 [Nav] createCustomNavButton: returning button for "Compilation"
+2026/05/28 14:57:30 [Nav] CreateNavigation: returning expanded layout (with separator)
+2026/05/28 14:57:30 [Nav] CreateNavigation END: result pointer=0x1a8b55630740
+2026/05/28 14:57:30 [Sidebar] CreateNavigation done, navigation pointer=0x1a8b55630740
+2026/05/28 14:57:30 [Sidebar] Calling createFrequentlyUsedSection
+2026/05/28 14:57:30 [Sidebar] createFrequentlyUsedSection done, frequentContainer pointer=0x1a8b55630a80
+2026/05/28 14:57:30 [Sidebar] Creating expanded mainContent
+2026/05/28 14:57:30 [Sidebar] mainContent created, pointer=0x1a8b55630ac0
+2026/05/28 14:57:30 [Sidebar] Creating sidebarContainer with transfer progress
+2026/05/28 14:57:30 [Sidebar] Returning sidebarContainer with transfer progress, pointer=0x1a8b55630b40
+2026/05/28 14:57:30 [Layout] rebuildAll: CreateSidebar done, newSidebar pointer=0x1a8b55630b40
+2026/05/28 14:57:30 [Layout] rebuildAll: calling CreateHeader with ChatMode=false
+2026/05/28 14:57:30 [Header] CreateHeader: ChatMode=false
+2026/05/28 14:57:30 [Header] Creating normal header
+2026/05/28 14:57:30 [Layout] rebuildAll: CreateHeader done
+2026/05/28 14:57:30 [Layout] rebuildAll: newSidebarContainer created, pointer=0x1a8b573dd9c0
+2026/05/28 14:57:30 [Layout] rebuildAll: creating mainBorderLayout
+2026/05/28 14:57:30 [Layout] rebuildAll: mainBorderLayout created, pointer=0x1a8b573ddb40
+2026/05/28 14:57:30 [Layout] rebuildAll: creating newMainContainer
+2026/05/28 14:57:30 [Layout] rebuildAll: newMainContainer created, pointer=0x1a8b573ddb80
+2026/05/28 14:57:30 [Layout] rebuildAll: replacing containers
+2026/05/28 14:57:30 [Layout] rebuildAll: containers replaced, ml.mainContainer=0x1a8b573ddb80, ml.sidebarContainer=0x1a8b573dd9c0
+2026/05/28 14:57:30 [Layout] rebuildAll: calling SetContent
+2026/05/28 14:57:30 [Layout] rebuildAll: calling Resize
+2026/05/28 14:57:30 [Layout] rebuildAll: SetContent done
+2026/05/28 14:57:30 [Layout] rebuildAll: Refresh done
+2026/05/28 14:57:30 [Layout] rebuildAll END: headerState.ChatMode=false, headerState.ChatHeader=false
+2026/05/28 14:57:30 [Layout] toggleSidebar: rebuildAll done
+2026/05/28 14:57:31 [Header] Menu button clicked, calling OnToggleSidebar
+2026/05/28 14:57:31 [Layout] toggleSidebar: ml.sidebarState pointer=0x1a8b5135b040
+2026/05/28 14:57:31 [Layout] toggleSidebar called, current Collapsed=false, ChatMode=false
+2026/05/28 14:57:31 [Layout] toggleSidebar: new Collapsed=true, ml.sidebarState pointer=0x1a8b5135b040
+2026/05/28 14:57:31 [Layout] toggleSidebar: new Width=50
+2026/05/28 14:57:31 [Layout] toggleSidebar: calling rebuildAll
+2026/05/28 14:57:31 [Layout] rebuildAll START: ChatMode=false, Collapsed=true, Width=50, ActiveSection="compilation"
+2026/05/28 14:57:31 [Layout] rebuildAll: sidebarState pointer=0x1a8b5135b040
+2026/05/28 14:57:31 [Layout] rebuildAll: headerState.ChatMode=false, headerState.ChatHeader=false
+2026/05/28 14:57:31 [Layout] rebuildAll: calling CreateSidebar with Collapsed=true
+2026/05/28 14:57:31 [Sidebar] CreateSidebar: state pointer=0x1a8b5135b040
+2026/05/28 14:57:31 [Sidebar] CreateSidebar: ChatMode=false, Collapsed=true, Width=50, ChatUI=false
+2026/05/28 14:57:31 [Sidebar] Creating normal sidebar
+2026/05/28 14:57:31 [Sidebar] Calling CreateNavigation
+2026/05/28 14:57:31 [Nav] CreateNavigation START: state pointer=0x1a8b5135b040, Collapsed=true, ActiveSection="compilation"
+2026/05/28 14:57:31 [Nav] createCustomNavButton: NOT setting text (collapsed)
+2026/05/28 14:57:31 [Nav] createCustomNavButton: returning button for "Profile"
+2026/05/28 14:57:31 [Nav] createCustomNavButton: NOT setting text (collapsed)
+2026/05/28 14:57:31 [Nav] createCustomNavButton: returning button for "Saved"
+2026/05/28 14:57:31 [Nav] createCustomNavButton: NOT setting text (collapsed)
+2026/05/28 14:57:31 [Nav] createCustomNavButton: returning button for "Downloads"
+2026/05/28 14:57:31 [Nav] createCustomNavButton: NOT setting text (collapsed)
+2026/05/28 14:57:31 [Nav] createCustomNavButton: returning button for "My Tags"
+2026/05/28 14:57:31 [Nav] createCustomNavButton: NOT setting text (collapsed)
+2026/05/28 14:57:31 [Nav] createCustomNavButton: returning button for "Chats"
+2026/05/28 14:57:31 [Nav] createCustomNavButton: NOT setting text (collapsed)
+2026/05/28 14:57:31 [Nav] createCustomNavButton: returning button for "Contacts"
+2026/05/28 14:57:31 [Nav] createCustomNavButton: NOT setting text (collapsed)
+2026/05/28 14:57:31 [Nav] createCustomNavButton: returning button for "P2P"
+2026/05/28 14:57:31 [Nav] createCustomNavButton: NOT setting text (collapsed)
+2026/05/28 14:57:31 [Nav] createCustomNavButton: returning button for "Compilation"
+2026/05/28 14:57:31 [Nav] CreateNavigation: returning collapsed layout (no separator)
+2026/05/28 14:57:31 [Nav] CreateNavigation END: result pointer=0x1a8b581983c0
+2026/05/28 14:57:31 [Sidebar] CreateNavigation done, navigation pointer=0x1a8b581983c0
+2026/05/28 14:57:31 [Sidebar] Creating collapsed mainContent (navigation + favorites icons)
+2026/05/28 14:57:31 [Sidebar] mainContent created, pointer=0x1a8b58198780
+2026/05/28 14:57:31 [Sidebar] Creating sidebarContainer with transfer progress
+2026/05/28 14:57:31 [Sidebar] Returning sidebarContainer with transfer progress, pointer=0x1a8b58198800
+2026/05/28 14:57:31 [Layout] rebuildAll: CreateSidebar done, newSidebar pointer=0x1a8b58198800
+2026/05/28 14:57:31 [Layout] rebuildAll: calling CreateHeader with ChatMode=false
+2026/05/28 14:57:31 [Header] CreateHeader: ChatMode=false
+2026/05/28 14:57:31 [Header] Creating normal header
+2026/05/28 14:57:31 [Layout] rebuildAll: CreateHeader done
+2026/05/28 14:57:31 [Layout] rebuildAll: newSidebarContainer created, pointer=0x1a8b581eaec0
+2026/05/28 14:57:31 [Layout] rebuildAll: creating mainBorderLayout
+2026/05/28 14:57:31 [Layout] rebuildAll: mainBorderLayout created, pointer=0x1a8b581eafc0
+2026/05/28 14:57:31 [Layout] rebuildAll: creating newMainContainer
+2026/05/28 14:57:31 [Layout] rebuildAll: newMainContainer created, pointer=0x1a8b581eb000
+2026/05/28 14:57:31 [Layout] rebuildAll: replacing containers
+2026/05/28 14:57:31 [Layout] rebuildAll: containers replaced, ml.mainContainer=0x1a8b581eb000, ml.sidebarContainer=0x1a8b581eaec0
+2026/05/28 14:57:31 [Layout] rebuildAll: calling SetContent
+2026/05/28 14:57:31 [Layout] rebuildAll: calling Resize
+2026/05/28 14:57:31 [Layout] rebuildAll: SetContent done
+2026/05/28 14:57:31 [Layout] rebuildAll: Refresh done
+2026/05/28 14:57:31 [Layout] rebuildAll END: headerState.ChatMode=false, headerState.ChatHeader=false
+2026/05/28 14:57:31 [Layout] toggleSidebar: rebuildAll done
+2026/05/28 14:57:36 [SearchPopup] OnChanged: "Art"
+2026/05/28 14:57:37 [SearchPopup] Executing search for: "Art"
+2026/05/28 14:57:37 [Search] SearchItems called with query: "Art"
+2026/05/28 14:57:37 [Grid] LoadItemsBySearchWithSort called with query: "Art"
+2026/05/28 14:57:37 [Loader] LoadAndSortItemsBySearch called with query: "Art", options: &{ItemType:all Priority:none SortBy:name SortOrder:asc TabMode:}
+2026/05/28 14:57:37 [ItemsService] SearchItems called with query: "Art"
+2026/05/28 14:57:37 [Queries] SearchItems executing query with pattern: "%Art%"
+2026/05/28 14:57:37 [Queries] SearchItems found item: id=58, title="", type=element
+2026/05/28 14:57:37 [Queries] SearchItems found item: id=24, title="Корона", type=element
+2026/05/28 14:57:37 [Queries] SearchItems found item: id=36, title="", type=element
+2026/05/28 14:57:37 [Queries] SearchItems found item: id=10, title="Вевук", type=element
+2026/05/28 14:57:37 [Queries] SearchItems found item: id=17, title="", type=element
+2026/05/28 14:57:37 [Queries] SearchItems found item: id=18, title="", type=element
+2026/05/28 14:57:37 [Queries] SearchItems found item: id=23, title="Lose", type=element
+2026/05/28 14:57:37 [Queries] SearchItems found item: id=8, title="Азура", type=element
+2026/05/28 14:57:37 [Queries] SearchItems found item: id=9, title="Одна из работ", type=element
+2026/05/28 14:57:37 [Queries] SearchItems found item: id=11, title="Золотые поля Телвани", type=element
+2026/05/28 14:57:37 [Queries] SearchItems found item: id=21, title="Лого для сервера", type=element
+2026/05/28 14:57:37 [Queries] SearchItems found item: id=16, title="Сер Алон", type=element
+2026/05/28 14:57:37 [Queries] SearchItems total results: 12
+2026/05/28 14:57:37 [ItemsService] queries.SearchItems returned 12 items
+2026/05/28 14:57:37 [Loader] SearchItems returned 12 items
+2026/05/28 14:57:37 [Sorter] SortItems called with 12 items, options: &{ItemType:all Priority:none SortBy:name SortOrder:asc TabMode:}
+2026/05/28 14:57:37 [Sorter] After filterByType("all"): 12 items
+2026/05/28 14:57:37 [Sorter] SortItems returning 12 items
+2026/05/28 14:57:37 [Loader] GetSortedItems returned 12 items after sorting/filtering
+2026/05/28 14:57:37 [Grid] LoadAndSortItemsBySearch returned 12 items
+2026/05/28 14:57:37 [Grid] loadItems called with 12 items, addCreateElement=true
+2026/05/28 14:57:37 [Search] Search completed, setting currentType to search_Art
+2026/05/28 14:57:37 [Grid] loadItemsAsync started: 12 items, generation=5
+2026/05/28 14:57:37 [Grid] Card creation completed: received 12/12 cards, generation=5
+2026/05/28 14:57:37 [Grid] loadItemsAsync completed: generation=5
+2026/05/28 14:57:39 [Nav] Saved clicked
+2026/05/28 14:57:39 [Workspace] UpdateContent called: contentType=saved
+2026/05/28 14:57:39 [Workspace] UpdateContent: ContentType=saved
+2026/05/28 14:57:39 [Grid] loadItems called with 12 items, addCreateElement=true
+2026/05/28 14:57:39 [Grid] loadItemsAsync started: 12 items, generation=6
+2026/05/28 14:57:39 [Workspace] UpdateContent called: contentType=saved
+2026/05/28 14:57:39 [Workspace] UpdateContent: ContentType=saved
+2026/05/28 14:57:39 [Grid] loadItems called with 12 items, addCreateElement=true
+2026/05/28 14:57:39 [Grid] loadItemsAsync started: 12 items, generation=7
+2026/05/28 14:57:39 [Grid] Card creation completed: received 12/12 cards, generation=6
+2026/05/28 14:57:39 [Grid] Generation mismatch after card creation: expected 6, got 7
+2026/05/28 14:57:39 [Grid] Card creation completed: received 12/12 cards, generation=7
+2026/05/28 14:57:40 [Grid] loadItemsAsync completed: generation=7
+2026/05/28 14:57:52 [SearchPopup] OnChanged: "Art "
+2026/05/28 14:57:52 [SearchPopup] OnChanged: "Art"
+2026/05/28 14:57:54 [SearchPopup] OnChanged: "Ar"
+2026/05/28 14:57:55 [SearchPopup] Executing search for: "Ar"
+2026/05/28 14:57:55 [Search] SearchItems called with query: "Ar"
+2026/05/28 14:57:55 [Grid] LoadItemsBySearchWithSort called with query: "Ar"
+2026/05/28 14:57:55 [Loader] LoadAndSortItemsBySearch called with query: "Ar", options: &{ItemType:all Priority:none SortBy:name SortOrder:asc TabMode:}
+2026/05/28 14:57:55 [ItemsService] SearchItems called with query: "Ar"
+2026/05/28 14:57:55 [Queries] SearchItems executing query with pattern: "%Ar%"
+2026/05/28 14:57:55 [Queries] SearchItems found item: id=58, title="", type=element
+2026/05/28 14:57:55 [Queries] SearchItems found item: id=24, title="Корона", type=element
+2026/05/28 14:57:55 [Queries] SearchItems found item: id=36, title="", type=element
+2026/05/28 14:57:55 [Queries] SearchItems found item: id=38, title="", type=element
+2026/05/28 14:57:55 [Queries] SearchItems found item: id=10, title="Вевук", type=element
+2026/05/28 14:57:55 [Queries] SearchItems found item: id=17, title="", type=element
+2026/05/28 14:57:55 [Queries] SearchItems found item: id=18, title="", type=element
+2026/05/28 14:57:55 [Queries] SearchItems found item: id=23, title="Lose", type=element
+2026/05/28 14:57:55 [Queries] SearchItems found item: id=8, title="Азура", type=element
+2026/05/28 14:57:55 [Queries] SearchItems found item: id=9, title="Одна из работ", type=element
+2026/05/28 14:57:55 [Queries] SearchItems found item: id=11, title="Золотые поля Телвани", type=element
+2026/05/28 14:57:55 [Queries] SearchItems found item: id=21, title="Лого для сервера", type=element
+2026/05/28 14:57:55 [Queries] SearchItems found item: id=15, title="Мемчик", type=element
+2026/05/28 14:57:55 [Queries] SearchItems found item: id=16, title="Сер Алон", type=element
+2026/05/28 14:57:55 [Queries] SearchItems found item: id=7, title="Dark Souls", type=folder
+2026/05/28 14:57:55 [Queries] SearchItems total results: 15
+2026/05/28 14:57:55 [ItemsService] queries.SearchItems returned 15 items
+2026/05/28 14:57:55 [Loader] SearchItems returned 15 items
+2026/05/28 14:57:55 [Sorter] SortItems called with 15 items, options: &{ItemType:all Priority:none SortBy:name SortOrder:asc TabMode:}
+2026/05/28 14:57:55 [Sorter] After filterByType("all"): 15 items
+2026/05/28 14:57:55 [Sorter] SortItems returning 15 items
+2026/05/28 14:57:55 [Loader] GetSortedItems returned 15 items after sorting/filtering
+2026/05/28 14:57:55 [Grid] LoadAndSortItemsBySearch returned 15 items
+2026/05/28 14:57:55 [Grid] loadItems called with 15 items, addCreateElement=true
+2026/05/28 14:57:55 [Search] Search completed, setting currentType to search_Ar
+2026/05/28 14:57:55 [Grid] loadItemsAsync started: 15 items, generation=8
+2026/05/28 14:57:55 [Grid] Card creation completed: received 15/15 cards, generation=8
+2026/05/28 14:57:56 [SearchPopup] OnChanged: "Art"
+2026/05/28 14:57:56 [Grid] loadItemsAsync completed: generation=8
+2026/05/28 14:57:56 [SearchPopup] Executing search for: "Art"
+2026/05/28 14:57:56 [Search] SearchItems called with query: "Art"
+2026/05/28 14:57:56 [Grid] LoadItemsBySearchWithSort called with query: "Art"
+2026/05/28 14:57:56 [Loader] LoadAndSortItemsBySearch called with query: "Art", options: &{ItemType:all Priority:none SortBy:name SortOrder:asc TabMode:}
+2026/05/28 14:57:56 [ItemsService] SearchItems called with query: "Art"
+2026/05/28 14:57:56 [Queries] SearchItems executing query with pattern: "%Art%"
+2026/05/28 14:57:56 [Queries] SearchItems found item: id=58, title="", type=element
+2026/05/28 14:57:56 [Queries] SearchItems found item: id=24, title="Корона", type=element
+2026/05/28 14:57:56 [Queries] SearchItems found item: id=36, title="", type=element
+2026/05/28 14:57:56 [Queries] SearchItems found item: id=10, title="Вевук", type=element
+2026/05/28 14:57:56 [Queries] SearchItems found item: id=17, title="", type=element
+2026/05/28 14:57:56 [Queries] SearchItems found item: id=18, title="", type=element
+2026/05/28 14:57:56 [Queries] SearchItems found item: id=23, title="Lose", type=element
+2026/05/28 14:57:56 [Queries] SearchItems found item: id=8, title="Азура", type=element
+2026/05/28 14:57:56 [Queries] SearchItems found item: id=9, title="Одна из работ", type=element
+2026/05/28 14:57:56 [Queries] SearchItems found item: id=11, title="Золотые поля Телвани", type=element
+2026/05/28 14:57:56 [Queries] SearchItems found item: id=21, title="Лого для сервера", type=element
+2026/05/28 14:57:56 [Queries] SearchItems found item: id=16, title="Сер Алон", type=element
+2026/05/28 14:57:56 [Queries] SearchItems total results: 12
+2026/05/28 14:57:56 [ItemsService] queries.SearchItems returned 12 items
+2026/05/28 14:57:56 [Loader] SearchItems returned 12 items
+2026/05/28 14:57:56 [Sorter] SortItems called with 12 items, options: &{ItemType:all Priority:none SortBy:name SortOrder:asc TabMode:}
+2026/05/28 14:57:56 [Sorter] After filterByType("all"): 12 items
+2026/05/28 14:57:56 [Sorter] SortItems returning 12 items
+2026/05/28 14:57:56 [Loader] GetSortedItems returned 12 items after sorting/filtering
+2026/05/28 14:57:56 [Grid] LoadAndSortItemsBySearch returned 12 items
+2026/05/28 14:57:56 [Grid] loadItems called with 12 items, addCreateElement=true
+2026/05/28 14:57:56 [Search] Search completed, setting currentType to search_Art
+2026/05/28 14:57:56 [Grid] loadItemsAsync started: 12 items, generation=9
+2026/05/28 14:57:56 [Grid] Card creation completed: received 12/12 cards, generation=9
+2026/05/28 14:57:58 [Grid] loadItemsAsync completed: generation=9
+2026/05/28 14:58:03 [Workspace] UpdateContent called: contentType=saved
+2026/05/28 14:58:03 [Workspace] UpdateContent: ContentType=saved
+2026/05/28 14:58:03 [Grid] loadItems called with 12 items, addCreateElement=true
+2026/05/28 14:58:03 [Grid] loadItemsAsync started: 12 items, generation=10
+2026/05/28 14:58:03 [Sorter] SortItems called with 12 items, options: &{ItemType:all Priority:none SortBy:name SortOrder:asc TabMode:}
+2026/05/28 14:58:03 [Sorter] After filterByType("all"): 12 items
+2026/05/28 14:58:03 [Sorter] SortItems returning 12 items
+2026/05/28 14:58:03 [Grid] loadItems called with 12 items, addCreateElement=true
+2026/05/28 14:58:03 [Grid] loadItemsAsync started: 12 items, generation=11
+2026/05/28 14:58:03 [Grid] Card creation completed: received 12/12 cards, generation=10
+2026/05/28 14:58:03 [Grid] Generation mismatch after card creation: expected 10, got 11
+2026/05/28 14:58:03 [Grid] Card creation completed: received 12/12 cards, generation=11
+2026/05/28 14:58:03 [Grid] loadItemsAsync completed: generation=11
+2026/05/28 14:58:06 [Sorter] SortItems called with 16 items, options: &{ItemType:all Priority:none SortBy:name SortOrder:asc TabMode:}
+2026/05/28 14:58:06 [Sorter] After filterByType("all"): 16 items
+2026/05/28 14:58:06 [Sorter] SortItems returning 16 items
+2026/05/28 14:58:06 [Grid] loadItems called with 16 items, addCreateElement=true
+2026/05/28 14:58:06 [Grid] loadItemsAsync started: 16 items, generation=12
+2026/05/28 14:58:06 [Grid] Card creation completed: received 16/16 cards, generation=12
+2026/05/28 14:58:07 [Grid] loadItemsAsync completed: generation=12
+2026/05/28 14:58:08 [Nav] Contacts clicked
+2026/05/28 14:58:08 [Workspace] UpdateContent called: contentType=contacts
+2026/05/28 14:58:08 Fyne error:  Entry cannot wrap single line
+2026/05/28 14:58:08   At: C:/Users/egors/go/pkg/mod/fyne.io/fyne/v2@v2.7.4/widget/entry.go:1316
+2026/05/28 14:58:10 [Nav] Chats clicked, setting ChatMode=true
+2026/05/28 14:58:10 [Layout] OnSidebarStateChanged called
+2026/05/28 14:58:10 [Layout] OnSidebarStateChanged: sidebarState.ChatMode=true, headerState.ChatMode=false
+2026/05/28 14:58:10 [Layout] OnSidebarStateChanged: switching to chat mode
+2026/05/28 14:58:10 [Workspace] UpdateContent called: contentType=chats
+2026/05/28 14:58:10 [Layout] setChatMode called: isChatMode=true, chatName="Chats"
+2026/05/28 14:58:10 [Layout] setChatMode: before - headerState.ChatMode=false, sidebarState.ChatMode=true
+2026/05/28 14:58:10 [Layout] setChatMode: ChatUI set
+2026/05/28 14:58:10 [Layout] setChatMode: ChatMode enabled, Width=180
+2026/05/28 14:58:10 [Layout] setChatMode: calling rebuildAll
+2026/05/28 14:58:10 [Layout] rebuildAll START: ChatMode=true, Collapsed=false, Width=180, ActiveSection="chats"
+2026/05/28 14:58:10 [Layout] rebuildAll: sidebarState pointer=0x1a8b5135b040
+2026/05/28 14:58:10 [Layout] rebuildAll: headerState.ChatMode=true, headerState.ChatHeader=true
+2026/05/28 14:58:10 [Layout] rebuildAll: calling CreateSidebar with Collapsed=false
+2026/05/28 14:58:10 [Sidebar] CreateSidebar: state pointer=0x1a8b5135b040
+2026/05/28 14:58:10 [Sidebar] CreateSidebar: ChatMode=true, Collapsed=false, Width=180, ChatUI=true
+2026/05/28 14:58:10 [Sidebar] Creating chat sidebar
+2026/05/28 14:58:10 [Sidebar] createChatSidebar START
+2026/05/28 14:58:10 [Sidebar] createChatSidebar: creating content
+2026/05/28 14:58:10 [Layout] rebuildAll: CreateSidebar done, newSidebar pointer=0x1a8b579d10c0
+2026/05/28 14:58:10 [Layout] rebuildAll: calling CreateHeader with ChatMode=true
+2026/05/28 14:58:10 [Header] CreateHeader: ChatMode=true
+2026/05/28 14:58:10 [Header] Creating chat header for: "Chats"
+2026/05/28 14:58:10 [Layout] rebuildAll: CreateHeader done
+2026/05/28 14:58:10 [Layout] rebuildAll: newSidebarContainer created, pointer=0x1a8b575c9ec0
+2026/05/28 14:58:10 [Layout] rebuildAll: creating mainBorderLayout
+2026/05/28 14:58:10 [Layout] rebuildAll: mainBorderLayout created, pointer=0x1a8b57388280
+2026/05/28 14:58:10 [Layout] rebuildAll: creating newMainContainer
+2026/05/28 14:58:10 [Layout] rebuildAll: newMainContainer created, pointer=0x1a8b573882c0
+2026/05/28 14:58:10 [Layout] rebuildAll: replacing containers
+2026/05/28 14:58:10 [Layout] rebuildAll: containers replaced, ml.mainContainer=0x1a8b573882c0, ml.sidebarContainer=0x1a8b575c9ec0
+2026/05/28 14:58:10 [Layout] rebuildAll: calling SetContent
+2026/05/28 14:58:10 [Layout] rebuildAll: calling Resize
+2026/05/28 14:58:10 [Layout] rebuildAll: SetContent done
+2026/05/28 14:58:10 [Layout] rebuildAll: Refresh done
+2026/05/28 14:58:10 [Layout] rebuildAll END: headerState.ChatMode=true, headerState.ChatHeader=true
+2026/05/28 14:58:10 [Layout] setChatMode: rebuildAll done, headerState.ChatMode=true
+2026/05/28 14:58:14 [Header] profilehButton clicked in chat mode
+2026/05/28 14:58:14 [Header] Calling OnProfileClicked
+2026/05/28 14:58:14 [Layout] OnProfileClicked: peerID=12D3KooWJyZ283MgjARck96rPQSDWsXS27qtxxP5Xu5cH8Fghyxe
+2026/05/28 14:58:14 [Layout] Calling OnBackToNormalMode and OpenRemoteProfile, chatsUI=0x1a8b54fdd180
+2026/05/28 14:58:14 [Chats] OnBackToNormalMode called, onChatModeChanged=true
+2026/05/28 14:58:14 [Chats] Calling onChatModeChanged(false)
+2026/05/28 14:58:14 [Layout] onChatModeChanged callback: isChatMode=false, chatName=""
+2026/05/28 14:58:14 [Layout] setChatMode called: isChatMode=false, chatName=""
+2026/05/28 14:58:14 [Layout] setChatMode: before - headerState.ChatMode=true, sidebarState.ChatMode=true
+2026/05/28 14:58:14 [Layout] setChatMode: disabling chat mode
+2026/05/28 14:58:14 [Layout] setChatMode: calling UpdateContent("saved")
+2026/05/28 14:58:14 [Workspace] UpdateContent called: contentType=saved
+2026/05/28 14:58:14 [Workspace] UpdateContent: ContentType=saved
+2026/05/28 14:58:14 [Grid] loadItems called with 12 items, addCreateElement=true
+2026/05/28 14:58:14 [Grid] loadItemsAsync started: 12 items, generation=13
+2026/05/28 14:58:14 [Layout] setChatMode: UpdateContent done
+2026/05/28 14:58:14 [Layout] setChatMode: ChatMode disabled, restoring section="saved"
+2026/05/28 14:58:14 [Layout] setChatMode: calling rebuildAll
+2026/05/28 14:58:14 [Layout] rebuildAll START: ChatMode=false, Collapsed=true, Width=50, ActiveSection="saved"
+2026/05/28 14:58:14 [Layout] rebuildAll: sidebarState pointer=0x1a8b5135b040
+2026/05/28 14:58:14 [Layout] rebuildAll: headerState.ChatMode=false, headerState.ChatHeader=false
+2026/05/28 14:58:14 [Layout] rebuildAll: calling CreateSidebar with Collapsed=true
+2026/05/28 14:58:14 [Sidebar] CreateSidebar: state pointer=0x1a8b5135b040
+2026/05/28 14:58:14 [Sidebar] CreateSidebar: ChatMode=false, Collapsed=true, Width=50, ChatUI=false
+2026/05/28 14:58:14 [Sidebar] Creating normal sidebar
+2026/05/28 14:58:14 [Sidebar] Calling CreateNavigation
+2026/05/28 14:58:14 [Nav] CreateNavigation START: state pointer=0x1a8b5135b040, Collapsed=true, ActiveSection="saved"
+2026/05/28 14:58:14 [Nav] createCustomNavButton: NOT setting text (collapsed)
+2026/05/28 14:58:14 [Nav] createCustomNavButton: returning button for "Profile"
+2026/05/28 14:58:14 [Nav] createCustomNavButton: NOT setting text (collapsed)
+2026/05/28 14:58:14 [Nav] createCustomNavButton: returning button for "Saved"
+2026/05/28 14:58:14 [Nav] createCustomNavButton: NOT setting text (collapsed)
+2026/05/28 14:58:14 [Nav] createCustomNavButton: returning button for "Downloads"
+2026/05/28 14:58:14 [Nav] createCustomNavButton: NOT setting text (collapsed)
+2026/05/28 14:58:14 [Nav] createCustomNavButton: returning button for "My Tags"
+2026/05/28 14:58:14 [Nav] createCustomNavButton: NOT setting text (collapsed)
+2026/05/28 14:58:14 [Nav] createCustomNavButton: returning button for "Chats"
+2026/05/28 14:58:14 [Nav] createCustomNavButton: NOT setting text (collapsed)
+2026/05/28 14:58:14 [Nav] createCustomNavButton: returning button for "Contacts"
+2026/05/28 14:58:14 [Nav] createCustomNavButton: NOT setting text (collapsed)
+2026/05/28 14:58:14 [Nav] createCustomNavButton: returning button for "P2P"
+2026/05/28 14:58:14 [Nav] createCustomNavButton: NOT setting text (collapsed)
+2026/05/28 14:58:14 [Nav] createCustomNavButton: returning button for "Compilation"
+2026/05/28 14:58:14 [Grid] Card creation completed: received 12/12 cards, generation=13
+2026/05/28 14:58:14 [Nav] CreateNavigation: returning collapsed layout (no separator)
+2026/05/28 14:58:14 [Nav] CreateNavigation END: result pointer=0x1a8b5849d280
+2026/05/28 14:58:14 [Sidebar] CreateNavigation done, navigation pointer=0x1a8b5849d280
+2026/05/28 14:58:14 [Sidebar] Creating collapsed mainContent (navigation + favorites icons)
+2026/05/28 14:58:14 [Sidebar] mainContent created, pointer=0x1a8b5849dc80
+2026/05/28 14:58:14 [Sidebar] Creating sidebarContainer with transfer progress
+2026/05/28 14:58:14 [Sidebar] Returning sidebarContainer with transfer progress, pointer=0x1a8b5849dd80
+2026/05/28 14:58:14 [Layout] rebuildAll: CreateSidebar done, newSidebar pointer=0x1a8b5849dd80
+2026/05/28 14:58:14 [Layout] rebuildAll: calling CreateHeader with ChatMode=false
+2026/05/28 14:58:14 [Header] CreateHeader: ChatMode=false
+2026/05/28 14:58:14 [Header] Creating normal header
+2026/05/28 14:58:14 [Layout] rebuildAll: CreateHeader done
+2026/05/28 14:58:14 [Layout] rebuildAll: newSidebarContainer created, pointer=0x1a8b57f0f180
+2026/05/28 14:58:14 [Layout] rebuildAll: creating mainBorderLayout
+2026/05/28 14:58:14 [Layout] rebuildAll: mainBorderLayout created, pointer=0x1a8b57f0f2c0
+2026/05/28 14:58:14 [Layout] rebuildAll: creating newMainContainer
+2026/05/28 14:58:14 [Layout] rebuildAll: newMainContainer created, pointer=0x1a8b57f0f300
+2026/05/28 14:58:14 [Layout] rebuildAll: replacing containers
+2026/05/28 14:58:14 [Layout] rebuildAll: containers replaced, ml.mainContainer=0x1a8b57f0f300, ml.sidebarContainer=0x1a8b57f0f180
+2026/05/28 14:58:14 [Layout] rebuildAll: calling SetContent
+2026/05/28 14:58:14 [Layout] rebuildAll: calling Resize
+2026/05/28 14:58:14 [Layout] rebuildAll: SetContent done
+2026/05/28 14:58:14 [Layout] rebuildAll: Refresh done
+2026/05/28 14:58:14 [Layout] rebuildAll END: headerState.ChatMode=false, headerState.ChatHeader=false
+2026/05/28 14:58:14 [Layout] setChatMode: rebuildAll done, headerState.ChatMode=false
+2026/05/28 14:58:14 [Layout] OnBackToNormalMode returned, calling OpenRemoteProfile
+2026/05/28 14:58:14 [Chats] OpenRemoteProfile called with peerID=12D3KooWJyZ283MgjARck96rPQSDWsXS27qtxxP5Xu5cH8Fghyxe, onOpenRemoteProfile=true
+2026/05/28 14:58:14 [Chats] Calling onOpenRemoteProfile(12D3KooWJyZ283MgjARck96rPQSDWsXS27qtxxP5Xu5cH8Fghyxe)
+2026/05/28 14:58:14 [Workspace] OpenRemoteProfile called with peerID=12D3KooWJyZ283MgjARck96rPQSDWsXS27qtxxP5Xu5cH8Fghyxe
+2026/05/28 14:58:14 [Workspace] Profile found: username=Egor
+2026/05/28 14:58:14 [Workspace] Calling notifyRemoteModeChanged(true)
+2026/05/28 14:58:14 [Workspace] Calling UpdateContent(ContentTypeRemoteProfile)
+2026/05/28 14:58:14 [Workspace] UpdateContent called: contentType=remote_profile
+2026/05/28 14:58:14 [Workspace] UpdateContent: ContentTypeRemoteProfile, creating remote profile content
+2026/05/28 14:58:14 [Grid] loadItems called with 3 items, addCreateElement=false
+2026/05/28 14:58:14 [Grid] loadItemsAsync started: 3 items, generation=1
+2026/05/28 14:58:14 [Grid] Card creation completed: received 3/3 cards, generation=1
+2026/05/28 14:58:14 [Workspace] UpdateContent: ContentTypeRemoteProfile done
+2026/05/28 14:58:14 [Grid] loadItemsAsync completed: generation=1
+2026/05/28 14:58:15 [Grid] loadItemsAsync completed: generation=13
+2026/05/28 14:58:19 [Nav] Profile clicked
+2026/05/28 14:58:19 [Workspace] UpdateContent called: contentType=profile
+2026/05/28 14:58:19 [Workspace] UpdateContent: default case, contentType=profile
+2026/05/28 14:58:20 [Grid] loadItems called with 3 items, addCreateElement=false
+2026/05/28 14:58:20 [Grid] loadItemsAsync started: 3 items, generation=1
+2026/05/28 14:58:20 [Grid] Card creation completed: received 3/3 cards, generation=1
+2026/05/28 14:58:21 [Grid] loadItemsAsync completed: generation=1
+2026/05/28 14:58:23 [Grid] loadItems called with 3 items, addCreateElement=false
+2026/05/28 14:58:23 [Grid] loadItemsAsync started: 3 items, generation=1
+2026/05/28 14:58:23 [Grid] Card creation completed: received 3/3 cards, generation=1
+2026/05/28 14:58:23 [Grid] loadItemsAsync completed: generation=1
+2026/05/28 14:58:30 [Nav] Saved clicked
+2026/05/28 14:58:30 [Workspace] UpdateContent called: contentType=saved
+2026/05/28 14:58:30 [Workspace] UpdateContent: ContentType=saved
+2026/05/28 14:58:30 [Grid] loadItems called with 12 items, addCreateElement=true
+2026/05/28 14:58:30 [Grid] loadItemsAsync started: 12 items, generation=14
+2026/05/28 14:58:30 [Workspace] UpdateContent called: contentType=saved
+2026/05/28 14:58:30 [Workspace] UpdateContent: ContentType=saved
+2026/05/28 14:58:30 [Grid] loadItems called with 12 items, addCreateElement=true
+2026/05/28 14:58:30 [Grid] loadItemsAsync started: 12 items, generation=15
+2026/05/28 14:58:30 [Grid] Card creation completed: received 12/12 cards, generation=14
+2026/05/28 14:58:30 [Grid] Generation mismatch after card creation: expected 14, got 15
+2026/05/28 14:58:30 [Grid] Card creation completed: received 12/12 cards, generation=15
+2026/05/28 14:58:30 [Grid] loadItemsAsync completed: generation=15

@@ -1,10 +1,7 @@
 package center
 
 import (
-	"image/color"
-
 	"fyne.io/fyne/v2"
-	"fyne.io/fyne/v2/canvas"
 	"fyne.io/fyne/v2/container"
 	"fyne.io/fyne/v2/theme"
 	"fyne.io/fyne/v2/widget"
@@ -25,9 +22,7 @@ func NewMessageInput(onSend func()) *MessageInput {
 	entryWidget.SetPlaceHolder("Введите сообщение...")
 	entryWidget.Wrapping = fyne.TextWrapBreak
 
-	bg := canvas.NewRectangle(color.Transparent)
-	bg.SetMinSize(fyne.NewSize(600, 0))
-	mi.entryContainer = container.NewStack(bg, entryWidget)
+	mi.entryContainer = container.NewStack(entryWidget)
 	mi.entry = entryWidget
 
 	mi.button = widget.NewButtonWithIcon("", theme.MailSendIcon(), func() {

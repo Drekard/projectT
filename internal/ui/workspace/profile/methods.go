@@ -8,7 +8,7 @@ import (
 	"path/filepath"
 	"projectT/internal/services/background"
 	"projectT/internal/storage/database/queries"
-	"projectT/internal/ui/theme"
+	appTheme "projectT/internal/ui/theme"
 	"strings"
 	"time"
 
@@ -388,15 +388,15 @@ func (p *UI) showImageDialog(
 // showThemeDialog shows a dialog for selecting application theme and background color
 func (p *UI) showThemeDialog() {
 	themeNames := []string{"Dark", "Light", "Blue", "Green", "Purple"}
-	themes := []theme.AppTheme{
-		theme.DarkTheme,
-		theme.LightTheme,
-		theme.BlueTheme,
-		theme.GreenTheme,
-		theme.PurpleTheme,
+	themes := []appTheme.AppTheme{
+		appTheme.DarkTheme,
+		appTheme.LightTheme,
+		appTheme.BlueTheme,
+		appTheme.GreenTheme,
+		appTheme.PurpleTheme,
 	}
 
-	currentTheme := theme.GetTheme()
+	currentTheme := appTheme.GetTheme()
 	currentThemeName := "Purple"
 	for i, t := range themes {
 		if currentTheme == t {
@@ -408,9 +408,16 @@ func (p *UI) showThemeDialog() {
 	themeRadio := widget.NewRadioGroup(themeNames, func(selected string) {
 		for i, name := range themeNames {
 			if name == selected {
-				theme.SetTheme(themes[i])
+				appTheme.SetTheme(themes[i])
 				if app := fyne.CurrentApp(); app != nil {
-					app.Settings().SetTheme(theme.GetFyneTheme())
+					app.Settings().SetTheme(appTheme.GetFyneTheme())
+				}
+				// Сохраняем тему в конфиг
+				if p.config != nil {
+					p.config.UISettings.Theme = selected
+					if p.onSave != nil {
+						p.onSave()
+					}
 				}
 				break
 			}

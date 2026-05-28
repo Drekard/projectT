@@ -194,3 +194,39 @@ func (t FyneTheme) Size(name fyne.ThemeSizeName) float32 {
 func GetFyneTheme() fyne.Theme {
 	return FyneTheme{}
 }
+
+// ThemeNameToAppTheme преобразует имя темы в AppTheme
+func ThemeNameToAppTheme(name string) AppTheme {
+	switch name {
+	case "Dark":
+		return DarkTheme
+	case "Light":
+		return LightTheme
+	case "Blue":
+		return BlueTheme
+	case "Green":
+		return GreenTheme
+	case "Purple":
+		return PurpleTheme
+	default:
+		return PurpleTheme
+	}
+}
+
+// GetCurrentThemeName возвращает имя текущей темы
+func GetCurrentThemeName() string {
+	switch CurrentTheme {
+	case DarkTheme:
+		return "Dark"
+	case LightTheme:
+		return "Light"
+	case BlueTheme:
+		return "Blue"
+	case GreenTheme:
+		return "Green"
+	case PurpleTheme:
+		return "Purple"
+	default:
+		return "Purple"
+	}
+}

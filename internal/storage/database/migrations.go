@@ -93,6 +93,11 @@ func createItemsTable() {
 	_, _ = DB.Exec(`
 		ALTER TABLE items ADD COLUMN visibility TEXT DEFAULT 'public' CHECK (visibility IN ('public', 'private'))
 	`)
+
+	// Миграция: добавляем show_description если колонка отсутствует (по умолчанию 1)
+	_, _ = DB.Exec(`
+		ALTER TABLE items ADD COLUMN show_description BOOLEAN DEFAULT 1
+	`)
 }
 
 func createFilesTable() {

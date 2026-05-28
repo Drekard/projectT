@@ -22,6 +22,7 @@ type App struct {
 	mainWindow fyne.Window
 	UI         *ui.UI
 	config     *config.Config
+	configPath string
 	p2pNetwork *core.P2PNetwork
 	metricsMgr *metrics.Manager
 }
@@ -34,6 +35,12 @@ func NewApp() *App {
 		cfg = config.DefaultConfig()
 	}
 
+	// Определяем путь к конфигу для сохранения
+	configPath := "config.yaml"
+	if _, statErr := os.Stat("config.yaml"); statErr != nil {
+		configPath = ""
+	}
+
 	// Инициализируем базу данных с конфигурацией
 	database.InitDBWithConfig(cfg.Database)
 	database.RunMigrations()
@@ -41,10 +48,21 @@ func NewApp() *App {
 	// Инициализируем файловое хранилище с конфигурацией
 	filesystem.InitStorage(cfg.Storage)
 
+	// Восстанавливаем тему из конфига
+	if cfg.UISettings.Theme != "" {
+		theme.SetTheme(theme.ThemeNameToAppTheme(cfg.UISettings.Theme))
+	}
+
 	fyneApp := fyneApp.New()
 
 	window := fyneApp.NewWindow("ㅤ")
-	window.Resize(fyne.NewSize(1200, 600))
+
+	// Восстанавливаем размер и позицию окна из конфига
+	if cfg.UISettings.WindowWidth > 0 && cfg.UISettings.WindowHeight > 0 {
+		window.Resize(fyne.NewSize(cfg.UISettings.WindowWidth, cfg.UISettings.WindowHeight))
+	} else {
+		window.Resize(fyne.NewSize(1200, 600))
+	}
 
 	// Загружаем иконку: сначала рядом с .exe, затем из assets/icons/
 	exePath, _ := filepath.Abs(filepath.Dir(os.Args[0]))
@@ -91,6 +109,7 @@ func NewApp() *App {
 		mainWindow: window,
 		UI:         nil,
 		config:     cfg,
+		configPath: configPath,
 		p2pNetwork: p2pNetwork,
 		metricsMgr: metricsMgr,
 	}
@@ -98,7 +117,13 @@ func NewApp() *App {
 
 func (a *App) Run() {
 	a.fyneApp.Settings().SetTheme(theme.GetFyneTheme())
-	a.UI = ui.NewUI(a.mainWindow, a.p2pNetwork)
+	a.UI = ui.NewUI(a.mainWindow, a.p2pNetwork, a.config, a.saveUISettings)
+
+	// Устанавливаем обработчик закрытия окна для сохранения позиции и размера
+	a.mainWindow.SetCloseIntercept(func() {
+		a.saveWindowGeometry()
+		a.mainWindow.Close()
+	})
 
 	// Запускаем P2P сеть асинхронно, чтобы UI не зависал
 	go func() {
@@ -108,6 +133,35 @@ func (a *App) Run() {
 	}()
 
 	a.mainWindow.ShowAndRun()
+}
+
+// saveUISettings сохраняет настройки UI в конфиг
+func (a *App) saveUISettings() {
+	if a.configPath == "" {
+		return
+	}
+	if err := config.Save(a.config, a.configPath); err != nil {
+		log.Printf("[Config] Ошибка сохранения настроек UI: %v", err)
+	}
+}
+
+// saveWindowGeometry сохраняет позицию и размер окна
+func (a *App) saveWindowGeometry() {
+	if a.configPath == "" {
+		return
+	}
+
+	size := a.mainWindow.Canvas().Size()
+	a.config.UISettings.WindowWidth = size.Width
+	a.config.UISettings.WindowHeight = size.Height
+
+	// Fyne не предоставляет прямой метод для получения позиции окна
+	// Позиция сохраняется только если она была восстановлена при запуске
+	// Для полного сохранения позиции потребуется использование нативных API
+
+	if err := config.Save(a.config, a.configPath); err != nil {
+		log.Printf("[Config] Ошибка сохранения геометрии окна: %v", err)
+	}
 }
 
 // GetConfig возвращает текущую конфигурацию приложения

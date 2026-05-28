@@ -16,7 +16,7 @@ func GetItemsByParent(parentID int) ([]*models.Item, error) {
 		query = `
 			SELECT id, element_uuid, hash,
 			       owner_type, source_peer_id,
-			       type, title, description, content_meta, parent_id, parent_uuid,
+			       type, title, description, content_meta, show_description, parent_id, parent_uuid,
 			       signature, version, cached_at, created_at, updated_at
 			FROM items
 			WHERE parent_id = 0 OR parent_id IS NULL
@@ -27,7 +27,7 @@ func GetItemsByParent(parentID int) ([]*models.Item, error) {
 		query = `
 			SELECT id, element_uuid, hash,
 			       owner_type, source_peer_id,
-			       type, title, description, content_meta, parent_id, parent_uuid,
+			       type, title, description, content_meta, show_description, parent_id, parent_uuid,
 			       signature, version, cached_at, created_at, updated_at
 			FROM items
 			WHERE parent_id = ?
@@ -63,7 +63,7 @@ func GetItemsByParentUUID(parentUUID string) ([]*models.Item, error) {
 		query = `
 			SELECT id, element_uuid, hash,
 			       owner_type, source_peer_id,
-			       type, title, description, content_meta, parent_id, parent_uuid,
+			       type, title, description, content_meta, show_description, parent_id, parent_uuid,
 			       signature, version, status, visibility, cached_at, created_at, updated_at
 			FROM items
 			WHERE parent_uuid IS NULL OR parent_uuid = ''
@@ -74,7 +74,7 @@ func GetItemsByParentUUID(parentUUID string) ([]*models.Item, error) {
 		query = `
 			SELECT id, element_uuid, hash,
 			       owner_type, source_peer_id,
-			       type, title, description, content_meta, parent_id, parent_uuid,
+			       type, title, description, content_meta, show_description, parent_id, parent_uuid,
 			       signature, version, status, visibility, cached_at, created_at, updated_at
 			FROM items
 			WHERE parent_uuid = ?
@@ -105,7 +105,7 @@ func GetAllItems() ([]*models.Item, error) {
 	query := `
 		SELECT id, element_uuid, hash,
 		       owner_type, source_peer_id,
-		       type, title, description, content_meta, parent_id, parent_uuid,
+		       type, title, description, content_meta, show_description, parent_id, parent_uuid,
 		       signature, version, status, visibility, cached_at, created_at, updated_at
 		FROM items
 		ORDER BY created_at DESC
@@ -133,7 +133,7 @@ func GetSavedItems() ([]*models.Item, error) {
 	query := `
 		SELECT id, element_uuid, hash,
 		       owner_type, source_peer_id,
-		       type, title, description, content_meta, parent_id, parent_uuid,
+		       type, title, description, content_meta, show_description, parent_id, parent_uuid,
 		       signature, version, status, visibility, cached_at, created_at, updated_at
 		FROM items
 		WHERE status = 'saved'
@@ -162,7 +162,7 @@ func GetPreviewItems() ([]*models.Item, error) {
 	query := `
 		SELECT id, element_uuid, hash,
 		       owner_type, source_peer_id,
-		       type, title, description, content_meta, parent_id, parent_uuid,
+		       type, title, description, content_meta, show_description, parent_id, parent_uuid,
 		       signature, version, status, visibility, cached_at, created_at, updated_at
 		FROM items
 		WHERE status = 'preview'
@@ -196,7 +196,7 @@ func GetSavedItemsByParent(parentID int) ([]*models.Item, error) {
 		query = `
 			SELECT id, element_uuid, hash,
 			       owner_type, source_peer_id,
-			       type, title, description, content_meta, parent_id, parent_uuid,
+			       type, title, description, content_meta, show_description, parent_id, parent_uuid,
 			       signature, version, status, visibility, cached_at, created_at, updated_at
 			FROM items
 			WHERE (parent_id = 0 OR parent_id IS NULL) AND status = 'saved'
@@ -207,7 +207,7 @@ func GetSavedItemsByParent(parentID int) ([]*models.Item, error) {
 		query = `
 			SELECT id, element_uuid, hash,
 			       owner_type, source_peer_id,
-			       type, title, description, content_meta, parent_id, parent_uuid,
+			       type, title, description, content_meta, show_description, parent_id, parent_uuid,
 			       signature, version, status, visibility, cached_at, created_at, updated_at
 			FROM items
 			WHERE parent_id = ? AND status = 'saved'
@@ -243,7 +243,7 @@ func GetSavedItemsByParentUUID(parentUUID string) ([]*models.Item, error) {
 		query = `
 			SELECT id, element_uuid, hash,
 			       owner_type, source_peer_id,
-			       type, title, description, content_meta, parent_id, parent_uuid,
+			       type, title, description, content_meta, show_description, parent_id, parent_uuid,
 			       signature, version, status, visibility, cached_at, created_at, updated_at
 			FROM items
 			WHERE (parent_uuid IS NULL OR parent_uuid = '') AND status = 'saved'
@@ -254,7 +254,7 @@ func GetSavedItemsByParentUUID(parentUUID string) ([]*models.Item, error) {
 		query = `
 			SELECT id, element_uuid, hash,
 			       owner_type, source_peer_id,
-			       type, title, description, content_meta, parent_id, parent_uuid,
+			       type, title, description, content_meta, show_description, parent_id, parent_uuid,
 			       signature, version, status, visibility, cached_at, created_at, updated_at
 			FROM items
 			WHERE parent_uuid = ? AND status = 'saved'
@@ -290,7 +290,7 @@ func GetPreviewItemsByParent(parentID int) ([]*models.Item, error) {
 		query = `
 			SELECT id, element_uuid, hash,
 			       owner_type, source_peer_id,
-			       type, title, description, content_meta, parent_id, parent_uuid,
+			       type, title, description, content_meta, show_description, parent_id, parent_uuid,
 			       signature, version, status, visibility, cached_at, created_at, updated_at
 			FROM items
 			WHERE (parent_id = 0 OR parent_id IS NULL) AND status = 'preview'
@@ -301,7 +301,7 @@ func GetPreviewItemsByParent(parentID int) ([]*models.Item, error) {
 		query = `
 			SELECT id, element_uuid, hash,
 			       owner_type, source_peer_id,
-			       type, title, description, content_meta, parent_id, parent_uuid,
+			       type, title, description, content_meta, show_description, parent_id, parent_uuid,
 			       signature, version, status, visibility, cached_at, created_at, updated_at
 			FROM items
 			WHERE parent_id = ? AND status = 'preview'
@@ -337,7 +337,7 @@ func GetPreviewItemsByParentUUID(parentUUID string) ([]*models.Item, error) {
 		query = `
 			SELECT id, element_uuid, hash,
 			       owner_type, source_peer_id,
-			       type, title, description, content_meta, parent_id, parent_uuid,
+			       type, title, description, content_meta, show_description, parent_id, parent_uuid,
 			       signature, version, status, visibility, cached_at, created_at, updated_at
 			FROM items
 			WHERE (parent_uuid IS NULL OR parent_uuid = '') AND status = 'preview'
@@ -348,7 +348,7 @@ func GetPreviewItemsByParentUUID(parentUUID string) ([]*models.Item, error) {
 		query = `
 			SELECT id, element_uuid, hash,
 			       owner_type, source_peer_id,
-			       type, title, description, content_meta, parent_id, parent_uuid,
+			       type, title, description, content_meta, show_description, parent_id, parent_uuid,
 			       signature, version, status, visibility, cached_at, created_at, updated_at
 			FROM items
 			WHERE parent_uuid = ? AND status = 'preview'
@@ -379,7 +379,7 @@ func GetRandomItems(limit int) ([]*models.Item, error) {
 	query := `
 		SELECT id, element_uuid, hash,
 		       owner_type, source_peer_id,
-		       type, title, description, content_meta, parent_id, parent_uuid,
+		       type, title, description, content_meta, show_description, parent_id, parent_uuid,
 		       signature, version, status, visibility, cached_at, created_at, updated_at
 		FROM items
 		ORDER BY RANDOM()

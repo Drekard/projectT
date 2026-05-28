@@ -12,7 +12,7 @@ import (
 )
 
 // CreateItem создает новый элемент
-func CreateItem(title, description, tags string, selectedFiles *[]string, linkEntries []string, parentID *int, itemType models.ItemType, modalWindow fyne.Window) error {
+func CreateItem(title, description, tags string, selectedFiles *[]string, linkEntries []string, parentID *int, itemType models.ItemType, modalWindow fyne.Window, showDescription ...bool) error {
 	// 1. Создаем экземпляр сервиса для обработки блоков контента
 	contentService := services.NewContentBlocksService()
 
@@ -41,7 +41,13 @@ func CreateItem(title, description, tags string, selectedFiles *[]string, linkEn
 
 	// 7. Создаем элемент в базе данных
 	ctx := context.Background()
-	item, err := contentService.CreateItemWithTransaction(ctx, title, updatedDescription, itemType, contentMeta, parentID)
+
+	showDesc := true
+	if len(showDescription) > 0 {
+		showDesc = showDescription[0]
+	}
+
+	item, err := contentService.CreateItemWithTransaction(ctx, title, updatedDescription, itemType, contentMeta, parentID, showDesc)
 	if err != nil {
 		return err
 	}

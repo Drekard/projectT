@@ -5,7 +5,6 @@ import (
 	"context"
 	"fmt"
 	"log"
-	"strings"
 	"sync"
 	"time"
 
@@ -64,23 +63,14 @@ func (ds *DiscoveryService) Start() error {
 	ds.mu.Lock()
 	defer ds.mu.Unlock()
 
-	log.Printf("[discovery/service.go] ========================================")
-	log.Printf("[discovery/service.go] ЗАПУСК: DiscoveryService — загрузка известных пиров")
-	log.Printf("[discovery/service.go] ========================================")
-
-	// Загружаем все адреса пиров из БД (для DHT/mDNS обнаружения)
-	if err := ds.loadPeerAddresses(); err != nil {
-		log.Printf("[discovery/service.go] Предупреждение: не удалось загрузить адреса пиров: %v", err)
-	}
+	_ = ds.loadPeerAddresses()
 
 	// Подключение к известным пирам происходит через connection.Service и autodial
 	// (избегаем дублирования и блокировки старта)
 
 	// Запускаем mDNS обнаружение если включено (только локальная сеть)
 	if ds.config.EnableMDNS {
-		if err := ds.startMDNSDiscovery(); err != nil {
-			log.Printf("[discovery/service.go] Предупреждение: mDNS не инициализирован: %v", err)
-		}
+		_ = ds.startMDNSDiscovery()
 	}
 
 	// Запускаем DHT обнаружение для глобальной сети
@@ -146,7 +136,6 @@ func (ds *DiscoveryService) loadPeerAddresses() error {
 
 	// Если паника произошла, addresses будет nil
 	if addresses == nil && err == nil {
-		log.Printf("[discovery/service.go] loadPeerAddresses: БД не инициализирована или нет адресов")
 		ds.peerAddresses = []peer.AddrInfo{}
 		return nil
 	}
@@ -155,84 +144,58 @@ func (ds *DiscoveryService) loadPeerAddresses() error {
 		return fmt.Errorf("[discovery/service.go] ошибка получения адресов пиров: %w", err)
 	}
 
-	log.Printf("[discovery/service.go] loadPeerAddresses: получено %d записей из БД", len(addresses))
-
 	ds.peerAddresses = make([]peer.AddrInfo, 0, len(addresses))
-	for i, addr := range addresses {
+	for _, addr := range addresses {
 		ma, err := multiaddr.NewMultiaddr(addr.Multiaddr)
 		if err != nil {
-			log.Printf("[discovery/service.go] loadPeerAddresses: [%d/%d] неверный адрес %s (тип: %s): %v",
-				i+1, len(addresses), addr.Multiaddr, addr.AddressType, err)
 			continue
 		}
 
 		info, err := peer.AddrInfoFromP2pAddr(ma)
 		if err != nil {
-			log.Printf("[discovery/service.go] loadPeerAddresses: [%d/%d] неверная информация о пире %s: %v",
-				i+1, len(addresses), addr.Multiaddr, err)
 			continue
 		}
 
-		log.Printf("[discovery/service.go] loadPeerAddresses: [%d/%d] пир %s (тип: %s, username: %s)",
-			i+1, len(addresses), info.ID.String()[:8], addr.AddressType, addr.Username)
 		ds.peerAddresses = append(ds.peerAddresses, *info)
 	}
-
-	log.Printf("[discovery/service.go] loadPeerAddresses: успешно загружено %d из %d адресов пиров",
-		len(ds.peerAddresses), len(addresses))
 	return nil
 }
 
 // connectToKnownPeers подключается ко всем известным пирам (ОДНОКРАТНО при запуске)
 func (ds *DiscoveryService) connectToKnownPeers() error {
 	if len(ds.peerAddresses) == 0 {
-		log.Printf("[discovery/service.go] connectToKnownPeers: нет известных пиров для подключения")
 		return nil
 	}
-
-	log.Printf("[discovery/service.go] connectToKnownPeers: попытка подключения к %d пирам...", len(ds.peerAddresses))
-	log.Printf("[discovery/service.go] Наш PeerID: %s", ds.host.ID().String())
 
 	ctx, cancel := context.WithTimeout(ds.ctx, 30*time.Second)
 	defer cancel()
 
 	var connected int
-	for i, peerInfo := range ds.peerAddresses {
-		log.Printf("[discovery/service.go] connectToKnownPeers: [%d/%d] Подключение к %s (адреса: %d)...",
-			i+1, len(ds.peerAddresses), peerInfo.ID.String()[:8], len(peerInfo.Addrs))
-
+	for _, peerInfo := range ds.peerAddresses {
 		startTime := time.Now()
 		if err := ds.host.Connect(ctx, peerInfo); err != nil {
 			elapsed := time.Since(startTime)
-			log.Printf("[discovery/service.go] connectToKnownPeers: [%d/%d] FAILED %s за %v: %v",
-				i+1, len(ds.peerAddresses), peerInfo.ID.String()[:8], elapsed, err)
+			_ = elapsed
 			continue
 		}
 
 		elapsed := time.Since(startTime)
 		connected++
-		log.Printf("[discovery/service.go] connectToKnownPeers: [%d/%d] SUCCESS %s за %v",
-			i+1, len(ds.peerAddresses), peerInfo.ID.String()[:8], elapsed)
+		_ = elapsed
 
-		// Определяем тип соединения
 		conns := ds.host.Network().ConnsToPeer(peerInfo.ID)
 		for j, conn := range conns {
 			remoteAddr := conn.RemoteMultiaddr()
-			connType := "DIRECT"
-			if strings.Contains(remoteAddr.String(), "/p2p-circuit") {
-				connType = "RELAYED"
-			}
-			log.Printf("[discovery/service.go]   Соединение #%d: тип=%s, адрес=%s", j+1, connType, remoteAddr.String())
+			_ = j
+			_ = remoteAddr
 		}
 
-		// Обновляем время подключения в БД
 		for _, addr := range peerInfo.Addrs {
 			_ = queries.UpdatePeerAddressLastConnected(addr.String())
 			_ = queries.UpdateProfileLastConnected(peerInfo.ID.String())
 		}
 	}
-
-	log.Printf("[discovery/service.go] connectToKnownPeers: подключено %d из %d пиров", connected, len(ds.peerAddresses))
+	_ = connected
 	return nil
 }
 

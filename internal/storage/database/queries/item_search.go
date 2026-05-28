@@ -12,7 +12,7 @@ func SearchItems(query string) ([]*models.Item, error) {
 	sqlQuery := `
 	SELECT DISTINCT i.id, i.element_uuid, i.hash,
 	       i.owner_type, i.source_peer_id,
-	       i.type, i.title, i.description, i.content_meta, i.parent_id, i.parent_uuid,
+	       i.type, i.title, i.description, i.content_meta, i.show_description, i.parent_id, i.parent_uuid,
 	       i.signature, i.version, i.cached_at, i.created_at, i.updated_at
 	FROM items i
 	LEFT JOIN item_tags it ON i.id = it.item_id

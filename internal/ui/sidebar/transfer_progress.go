@@ -75,7 +75,7 @@ func NewTransferProgressWidget(transferSvc *transfer.Service) *TransferProgressW
 
 	// Контейнер с фоном
 	bg := canvas.NewRectangle(color.RGBA{R: 30, G: 30, B: 30, A: 255})
-	bg.SetMinSize(fyne.NewSize(0, 60))
+	bg.SetMinSize(fyne.NewSize(0, 30))
 
 	// Основной контент
 	content := container.NewVBox(
@@ -85,6 +85,7 @@ func NewTransferProgressWidget(transferSvc *transfer.Service) *TransferProgressW
 	)
 
 	tpw.container = container.NewStack(bg, container.NewPadded(content))
+	tpw.container.Hide() // Скрыт по умолчанию
 
 	// Подписка на обновления прогресса
 	if transferSvc != nil {
@@ -123,7 +124,9 @@ func (tpw *TransferProgressWidget) updateProgress(progress *transfer.TransferPro
 
 // updateUI обновляет элементы интерфейса
 func (tpw *TransferProgressWidget) updateUI(progress *transfer.TransferProgress) {
-	// Показываем виджет
+	// Показываем контейнер при активной передаче
+	tpw.container.Show()
+
 	tpw.progressBar.Show()
 	tpw.statusLabel.Show()
 	tpw.icon.Show()
@@ -189,6 +192,7 @@ func (tpw *TransferProgressWidget) scheduleHide() {
 		tpw.progressBar.Hide()
 		tpw.statusLabel.SetText("")
 		tpw.icon.Hide()
+		tpw.container.Hide()
 		tpw.container.Refresh()
 	})
 }

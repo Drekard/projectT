@@ -24,7 +24,7 @@ func GetItemsByParentUUIDs(parentUUIDs []string) ([]*models.Item, error) {
 	query := fmt.Sprintf(`
 		SELECT id, element_uuid, hash,
 		       owner_type, source_peer_id,
-		       type, title, description, content_meta, parent_id, parent_uuid,
+		       type, title, description, content_meta, show_description, parent_id, parent_uuid,
 		       signature, version, status, visibility, cached_at, created_at, updated_at
 		FROM items
 		WHERE parent_uuid IN (%s)
@@ -103,7 +103,7 @@ func scanItemRowFull(rows *sql.Rows) *models.Item {
 	err := rows.Scan(
 		&item.ID, &item.ElementUUID, &item.Hash,
 		&item.OwnerType, &sourcePeerID,
-		&item.Type, &item.Title, &item.Description, &item.ContentMeta, &parentID, &parentUUID,
+		&item.Type, &item.Title, &item.Description, &item.ContentMeta, &item.ShowDescription, &parentID, &parentUUID,
 		&item.Signature, &item.Version, &status, &visibility, &cachedAt, &createdAt, &updatedAt,
 	)
 	if err != nil {
@@ -146,7 +146,7 @@ func scanItemRow(rows *sql.Rows) *models.Item {
 	err := rows.Scan(
 		&item.ID, &item.ElementUUID, &item.Hash,
 		&item.OwnerType, &sourcePeerID,
-		&item.Type, &item.Title, &item.Description, &item.ContentMeta, &parentID, &parentUUID,
+		&item.Type, &item.Title, &item.Description, &item.ContentMeta, &item.ShowDescription, &parentID, &parentUUID,
 		&item.Signature, &item.Version, &cachedAt, &createdAt, &updatedAt,
 	)
 	if err != nil {

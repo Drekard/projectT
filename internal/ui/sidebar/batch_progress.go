@@ -116,6 +116,7 @@ func NewBatchProgressWidget(transferSvc *transfer.Service) *BatchProgressWidget 
 	bg.SetMinSize(fyne.NewSize(0, 80))
 
 	bpw.container = container.NewStack(bg, container.NewPadded(content))
+	bpw.container.Hide() // Скрыт по умолчанию
 
 	// Подписка на прогресс батча
 	if transferSvc != nil {
@@ -159,6 +160,7 @@ func (bpw *BatchProgressWidget) updateBatchProgress(progress *transfer.BatchProg
 	bpw.lastBatchID = progress.BatchID
 	bpw.activeBatch = progress
 
+	bpw.container.Show()
 	bpw.overallBar.Show()
 	bpw.statusLabel.Show()
 
@@ -218,6 +220,7 @@ func (bpw *BatchProgressWidget) scheduleHide() {
 		bpw.itemList.Hide()
 		bpw.batchItems = make(map[string]*transfer.BatchItemProgress)
 		bpw.itemKeys = nil
+		bpw.container.Hide()
 		bpw.container.Refresh()
 	})
 }
