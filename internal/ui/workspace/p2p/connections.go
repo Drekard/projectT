@@ -36,11 +36,11 @@ func (ui *UI) createProfilesTab() fyne.CanvasObject {
 		widget.NewSeparator(),
 		createConnectSection,
 		widget.NewSeparator(),
+		profilesSection,
+		widget.NewSeparator(),
 		connectedSection,
 		widget.NewSeparator(),
 		discoveredSection,
-		widget.NewSeparator(),
-		profilesSection,
 	)
 
 	return container.NewScroll(content)
@@ -178,220 +178,68 @@ func (ui *UI) createConnectByAddressSection() *fyne.Container {
 
 // loadConnectedPeers loads the list of connected peers
 func (ui *UI) loadConnectedPeers() {
-	if ui.connectedPeersList == nil {
-		return
-	}
+	fyne.Do(func() {
+		if ui.connectedPeersList == nil {
+			return
+		}
 
-	ui.connectedPeersList.Objects = nil
+		ui.connectedPeersList.Objects = nil
 
-	if ui.p2pUI == nil {
-		emptyLabel := widget.NewLabel("P2P service not initialized")
-		emptyLabel.TextStyle = fyne.TextStyle{Italic: true}
-		ui.connectedPeersList.Add(emptyLabel)
+		if ui.p2pUI == nil {
+			emptyLabel := widget.NewLabel("P2P service not initialized")
+			emptyLabel.TextStyle = fyne.TextStyle{Italic: true}
+			ui.connectedPeersList.Add(emptyLabel)
+			ui.connectedPeersList.Refresh()
+			return
+		}
+
+		peers := ui.p2pUI.GetConnectedPeers()
+		count := ui.p2pUI.GetConnectedPeersCount()
+
+		if ui.connectedCountLabel != nil {
+			ui.connectedCountLabel.SetText(fmt.Sprintf("%d/50", count))
+		}
+
+		if len(peers) == 0 {
+			emptyLabel := widget.NewLabel("No connected peers")
+			emptyLabel.TextStyle = fyne.TextStyle{Italic: true}
+			ui.connectedPeersList.Add(emptyLabel)
+		} else {
+			for _, peer := range peers {
+				peerItem := ui.createConnectedPeerItem(peer)
+				ui.connectedPeersList.Add(peerItem)
+			}
+		}
+
 		ui.connectedPeersList.Refresh()
-		return
-	}
-
-	peers := ui.p2pUI.GetConnectedPeers()
-	count := ui.p2pUI.GetConnectedPeersCount()
-
-	// Обновляем счётчик
-	if ui.connectedCountLabel != nil {
-		ui.connectedCountLabel.SetText(fmt.Sprintf("%d/50", count))
-	}
-
-	if len(peers) == 0 {
-		emptyLabel := widget.NewLabel("No connected peers")
-		emptyLabel.TextStyle = fyne.TextStyle{Italic: true}
-		ui.connectedPeersList.Add(emptyLabel)
-	} else {
-		for _, peer := range peers {
-			peerItem := ui.createConnectedPeerItem(peer)
-			ui.connectedPeersList.Add(peerItem)
-		}
-	}
-
-	ui.connectedPeersList.Refresh()
+	})
 }
 
-// createConnectedPeerItem creates a connected peer item
-func (ui *UI) createConnectedPeerItem(peer *network.PeerInfo) *fyne.Container {
+// PeerDisplayData содержит универсальные данные для отображения пира
+type PeerDisplayData struct {
+	PeerID      string
+	Username    string
+	AvatarPath  string
+	StatusColor color.Color
+	StatusText  string
+	InfoLines   []string
+	Actions     []PeerAction
+}
+
+// PeerAction описывает кнопку действия для пира
+type PeerAction struct {
+	Icon     fyne.Resource
+	Tooltip  string
+	OnTapped func()
+}
+
+// CreatePeerItem создаёт универсальный объект отображения пира
+func (ui *UI) CreatePeerItem(data *PeerDisplayData) *fyne.Container {
 	// Avatar icon
 	var avatarIcon *canvas.Image
-	profile, err := queries.GetProfileByPeerID(peer.PeerID)
-	if err == nil && profile != nil && profile.AvatarPath != "" {
-		if _, statErr := os.Stat(profile.AvatarPath); statErr == nil {
-			avatarIcon = canvas.NewImageFromFile(profile.AvatarPath)
-			avatarIcon.FillMode = canvas.ImageFillContain
-			avatarIcon.SetMinSize(fyne.NewSize(40, 40))
-		}
-	}
-	if avatarIcon == nil {
-		avatarIcon = canvas.NewImageFromResource(theme.AccountIcon())
-		avatarIcon.FillMode = canvas.ImageFillContain
-		avatarIcon.SetMinSize(fyne.NewSize(40, 40))
-	}
-
-	// Peer name
-	nameLabel := widget.NewLabel(peer.Username)
-	nameLabel.TextStyle = fyne.TextStyle{Bold: true}
-
-	// PeerID (full)
-	peerIDLabel := widget.NewLabel(fmt.Sprintf("PeerID: %s", peer.PeerID))
-	peerIDLabel.TextStyle = fyne.TextStyle{Italic: true}
-
-	// Address (full)
-	addressLabel := widget.NewLabel(fmt.Sprintf("Address: %s", peer.Address))
-	addressLabel.TextStyle = fyne.TextStyle{Italic: true}
-
-	// Latency
-	latencyLabel := widget.NewLabel(fmt.Sprintf("Ping: %d ms", peer.LatencyMs))
-	latencyLabel.TextStyle = fyne.TextStyle{Italic: true}
-
-	// Status indicator
-	statusInd := canvas.NewCircle(color.RGBA{R: 0, G: 255, B: 0, A: 255})
-
-	// Chat button
-	chatBtn := widget.NewButtonWithIcon("Chat", theme.MailComposeIcon(), func() {
-		ui.openPeerChat(peer.PeerID, peer.Username)
-	})
-
-	// Profile button
-	profileBtn := widget.NewButtonWithIcon("Profile", theme.AccountIcon(), func() {
-		ui.openRemoteProfile(peer.PeerID)
-	})
-
-	// Add to contacts button
-	addContactBtn := widget.NewButtonWithIcon("", theme.ContentAddIcon(), func() {
-		ui.addConnectedPeerToContacts(peer.PeerID)
-	})
-
-	// Disconnect button
-	disconnectBtn := widget.NewButtonWithIcon("", theme.CancelIcon(), func() {
-		ui.disconnectFromPeer(peer.PeerID)
-	})
-
-	leftContent := container.NewHBox(avatarIcon, container.NewVBox(nameLabel, peerIDLabel, addressLabel))
-
-	content := container.NewBorder(
-		nil, nil,
-		container.NewHBox(statusInd, leftContent),
-		container.NewHBox(latencyLabel, chatBtn, profileBtn, addContactBtn, disconnectBtn),
-		widget.NewSeparator(),
-	)
-
-	return content
-}
-
-// loadDiscoveredPeers loads the list of discovered peers
-func (ui *UI) loadDiscoveredPeers() {
-	if ui.discoveredPeersList == nil {
-		return
-	}
-
-	ui.discoveredPeersList.Objects = nil
-
-	if ui.p2pUI == nil {
-		emptyLabel := widget.NewLabel("P2P service not initialized")
-		emptyLabel.TextStyle = fyne.TextStyle{Italic: true}
-		ui.discoveredPeersList.Add(emptyLabel)
-		ui.discoveredPeersList.Refresh()
-		return
-	}
-
-	discovered := ui.p2pUI.GetDiscoveredPeers()
-
-	if len(discovered) == 0 {
-		emptyLabel := widget.NewLabel("No discovered peers")
-		emptyLabel.TextStyle = fyne.TextStyle{Italic: true}
-		ui.discoveredPeersList.Add(emptyLabel)
-	} else {
-		for peerID, lastSeen := range discovered {
-			peerItem := ui.createDiscoveredPeerItem(peerID, lastSeen)
-			ui.discoveredPeersList.Add(peerItem)
-		}
-	}
-
-	ui.discoveredPeersList.Refresh()
-}
-
-// createDiscoveredPeerItem creates a discovered peer item
-func (ui *UI) createDiscoveredPeerItem(peerID string, lastSeen time.Time) *fyne.Container {
-	// Peer name (use full PeerID as name)
-	nameLabel := widget.NewLabel(fmt.Sprintf("Peer: %s", peerID))
-	nameLabel.TextStyle = fyne.TextStyle{Bold: true}
-	nameLabel.Wrapping = fyne.TextWrapWord
-
-	// Full PeerID
-	peerIDLabel := widget.NewLabel(fmt.Sprintf("PeerID: %s", peerID))
-	peerIDLabel.TextStyle = fyne.TextStyle{Italic: true}
-
-	// Last seen time (date and time)
-	lastSeenLabel := widget.NewLabel(fmt.Sprintf("Seen: %s", lastSeen.Format("2006-01-02 15:04:05")))
-	lastSeenLabel.TextStyle = fyne.TextStyle{Italic: true}
-
-	// Status indicator (yellow - not connected)
-	statusInd := canvas.NewCircle(color.RGBA{R: 255, G: 255, B: 0, A: 255})
-
-	// Connect button
-	connectBtn := widget.NewButtonWithIcon("Connect", theme.FolderIcon(), func() {
-		ui.connectToDiscoveredPeer(peerID)
-	})
-
-	content := container.NewBorder(
-		nil, nil,
-		container.NewHBox(statusInd, container.NewVBox(nameLabel, peerIDLabel)),
-		container.NewHBox(lastSeenLabel, connectBtn),
-		widget.NewSeparator(),
-	)
-
-	return content
-}
-
-// loadProfiles loads the list of profiles
-func (ui *UI) loadProfiles() {
-	if ui.profilesList == nil {
-		return
-	}
-
-	ui.profilesList.Objects = nil
-
-	if ui.p2pUI == nil {
-		emptyLabel := widget.NewLabel("P2P service not initialized")
-		emptyLabel.TextStyle = fyne.TextStyle{Italic: true}
-		ui.profilesList.Add(emptyLabel)
-		ui.profilesList.Refresh()
-		return
-	}
-
-	profiles, _ := ui.p2pUI.GetProfiles()
-
-	// Обновляем счётчик
-	if ui.profilesCountLabel != nil {
-		ui.profilesCountLabel.SetText(fmt.Sprintf("%d", len(profiles)))
-	}
-
-	if len(profiles) == 0 {
-		emptyLabel := widget.NewLabel("No profiles")
-		emptyLabel.TextStyle = fyne.TextStyle{Italic: true}
-		ui.profilesList.Add(emptyLabel)
-	} else {
-		for _, profile := range profiles {
-			profileItem := ui.createProfileItem(profile)
-			ui.profilesList.Add(profileItem)
-		}
-	}
-
-	ui.profilesList.Refresh()
-}
-
-// createProfileItem creates a profile item
-func (ui *UI) createProfileItem(profile *models.Profile) *fyne.Container {
-	// Avatar icon
-	var avatarIcon *canvas.Image
-	if profile.AvatarPath != "" {
-		if _, statErr := os.Stat(profile.AvatarPath); statErr == nil {
-			avatarIcon = canvas.NewImageFromFile(profile.AvatarPath)
+	if data.AvatarPath != "" {
+		if _, statErr := os.Stat(data.AvatarPath); statErr == nil {
+			avatarIcon = canvas.NewImageFromFile(data.AvatarPath)
 			avatarIcon.FillMode = canvas.ImageFillContain
 			avatarIcon.SetMinSize(fyne.NewSize(40, 40))
 		}
@@ -403,50 +251,174 @@ func (ui *UI) createProfileItem(profile *models.Profile) *fyne.Container {
 	}
 
 	// Username
-	usernameLabel := widget.NewLabel(profile.Username)
+	usernameLabel := widget.NewLabel(data.Username)
 	usernameLabel.TextStyle = fyne.TextStyle{Bold: true}
 
-	// PeerID (full)
-	peerIDLabel := widget.NewLabel(fmt.Sprintf("PeerID: %s", profile.PeerID))
+	// PeerID
+	peerIDLabel := widget.NewLabel(fmt.Sprintf("PeerID: %s", data.PeerID))
 	peerIDLabel.TextStyle = fyne.TextStyle{Italic: true}
 
-	// Updated time (date and time)
-	cachedAtLabel := widget.NewLabel("")
-	if profile.UpdatedAt.IsZero() {
-		cachedAtLabel.SetText("Updated: never")
-	} else {
-		cachedAtLabel.SetText(fmt.Sprintf("Updated: %s", profile.UpdatedAt.Format("2006-01-02 15:04:05")))
+	// Info lines
+	infoLines := container.NewVBox()
+	for _, line := range data.InfoLines {
+		label := widget.NewLabel(line)
+		label.TextStyle = fyne.TextStyle{Italic: true}
+		infoLines.Add(label)
 	}
-	cachedAtLabel.TextStyle = fyne.TextStyle{Italic: true}
 
-	// Status indicator (blue - cached profile)
-	statusInd := canvas.NewCircle(color.RGBA{R: 0, G: 150, B: 255, A: 255})
+	// Status indicator
+	statusInd := canvas.NewCircle(data.StatusColor)
 
-	// Chat button
-	chatBtn := widget.NewButtonWithIcon("Chat", theme.MailComposeIcon(), func() {
-		ui.openPeerChat(profile.PeerID, profile.Username)
-	})
+	// Action buttons
+	actionsRow := container.NewHBox()
+	for _, action := range data.Actions {
+		btn := widget.NewButtonWithIcon("", action.Icon, action.OnTapped)
+		btn.Importance = widget.LowImportance
+		actionsRow.Add(btn)
+	}
 
-	// Profile button
-	profileBtn := widget.NewButtonWithIcon("Profile", theme.AccountIcon(), func() {
-		ui.openRemoteProfile(profile.PeerID)
-	})
-
-	// Delete profile button
-	deleteBtn := widget.NewButtonWithIcon("", theme.DeleteIcon(), func() {
-		ui.deleteProfile(profile.PeerID, profile.Username)
-	})
-
-	leftContent := container.NewHBox(avatarIcon, container.NewVBox(usernameLabel, peerIDLabel))
+	leftContent := container.NewHBox(avatarIcon, container.NewVBox(usernameLabel, peerIDLabel, infoLines))
 
 	content := container.NewBorder(
 		nil, nil,
 		container.NewHBox(statusInd, leftContent),
-		container.NewHBox(cachedAtLabel, chatBtn, profileBtn, deleteBtn),
+		actionsRow,
 		widget.NewSeparator(),
 	)
 
 	return content
+}
+
+// createConnectedPeerItem creates a connected peer item using universal peer display
+func (ui *UI) createConnectedPeerItem(peer *network.PeerInfo) *fyne.Container {
+	avatarPath := ""
+	profile, err := queries.GetProfileByPeerID(peer.PeerID)
+	if err == nil && profile != nil && profile.AvatarPath != "" {
+		avatarPath = profile.AvatarPath
+	}
+
+	displayName := peer.Username
+	if displayName == "" && profile != nil {
+		displayName = profile.Username
+	}
+	if displayName == "" {
+		displayName = peer.PeerID[:min(8, len(peer.PeerID))]
+	}
+
+	data := &PeerDisplayData{
+		PeerID:      peer.PeerID,
+		Username:    displayName,
+		AvatarPath:  avatarPath,
+		StatusColor: color.RGBA{R: 0, G: 255, B: 0, A: 255},
+		StatusText:  "connected",
+		InfoLines: []string{
+			fmt.Sprintf("Address: %s", peer.Address),
+			fmt.Sprintf("Ping: %d ms", peer.LatencyMs),
+		},
+		Actions: []PeerAction{
+			{Icon: theme.MailComposeIcon(), Tooltip: "Chat", OnTapped: func() { ui.openPeerChat(peer.PeerID, displayName) }},
+			{Icon: theme.AccountIcon(), Tooltip: "Profile", OnTapped: func() { ui.openRemoteProfile(peer.PeerID) }},
+			{Icon: theme.ContentAddIcon(), Tooltip: "Add to contacts", OnTapped: func() { ui.addConnectedPeerToContacts(peer.PeerID) }},
+			{Icon: theme.CancelIcon(), Tooltip: "Disconnect", OnTapped: func() { ui.disconnectFromPeer(peer.PeerID) }},
+		},
+	}
+
+	return ui.CreatePeerItem(data)
+}
+
+// createDiscoveredPeerItem creates a discovered peer item using universal peer display
+func (ui *UI) createDiscoveredPeerItem(peerID string, lastSeen time.Time) *fyne.Container {
+	avatarPath := ""
+	displayName := peerID[:min(8, len(peerID))]
+	profile, err := queries.GetProfileByPeerID(peerID)
+	if err == nil && profile != nil {
+		if profile.AvatarPath != "" {
+			avatarPath = profile.AvatarPath
+		}
+		if profile.Username != "" {
+			displayName = profile.Username
+		}
+	}
+
+	data := &PeerDisplayData{
+		PeerID:      peerID,
+		Username:    displayName,
+		AvatarPath:  avatarPath,
+		StatusColor: color.RGBA{R: 255, G: 255, B: 0, A: 255},
+		StatusText:  "discovered",
+		InfoLines: []string{
+			fmt.Sprintf("Seen: %s", lastSeen.Format("2006-01-02 15:04:05")),
+		},
+		Actions: []PeerAction{
+			{Icon: theme.FolderIcon(), Tooltip: "Connect", OnTapped: func() { ui.connectToDiscoveredPeer(peerID) }},
+		},
+	}
+
+	return ui.CreatePeerItem(data)
+}
+
+// loadProfiles loads the list of profiles
+func (ui *UI) loadProfiles() {
+	fyne.Do(func() {
+		if ui.profilesList == nil {
+			return
+		}
+
+		ui.profilesList.Objects = nil
+
+		if ui.p2pUI == nil {
+			emptyLabel := widget.NewLabel("P2P service not initialized")
+			emptyLabel.TextStyle = fyne.TextStyle{Italic: true}
+			ui.profilesList.Add(emptyLabel)
+			ui.profilesList.Refresh()
+			return
+		}
+
+		profiles, _ := ui.p2pUI.GetProfiles()
+
+		if ui.profilesCountLabel != nil {
+			ui.profilesCountLabel.SetText(fmt.Sprintf("%d", len(profiles)))
+		}
+
+		if len(profiles) == 0 {
+			emptyLabel := widget.NewLabel("No profiles")
+			emptyLabel.TextStyle = fyne.TextStyle{Italic: true}
+			ui.profilesList.Add(emptyLabel)
+		} else {
+			for _, profile := range profiles {
+				profileItem := ui.createProfileItem(profile)
+				ui.profilesList.Add(profileItem)
+			}
+		}
+
+		ui.profilesList.Refresh()
+	})
+}
+
+// createProfileItem creates a profile item using universal peer display
+func (ui *UI) createProfileItem(profile *models.Profile) *fyne.Container {
+	updatedText := "never"
+	if !profile.UpdatedAt.IsZero() {
+		updatedText = profile.UpdatedAt.Format("2006-01-02 15:04:05")
+	}
+
+	data := &PeerDisplayData{
+		PeerID:      profile.PeerID,
+		Username:    profile.Username,
+		AvatarPath:  profile.AvatarPath,
+		StatusColor: color.RGBA{R: 0, G: 150, B: 255, A: 255},
+		StatusText:  "cached",
+		InfoLines: []string{
+			fmt.Sprintf("Updated: %s", updatedText),
+		},
+		Actions: []PeerAction{
+			{Icon: theme.MailComposeIcon(), Tooltip: "Chat", OnTapped: func() { ui.openPeerChat(profile.PeerID, profile.Username) }},
+			{Icon: theme.AccountIcon(), Tooltip: "Profile", OnTapped: func() { ui.openRemoteProfile(profile.PeerID) }},
+			{Icon: theme.DeleteIcon(), Tooltip: "Delete", OnTapped: func() { ui.deleteProfile(profile.PeerID, profile.Username) }},
+		},
+	}
+
+	return ui.CreatePeerItem(data)
 }
 
 // openPeerChat opens a chat with a peer
@@ -512,16 +484,67 @@ func (ui *UI) disconnectFromPeer(peerID string) {
 	})
 }
 
-// connectToDiscoveredPeer connects to a discovered peer
+// loadDiscoveredPeers loads the list of discovered peers
+func (ui *UI) loadDiscoveredPeers() {
+	if ui.discoveredPeersList == nil {
+		return
+	}
+
+	ui.discoveredPeersList.Objects = nil
+
+	if ui.p2pUI == nil {
+		emptyLabel := widget.NewLabel("P2P service not initialized")
+		emptyLabel.TextStyle = fyne.TextStyle{Italic: true}
+		ui.discoveredPeersList.Add(emptyLabel)
+		ui.discoveredPeersList.Refresh()
+		return
+	}
+
+	discovered := ui.p2pUI.GetDiscoveredPeers()
+
+	if len(discovered) == 0 {
+		emptyLabel := widget.NewLabel("No discovered peers")
+		emptyLabel.TextStyle = fyne.TextStyle{Italic: true}
+		ui.discoveredPeersList.Add(emptyLabel)
+	} else {
+		for peerID, lastSeen := range discovered {
+			peerItem := ui.createDiscoveredPeerItem(peerID, lastSeen)
+			ui.discoveredPeersList.Add(peerItem)
+		}
+	}
+
+	ui.discoveredPeersList.Refresh()
+}
+
+// connectToDiscoveredPeer connects to a discovered peer using their address from peerstore
 func (ui *UI) connectToDiscoveredPeer(peerID string) {
 	if ui.p2pUI == nil {
 		ui.showErrorDialog("Error", "P2P service not initialized")
 		return
 	}
 
-	// Get peer address from discovered
-	// TODO: Get address from peerstore
-	ui.showInfoDialog("Information", "Connecting to discovered peer requires implementation")
+	// Get peer addresses from peerstore
+	addrs := ui.p2pUI.GetPeerAddresses(peerID)
+	if len(addrs) == 0 {
+		ui.showErrorDialog("Error", "Peer address not found in peerstore")
+		return
+	}
+
+	// Try to connect using the first available address
+	addrStr := addrs[0]
+	err := ui.p2pUI.ConnectToContact(addrStr)
+	if err != nil {
+		ui.showErrorDialog("Error", fmt.Sprintf("Failed to connect: %v", err))
+		return
+	}
+
+	ui.showInfoDialog("Connection", "Attempting to connect to discovered peer...")
+
+	// Update connected peers list after a few seconds
+	time.AfterFunc(3*time.Second, func() {
+		ui.loadConnectedPeers()
+		ui.loadDiscoveredPeers()
+	})
 }
 
 // deleteProfile deletes a peer profile from the database

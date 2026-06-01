@@ -38,26 +38,28 @@ func (ml *MessagesList) Container() fyne.CanvasObject {
 
 // AddMessage добавляет сообщение в список
 func (ml *MessagesList) AddMessage(message *models.ChatMessage, isOutgoing bool) {
-	var bubbleContainer fyne.CanvasObject
-	bubble := NewMessageBubble(
-		message,
-		isOutgoing,
-		func() {
-			if ml.menuManager != nil {
-				ml.menuManager.ShowMessageMenu(message, bubbleContainer, isOutgoing)
-			}
-		},
-		ml.onOpenFolder,
-	)
-	bubbleContainer = bubble.Container()
-	ml.container.Add(bubbleContainer)
+	fyne.Do(func() {
+		var bubbleContainer fyne.CanvasObject
+		bubble := NewMessageBubble(
+			message,
+			isOutgoing,
+			func() {
+				if ml.menuManager != nil {
+					ml.menuManager.ShowMessageMenu(message, bubbleContainer, isOutgoing)
+				}
+			},
+			ml.onOpenFolder,
+		)
+		bubbleContainer = bubble.Container()
+		ml.container.Add(bubbleContainer)
 
-	ml.container.Refresh()
-	if ml.scroll != nil {
-		ml.scroll.Refresh()
-	}
+		ml.container.Refresh()
+		if ml.scroll != nil {
+			ml.scroll.Refresh()
+		}
 
-	ml.scrollToBottom()
+		ml.scrollToBottom()
+	})
 }
 
 // AddMessages добавляет несколько сообщений
@@ -70,8 +72,10 @@ func (ml *MessagesList) AddMessages(messages []*models.ChatMessage, localPeerID 
 
 // Clear очищает список сообщений
 func (ml *MessagesList) Clear() {
-	ml.container.Objects = nil
-	ml.container.Refresh()
+	fyne.Do(func() {
+		ml.container.Objects = nil
+		ml.container.Refresh()
+	})
 }
 
 // scrollToBottom прокручивает к последнему сообщению

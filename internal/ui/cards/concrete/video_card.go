@@ -24,10 +24,8 @@ type VideoCard struct {
 	*cards.BaseCard
 	videoFiles           []*cards.Block
 	currentFileIdx       int
-	isContentInitialized bool // Флаг: контент уже инициализирован
-	noButtonsMode        bool // Режим отображения без кнопок в меню
-	previewContent       fyne.CanvasObject
-	playOverlay          *fyne.Container
+	isContentInitialized bool
+	noButtonsMode        bool
 }
 
 // NewVideoCard создает новую карточку для видео
@@ -91,9 +89,8 @@ func (vc *VideoCard) createVideoUI(fileIndex int) {
 	// Получаем имя файла для отображения
 	fileName := vc.getDisplayName(block)
 
-	// Создаем превью (заглушку) для видео
-	// В будущем можно генерировать реальный кадр из видео через ffmpeg
-	vc.previewContent = vc.createVideoPreview(filePath)
+	// Создаем превью (заглушка с градиентом)
+	previewContent := vc.createVideoPlaceholder()
 
 	// Создаем оверлей с кнопкой Play по центру
 	playBtn := widget.NewButtonWithIcon("", theme.MediaPlayIcon(), func() {
@@ -104,10 +101,10 @@ func (vc *VideoCard) createVideoUI(fileIndex int) {
 	// Полупрозрачный фон для кнопки
 	playBg := canvas.NewCircle(color.RGBA{R: 0, G: 0, B: 0, A: 180})
 	playOverlayContent := container.NewStack(playBg, playBtn)
-	vc.playOverlay = container.NewCenter(playOverlayContent)
+	playOverlay := container.NewCenter(playOverlayContent)
 
 	// Контейнер с превью и оверлеем
-	previewContainer := container.NewStack(vc.previewContent, vc.playOverlay)
+	previewContainer := container.NewStack(previewContent, playOverlay)
 
 	// Нижняя панель с информацией
 	infoLabel := widget.NewRichText(&widget.TextSegment{
@@ -149,23 +146,18 @@ func (vc *VideoCard) createVideoUI(fileIndex int) {
 	)
 }
 
-// createVideoPreview создает превью для видео (заглушку)
-func (vc *VideoCard) createVideoPreview(filePath string) fyne.CanvasObject {
-	// Создаем градиентный фон в стиле видео
+// createVideoPlaceholder создает заглушку для видео с градиентом и иконкой
+func (vc *VideoCard) createVideoPlaceholder() fyne.CanvasObject {
 	gradient := canvas.NewHorizontalGradient(
 		color.RGBA{R: 30, G: 30, B: 50, A: 255},
 		color.RGBA{R: 60, G: 40, B: 80, A: 255},
 	)
 	gradient.SetMinSize(fyne.NewSize(0, 180))
 
-	// Иконка видео по центру
 	videoIcon := widget.NewIcon(theme.MediaVideoIcon())
 	videoContainer := container.NewCenter(videoIcon)
 
-	// Контейнер для превью с минимальной высотой
-	previewContent := container.NewStack(gradient, videoContainer)
-
-	return previewContent
+	return container.NewStack(gradient, videoContainer)
 }
 
 // getDisplayName возвращает отображаемое имя файла

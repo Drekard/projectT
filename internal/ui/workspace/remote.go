@@ -2,9 +2,11 @@ package workspace
 
 import (
 	"context"
+	"log"
 	"projectT/internal/storage/database/models"
 	"projectT/internal/storage/database/queries"
 	"projectT/internal/ui/workspace/profile"
+	"time"
 
 	"github.com/libp2p/go-libp2p/core/peer"
 	p2p_ui "projectT/internal/services/p2p/ui"
@@ -108,7 +110,9 @@ func (ws *Workspace) requestRemoteFolderFromPeer(peerID, folderUUID string) {
 		}
 	}
 
-	ws.gridManager.LoadItemsWithoutCreateElement(allItems)
+	fyne.CurrentApp().Driver().DoFromGoroutine(func() {
+		ws.gridManager.LoadItemsWithoutCreateElement(allItems)
+	}, false)
 }
 
 func (ws *Workspace) OpenRemoteProfile(peerID string) {
@@ -120,6 +124,38 @@ func (ws *Workspace) OpenRemoteProfile(peerID string) {
 	profile, err := queries.GetProfileByPeerID(peerID)
 	if err == nil && profile != nil {
 		ws.remoteProfileName = profile.Username
+	}
+
+	// Если профиль не найден или пустой — запрашиваем у пира
+	if profile == nil || (profile.Username == "" && profile.ContentChar == "") {
+		if ws.p2pNetwork != nil && ws.p2pNetwork.ProfileExchange() != nil {
+			go func() {
+				ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+				defer cancel()
+
+				peerIDObj, err := peer.Decode(peerID)
+				if err != nil {
+					return
+				}
+
+				_, err = ws.p2pNetwork.ProfileExchange().RequestFullProfile(ctx, peerIDObj)
+				if err != nil {
+					log.Printf("[RemoteProfile] ⚠️ Не удалось запросить профиль %s: %v", peerID[:min(10, len(peerID))], err)
+					return
+				}
+
+				// После получения профиля обновляем UI
+				fyne.CurrentApp().Driver().DoFromGoroutine(func() {
+					updatedProfile, err := queries.GetProfileByPeerID(peerID)
+					if err == nil && updatedProfile != nil {
+						ws.remoteProfileName = updatedProfile.Username
+					}
+					if ws.remoteProfileUI != nil && ws.remoteProfileUI.GetPeerID() == peerID {
+						ws.remoteProfileUI.Refresh()
+					}
+				}, false)
+			}()
+		}
 	}
 
 	ws.notifyRemoteModeChanged(true)

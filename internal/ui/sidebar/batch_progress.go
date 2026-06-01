@@ -153,75 +153,81 @@ func (bpw *BatchProgressWidget) monitorBatchItemProgress() {
 
 // updateBatchProgress обновляет общий прогресс батча
 func (bpw *BatchProgressWidget) updateBatchProgress(progress *transfer.BatchProgress) {
-	if bpw.lastBatchID == progress.BatchID && progress.Status == transfer.TransferStatusInProgress {
-		return
-	}
-
-	bpw.lastBatchID = progress.BatchID
-	bpw.activeBatch = progress
-
-	bpw.container.Show()
-	bpw.overallBar.Show()
-	bpw.statusLabel.Show()
-
-	switch progress.Status {
-	case transfer.TransferStatusInProgress:
-		bpw.overallBar.SetValue(progress.OverallPercent / 100.0)
-		statusText := fmt.Sprintf("Batch: %s (%d/%d, %.0f%%)", progress.Type, progress.Completed, progress.TotalItems, progress.OverallPercent)
-		bpw.statusLabel.SetText(statusText)
-
-	case transfer.TransferStatusCompleted:
-		bpw.overallBar.SetValue(1.0)
-		statusText := fmt.Sprintf("✓ Batch completed: %d/%d", progress.Completed, progress.TotalItems)
-		if progress.Failed > 0 {
-			statusText += fmt.Sprintf(" (%d errors)", progress.Failed)
+	fyne.CurrentApp().Driver().DoFromGoroutine(func() {
+		if bpw.lastBatchID == progress.BatchID && progress.Status == transfer.TransferStatusInProgress {
+			return
 		}
-		bpw.statusLabel.SetText(statusText)
-		bpw.scheduleHide()
 
-	case transfer.TransferStatusFailed:
-		bpw.overallBar.SetValue(0)
-		bpw.statusLabel.SetText(fmt.Sprintf("✗ Batch failed: %s", progress.Error))
-		bpw.scheduleHide()
+		bpw.lastBatchID = progress.BatchID
+		bpw.activeBatch = progress
 
-	case transfer.TransferStatusCancelled:
-		bpw.overallBar.SetValue(0)
-		bpw.statusLabel.SetText("✗ Batch cancelled")
-		bpw.scheduleHide()
-	}
+		bpw.container.Show()
+		bpw.overallBar.Show()
+		bpw.statusLabel.Show()
 
-	bpw.container.Refresh()
+		switch progress.Status {
+		case transfer.TransferStatusInProgress:
+			bpw.overallBar.SetValue(progress.OverallPercent / 100.0)
+			statusText := fmt.Sprintf("Batch: %s (%d/%d, %.0f%%)", progress.Type, progress.Completed, progress.TotalItems, progress.OverallPercent)
+			bpw.statusLabel.SetText(statusText)
+
+		case transfer.TransferStatusCompleted:
+			bpw.overallBar.SetValue(1.0)
+			statusText := fmt.Sprintf("✓ Batch completed: %d/%d", progress.Completed, progress.TotalItems)
+			if progress.Failed > 0 {
+				statusText += fmt.Sprintf(" (%d errors)", progress.Failed)
+			}
+			bpw.statusLabel.SetText(statusText)
+			bpw.scheduleHide()
+
+		case transfer.TransferStatusFailed:
+			bpw.overallBar.SetValue(0)
+			bpw.statusLabel.SetText(fmt.Sprintf("✗ Batch failed: %s", progress.Error))
+			bpw.scheduleHide()
+
+		case transfer.TransferStatusCancelled:
+			bpw.overallBar.SetValue(0)
+			bpw.statusLabel.SetText("✗ Batch cancelled")
+			bpw.scheduleHide()
+		}
+
+		bpw.container.Refresh()
+	}, false)
 }
 
 // updateBatchItemProgress обновляет прогресс элемента
 func (bpw *BatchProgressWidget) updateBatchItemProgress(item *transfer.BatchItemProgress) {
-	key := fmt.Sprintf("%s_%s", item.BatchID, item.ElementUUID)
-	bpw.batchItems[key] = item
+	fyne.CurrentApp().Driver().DoFromGoroutine(func() {
+		key := fmt.Sprintf("%s_%s", item.BatchID, item.ElementUUID)
+		bpw.batchItems[key] = item
 
-	// Обновляем ключи списка
-	bpw.itemKeys = make([]string, 0, len(bpw.batchItems))
-	for k := range bpw.batchItems {
-		bpw.itemKeys = append(bpw.itemKeys, k)
-	}
+		// Обновляем ключи списка
+		bpw.itemKeys = make([]string, 0, len(bpw.batchItems))
+		for k := range bpw.batchItems {
+			bpw.itemKeys = append(bpw.itemKeys, k)
+		}
 
-	// Показываем список если есть элементы
-	if len(bpw.itemKeys) > 0 {
-		bpw.itemList.Show()
-	}
+		// Показываем список если есть элементы
+		if len(bpw.itemKeys) > 0 {
+			bpw.itemList.Show()
+		}
 
-	bpw.itemList.Refresh()
+		bpw.itemList.Refresh()
+	}, false)
 }
 
 // scheduleHide планирует скрытие
 func (bpw *BatchProgressWidget) scheduleHide() {
 	time.AfterFunc(5*time.Second, func() {
-		bpw.overallBar.Hide()
-		bpw.statusLabel.SetText("")
-		bpw.itemList.Hide()
-		bpw.batchItems = make(map[string]*transfer.BatchItemProgress)
-		bpw.itemKeys = nil
-		bpw.container.Hide()
-		bpw.container.Refresh()
+		fyne.CurrentApp().Driver().DoFromGoroutine(func() {
+			bpw.overallBar.Hide()
+			bpw.statusLabel.SetText("")
+			bpw.itemList.Hide()
+			bpw.batchItems = make(map[string]*transfer.BatchItemProgress)
+			bpw.itemKeys = nil
+			bpw.container.Hide()
+			bpw.container.Refresh()
+		}, false)
 	})
 }
 

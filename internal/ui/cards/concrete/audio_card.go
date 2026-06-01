@@ -335,8 +335,10 @@ func (ac *AudioCard) play(filePath string) {
 	ac.isPaused = false
 
 	// Обновляем UI
-	ac.playBtn.SetIcon(theme.MediaPauseIcon())
-	ac.playBtn.Refresh()
+	fyne.CurrentApp().Driver().DoFromGoroutine(func() {
+		ac.playBtn.SetIcon(theme.MediaPauseIcon())
+		ac.playBtn.Refresh()
+	}, false)
 
 	// Запускаем обновление прогресса
 	go ac.updateProgress()
@@ -365,10 +367,13 @@ func (ac *AudioCard) updateProgress() {
 						progress = 1.0
 					}
 
-					ac.progress.Value = progress
-					ac.timeLabel.SetText(formatDuration(elapsed))
-					ac.progress.Refresh()
-					ac.timeLabel.Refresh()
+					timeText := formatDuration(elapsed)
+					fyne.CurrentApp().Driver().DoFromGoroutine(func() {
+						ac.progress.Value = progress
+						ac.timeLabel.SetText(timeText)
+						ac.progress.Refresh()
+						ac.timeLabel.Refresh()
+					}, false)
 
 					// Если достигли конца
 					if progress >= 1.0 {
@@ -391,8 +396,10 @@ func (ac *AudioCard) pause() {
 	ac.isPaused = true
 	ac.isPlaying = false
 
-	ac.playBtn.SetIcon(theme.MediaPlayIcon())
-	ac.playBtn.Refresh()
+	fyne.CurrentApp().Driver().DoFromGoroutine(func() {
+		ac.playBtn.SetIcon(theme.MediaPlayIcon())
+		ac.playBtn.Refresh()
+	}, false)
 }
 
 // resume возобновляет воспроизведение
@@ -403,8 +410,10 @@ func (ac *AudioCard) resume() {
 	ac.isPaused = false
 	ac.isPlaying = true
 
-	ac.playBtn.SetIcon(theme.MediaPauseIcon())
-	ac.playBtn.Refresh()
+	fyne.CurrentApp().Driver().DoFromGoroutine(func() {
+		ac.playBtn.SetIcon(theme.MediaPauseIcon())
+		ac.playBtn.Refresh()
+	}, false)
 
 	// Перезапускаем обновление прогресса
 	go ac.updateProgress()
@@ -431,12 +440,14 @@ func (ac *AudioCard) stop() {
 	}
 	ac.stopChan = make(chan struct{})
 
-	ac.playBtn.SetIcon(theme.MediaPlayIcon())
-	ac.playBtn.Refresh()
-	ac.progress.Value = 0
-	ac.progress.Refresh()
-	ac.timeLabel.SetText("0:00")
-	ac.timeLabel.Refresh()
+	fyne.CurrentApp().Driver().DoFromGoroutine(func() {
+		ac.playBtn.SetIcon(theme.MediaPlayIcon())
+		ac.playBtn.Refresh()
+		ac.progress.Value = 0
+		ac.progress.Refresh()
+		ac.timeLabel.SetText("0:00")
+		ac.timeLabel.Refresh()
+	}, false)
 }
 
 // setVolume устанавливает громкость

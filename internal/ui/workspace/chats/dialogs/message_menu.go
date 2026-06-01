@@ -95,7 +95,14 @@ func (mmm *MessageMenuManager) ShowMessageMenu(message *models.ChatMessage, cont
 	// Вызываем колбэк при закрытии
 	go func() {
 		// Периодически проверяем, закрыт ли попап, чтобы не нагружать CPU
-		for popup.Visible() {
+		for {
+			visible := false
+			fyne.CurrentApp().Driver().DoFromGoroutine(func() {
+				visible = popup.Visible()
+			}, true)
+			if !visible {
+				break
+			}
 			time.Sleep(100 * time.Millisecond)
 		}
 	}()

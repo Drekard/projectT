@@ -8,6 +8,7 @@ import (
 
 	network "projectT/internal/services/p2p/ui"
 	"projectT/internal/storage/database/models"
+	"projectT/internal/storage/database/queries"
 
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/canvas"
@@ -24,10 +25,6 @@ type UI struct {
 	p2pUI        *network.UIP2P
 	contactsUI   UIProvider
 	contactsList *fyne.Container
-
-	// Elements for adding a contact
-	addressEntry  *widget.Entry
-	usernameEntry *widget.Entry
 }
 
 // UIProvider interface for accessing UI functions
@@ -76,46 +73,17 @@ func (ui *UI) createContactsContent() *fyne.Container {
 	// Contacts list
 	ui.contactsList = container.NewVBox()
 
-	// Divider for manual contact addition
-	manualLabel := widget.NewLabel("Add contact by address")
-	manualLabel.TextStyle = fyne.TextStyle{Italic: true}
-
-	// Address input field with limited width
-	ui.addressEntry = widget.NewEntry()
-	ui.addressEntry.SetPlaceHolder("projectt:peerid@/ip4/.../tcp/.../p2p/...")
-	ui.addressEntry.MultiLine = false
-	ui.addressEntry.Wrapping = fyne.TextWrapBreak
-
-	// Limit address field width
-	addressWrapper := container.NewGridWithColumns(2, ui.addressEntry)
-
-	// Name input field with limited width
-	ui.usernameEntry = widget.NewEntry()
-	ui.usernameEntry.SetPlaceHolder("Contact name (optional)")
-	ui.usernameEntry.MultiLine = false
-
-	usernameEntryWrapper := canvas.NewRectangle(color.RGBA{R: 50, G: 50, B: 50, A: 255})
-	usernameEntryWrapper.SetMinSize(fyne.NewSize(300, 30))
-
-	username := container.NewStack(usernameEntryWrapper, ui.usernameEntry)
-
-	// Add button (with limited width)
-	addManualButton := widget.NewButtonWithIcon("Add Contact", theme.ContentAddIcon(), func() {
-		ui.addContactByAddress()
+	// Add contact button (compact)
+	addContactBtn := widget.NewButtonWithIcon("Add Contact", theme.ContentAddIcon(), func() {
+		ui.showAddContactDialog()
 	})
+	addContactBtn.Importance = widget.LowImportance
 
-	// Limit name field width
-	usernameWrapper := container.NewGridWithColumns(2, container.NewHBox(username, addManualButton))
-
-	manualSection := container.NewVBox(
-		manualLabel,
-		addressWrapper,
-		usernameWrapper,
-	)
+	headerSection := container.NewHBox(addContactBtn)
 
 	content := container.NewVBox(
 		widget.NewSeparator(),
-		manualSection,
+		headerSection,
 		widget.NewSeparator(),
 		ui.contactsList,
 	)
@@ -124,6 +92,77 @@ func (ui *UI) createContactsContent() *fyne.Container {
 	bg := canvas.NewRectangle(color.RGBA{R: 30, G: 30, B: 30, A: 0})
 
 	return container.NewStack(bg, container.NewScroll(content))
+}
+
+// showAddContactDialog shows a dialog for adding a contact from connected peers
+func (ui *UI) showAddContactDialog() {
+	if ui.p2pUI == nil {
+		ui.showErrorDialog("Error", "P2P service not initialized")
+		return
+	}
+
+	// Name input field
+	nameEntry := widget.NewEntry()
+	nameEntry.SetPlaceHolder("Contact name (optional)")
+
+	// Connected peers list
+	peersList := container.NewVBox()
+	connectedPeers := ui.p2pUI.GetConnectedPeers()
+
+	if len(connectedPeers) == 0 {
+		emptyLabel := widget.NewLabel("No connected peers")
+		emptyLabel.TextStyle = fyne.TextStyle{Italic: true}
+		peersList.Add(emptyLabel)
+	} else {
+		for _, peer := range connectedPeers {
+			username := peer.Username
+			if username == "" {
+				profile, err := queries.GetProfileByPeerID(peer.PeerID)
+				if err == nil && profile != nil && profile.Username != "" {
+					username = profile.Username
+				} else {
+					username = peer.PeerID[:min(8, len(peer.PeerID))]
+				}
+			}
+
+			peerRow := container.NewHBox(
+				widget.NewLabel(username),
+				widget.NewLabel(fmt.Sprintf("(%s)", peer.PeerID[:8])),
+			)
+
+			addBtn := widget.NewButtonWithIcon("", theme.ContentAddIcon(), func() {
+				addrs := ui.p2pUI.GetPeerAddresses(peer.PeerID)
+				if len(addrs) == 0 {
+					ui.showErrorDialog("Error", "Peer address not found")
+					return
+				}
+
+				addrStr := fmt.Sprintf("%s@%s", peer.PeerID, addrs[0])
+				err := ui.p2pUI.AddContactByAddress(addrStr, nameEntry.Text)
+				if err != nil {
+					ui.showErrorDialog("Error", fmt.Sprintf("Failed to add contact: %v", err))
+					return
+				}
+
+				ui.showInfoDialog("Success", "Contact added")
+				ui.loadContactsList()
+			})
+			addBtn.Importance = widget.LowImportance
+
+			peerItem := container.NewBorder(nil, nil, peerRow, addBtn)
+			peersList.Add(peerItem)
+		}
+	}
+
+	DialogContent := container.NewVBox(
+		widget.NewLabel("Select a connected peer to add:"),
+		nameEntry,
+		widget.NewSeparator(),
+		container.NewScroll(peersList),
+		widget.NewSeparator(),
+	)
+
+	dialog.ShowCustom("Add Contact", "Close", DialogContent, ui.window)
 }
 
 // loadContactsList loads the contacts list from the database
@@ -315,33 +354,6 @@ func (ui *UI) deleteContact(contact *models.Contact) {
 		},
 		window,
 	)
-}
-
-// addContactByAddress adds a contact by address
-func (ui *UI) addContactByAddress() {
-	if ui.p2pUI == nil {
-		ui.showErrorDialog("Error", "P2P service not initialized")
-		return
-	}
-
-	addrStr := ui.addressEntry.Text
-	if addrStr == "" {
-		ui.showErrorDialog("Error", "Enter contact address")
-		return
-	}
-
-	username := ui.usernameEntry.Text
-
-	err := ui.p2pUI.AddContactByAddress(addrStr, username)
-	if err != nil {
-		ui.showErrorDialog("Error", fmt.Sprintf("Failed to add contact: %v", err))
-		return
-	}
-
-	ui.showInfoDialog("Success", "Contact added")
-	ui.addressEntry.SetText("")
-	ui.usernameEntry.SetText("")
-	ui.loadContactsList()
 }
 
 // showErrorDialog shows an error dialog

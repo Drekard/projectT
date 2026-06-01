@@ -54,15 +54,6 @@ func TestRemoteProfileUI_ParsePinnedUUIDs_NumberArray(t *testing.T) {
 	}
 }
 
-func TestRemoteProfileUI_CreateCharacteristicItem(t *testing.T) {
-	ui := &RemoteProfileUI{}
-
-	row := ui.createCharacteristicItem("Name", "Value")
-	if len(row.Objects) != 1 {
-		t.Fatalf("expected 1 object in container, got %d", len(row.Objects))
-	}
-}
-
 func TestRemoteProfileUI_IsLocalDetection(t *testing.T) {
 	// Test that isLocal flag is correctly set based on OwnerType
 	tests := []struct {

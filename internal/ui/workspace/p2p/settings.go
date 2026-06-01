@@ -34,10 +34,7 @@ func (ui *UI) createSettingsTab() fyne.CanvasObject {
 
 // createAddressSection creates the address section
 func (ui *UI) createAddressSection() *fyne.Container {
-	label := widget.NewLabel("Your address: ")
-	ui.addressLabel = label
-
-	copyButton := widget.NewButtonWithIcon("Copy Address", theme.ContentCopyIcon(), func() {
+	copyButton := widget.NewButtonWithIcon("Copy Your Address", theme.ContentCopyIcon(), func() {
 		ui.copyMyAddress()
 	})
 
@@ -45,10 +42,9 @@ func (ui *UI) createAddressSection() *fyne.Container {
 		ui.checkPortAccessibility()
 	})
 
-	addressRow := container.NewHBox(label, copyButton)
-	buttonsRow := container.NewHBox(checkPortButton)
+	buttonsRow := container.NewHBox(copyButton, checkPortButton)
 
-	return container.NewVBox(addressRow, buttonsRow)
+	return container.NewVBox(buttonsRow)
 }
 
 // createP2PSettingsSection creates the P2P settings section
@@ -175,8 +171,10 @@ func (ui *UI) toggleP2P(enabled bool) {
 		go func() {
 			if err := ui.p2pUI.Start(); err != nil {
 				log.Printf("[P2P] Error starting P2P: %v", err)
-				ui.p2pEnabledCheck.SetChecked(false)
-				ui.showErrorDialog("Error", "Failed to start P2P: "+err.Error())
+				fyne.CurrentApp().Driver().DoFromGoroutine(func() {
+					ui.p2pEnabledCheck.SetChecked(false)
+					ui.showErrorDialog("Error", "Failed to start P2P: "+err.Error())
+				}, false)
 			} else {
 				log.Printf("[P2P] P2P started")
 				ui.updateAddressDisplay()
@@ -186,8 +184,10 @@ func (ui *UI) toggleP2P(enabled bool) {
 		go func() {
 			if err := ui.p2pUI.Stop(); err != nil {
 				log.Printf("[P2P] Error stopping P2P: %v", err)
-				ui.p2pEnabledCheck.SetChecked(true)
-				ui.showErrorDialog("Error", "Failed to stop P2P: "+err.Error())
+				fyne.CurrentApp().Driver().DoFromGoroutine(func() {
+					ui.p2pEnabledCheck.SetChecked(true)
+					ui.showErrorDialog("Error", "Failed to stop P2P: "+err.Error())
+				}, false)
 			} else {
 				log.Printf("[P2P] P2P stopped")
 				ui.updateAddressDisplay()
@@ -198,35 +198,13 @@ func (ui *UI) toggleP2P(enabled bool) {
 
 // updateAddressDisplay обновляет отображение адреса
 func (ui *UI) updateAddressDisplay() {
-	if ui.p2pUI == nil || ui.addressLabel == nil {
+	if ui.p2pUI == nil {
 		return
 	}
 
-	// Сначала показываем placeholder
-	fyne.CurrentApp().Driver().DoFromGoroutine(func() {
-		ui.addressLabel.SetText("Your address: (loading...)")
-	}, false)
-
 	// Загружаем публичный адрес асинхронно
 	go func() {
-		addr := ui.p2pUI.RefreshPublicAddress()
-		if addr == "" {
-			// Fallback: используем GetPeerAddress (без HTTP-запроса)
-			if peerAddr, err := ui.p2pUI.GetPeerAddress(); err == nil {
-				addr = peerAddr
-			}
-		}
-
-		displayAddr := addr
-		if displayAddr == "" {
-			displayAddr = "(not available)"
-		} else if len(displayAddr) > 60 {
-			displayAddr = displayAddr[:57] + "..."
-		}
-
-		fyne.CurrentApp().Driver().DoFromGoroutine(func() {
-			ui.addressLabel.SetText("Your address: " + displayAddr)
-		}, false)
+		_ = ui.p2pUI.RefreshPublicAddress()
 	}()
 }
 

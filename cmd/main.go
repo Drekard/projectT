@@ -30,6 +30,7 @@ func main() {
 	flag.Int("p2p-port", 0, "Порт для P2P соединений")
 	flag.Bool("p2p-relay", false, "Использовать relay для обхода NAT")
 	flag.Bool("p2p-relay-discovery", false, "Автообнаружение relay")
+	flag.Bool("tray", false, "Сворачивать приложение в системный трей")
 
 	// Парсим флаги
 	flag.Parse()
@@ -58,6 +59,12 @@ func main() {
 	}
 
 	myApp := app.NewApp()
+
+	// Проверяем флаг tray
+	trayFlag := flag.Lookup("tray")
+	if trayFlag != nil && trayFlag.Value.String() == "true" {
+		myApp.EnableTray()
+	}
 
 	myApp.Run()
 }

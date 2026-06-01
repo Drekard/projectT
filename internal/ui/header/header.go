@@ -180,8 +180,8 @@ func createChatHeader(state *HeaderState, width float32, searchHandler HeaderSea
 
 	searchEntry := searchManager.GetSearchEntry()
 
-	// Правая часть: поиск + 📎 + ℹ️
-	rightContainer := container.NewHBox(searchButton, profilehButton, infoButton)
+	// Правая часть: 📎 + ℹ️ (поиск скрыт в chat mod)
+	rightContainer := container.NewHBox(profilehButton, infoButton)
 
 	// Центральная часть: имя чата
 	centerContainer := container.NewCenter(chatNameLabel)

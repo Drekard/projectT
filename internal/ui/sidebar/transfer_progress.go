@@ -124,76 +124,80 @@ func (tpw *TransferProgressWidget) updateProgress(progress *transfer.TransferPro
 
 // updateUI обновляет элементы интерфейса
 func (tpw *TransferProgressWidget) updateUI(progress *transfer.TransferProgress) {
-	// Показываем контейнер при активной передаче
-	tpw.container.Show()
+	fyne.CurrentApp().Driver().DoFromGoroutine(func() {
+		// Показываем контейнер при активной передаче
+		tpw.container.Show()
 
-	tpw.progressBar.Show()
-	tpw.statusLabel.Show()
-	tpw.icon.Show()
+		tpw.progressBar.Show()
+		tpw.statusLabel.Show()
+		tpw.icon.Show()
 
-	// Устанавливаем иконку в зависимости от статуса
-	switch progress.Status {
-	case transfer.TransferStatusInProgress:
-		tpw.icon.SetResource(theme.DownloadIcon())
-		tpw.cancelButton.Show()
-		tpw.progressBar.SetValue(progress.Percent / 100.0)
+		// Устанавливаем иконку в зависимости от статуса
+		switch progress.Status {
+		case transfer.TransferStatusInProgress:
+			tpw.icon.SetResource(theme.DownloadIcon())
+			tpw.cancelButton.Show()
+			tpw.progressBar.SetValue(progress.Percent / 100.0)
 
-		statusText := fmt.Sprintf("Transferring: %s (%.1f%%)", progress.FileName, progress.Percent)
-		tpw.statusLabel.SetText(statusText)
+			statusText := fmt.Sprintf("Transferring: %s (%.1f%%)", progress.FileName, progress.Percent)
+			tpw.statusLabel.SetText(statusText)
 
-	case transfer.TransferStatusCompleted:
-		tpw.icon.SetResource(theme.ConfirmIcon())
-		tpw.cancelButton.Hide()
-		tpw.progressBar.SetValue(1.0)
+		case transfer.TransferStatusCompleted:
+			tpw.icon.SetResource(theme.ConfirmIcon())
+			tpw.cancelButton.Hide()
+			tpw.progressBar.SetValue(1.0)
 
-		statusText := fmt.Sprintf("✓ Completed: %s", progress.FileName)
-		tpw.statusLabel.SetText(statusText)
+			statusText := fmt.Sprintf("✓ Completed: %s", progress.FileName)
+			tpw.statusLabel.SetText(statusText)
 
-		// Hide after 3 seconds
-		tpw.scheduleHide()
+			// Hide after 3 seconds
+			tpw.scheduleHide()
 
-	case transfer.TransferStatusFailed:
-		tpw.icon.SetResource(theme.ErrorIcon())
-		tpw.cancelButton.Hide()
+		case transfer.TransferStatusFailed:
+			tpw.icon.SetResource(theme.ErrorIcon())
+			tpw.cancelButton.Hide()
 
-		statusText := fmt.Sprintf("✗ Error: %s", progress.FileName)
-		if progress.Error != "" {
-			statusText += fmt.Sprintf(" (%s)", progress.Error)
+			statusText := fmt.Sprintf("✗ Error: %s", progress.FileName)
+			if progress.Error != "" {
+				statusText += fmt.Sprintf(" (%s)", progress.Error)
+			}
+			tpw.statusLabel.SetText(statusText)
+
+			// Hide after 5 seconds
+			tpw.scheduleHide()
+
+		case transfer.TransferStatusCancelled:
+			tpw.icon.SetResource(theme.CancelIcon())
+			tpw.cancelButton.Hide()
+
+			statusText := fmt.Sprintf("✗ Cancelled: %s", progress.FileName)
+			tpw.statusLabel.SetText(statusText)
+
+			// Hide after 3 seconds
+			tpw.scheduleHide()
+
+		case transfer.TransferStatusPending:
+			tpw.icon.SetResource(theme.DownloadIcon())
+			tpw.cancelButton.Show()
+
+			statusText := fmt.Sprintf("Pending: %s", progress.FileName)
+			tpw.statusLabel.SetText(statusText)
 		}
-		tpw.statusLabel.SetText(statusText)
 
-		// Hide after 5 seconds
-		tpw.scheduleHide()
-
-	case transfer.TransferStatusCancelled:
-		tpw.icon.SetResource(theme.CancelIcon())
-		tpw.cancelButton.Hide()
-
-		statusText := fmt.Sprintf("✗ Cancelled: %s", progress.FileName)
-		tpw.statusLabel.SetText(statusText)
-
-		// Hide after 3 seconds
-		tpw.scheduleHide()
-
-	case transfer.TransferStatusPending:
-		tpw.icon.SetResource(theme.DownloadIcon())
-		tpw.cancelButton.Show()
-
-		statusText := fmt.Sprintf("Pending: %s", progress.FileName)
-		tpw.statusLabel.SetText(statusText)
-	}
-
-	tpw.container.Refresh()
+		tpw.container.Refresh()
+	}, false)
 }
 
 // scheduleHide планирует скрытие виджета через 3 секунды
 func (tpw *TransferProgressWidget) scheduleHide() {
 	time.AfterFunc(3*time.Second, func() {
-		tpw.progressBar.Hide()
-		tpw.statusLabel.SetText("")
-		tpw.icon.Hide()
-		tpw.container.Hide()
-		tpw.container.Refresh()
+		fyne.CurrentApp().Driver().DoFromGoroutine(func() {
+			tpw.progressBar.Hide()
+			tpw.statusLabel.SetText("")
+			tpw.icon.Hide()
+			tpw.container.Hide()
+			tpw.container.Refresh()
+		}, false)
 	})
 }
 

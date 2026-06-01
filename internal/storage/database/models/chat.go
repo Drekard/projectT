@@ -32,3 +32,19 @@ type ChatWithLastMessage struct {
 	IsOutgoing      bool       `json:"is_outgoing"` // true если последнее сообщение от нас
 	UnreadCount     int        `json:"unread_count"`
 }
+
+// UnifiedChatItem представляет объединённый элемент списка чатов (диалог, группа или канал)
+type UnifiedChatItem struct {
+	ID              int        `json:"id"`
+	ChatType        string     `json:"chat_type"` // "direct", "group", "channel", "local"
+	PeerID          string     `json:"peer_id"`   // для direct; для group/channel — GroupUUID
+	GroupUUID       string     `json:"group_uuid"`
+	Username        string     `json:"username"`
+	AvatarPath      string     `json:"avatar_path"`
+	LastMessageID   int        `json:"last_message_id"`
+	LastMessage     string     `json:"last_message"`
+	LastMessageType string     `json:"last_message_type"`
+	LastMessageAt   *time.Time `json:"last_message_at"`
+	IsOutgoing      bool       `json:"is_outgoing"`
+	UnreadCount     int        `json:"unread_count"`
+}

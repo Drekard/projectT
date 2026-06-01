@@ -316,6 +316,9 @@ func (ts *Service) handleBatchTransferRequest(stream network.Stream) {
 	}
 
 	ts.batchProgress <- batchProg
+
+	// Уведомляем UI о завершении получения батча
+	go ts.NotifyBatchComplete(remotePeer.String())
 }
 
 // saveBatchItem сохраняет элемент из батча

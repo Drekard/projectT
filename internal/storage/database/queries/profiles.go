@@ -40,8 +40,8 @@ func GetLocalProfile() (*models.Profile, error) {
 		return nil, err
 	}
 
-	profile.CreatedAt, _ = time.Parse("2006-01-02 15:04:05", createdAt)
-	profile.UpdatedAt, _ = time.Parse("2006-01-02 15:04:05", updatedAt)
+	profile.CreatedAt = parseTimeOrZero(createdAt)
+	profile.UpdatedAt = parseTimeOrZero(updatedAt)
 
 	return &profile, nil
 }
@@ -77,11 +77,10 @@ func GetRemoteProfile(peerID string) (*models.Profile, error) {
 	}
 
 	if cachedAt.Valid {
-		t, _ := time.Parse("2006-01-02 15:04:05", cachedAt.String)
-		profile.CachedAt = &t
+		profile.CachedAt = parseTimePtr(cachedAt.String)
 	}
-	profile.CreatedAt, _ = time.Parse("2006-01-02 15:04:05", createdAt)
-	profile.UpdatedAt, _ = time.Parse("2006-01-02 15:04:05", updatedAt)
+	profile.CreatedAt = parseTimeOrZero(createdAt)
+	profile.UpdatedAt = parseTimeOrZero(updatedAt)
 
 	return &profile, nil
 }
@@ -146,16 +145,31 @@ func GetAllRemoteProfiles() ([]*models.Profile, error) {
 		}
 
 		if cachedAt.Valid {
-			t, _ := time.Parse("2006-01-02 15:04:05", cachedAt.String)
-			profile.CachedAt = &t
+			profile.CachedAt = parseTimePtr(cachedAt.String)
 		}
-		profile.CreatedAt, _ = time.Parse("2006-01-02 15:04:05", createdAt)
-		profile.UpdatedAt, _ = time.Parse("2006-01-02 15:04:05", updatedAt)
+		profile.CreatedAt = parseTimeOrZero(createdAt)
+		profile.UpdatedAt = parseTimeOrZero(updatedAt)
 
 		profiles = append(profiles, &profile)
 	}
 
 	return profiles, rows.Err()
+}
+
+// parseTimeOrZero parses a time string using multiple formats, returns zero time on failure
+func parseTimeOrZero(s string) time.Time {
+	if t, err := parseTime(s); err == nil {
+		return t
+	}
+	return time.Time{}
+}
+
+// parseTimePtr parses a time string and returns a pointer, nil on failure
+func parseTimePtr(s string) *time.Time {
+	if t, err := parseTime(s); err == nil {
+		return &t
+	}
+	return nil
 }
 
 // CreateRemoteProfile создаёт чужой профиль
@@ -297,11 +311,10 @@ func GetProfileByPeerID(peerID string) (*models.Profile, error) {
 	}
 
 	if cachedAt.Valid {
-		t, _ := time.Parse("2006-01-02 15:04:05", cachedAt.String)
-		profile.CachedAt = &t
+		profile.CachedAt = parseTimePtr(cachedAt.String)
 	}
-	profile.CreatedAt, _ = time.Parse("2006-01-02 15:04:05", createdAt)
-	profile.UpdatedAt, _ = time.Parse("2006-01-02 15:04:05", updatedAt)
+	profile.CreatedAt = parseTimeOrZero(createdAt)
+	profile.UpdatedAt = parseTimeOrZero(updatedAt)
 
 	return &profile, nil
 }

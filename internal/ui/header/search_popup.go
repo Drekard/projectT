@@ -1,7 +1,9 @@
 package header
 
 import (
+	"fmt"
 	"image/color"
+	"strings"
 	"time"
 
 	"fyne.io/fyne/v2"
@@ -21,7 +23,7 @@ type SearchWindowManager struct {
 // NewSearchWindowManager создает новый менеджер popup поиска
 func NewSearchWindowManager(handler HeaderSearchHandler) *SearchWindowManager {
 	searchEntry := widget.NewEntry()
-	searchEntry.SetPlaceHolder("Search...")
+	searchEntry.SetPlaceHolder("Search... (free text searches title/description)")
 
 	swm := &SearchWindowManager{
 		searchEntry: searchEntry,
@@ -46,8 +48,9 @@ func NewSearchWindowManager(handler HeaderSearchHandler) *SearchWindowManager {
 
 		searchTimer = time.AfterFunc(500*time.Millisecond, func() {
 			if text != lastQuery {
+				query := buildSearchQuery(text)
 				if swm.handler != nil {
-					_ = swm.handler.SearchItems(text)
+					_ = swm.handler.SearchItems(query)
 				}
 				lastQuery = text
 			}
@@ -55,6 +58,29 @@ func NewSearchWindowManager(handler HeaderSearchHandler) *SearchWindowManager {
 	}
 
 	return swm
+}
+
+// buildSearchQuery преобразует пользовательский ввод в структурированный запрос
+// Свободный текст автоматически помечается как Text:
+func buildSearchQuery(input string) string {
+	if input == "" {
+		return ""
+	}
+
+	parts := strings.Fields(input)
+	var queryParts []string
+
+	for _, part := range parts {
+		lower := strings.ToLower(part)
+		if strings.HasPrefix(lower, "before:") || strings.HasPrefix(lower, "after:") ||
+			strings.HasPrefix(lower, "on:") || strings.HasPrefix(lower, "tags:") {
+			queryParts = append(queryParts, part)
+		} else {
+			queryParts = append(queryParts, "Text:"+part)
+		}
+	}
+
+	return strings.Join(queryParts, " ")
 }
 
 // ShowSearchPopup показывает popup поиска под кнопкой
@@ -86,25 +112,59 @@ func (swm *SearchWindowManager) ShowSearchPopup(trigger fyne.CanvasObject) {
 	fyne.CurrentApp().Driver().CanvasForObject(trigger).Focus(swm.searchEntry)
 }
 
-// createSearchContent создает содержимое popup поиска
+// createSearchContent создает содержимое popup поиска с фильтрами
 func (swm *SearchWindowManager) createSearchContent() *fyne.Container {
 	searchIcon := canvas.NewImageFromResource(theme.SearchIcon())
 	searchIcon.SetMinSize(fyne.NewSize(32, 16))
 
-	searchRow := container.NewBorder(nil, nil, searchIcon, nil, swm.searchEntry)
+	clearBtn := widget.NewButtonWithIcon("", theme.CancelIcon(), func() {
+		swm.searchEntry.SetText("")
+	})
+	clearBtn.Importance = widget.LowImportance
+
+	searchRow := container.NewBorder(nil, nil, searchIcon, clearBtn, swm.searchEntry)
+
+	// Filter buttons
+	filterButtons := container.NewHBox(
+		swm.createFilterButton("before:", "Before date"),
+		swm.createFilterButton("after:", "After date"),
+		swm.createFilterButton("on:", "On date"),
+		swm.createFilterButton("tags:", "Tags"),
+	)
 
 	bgRect := canvas.NewRectangle(color.RGBA{R: 44, G: 44, B: 44, A: 255})
 	bgRect.CornerRadius = 8
 	bgRect.StrokeColor = color.RGBA{R: 80, G: 80, B: 80, A: 255}
 	bgRect.StrokeWidth = 1
-	bgRect.SetMinSize(fyne.NewSize(280, 40))
+	bgRect.SetMinSize(fyne.NewSize(400, 80))
 
-	outerContainer := container.NewStack(bgRect, container.NewPadded(searchRow))
+	outerContainer := container.NewStack(bgRect, container.NewPadded(
+		container.NewVBox(searchRow, filterButtons),
+	))
 
 	return outerContainer
+}
+
+// createFilterButton создает кнопку фильтра, которая вставляет префикс в поисковую строку
+func (swm *SearchWindowManager) createFilterButton(prefix, _ string) *widget.Button {
+	btn := widget.NewButton(prefix, func() {
+		currentText := swm.searchEntry.Text
+		if currentText != "" && !strings.HasSuffix(currentText, " ") {
+			currentText += " "
+		}
+		swm.searchEntry.SetText(currentText + prefix)
+		fyne.CurrentApp().Driver().CanvasForObject(swm.searchEntry).Focus(swm.searchEntry)
+	})
+	btn.Importance = widget.LowImportance
+	return btn
 }
 
 // GetSearchEntry возвращает поле поиска
 func (swm *SearchWindowManager) GetSearchEntry() *widget.Entry {
 	return swm.searchEntry
+}
+
+// FormatDateFilter форматирует фильтр даты для отображения
+func FormatDateFilter(filterType, date string) string {
+	return fmt.Sprintf("%s:%s", filterType, date)
 }

@@ -126,8 +126,10 @@ func NewFolderCardWithNavigation(item *models.Item, navigationHandler FolderCard
 		}
 
 		if err != nil {
-			folderCard.countSegment.Text = "Ошибка загрузки"
-			folderCard.richText.Refresh()
+			fyne.CurrentApp().Driver().DoFromGoroutine(func() {
+				folderCard.countSegment.Text = "Ошибка загрузки"
+				folderCard.richText.Refresh()
+			}, false)
 		} else {
 			elementText := "элементов"
 			if count == 1 {
@@ -135,8 +137,11 @@ func NewFolderCardWithNavigation(item *models.Item, navigationHandler FolderCard
 			} else if count > 1 && count < 5 {
 				elementText = "элемента"
 			}
-			folderCard.countSegment.Text = fmt.Sprintf("%d %s", count, elementText)
-			folderCard.richText.Refresh()
+			finalText := fmt.Sprintf("%d %s", count, elementText)
+			fyne.CurrentApp().Driver().DoFromGoroutine(func() {
+				folderCard.countSegment.Text = finalText
+				folderCard.richText.Refresh()
+			}, false)
 		}
 	}()
 

@@ -106,6 +106,65 @@ func GetChatByPeerID(peerID string) (*models.Chat, error) {
 	return chat, nil
 }
 
+// GetUnifiedChatList возвращает объединённый список чатов, групп и каналов
+// Сортировка по времени последнего сообщения (новые сверху)
+func GetUnifiedChatList(localPeerID string) ([]*models.UnifiedChatItem, error) {
+	var items []*models.UnifiedChatItem
+
+	// 1. Получаем обычные чаты (direct)
+	directChats, err := GetChatsWithLastMessages()
+	if err == nil {
+		for _, chat := range directChats {
+			item := &models.UnifiedChatItem{
+				ID:              chat.ID,
+				ChatType:        "direct",
+				PeerID:          chat.PeerID,
+				Username:        chat.Username,
+				AvatarPath:      chat.AvatarPath,
+				LastMessageID:   chat.LastMessageID,
+				LastMessage:     chat.LastMessage,
+				LastMessageType: chat.LastMessageType,
+				LastMessageAt:   chat.LastMessageAt,
+				IsOutgoing:      chat.IsOutgoing,
+				UnreadCount:     chat.UnreadCount,
+			}
+			items = append(items, item)
+		}
+	}
+
+	// 2. Получаем группы и каналы
+	groupChats, err := GetGroupChatsByPeerID(localPeerID)
+	if err == nil {
+		for _, gc := range groupChats {
+			item := &models.UnifiedChatItem{
+				ID:            gc.ID,
+				ChatType:      gc.ChatType, // "group" or "channel"
+				GroupUUID:     gc.GroupUUID,
+				PeerID:        gc.CreatorPeerID,
+				Username:      gc.Name,
+				LastMessageAt: &gc.UpdatedAt,
+			}
+			items = append(items, item)
+		}
+	}
+
+	// Сортировка по LastMessageAt (новые сверху)
+	sort.Slice(items, func(i, j int) bool {
+		if items[i].LastMessageAt == nil && items[j].LastMessageAt == nil {
+			return false
+		}
+		if items[i].LastMessageAt == nil {
+			return false
+		}
+		if items[j].LastMessageAt == nil {
+			return true
+		}
+		return items[i].LastMessageAt.After(*items[j].LastMessageAt)
+	})
+
+	return items, nil
+}
+
 // GetChatsWithLastMessages возвращает все чаты с последними сообщениями
 // Сортировка по времени последнего сообщения (новые сверху)
 func GetChatsWithLastMessages() ([]*models.ChatWithLastMessage, error) {

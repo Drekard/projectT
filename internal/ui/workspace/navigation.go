@@ -87,7 +87,7 @@ func (ws *Workspace) SetupNavigation(scroll *container.Scroll) {
 // OnSizeChanged обработчик изменения размера
 func (ws *Workspace) OnSizeChanged(pos interface{}) {
 	if ws.gridManager != nil {
-		go ws.gridManager.UpdateLayout()
+		ws.gridManager.UpdateLayout()
 	}
 }
 

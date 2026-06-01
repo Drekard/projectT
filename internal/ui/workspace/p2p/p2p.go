@@ -27,7 +27,6 @@ type UI struct {
 	autoProfileExCheck *widget.Check
 
 	// Адрес
-	addressLabel *widget.Label
 
 	// Списки
 	connectedPeersList  *fyne.Container

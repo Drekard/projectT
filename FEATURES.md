@@ -1,6 +1,6 @@
 # 📖 ProjectT Features
 
-**Last updated:** March 2026 (updated)
+**Last updated:** May 2026
 
 **ProjectT** is a hybrid application combining a file manager, a visual board (like Pinterest), and a P2P messenger for sharing collections.
 
@@ -33,9 +33,13 @@ Each card is a self-contained object that can include:
 
 **Advantages:**
 - Everything linked in one card — no need to search for files across folders
-- Cards have types: `element`, `folder`, `link`
+- Cards have types: `element`, `folder`
 - Drag-and-drop support for adding files
 - Auto-save on edit
+- **Visibility control**: public (shareable) or private (local only)
+- **Status tracking**: saved, preview (from peer), archived
+- **Remote items**: browse peer's items without saving
+- **Additional text** displayed directly on cards
 
 ---
 
@@ -68,6 +72,7 @@ Space organization:
 | Function | Description |
 |---------|----------|
 | 📁 **Folders** | Hierarchical structure for grouping cards |
+| 🧭 **Breadcrumbs** | Navigation through folder hierarchy |
 | 📌 **Pinned Items** | Quick access to important cards |
 | ⭐ **Favorites** | Separate list of beloved items |
 | 🎯 **Item Showcase** | Visual display of pinned items in profile |
@@ -115,14 +120,16 @@ Content display:
 
 | Method | Description |
 |--------|----------|
-| 📍 **Direct Connection** | By peer address (`projectt:peerid@/ip4/...`) |
+| 📍 **Direct Connection** | By peer address (`projectt:peerid@ip:port`) |
 | 🌐 **DHT Discovery** | Global peer search via internet |
 | 🏠 **mDNS Discovery** | Local network (automatic discovery) |
 | 🤝 **Bootstrap Peers** | Static nodes for initial connection |
 | 🔄 **Relay via Intermediary** | NAT traversal through intermediate nodes |
 | 📡 **STUN Client** | External address determination for connection |
+| 🌍 **Public IP Detection** | Automatic discovery of external address |
+| 🔗 **Multi-address Format** | Combines LAN + public addresses in one string |
 
-#### 💬 Messaging
+#### 💬 Direct Messaging
 
 | Feature | Description |
 |---------|----------|
@@ -134,6 +141,19 @@ Content display:
 | ✅ **Delivery Confirmation** | Guaranteed message receipt |
 | 🔒 **Encryption** | XOR with symmetric key + Ed25519 signature |
 
+#### 👥 Group Chats
+
+| Feature | Description |
+|---------|----------|
+| 🏠 **Create Groups** | Name, description, type (group/channel) |
+| 📨 **Invite Tokens** | Chain invitations with depth limits |
+| 👑 **Roles** | Creator, admin, member, subscriber |
+| 💬 **Pubsub Messaging** | Real-time message distribution via libp2p pubsub |
+| 🔄 **History Sync** | Lamport clock-based message synchronization |
+| 🛡️ **Membership Proofs** | Cryptographic verification of membership |
+| 👢 **Admin Actions** | Kick, ban, change roles with signed proofs |
+| 📢 **Channels** | One-way broadcasting (admins only publish) |
+
 #### 👤 Profiles
 
 | Feature | Description |
@@ -143,14 +163,20 @@ Content display:
 | 📝 **Characteristics** | Arbitrary profile fields (context, description) |
 | 🔄 **Auto Profile Exchange** | Peers exchange profiles on connection |
 | 🔐 **Profile Signature** | Cryptographic verification of authenticity |
+| 🌐 **Profile Sync** | Synchronize profile updates across peers |
+| 🎯 **Remote Profile View** | View other peers' profiles with item showcase |
 
 #### 📦 Item Synchronization
 
 | Feature | Description |
 |---------|----------|
 | 🔄 **Item Exchange** | Transfer cards between peers |
-| 📤 **Collection Export** | Send item selections |
+| 📦 **Batch Transfer** | Send multiple items at once |
+| 📁 **Folder Transfer** | Send entire folder contents |
+| 📌 **Pinned Transfer** | Share your pinned items |
+| 🎯 **Selection Transfer** | Send custom item selections |
 | 📥 **Item Import** | Receive items from other users |
+| 👁️ **Preview Mode** | Browse remote items without saving |
 
 ---
 
@@ -164,6 +190,8 @@ Content display:
 | ✅ **Signature Verification** | Sender authenticity check |
 | 🚫 **Blacklist** | Block unwanted peers |
 | 📍 **Address Control** | Manual contact addition |
+| 🏷️ **Item Visibility** | Public/private control per item |
+| 🛡️ **Membership Proofs** | Cryptographic group membership verification |
 
 ---
 
@@ -171,14 +199,14 @@ Content display:
 
 | Component | Description |
 |-----------|----------|
-| 💾 **SQLite** | Metadata: items, tags, relationships, chats, contacts |
+| 💾 **SQLite** | Metadata: items, tags, relationships, chats, contacts, group chats |
 | 📁 **File System** | Files stored in `storage/files/` |
 | 🔐 **SHA-256 Hashing** | Files saved under hash name |
 | ♻️ **Deduplication** | Identical files are not duplicated |
 | 📊 **Integrity** | Hash verification on file read |
 
 **Database structure:**
-- `items` — items (cards)
+- `items` — items (cards) with visibility and status
 - `tags` — tags
 - `item_tags` — item-tag relationships
 - `favorites` — favorite items
@@ -187,6 +215,14 @@ Content display:
 - `contacts` — contacts/P2P peers
 - `profiles` — user profiles
 - `bootstrap_peers` — bootstrap nodes for P2P
+- `group_chats` — group chats and channels
+- `group_members` — group membership with roles
+- `group_messages` — group chat messages
+- `group_invitations` — invite tokens with depth limits
+- `group_blocks` — banned members
+- `group_membership_proofs` — cryptographic membership proofs
+- `local_profiles` — local user profile
+- `sort_settings` — sorting preferences
 
 ---
 
@@ -201,6 +237,28 @@ Content display:
 | ⌨️ **Hotkeys** | Quick actions (in development) |
 | 📊 **Filter Panel** | Sidebar with tags and search |
 | 💬 **Chat Panel** | Three-panel chat interface |
+| 🧭 **Breadcrumbs** | Hierarchical folder navigation |
+| 📋 **Chat Sidebar** | Quick access to chats from sidebar |
+| 🔍 **Search Popup** | Quick search overlay |
+| 📦 **Batch Progress** | Visual progress for multi-item transfers |
+
+---
+
+### 📊 10. Monitoring and Observability
+
+| Component | Description |
+|-----------|----------|
+| 📈 **Prometheus Metrics** | Export metrics on configurable port |
+| 📊 **Grafana Dashboards** | Pre-configured visualizations |
+| 🔧 **Docker Compose** | One-command monitoring stack |
+
+**Available metrics:**
+- Items: total count, created, deleted
+- Tags: total count
+- Chat: messages, contacts, active contacts
+- P2P: peers, connections, transferred bytes, files
+- Database: query duration, errors
+- Runtime: goroutines, memory, GC pauses
 
 ---
 
@@ -214,7 +272,8 @@ Content display:
 │  ┌───────────┐  ┌───────────┐  ┌─────────────────────┐ │
 │  │ Sidebar   │  │ Workspace │  │ Header/Filters      │ │
 │  │ - Tags    │  │ - Grid    │  │ - Search            │ │
-│  │ - Fav.    │  │ - Chats   │  │ - Sorting           │ │
+│  │ - Chats   │  │ - Chats   │  │ - Sorting           │ │
+│  │ - Nav     │  │ - Profile │  │ - Breadcrumbs       │ │
 │  └───────────┘  └───────────┘  └─────────────────────┘ │
 └─────────────────────────────────────────────────────────┘
                             ▼
@@ -224,8 +283,10 @@ Content display:
 │  │ Items  │ │ Tags   │ │ Chat   │ │ P2P Network     │  │
 │  │ Service│ │ Service│ │ Service│ │ - Discovery     │  │
 │  └────────┘ └────────┘ └────────┘ │ - Chat          │  │
-│                                    │ - Transfer      │  │
-│                                    │ - Profile       │  │
+│  ┌────────┐ ┌────────┐            │ - Group Chat    │  │
+│  │ Fav.   │ │ Pinned │            │ - Transfer      │  │
+│  └────────┘ └────────┘            │ - Profile       │  │
+│                                    │ - NAT Helpers   │  │
 │                                    └─────────────────┘  │
 └─────────────────────────────────────────────────────────┘
                             ▼
@@ -233,6 +294,14 @@ Content display:
 │                  Data Access Layer                      │
 │  ┌──────────────────┐  ┌────────────────────────────┐  │
 │  │ SQLite (queries) │  │ File System (storage/)     │  │
+│  └──────────────────┘  └────────────────────────────┘  │
+└─────────────────────────────────────────────────────────┘
+                            ▼
+┌─────────────────────────────────────────────────────────┐
+│              Monitoring Layer                           │
+│  ┌──────────────────┐  ┌────────────────────────────┐  │
+│  │ Prometheus       │  │ Grafana Dashboards         │  │
+│  │ (:9090/metrics)  │  │ (:3000)                    │  │
 │  └──────────────────┘  └────────────────────────────┘  │
 └─────────────────────────────────────────────────────────┘
 ```
@@ -248,6 +317,7 @@ Content display:
 | **Cryptography** | Ed25519, SHA-256 (golang.org/x/crypto v0.48.0) |
 | **Configuration** | YAML (gopkg.in/yaml.v3 v3.0.1) |
 | **Testing** | testify v1.10.0 |
+| **Monitoring** | Prometheus client_golang |
 
 ---
 
@@ -262,6 +332,9 @@ Content display:
 | Visual Grid | ✅ | ❌ | ✅ | ❌ |
 | File Transfer | ✅ | ⚠️ | ❌ | ✅ |
 | Privacy | ✅ | ✅ | ❌ | ⚠️ |
+| Group Chats | ✅ | ❌ | ❌ | ✅ |
+| Channels | ✅ | ❌ | ❌ | ⚠️ |
+| Monitoring | ✅ | ❌ | ❌ | ❌ |
 
 ---
 
@@ -271,6 +344,7 @@ Content display:
 - Lecture notes with subject tags
 - Literature link collections
 - Material sharing with classmates via P2P
+- Study groups for collaboration
 
 ### 🎨 For Designers
 - Visual inspiration board
@@ -281,11 +355,13 @@ Content display:
 - Organization of scientific papers
 - Linking data with publications
 - Private data exchange with colleagues
+- Research groups with shared resources
 
 ### 💼 For Project Teams
 - Centralized project resource storage
 - Quick file sharing without clouds
 - Chat with history and search
+- Channels for announcements
 
 ---
 
@@ -294,15 +370,18 @@ Content display:
 ### In Development
 - [ ] Audio/video cards with player
 - [ ] Cross-device synchronization
-- [ ] Group chats (mesh network)
 - [ ] Advanced encryption (AES-256)
 - [ ] Plugins for extensibility
+- [ ] UI integration for group chats
+- [ ] Connection stability improvements
 
 ### Planned
 - [ ] Mobile version (iOS/Android)
 - [ ] Web interface for browser access
 - [ ] Cloud storage integration
 - [ ] Automatic backups
+- [ ] Feed (unified content stream)
+- [ ] Global network search
 
 ---
 
@@ -312,7 +391,7 @@ Content display:
 
 **Pinterest:** [ru.pinterest.com/egors3206](https://ru.pinterest.com/egors3206/)
 
-**GitHub:** [github.com/Redoranar/projectT](https://github.com/Redoranar/projectT)
+**GitHub:** [github.com/Drekard/projectT](https://github.com/Drekard/projectT)
 
 ---
 

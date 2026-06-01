@@ -42,6 +42,15 @@ type GroupMessage struct {
 	Signature    []byte `json:"signature"`
 }
 
+// GroupMessageRead отслеживает прочитанные сообщения в групповых чатах
+type GroupMessageRead struct {
+	ID          int       `json:"id"`
+	GroupUUID   string    `json:"group_uuid"`
+	MessageUUID string    `json:"message_uuid"`
+	PeerID      string    `json:"peer_id"`
+	ReadAt      time.Time `json:"read_at"`
+}
+
 // GroupMembershipProof представляет подписанное доказательство членства
 type GroupMembershipProof struct {
 	ID        int    `json:"id"`

@@ -98,7 +98,19 @@ func (p *Panel) UpdateProfile(contact *models.Contact) {
 
 	// Update name
 	if p.profileName != nil {
-		p.profileName.SetText(contact.Username)
+		name := contact.Username
+		if name == "" && contact.PeerID != "" {
+			profile, err := queries.GetProfileByPeerID(contact.PeerID)
+			if err == nil && profile != nil && profile.Username != "" {
+				name = profile.Username
+			} else {
+				name = contact.PeerID
+				if len(name) > 8 {
+					name = name[:8]
+				}
+			}
+		}
+		p.profileName.SetText(name)
 	}
 
 	// Update connection status
@@ -124,7 +136,14 @@ func (p *Panel) UpdateProfile(contact *models.Contact) {
 
 	// Update status (text, from profile)
 	if p.profileStatus != nil {
-		p.profileStatus.SetText(contact.Title)
+		status := contact.Title
+		if status == "" && contact.PeerID != "" {
+			profile, err := queries.GetProfileByPeerID(contact.PeerID)
+			if err == nil && profile != nil {
+				status = profile.Title
+			}
+		}
+		p.profileStatus.SetText(status)
 	}
 
 	// Load avatar
@@ -142,6 +161,10 @@ func (p *Panel) UpdateProfile(contact *models.Contact) {
 				p.characteristicsContainer.Objects = nil
 				p.characteristicsContainer.Refresh()
 			}
+		} else {
+			// Profile not found - clear characteristics to avoid showing local user's data
+			p.characteristicsContainer.Objects = nil
+			p.characteristicsContainer.Refresh()
 		}
 	}
 

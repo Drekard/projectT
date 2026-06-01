@@ -6,12 +6,15 @@ import (
 	"image/color"
 	"os"
 	"os/exec"
+	"runtime"
 	"strings"
 	"unicode/utf8"
 
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/canvas"
 	"fyne.io/fyne/v2/container"
+	"fyne.io/fyne/v2/dialog"
+	"fyne.io/fyne/v2/storage"
 	"fyne.io/fyne/v2/widget"
 	"golang.org/x/text/encoding/charmap"
 )
@@ -153,6 +156,48 @@ if ($result -eq [System.Windows.Forms.DialogResult]::OK) {
 	return cleanFiles, nil
 }
 
+// openNativeFileDialog открывает нативный диалог выбора файлов через Fyne
+func openNativeFileDialog(window fyne.Window, filter []string, _ bool) ([]string, error) {
+	var selectedFiles []string
+
+	done := make(chan bool, 1)
+
+	fileDialog := dialog.NewFileOpen(func(reader fyne.URIReadCloser, err error) {
+		defer func() { done <- true }()
+
+		if err != nil {
+			return
+		}
+		if reader == nil {
+			return
+		}
+		defer func() { _ = reader.Close() }()
+
+		selectedFiles = append(selectedFiles, reader.URI().Path())
+	}, window)
+
+	if len(filter) > 0 {
+		extensions := make([]string, len(filter))
+		copy(extensions, filter)
+		fileDialog.SetFilter(storage.NewExtensionFileFilter(extensions))
+	}
+
+	fileDialog.Show()
+
+	<-done
+
+	return selectedFiles, nil
+}
+
+// SelectFiles открывает диалог выбора файлов (кроссплатформенный)
+func SelectFiles(window fyne.Window, filter []string, multiSelect bool) ([]string, error) {
+	if runtime.GOOS == "windows" {
+		return openWindowsFileDialog(filter, multiSelect)
+	}
+
+	return openNativeFileDialog(window, filter, multiSelect)
+}
+
 // CreateFileUploadArea создает область для загрузки файлов
 func CreateFileUploadArea(config FileUploadConfig, state *FileUploadState, parentWindow fyne.Window) *fyne.Container {
 	if state.SelectedFiles == nil {
@@ -175,7 +220,7 @@ func CreateFileUploadArea(config FileUploadConfig, state *FileUploadState, paren
 	containerWithContent := container.NewStack(box, contentContainer)
 
 	clickButton := widget.NewButton(config.Label, func() {
-		selectedFiles, err := openWindowsFileDialog(config.Filter, true)
+		selectedFiles, err := SelectFiles(parentWindow, config.Filter, true)
 		if err != nil {
 			errorLabel := widget.NewLabel(fmt.Sprintf("Error selecting files:\n%v", err))
 			errorLabel.Wrapping = fyne.TextWrapWord

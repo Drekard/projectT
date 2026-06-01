@@ -10,6 +10,7 @@ import (
 	"projectT/internal/services/p2p/core"
 	"projectT/internal/storage/database"
 	"projectT/internal/storage/filesystem"
+	"projectT/internal/tray"
 	"projectT/internal/ui"
 	"projectT/internal/ui/theme"
 
@@ -25,6 +26,8 @@ type App struct {
 	configPath string
 	p2pNetwork *core.P2PNetwork
 	metricsMgr *metrics.Manager
+	trayMgr    *tray.Manager
+	enableTray bool
 }
 
 func NewApp() *App {
@@ -122,8 +125,18 @@ func (a *App) Run() {
 	// Устанавливаем обработчик закрытия окна для сохранения позиции и размера
 	a.mainWindow.SetCloseIntercept(func() {
 		a.saveWindowGeometry()
-		a.mainWindow.Close()
+		if a.enableTray {
+			a.mainWindow.Hide()
+		} else {
+			a.mainWindow.Close()
+		}
 	})
+
+	// Запускаем системный трей если включен
+	if a.enableTray {
+		a.trayMgr = tray.New(a.mainWindow)
+		a.trayMgr.Start()
+	}
 
 	// Запускаем P2P сеть асинхронно, чтобы UI не зависал
 	go func() {
@@ -133,6 +146,11 @@ func (a *App) Run() {
 	}()
 
 	a.mainWindow.ShowAndRun()
+}
+
+// EnableTray включает сворачивание в системный трей
+func (a *App) EnableTray() {
+	a.enableTray = true
 }
 
 // saveUISettings сохраняет настройки UI в конфиг

@@ -3,6 +3,7 @@ package sidebar
 import (
 	"projectT/internal/services/favorites"
 	"projectT/internal/services/p2p/protocols/transfer"
+	network "projectT/internal/services/p2p/ui"
 	"projectT/internal/storage/database/queries"
 
 	"fyne.io/fyne/v2"
@@ -18,6 +19,7 @@ type ChatUIProvider interface {
 	OnChatDeleted(chatID int, peerID string)
 	OpenLocalChat()
 	IsCurrentChatLocal() bool
+	GetP2PService() *network.UIP2P
 }
 
 // SidebarState управляет состоянием боковой панели

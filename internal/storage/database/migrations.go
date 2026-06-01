@@ -386,6 +386,20 @@ func createGroupMessagesTable() {
 	if err != nil {
 		panic("Ошибка при создании таблицы group_messages:" + err.Error())
 	}
+
+	_, err = DB.Exec(`
+		CREATE TABLE IF NOT EXISTS group_message_reads (
+			id              INTEGER PRIMARY KEY AUTOINCREMENT,
+			group_uuid      TEXT NOT NULL REFERENCES group_chats(group_uuid) ON DELETE CASCADE,
+			message_uuid    TEXT NOT NULL REFERENCES group_messages(message_uuid) ON DELETE CASCADE,
+			peer_id         TEXT NOT NULL,
+			read_at         DATETIME DEFAULT CURRENT_TIMESTAMP,
+			UNIQUE(group_uuid, message_uuid, peer_id)
+		);
+	`)
+	if err != nil {
+		panic("Ошибка при создании таблицы group_message_reads:" + err.Error())
+	}
 }
 
 func createGroupMembershipProofsTable() {

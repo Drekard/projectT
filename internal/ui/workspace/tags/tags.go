@@ -167,9 +167,9 @@ func (t *UI) createTable() *widget.Table {
 	// Set column widths
 	table.SetColumnWidth(0, 50)  // ID
 	table.SetColumnWidth(1, 50)  // Color
-	table.SetColumnWidth(2, 200) // Name
-	table.SetColumnWidth(3, 100) // Count
-	table.SetColumnWidth(4, 250) // Description
+	table.SetColumnWidth(2, 150) // Name
+	table.SetColumnWidth(3, 60)  // Count
+	table.SetColumnWidth(4, 200) // Description
 	table.SetColumnWidth(5, 100) // Actions
 
 	return table

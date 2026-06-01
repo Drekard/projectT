@@ -9,6 +9,7 @@ require (
 )
 
 require (
+	fyne.io/systray v1.12.1
 	github.com/google/uuid v1.3.0
 	github.com/gopxl/beep/v2 v2.1.1
 	github.com/libp2p/go-libp2p v0.32.0
@@ -22,7 +23,6 @@ require (
 )
 
 require (
-	fyne.io/systray v1.12.1 // indirect
 	github.com/BurntSushi/toml v1.5.0 // indirect
 	github.com/benbjohnson/clock v1.3.5 // indirect
 	github.com/beorn7/perks v1.0.1 // indirect

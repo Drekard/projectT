@@ -108,3 +108,52 @@ func GetLatestLamportClock(groupUUID string) (uint64, error) {
 	`, groupUUID).Scan(&lamport)
 	return lamport, err
 }
+
+// MarkGroupMessageRead отмечает сообщение в групповом чате как прочитанное
+func MarkGroupMessageRead(groupUUID, messageUUID, peerID string) error {
+	_, err := database.DB.Exec(`
+		INSERT OR IGNORE INTO group_message_reads (group_uuid, message_uuid, peer_id, read_at)
+		VALUES (?, ?, ?, CURRENT_TIMESTAMP)
+	`, groupUUID, messageUUID, peerID)
+	return err
+}
+
+// GetUnreadGroupMessagesCount возвращает количество непрочитанных сообщений в групповом чате
+func GetUnreadGroupMessagesCount(groupUUID, peerID string) (int, error) {
+	var count int
+	err := database.DB.QueryRow(`
+		SELECT COUNT(*) FROM group_messages gm
+		WHERE gm.group_uuid = ?
+		AND gm.message_uuid NOT IN (
+			SELECT message_uuid FROM group_message_reads WHERE group_uuid = ? AND peer_id = ?
+		)
+	`, groupUUID, groupUUID, peerID).Scan(&count)
+	return count, err
+}
+
+// GetGroupUnreadCounts возвращает количество непрочитанных для всех групп пользователя
+func GetGroupUnreadCounts(peerID string) (map[string]int, error) {
+	rows, err := database.DB.Query(`
+		SELECT gm.group_uuid, COUNT(*) as unread_count
+		FROM group_messages gm
+		WHERE gm.message_uuid NOT IN (
+			SELECT message_uuid FROM group_message_reads WHERE peer_id = ?
+		)
+		GROUP BY gm.group_uuid
+	`, peerID)
+	if err != nil {
+		return nil, err
+	}
+	defer func() { _ = rows.Close() }()
+
+	counts := make(map[string]int)
+	for rows.Next() {
+		var groupUUID string
+		var count int
+		if err := rows.Scan(&groupUUID, &count); err != nil {
+			return nil, err
+		}
+		counts[groupUUID] = count
+	}
+	return counts, rows.Err()
+}

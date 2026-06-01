@@ -17,6 +17,39 @@ type ContentCharacteristicItem struct {
 	Value string `json:"value"`
 }
 
+// LoadCharacteristicsFromJSON parses JSON and returns a container with characteristic items
+func LoadCharacteristicsFromJSON(jsonStr string) *fyne.Container {
+	charContainer := container.NewVBox()
+
+	var characteristics []ContentCharacteristicItem
+	if jsonStr != "" {
+		err := json.Unmarshal([]byte(jsonStr), &characteristics)
+		if err != nil {
+			return charContainer
+		}
+	}
+
+	if len(characteristics) == 0 {
+		emptyLabel := widget.NewLabel("No characteristics")
+		emptyLabel.TextStyle = fyne.TextStyle{Italic: true}
+		charContainer.Add(emptyLabel)
+	} else {
+		for _, item := range characteristics {
+			charContainer.Add(CreateCharacteristicItem(item.Title, item.Value))
+		}
+	}
+
+	return charContainer
+}
+
+// CreateCharacteristicItem creates a characteristic item (name: value on one line)
+func CreateCharacteristicItem(title, value string) *fyne.Container {
+	text := fmt.Sprintf("%s: %s", title, value)
+	label := widget.NewLabel(text)
+	label.Wrapping = fyne.TextWrapWord
+	return container.NewVBox(label)
+}
+
 // loadCharacteristics loads characteristics from JSON
 func (p *Panel) loadCharacteristics(jsonStr string) {
 	if p.characteristicsContainer == nil {
@@ -49,9 +82,5 @@ func (p *Panel) loadCharacteristics(jsonStr string) {
 
 // createCharacteristicItem creates a characteristic item (name: value on one line)
 func (p *Panel) createCharacteristicItem(title, value string) *fyne.Container {
-	// Format as "Name: Value"
-	text := fmt.Sprintf("%s: %s", title, value)
-	label := widget.NewLabel(text)
-	label.Wrapping = fyne.TextWrapWord
-	return container.NewVBox(label)
+	return CreateCharacteristicItem(title, value)
 }

@@ -113,3 +113,8 @@ func (m *DialerManager) GetQueueLength() int {
 func (m *DialerManager) GetConnectedCount() int {
 	return m.dialer.GetConnectedCount()
 }
+
+// DecrementConnectedCount уменьшает счётчик подключений
+func (m *DialerManager) DecrementConnectedCount() {
+	m.dialer.DecrementConnectedCount()
+}

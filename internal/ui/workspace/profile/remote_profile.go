@@ -1,12 +1,14 @@
 package profile
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"image/color"
 	"log"
 	"os"
 	"sync"
+	"time"
 
 	"projectT/internal/config"
 	"projectT/internal/services/p2p/protocols/itemsync"
@@ -14,6 +16,7 @@ import (
 	network "projectT/internal/services/p2p/ui"
 	"projectT/internal/storage/database/models"
 	"projectT/internal/storage/database/queries"
+	"projectT/internal/ui/workspace/chats/right"
 	"projectT/internal/ui/workspace/saved"
 
 	"github.com/libp2p/go-libp2p/core/peer"
@@ -247,12 +250,23 @@ func (ui *RemoteProfileUI) loadProfile() {
 	// Загружаем профиль из БД (по peerID без фильтра owner_type)
 	profile, err := queries.GetProfileByPeerID(ui.peerID)
 	if err != nil {
-		log.Printf("[RemoteProfile] Ошибка загрузки профиля %s: %v", ui.peerID[:min(10, len(ui.peerID))], err)
+		log.Printf("[RemoteProfile] Профиль %s ещё не синхронизирован: %v", ui.peerID[:min(10, len(ui.peerID))], err)
+		// Показываем минимальную информацию
+		if ui.profileName != nil {
+			ui.profileName.SetText(ui.peerID[:min(10, len(ui.peerID))])
+		}
+		// Запрашиваем профиль у пира если есть p2pUI
+		ui.requestProfileFromPeer()
 		return
 	}
 
 	if profile == nil {
-		log.Printf("[RemoteProfile] Профиль %s не найден", ui.peerID[:min(10, len(ui.peerID))])
+		log.Printf("[RemoteProfile] Профиль %s не найден, показываем минимальную информацию", ui.peerID[:min(10, len(ui.peerID))])
+		if ui.profileName != nil {
+			ui.profileName.SetText(ui.peerID[:min(10, len(ui.peerID))])
+		}
+		// Запрашиваем профиль у пира если есть p2pUI
+		ui.requestProfileFromPeer()
 		return
 	}
 
@@ -261,7 +275,11 @@ func (ui *RemoteProfileUI) loadProfile() {
 
 	// Имя
 	if ui.profileName != nil {
-		ui.profileName.SetText(profile.Username)
+		name := profile.Username
+		if name == "" {
+			name = ui.peerID[:min(10, len(ui.peerID))]
+		}
+		ui.profileName.SetText(name)
 	}
 
 	// Title
@@ -275,10 +293,47 @@ func (ui *RemoteProfileUI) loadProfile() {
 	// Характеристики
 	if profile.ContentChar != "" {
 		ui.loadCharacteristics(profile.ContentChar)
+	} else if ui.characteristicsContainer != nil {
+		// Нет характеристик - очищаем контейнер
+		ui.characteristicsContainer.Objects = nil
+		ui.characteristicsContainer.Refresh()
 	}
 
 	// Pinned items
 	ui.loadPinnedItems(profile)
+}
+
+// requestProfileFromPeer запрашивает профиль у удалённого пира
+func (ui *RemoteProfileUI) requestProfileFromPeer() {
+	if ui.p2pUI == nil {
+		return
+	}
+
+	// Не запрашиваем профиль у локального пира
+	if ui.peerID == models.LocalChatPeerID {
+		return
+	}
+
+	go func() {
+		peerIDObj, err := peer.Decode(ui.peerID)
+		if err != nil {
+			return
+		}
+
+		ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+		defer cancel()
+
+		_, err = ui.p2pUI.GetNetwork().ProfileExchange().RequestFullProfile(ctx, peerIDObj)
+		if err != nil {
+			log.Printf("[RemoteProfile] ⚠️ Не удалось запросить профиль %s: %v", ui.peerID[:min(10, len(ui.peerID))], err)
+			return
+		}
+
+		// После получения профиля обновляем UI
+		fyne.CurrentApp().Driver().DoFromGoroutine(func() {
+			ui.loadProfile()
+		}, false)
+	}()
 }
 
 func (ui *RemoteProfileUI) loadAvatar(avatarPath string) {
@@ -315,36 +370,9 @@ func (ui *RemoteProfileUI) loadCharacteristics(contentChar string) {
 		return
 	}
 
-	ui.characteristicsContainer.Objects = nil
-
-	var characteristics []ContentCharacteristicItem
-	if err := json.Unmarshal([]byte(contentChar), &characteristics); err != nil {
-		log.Printf("[RemoteProfile] Ошибка парсинга характеристик: %v", err)
-		return
-	}
-
-	if len(characteristics) == 0 {
-		emptyLabel := widget.NewLabel("No characteristics")
-		emptyLabel.TextStyle = fyne.TextStyle{Italic: true}
-		ui.characteristicsContainer.Add(emptyLabel)
-	} else {
-		for _, ch := range characteristics {
-			if ch.Title == "" {
-				continue
-			}
-			row := ui.createCharacteristicItem(ch.Title, ch.Value)
-			ui.characteristicsContainer.Objects = append(ui.characteristicsContainer.Objects, row)
-		}
-	}
-
+	charContainer := right.LoadCharacteristicsFromJSON(contentChar)
+	ui.characteristicsContainer.Objects = charContainer.Objects
 	ui.characteristicsContainer.Refresh()
-}
-
-func (ui *RemoteProfileUI) createCharacteristicItem(title, value string) *fyne.Container {
-	text := title + ": " + value
-	label := widget.NewLabel(text)
-	label.Wrapping = fyne.TextWrapWord
-	return container.NewVBox(label)
 }
 
 func (ui *RemoteProfileUI) parsePinnedUUIDs(pinnedUUIDsStr string) ([]string, error) {
@@ -488,7 +516,9 @@ func (ui *RemoteProfileUI) requestPinnedItemsFromPeer(pinnedUUIDs []string) {
 
 			if hasItems && len(items) > 0 {
 				// Элементы уже добавлены прогрессивно, просто убеждаемся что grid обновлён
-				ui.gridManager.UpdateLayout()
+				fyne.CurrentApp().Driver().DoFromGoroutine(func() {
+					ui.gridManager.UpdateLayout()
+				}, false)
 			}
 		},
 	}
@@ -501,11 +531,13 @@ func (ui *RemoteProfileUI) showLoading(total int) {
 		return
 	}
 
-	ui.loadingLabel.SetText(fmt.Sprintf("Loading %d elements...", total))
-	ui.loadingIndicator.SetValue(0)
-	ui.loadingIndicator.Show()
-	ui.loadingContainer.Show()
-	ui.rightPanelContent.Refresh()
+	fyne.CurrentApp().Driver().DoFromGoroutine(func() {
+		ui.loadingLabel.SetText(fmt.Sprintf("Loading %d elements...", total))
+		ui.loadingIndicator.SetValue(0)
+		ui.loadingIndicator.Show()
+		ui.loadingContainer.Show()
+		ui.rightPanelContent.Refresh()
+	}, false)
 }
 
 func (ui *RemoteProfileUI) updateLoadingProgress(completed int, total int, currentItem string) {
@@ -515,9 +547,11 @@ func (ui *RemoteProfileUI) updateLoadingProgress(completed int, total int, curre
 
 	if total > 0 {
 		progress := float64(completed) / float64(total)
-		ui.loadingIndicator.SetValue(progress)
-		ui.loadingLabel.SetText(fmt.Sprintf("Loading %d/%d: %s", completed, total, currentItem))
-		ui.loadingContainer.Refresh()
+		fyne.CurrentApp().Driver().DoFromGoroutine(func() {
+			ui.loadingIndicator.SetValue(progress)
+			ui.loadingLabel.SetText(fmt.Sprintf("Loading %d/%d: %s", completed, total, currentItem))
+			ui.loadingContainer.Refresh()
+		}, false)
 	}
 }
 
@@ -526,10 +560,12 @@ func (ui *RemoteProfileUI) hideLoading() {
 		return
 	}
 
-	ui.loadingIndicator.Hide()
-	ui.loadingLabel.SetText("")
-	ui.loadingContainer.Hide()
-	ui.rightPanelContent.Refresh()
+	fyne.CurrentApp().Driver().DoFromGoroutine(func() {
+		ui.loadingIndicator.Hide()
+		ui.loadingLabel.SetText("")
+		ui.loadingContainer.Hide()
+		ui.rightPanelContent.Refresh()
+	}, false)
 }
 
 // LoadPinnedItemsFromRemote загружает pinned items через ItemSync (вызывается извне)

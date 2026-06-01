@@ -225,7 +225,7 @@ func (d *Dialer) dialWithCompactAddress(addr *PeerAddress) DialResult {
 
 	// Парсим endpoints: ip1:port1;ip2:port2;[ipv6]:port
 	endpoints := strings.Split(parts[1], ";")
-	var addrs []multiaddr.Multiaddr
+	var publicAddrs, lanAddrs, loopbackAddrs []multiaddr.Multiaddr
 	for _, ep := range endpoints {
 		ep = strings.TrimSpace(ep)
 		if ep == "" {
@@ -235,8 +235,21 @@ func (d *Dialer) dialWithCompactAddress(addr *PeerAddress) DialResult {
 		if err != nil {
 			continue
 		}
-		addrs = append(addrs, ma)
+		// Сортируем адреса: публичные > LAN > loopback
+		if isLoopbackEndpoint(ep) {
+			loopbackAddrs = append(loopbackAddrs, ma)
+		} else if isLANEndpoint(ep) {
+			lanAddrs = append(lanAddrs, ma)
+		} else {
+			publicAddrs = append(publicAddrs, ma)
+		}
 	}
+
+	// Объединяем в порядке приоритета: публичные, затем LAN, затем loopback
+	var addrs []multiaddr.Multiaddr
+	addrs = append(addrs, publicAddrs...)
+	addrs = append(addrs, lanAddrs...)
+	addrs = append(addrs, loopbackAddrs...)
 
 	if len(addrs) == 0 {
 		return DialResult{PeerID: targetPeerID, Success: false, Error: fmt.Errorf("нет валидных адресов")}
@@ -247,7 +260,7 @@ func (d *Dialer) dialWithCompactAddress(addr *PeerAddress) DialResult {
 		d.host.Peerstore().AddAddr(targetPeerID, a, peerstore.PermanentAddrTTL)
 	}
 
-	log.Printf("[Autodial] Подключение к %s (%s), адресов: %d...", targetPeerID.String()[:8], addr.AddressType, len(addrs))
+	log.Printf("[Autodial] Подключение к %s (%s), адресов: %d (public: %d, lan: %d, loopback: %d)...", targetPeerID.String()[:8], addr.AddressType, len(addrs), len(publicAddrs), len(lanAddrs), len(loopbackAddrs))
 
 	ctx, cancel := context.WithTimeout(d.ctx, d.config.ConnectionTimeout)
 	defer cancel()
@@ -293,6 +306,33 @@ func (d *Dialer) dialWithCompactAddress(addr *PeerAddress) DialResult {
 	d.mu.Unlock()
 
 	return DialResult{PeerID: targetPeerID, Success: true}
+}
+
+// isLoopbackEndpoint проверяет, является ли endpoint loopback адресом
+func isLoopbackEndpoint(ep string) bool {
+	return strings.HasPrefix(ep, "127.0.0.1") || strings.HasPrefix(ep, "[::1]") || strings.HasPrefix(ep, "localhost")
+}
+
+// isLANEndpoint проверяет, является ли endpoint LAN адресом
+func isLANEndpoint(ep string) bool {
+	return strings.HasPrefix(ep, "192.168.") ||
+		strings.HasPrefix(ep, "10.") ||
+		(strings.HasPrefix(ep, "172.") && is172Private(ep))
+}
+
+// is172Private проверяет, является ли 172.x.x.x частным адресом (172.16.0.0 - 172.31.255.255)
+func is172Private(ep string) bool {
+	parts := strings.SplitN(ep, ":", 2)
+	if len(parts) < 1 {
+		return false
+	}
+	ipParts := strings.Split(parts[0], ".")
+	if len(ipParts) < 2 {
+		return false
+	}
+	var secondOctet int
+	_, _ = fmt.Sscanf(ipParts[1], "%d", &secondOctet)
+	return secondOctet >= 16 && secondOctet <= 31
 }
 
 // endpointToMultiaddr конвертирует "ip:port" или "[ipv6]:port" в multiaddr
@@ -431,6 +471,15 @@ func (d *Dialer) GetConnectedCount() int {
 	d.mu.RLock()
 	defer d.mu.RUnlock()
 	return d.connectedCount
+}
+
+// DecrementConnectedCount уменьшает счётчик подключений (вызывается при отключении пира)
+func (d *Dialer) DecrementConnectedCount() {
+	d.mu.Lock()
+	defer d.mu.Unlock()
+	if d.connectedCount > 0 {
+		d.connectedCount--
+	}
 }
 
 // CanConnect больше ли можно подключаться

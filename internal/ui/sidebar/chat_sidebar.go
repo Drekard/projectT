@@ -10,6 +10,7 @@ import (
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/canvas"
 	"fyne.io/fyne/v2/container"
+	"fyne.io/fyne/v2/dialog"
 	"fyne.io/fyne/v2/theme"
 	"fyne.io/fyne/v2/widget"
 )
@@ -34,35 +35,146 @@ func createChatSidebar(state *SidebarState) *fyne.Container {
 	})
 	refreshBtn.Importance = widget.LowImportance
 
-	// Заголовок с иконками
-	headerIcons := container.NewVBox(favoriteIcon)
-	header := container.NewBorder(nil, refreshBtn, nil, nil,
-		container.NewPadded(headerIcons),
+	// Верхняя панель с кнопками (статичная)
+	topButtons := container.NewVBox(
+		backBtn,
+		container.NewBorder(nil, nil, nil, nil, favoriteIcon),
+		container.NewBorder(nil, nil, nil, nil, refreshBtn),
 	)
 
-	// Список чатов
+	// Цвет для разделителей
+	grayColor := color.RGBA{R: 50, G: 50, B: 50, A: 255}
+
+	// Список чатов (прокручиваемый, растянут на всю высоту)
 	chatsList := container.NewVBox()
+	chatsScroll := container.NewVScroll(chatsList)
+
+	// Чёрный фон под списком чатов
+	chatsBg := canvas.NewRectangle(color.RGBA{R: 0, G: 0, B: 0, A: 255})
+	chatsWithBg := container.NewStack(chatsBg, chatsScroll)
+
 	go loadChatsList(chatsList, state.ChatUI)
 
-	// Вертикальная компоновка
-	content := container.NewVBox(backBtn, header, chatsList)
+	// Кнопка + внизу (статичная)
+	addBtn := widget.NewButtonWithIcon("", theme.ContentAddIcon(), func() {
+		showNewChatDialog(state.ChatUI)
+	})
+	addBtn.Importance = widget.LowImportance
 
-	// Оборачиваем в скролл
-	scroll := container.NewVScroll(content)
+	// Нижний разделитель (серый)
+	bottomSeparator := canvas.NewRectangle(grayColor)
+	bottomSeparator.SetMinSize(fyne.NewSize(0, 1))
 
-	sidebarContainer := container.NewStack(scroll)
+	// Верхний разделитель (серый) над списком чатов
+	topSeparator := canvas.NewRectangle(grayColor)
+	topSeparator.SetMinSize(fyne.NewSize(0, 1))
+
+	// Вертикальная компоновка: статичные кнопки + разделитель + прокручиваемый список + разделитель + кнопка +
+	scrollSection := container.NewBorder(topSeparator, nil, nil, nil, chatsWithBg)
+	content := container.NewBorder(topButtons, container.NewVBox(bottomSeparator, addBtn), nil, nil, scrollSection)
+
+	sidebarContainer := container.NewStack(content)
 	sidebarContainer.Resize(fyne.NewSize(state.Width, 0))
 
 	return sidebarContainer
 }
 
-// loadChatsList загружает чаты с последними сообщениями в список чатов
+// showNewChatDialog показывает диалог для создания нового чата/группы
+func showNewChatDialog(chatUI ChatUIProvider) {
+	if chatUI == nil {
+		return
+	}
+
+	// Поле для ввода инвайта
+	inviteEntry := widget.NewEntry()
+	inviteEntry.SetPlaceHolder("Enter group/channel invite token")
+
+	// Заголовок секции инвайта
+	inviteLabel := widget.NewLabel("Join Group/Channel")
+	inviteLabel.TextStyle = fyne.TextStyle{Bold: true}
+
+	// Кнопка подключения по инвайту
+	joinBtn := widget.NewButton("Join", func() {
+		token := inviteEntry.Text
+		if token == "" {
+			return
+		}
+		if p2pUI := chatUI.GetP2PService(); p2pUI != nil {
+			if network := p2pUI.GetNetwork(); network != nil {
+				if groupChat := network.GroupChat(); groupChat != nil {
+					_, err := groupChat.JoinGroupViaInvite(token)
+					if err != nil {
+						dialog.ShowError(err, fyne.CurrentApp().Driver().AllWindows()[0])
+					} else {
+						dialog.ShowInformation("Success", "Joined group/channel", fyne.CurrentApp().Driver().AllWindows()[0])
+						chatUI.RefreshContactsList()
+					}
+				}
+			}
+		}
+	})
+	joinBtn.Importance = widget.HighImportance
+
+	// Список подключенных людей для создания чата
+	contactsLabel := widget.NewLabel("Start chat with:")
+	contactsLabel.TextStyle = fyne.TextStyle{Bold: true}
+
+	contactsList := container.NewVBox()
+	if p2pUI := chatUI.GetP2PService(); p2pUI != nil {
+		connectedPeers := p2pUI.GetConnectedPeers()
+		for _, peer := range connectedPeers {
+			username := peer.Username
+			if username == "" {
+				profile, err := queries.GetProfileByPeerID(peer.PeerID)
+				if err == nil && profile != nil {
+					username = profile.Username
+				}
+				if username == "" {
+					username = peer.PeerID[:min(8, len(peer.PeerID))]
+				}
+			}
+			peerBtn := widget.NewButton(username, func() {
+				chatUI.OpenPeerChat(peer.PeerID, username)
+			})
+			peerBtn.Importance = widget.LowImportance
+			contactsList.Add(peerBtn)
+		}
+	}
+
+	if len(contactsList.Objects) == 0 {
+		emptyLabel := widget.NewLabel("No connected peers")
+		emptyLabel.TextStyle = fyne.TextStyle{Italic: true}
+		contactsList.Add(emptyLabel)
+	}
+
+	// Компоновка диалога
+	DialogContent := container.NewVBox(
+		inviteLabel,
+		container.NewHBox(inviteEntry, joinBtn),
+		widget.NewSeparator(),
+		contactsLabel,
+		container.NewScroll(contactsList),
+	)
+
+	dialog.ShowCustom("New Chat", "Close", DialogContent, fyne.CurrentApp().Driver().AllWindows()[0])
+}
+
+// loadChatsList загружает чаты, группы и каналы в список чатов
 func loadChatsList(chatsList *fyne.Container, chatUI ChatUIProvider) {
 	if chatsList == nil {
 		return
 	}
 
-	chatsData, err := queries.GetChatsWithLastMessages()
+	localPeerID := ""
+	if chatUI != nil {
+		if p2pUI := chatUI.GetP2PService(); p2pUI != nil {
+			if host := p2pUI.GetNetwork().Host(); host != nil {
+				localPeerID = host.ID().String()
+			}
+		}
+	}
+
+	unifiedChats, err := queries.GetUnifiedChatList(localPeerID)
 	if err != nil {
 		fyne.Do(func() {
 			emptyLabel := widget.NewLabel("Error loading chats")
@@ -73,7 +185,7 @@ func loadChatsList(chatsList *fyne.Container, chatUI ChatUIProvider) {
 		return
 	}
 
-	if len(chatsData) == 0 {
+	if len(unifiedChats) == 0 {
 		fyne.Do(func() {
 			emptyLabel := widget.NewLabel("No chats")
 			emptyLabel.TextStyle = fyne.TextStyle{Italic: true}
@@ -81,9 +193,9 @@ func loadChatsList(chatsList *fyne.Container, chatUI ChatUIProvider) {
 			chatsList.Refresh()
 		})
 	} else {
-		items := make([]fyne.CanvasObject, 0, len(chatsData))
-		for _, chat := range chatsData {
-			chatItem := createChatItem(chat, chatUI)
+		items := make([]fyne.CanvasObject, 0, len(unifiedChats))
+		for _, chat := range unifiedChats {
+			chatItem := createUnifiedChatItem(chat, chatUI)
 			items = append(items, chatItem)
 		}
 		fyne.Do(func() {
@@ -93,13 +205,13 @@ func loadChatsList(chatsList *fyne.Container, chatUI ChatUIProvider) {
 	}
 }
 
-// createChatItem создает элемент чата с аватаром 50x50
-func createChatItem(chat *models.ChatWithLastMessage, chatUI ChatUIProvider) *ChatItemWrapper {
-	avatar := createChatAvatarIcon(chat, chatUI)
+// createUnifiedChatItem создаёт элемент чата для unified chat item
+func createUnifiedChatItem(chat *models.UnifiedChatItem, chatUI ChatUIProvider) *ChatItemWrapper {
+	avatar := createUnifiedChatAvatarIcon(chat, chatUI)
 
 	return NewChatItemWrapper(avatar, chat.ID, chat.PeerID, chat.Username,
 		func() {
-			openChatByID(chat, chatUI)
+			openUnifiedChatByID(chat, chatUI)
 		},
 		func() {
 			chatUI.ShowChatMenu(chat.ID, chat.PeerID, chat.Username, nil)
@@ -107,15 +219,21 @@ func createChatItem(chat *models.ChatWithLastMessage, chatUI ChatUIProvider) *Ch
 	)
 }
 
-// openChatByID открывает чат по ID
-func openChatByID(chat *models.ChatWithLastMessage, chatUI ChatUIProvider) {
+// openUnifiedChatByID открывает чат по ID
+func openUnifiedChatByID(chat *models.UnifiedChatItem, chatUI ChatUIProvider) {
+	if chat.ChatType == "group" || chat.ChatType == "channel" {
+		// TODO: открыть групповой чат
+		log.Printf("[Chat] Opening group/channel: %s (%s)", chat.Username, chat.GroupUUID)
+		return
+	}
+
 	if chat.PeerID == models.LocalChatPeerID {
 		chatUI.OpenLocalChat()
 		return
 	}
 
 	profile, err := queries.GetProfileByPeerID(chat.PeerID)
-	username := chat.PeerID[:8]
+	username := chat.PeerID
 	if err == nil && profile != nil {
 		username = profile.Username
 	}
@@ -125,10 +243,10 @@ func openChatByID(chat *models.ChatWithLastMessage, chatUI ChatUIProvider) {
 	}
 }
 
-// createChatAvatarIcon создает иконку чата с аватаром 50x50
-func createChatAvatarIcon(chat *models.ChatWithLastMessage, chatUI ChatUIProvider) *avatarTappable {
+// createUnifiedChatAvatarIcon создаёт иконку чата с учётом типа
+func createUnifiedChatAvatarIcon(chat *models.UnifiedChatItem, chatUI ChatUIProvider) *avatarTappable {
 	openAction := func() {
-		openChatByID(chat, chatUI)
+		openUnifiedChatByID(chat, chatUI)
 	}
 	doubleTapAction := func() {
 		chatUI.ShowChatMenu(chat.ID, chat.PeerID, chat.Username, nil)
@@ -148,7 +266,14 @@ func createChatAvatarIcon(chat *models.ChatWithLastMessage, chatUI ChatUIProvide
 	}
 
 	if icon == nil {
-		icon = canvas.NewImageFromResource(theme.AccountIcon())
+		switch chat.ChatType {
+		case "group":
+			icon = canvas.NewImageFromResource(theme.AccountIcon())
+		case "channel":
+			icon = canvas.NewImageFromResource(theme.MediaRecordIcon())
+		default:
+			icon = canvas.NewImageFromResource(theme.AccountIcon())
+		}
 		icon.FillMode = canvas.ImageFillContain
 	}
 	icon.SetMinSize(fyne.NewSize(50, 50))

@@ -20,6 +20,7 @@ type Service struct {
 	batchProgress   chan *BatchProgress
 	batchItemProg   chan *BatchItemProgress
 	activeBatches   map[string]*BatchProgress
+	onBatchComplete func(sourcePeerID string)
 }
 
 // NewService создаёт сервис передачи файлов
@@ -231,5 +232,22 @@ func (ts *Service) CompleteReceiveBatch(batchID string, status TransferStatus, e
 	select {
 	case ts.batchProgress <- progCopy:
 	default:
+	}
+}
+
+// SetOnBatchComplete устанавливает callback при завершении входящего батча
+func (ts *Service) SetOnBatchComplete(fn func(sourcePeerID string)) {
+	ts.mu.Lock()
+	defer ts.mu.Unlock()
+	ts.onBatchComplete = fn
+}
+
+// NotifyBatchComplete вызывает callback при завершении батча
+func (ts *Service) NotifyBatchComplete(sourcePeerID string) {
+	ts.mu.RLock()
+	fn := ts.onBatchComplete
+	ts.mu.RUnlock()
+	if fn != nil {
+		fn(sourcePeerID)
 	}
 }

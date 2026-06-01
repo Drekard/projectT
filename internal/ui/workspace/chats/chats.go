@@ -39,7 +39,7 @@ type UI struct {
 	// Callback для открытия папки из чата
 	onOpenFolderFromChat func(peerID, folderUUID string)
 	// Callback для переключения режима чата
-	onChatModeChanged func(isChatMode bool, chatName string, onBack, onOpenProfile, onAttach, onToggleRight func())
+	onChatModeChanged func(isChatMode bool, chatName string, onBack, onOpenProfile, onAttach, onToggleRight, onProfileClicked func())
 
 	// Конфиг и сохранение
 	config *config.Config
@@ -71,7 +71,7 @@ func (ui *UI) IsCurrentChatLocal() bool {
 // OnBackToNormalMode переключает из режима чата в нормальный режим
 func (ui *UI) OnBackToNormalMode() {
 	if ui.onChatModeChanged != nil {
-		ui.onChatModeChanged(false, "", nil, nil, nil, nil)
+		ui.onChatModeChanged(false, "", nil, nil, nil, nil, nil)
 	}
 }
 
@@ -87,7 +87,7 @@ func (ui *UI) SetOnOpenFolderFromChat(callback func(peerID, folderUUID string)) 
 }
 
 // SetOnChatModeChanged устанавливает callback для переключения режима чата
-func (ui *UI) SetOnChatModeChanged(callback func(isChatMode bool, chatName string, onBack, onOpenProfile, onAttach, onToggleRight func())) {
+func (ui *UI) SetOnChatModeChanged(callback func(isChatMode bool, chatName string, onBack, onOpenProfile, onAttach, onToggleRight, onProfileClicked func())) {
 	ui.onChatModeChanged = callback
 }
 
@@ -203,9 +203,27 @@ func (ui *UI) setupControllerCallbacks() {
 		// Переключаем шапку в режим чата
 		chatName := contact.Username
 		if chatName == "" {
-			chatName = contact.PeerID
+			profile, err := queries.GetProfileByPeerID(contact.PeerID)
+			if err == nil && profile != nil && profile.Username != "" {
+				chatName = profile.Username
+			} else {
+				chatName = contact.PeerID
+			}
 		}
-		ui.notifyChatModeChanged(true, chatName, nil, nil, nil, nil)
+		// Callback для кнопки профиля в шапке - открывает remote профиль собеседника
+		onProfileClicked := func() {
+			if contact.PeerID != "" && !contact.IsLocalChat() {
+				ui.OnBackToNormalMode()
+				ui.OpenRemoteProfile(contact.PeerID)
+			}
+		}
+		ui.notifyChatModeChanged(true, chatName,
+			ui.OnBackToNormalMode,
+			nil, // onOpenProfile - not used in chat mode
+			nil, // onAttach - not wired yet
+			ui.ToggleRightPanel,
+			onProfileClicked,
+		)
 	})
 
 	// Callback при закрытии чата
@@ -216,7 +234,7 @@ func (ui *UI) setupControllerCallbacks() {
 		ui.chatAreaObj.Refresh()
 
 		// Возвращаем шапку в нормальный режим
-		ui.notifyChatModeChanged(false, "", nil, nil, nil, nil)
+		ui.notifyChatModeChanged(false, "", nil, nil, nil, nil, nil)
 	})
 
 	// Callback при обновлении контактов
@@ -253,9 +271,9 @@ func (ui *UI) setupControllerCallbacks() {
 }
 
 // notifyChatModeChanged уведомляет о смене режима чата
-func (ui *UI) notifyChatModeChanged(isChatMode bool, chatName string, onBack, onOpenProfile, onAttach, onToggleRight func()) {
+func (ui *UI) notifyChatModeChanged(isChatMode bool, chatName string, onBack, onOpenProfile, onAttach, onToggleRight, onProfileClicked func()) {
 	if ui.onChatModeChanged != nil {
-		ui.onChatModeChanged(isChatMode, chatName, onBack, onOpenProfile, onAttach, onToggleRight)
+		ui.onChatModeChanged(isChatMode, chatName, onBack, onOpenProfile, onAttach, onToggleRight, onProfileClicked)
 	}
 }
 
@@ -526,38 +544,42 @@ func (ui *UI) ToggleRightPanel() {
 
 // RefreshRightPanel обновляет правую панель с профилем пира
 func (ui *UI) RefreshRightPanel(peerID string) {
-	if ui.chatController != nil {
-		contact, err := ui.chatController.GetContactByPeerID(peerID)
-		if err == nil && contact != nil {
-			if ui.rightPanel != nil {
-				ui.rightPanel.UpdateProfile(contact)
+	fyne.Do(func() {
+		if ui.chatController != nil {
+			contact, err := ui.chatController.GetContactByPeerID(peerID)
+			if err == nil && contact != nil {
+				if ui.rightPanel != nil {
+					ui.rightPanel.UpdateProfile(contact)
+				}
+				return
 			}
+		}
+
+		profile, err := queries.GetProfileByPeerID(peerID)
+		if err != nil || profile == nil {
 			return
 		}
-	}
 
-	profile, err := queries.GetProfileByPeerID(peerID)
-	if err != nil || profile == nil {
-		return
-	}
+		contact := &models.Contact{
+			PeerID:     peerID,
+			Username:   profile.Username,
+			Title:      profile.Title,
+			AvatarPath: profile.AvatarPath,
+		}
 
-	contact := &models.Contact{
-		PeerID:     peerID,
-		Username:   profile.Username,
-		Title:      profile.Title,
-		AvatarPath: profile.AvatarPath,
-	}
-
-	if ui.rightPanel != nil {
-		ui.rightPanel.UpdateProfile(contact)
-	}
+		if ui.rightPanel != nil {
+			ui.rightPanel.UpdateProfile(contact)
+		}
+	})
 }
 
 // RefreshDemoElementsAfterSync обновляет витрину элементов правой панели после синхронизации элементов
 func (ui *UI) RefreshDemoElementsAfterSync(peerID string) {
-	if ui.rightPanel != nil {
-		ui.rightPanel.RefreshDemoElementsAfterSync(peerID)
-	}
+	fyne.Do(func() {
+		if ui.rightPanel != nil {
+			ui.rightPanel.RefreshDemoElementsAfterSync(peerID)
+		}
+	})
 }
 
 // GetP2PService возвращает P2P сервис

@@ -809,6 +809,11 @@ func (pes *ExchangeService) saveAvatarFromProfileData(remotePeer peer.ID, avatar
 			log.Printf("[Profile] ❌ Ошибка обновления пути к аватарке: %v", err)
 		}
 	}
+
+	// Уведомляем UI
+	if pes.uiP2P != nil {
+		pes.uiP2P.OnProfileUpdated(remotePeer.String())
+	}
 }
 
 // getAvatarService возвращает Avatar сервис

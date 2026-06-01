@@ -274,7 +274,9 @@ func (p *UI) createRightPanel() fyne.CanvasObject {
 		for eventType := range eventChan {
 			if eventType == "pinned_items_changed" {
 				// Update pinned items
-				p.updatePinnedItems(pinnedGridManager)
+				fyne.CurrentApp().Driver().DoFromGoroutine(func() {
+					p.updatePinnedItems(pinnedGridManager)
+				}, false)
 			}
 		}
 	}()

@@ -176,6 +176,11 @@ func (n *P2PNetwork) logConnectionDetails(peerID peer.ID) {
 func (n *P2PNetwork) onPeerDisconnected(peerID peer.ID) {
 	log.Printf("[P2P/Event] Пир отключён: %s", peerID.String())
 
+	// Уменьшаем счётчик подключений в autodial
+	if n.autodial != nil {
+		n.autodial.DecrementConnectedCount()
+	}
+
 	// Обновляем время последней активности контакта
 	contact, err := queries.GetContactByPeerID(peerID.String())
 	if err == nil && contact != nil {

@@ -45,9 +45,9 @@ func (ws *Workspace) initializeChatsUI() {
 			ws.OpenRemoteFolderFromChat(peerID, folderUUID)
 		})
 
-		ws.chatsUI.SetOnChatModeChanged(func(isChatMode bool, chatName string, onBack, onOpenProfile, onAttach, onToggleRight func()) {
+		ws.chatsUI.SetOnChatModeChanged(func(isChatMode bool, chatName string, onBack, onOpenProfile, onAttach, onToggleRight, onProfileClicked func()) {
 			if ws.onChatModeChanged != nil {
-				ws.onChatModeChanged(isChatMode, chatName, onBack, onOpenProfile, onAttach, onToggleRight)
+				ws.onChatModeChanged(isChatMode, chatName, onBack, onOpenProfile, onAttach, onToggleRight, onProfileClicked)
 			}
 		})
 
@@ -55,12 +55,22 @@ func (ws *Workspace) initializeChatsUI() {
 			p2pUI := ws.getP2PUIShared()
 			p2pUI.SetOnProfileUpdated(func(peerID string) {
 				ws.chatsUI.RefreshRightPanel(peerID)
+				// Также обновляем remote profile UI если он открыт для этого пира
+				if ws.remoteProfileUI != nil && ws.remoteProfileUI.GetPeerID() == peerID {
+					ws.remoteProfileUI.Refresh()
+				}
 			})
 			ws.chatsUI.SetP2PService(p2pUI)
 
 			if ws.p2pNetwork.ProfileExchange() != nil {
 				ws.p2pNetwork.ProfileExchange().SetUIP2P(p2pUI)
 				ws.p2pNetwork.ProfileExchange().SetUIProfilePanel(ws.chatsUI)
+			}
+
+			if ws.p2pNetwork.Transfer() != nil {
+				ws.p2pNetwork.Transfer().SetOnBatchComplete(func(sourcePeerID string) {
+					ws.chatsUI.RefreshRightPanel(sourcePeerID)
+				})
 			}
 
 			services.SetGlobalP2PNetwork(ws.p2pNetwork)

@@ -89,6 +89,7 @@ func (mm *MenuManager) ShowSimpleMenu(item *models.Item, cont fyne.CanvasObject,
 	)
 
 	if item.IsRemote() && item.SourcePeerID != nil {
+		// TODO: по нажатию — переход на просмотр профиля человека
 		ownerLabel := widget.NewLabel("Owner: " + formatPeerID(*item.SourcePeerID))
 		ownerLabel.TextStyle = fyne.TextStyle{Italic: true}
 		children = append(children, ownerLabel)
@@ -338,7 +339,14 @@ func (mm *MenuManager) ShowSimpleMenu(item *models.Item, cont fyne.CanvasObject,
 
 	if onClose != nil {
 		go func() {
-			for popup.Visible() {
+			for {
+				visible := false
+				fyne.CurrentApp().Driver().DoFromGoroutine(func() {
+					visible = popup.Visible()
+				}, true)
+				if !visible {
+					break
+				}
 				time.Sleep(100 * time.Millisecond)
 			}
 			onClose()

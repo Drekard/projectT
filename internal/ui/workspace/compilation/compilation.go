@@ -66,7 +66,7 @@ func (ui *CompilationUI) createView() {
 		nil,
 		ui.refreshBtn,
 		nil,
-		widget.NewLabel("Compilation"),
+		nil,
 	)
 
 	ui.loadingContainer = container.NewVBox(
@@ -89,7 +89,7 @@ func (ui *CompilationUI) createView() {
 	// Placeholder when empty
 	placeholder := canvas.NewText("No items loaded", color.Gray{Y: 128})
 	placeholder.Alignment = fyne.TextAlignCenter
-	placeholderBg := canvas.NewRectangle(color.RGBA{R: 30, G: 30, B: 30, A: 50})
+	placeholderBg := canvas.NewRectangle(color.RGBA{R: 30, G: 30, B: 30, A: 0})
 	placeholderContainer := container.NewStack(placeholderBg, container.NewCenter(placeholder))
 
 	ui.content = container.NewStack(
@@ -221,21 +221,23 @@ func (ui *CompilationUI) LoadRandomCompilation() {
 			transferSvc.CompleteReceiveBatch(batchID, transfer.TransferStatusCompleted, "")
 		}
 
-		ui.loadingBar.Hide()
-		ui.loadingContainer.Hide()
-
 		mu.Lock()
 		totalLoaded := loadedCount
 		mu.Unlock()
 
-		if totalLoaded > 0 {
-			ui.statusLabel.SetText(fmt.Sprintf("Loaded %d items from %d peers", totalLoaded, totalPeers))
-		} else {
-			ui.statusLabel.SetText("No items found from connected peers")
-		}
+		fyne.CurrentApp().Driver().DoFromGoroutine(func() {
+			ui.loadingBar.Hide()
+			ui.loadingContainer.Hide()
 
-		ui.gridManager.UpdateLayout()
-		ui.mainContent.Refresh()
+			if totalLoaded > 0 {
+				ui.statusLabel.SetText(fmt.Sprintf("Loaded %d items from %d peers", totalLoaded, totalPeers))
+			} else {
+				ui.statusLabel.SetText("No items found from connected peers")
+			}
+
+			ui.gridManager.UpdateLayout()
+			ui.mainContent.Refresh()
+		}, false)
 	}()
 }
 
@@ -244,7 +246,9 @@ func (ui *CompilationUI) updateProgress(value float64, count int, currentItem st
 		return
 	}
 
-	ui.loadingBar.SetValue(value)
-	ui.statusLabel.SetText(fmt.Sprintf("Loading... %d items (%s)", count, currentItem))
-	ui.loadingContainer.Refresh()
+	fyne.CurrentApp().Driver().DoFromGoroutine(func() {
+		ui.loadingBar.SetValue(value)
+		ui.statusLabel.SetText(fmt.Sprintf("Loading... %d items (%s)", count, currentItem))
+		ui.loadingContainer.Refresh()
+	}, false)
 }

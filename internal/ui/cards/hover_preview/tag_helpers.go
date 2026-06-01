@@ -90,7 +90,14 @@ func showTagDescriptionMenu(tagName, tagDescription string, cardPos fyne.Positio
 	))
 
 	go func() {
-		for popup.Visible() {
+		for {
+			visible := false
+			fyne.CurrentApp().Driver().DoFromGoroutine(func() {
+				visible = popup.Visible()
+			}, true)
+			if !visible {
+				break
+			}
 			time.Sleep(100 * time.Millisecond)
 		}
 	}()

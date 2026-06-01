@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"projectT/internal/config"
 	"projectT/internal/storage/database/models"
+	"projectT/internal/storage/database/queries"
 	"projectT/internal/ui/cards/hover_preview"
 	"projectT/internal/ui/header"
 	"projectT/internal/ui/sidebar"
@@ -148,21 +149,23 @@ func CreateMainLayout(window fyne.Window, p2pNetwork *p2p_network.P2PNetwork, cf
 
 	ml.setupBreadcrumbCallbacks(breadcrumbManager)
 
-	appWorkspace.SetOnChatModeChanged(func(isChatMode bool, chatName string, onBack, onOpenProfile, onAttach, onToggleRight func()) {
-		ml.setChatMode(isChatMode, chatName, onToggleRight)
+	appWorkspace.SetOnChatModeChanged(func(isChatMode bool, chatName string, onBack, onOpenProfile, onAttach, onToggleRight, onProfileClicked func()) {
+		ml.setChatMode(isChatMode, chatName, onToggleRight, onProfileClicked)
 	})
 
 	return ml.mainContainer
 }
 
 // setChatMode переключает режим чата
-func (ml *MainLayout) setChatMode(isChatMode bool, chatName string, onToggleRight func()) {
+func (ml *MainLayout) setChatMode(isChatMode bool, chatName string, onToggleRight, onProfileClicked func()) {
+	wasAlreadyInChatMode := ml.headerState.ChatMode && isChatMode
+
 	ml.headerState.ChatMode = isChatMode
 	ml.sidebarState.ChatMode = isChatMode
 
 	if isChatMode {
 		// Сохраняем состояние sidebar до входа в чат (только при первом входе)
-		if !ml.headerState.ChatMode {
+		if !wasAlreadyInChatMode {
 			ml.sidebarBeforeChat = ml.sidebarState.Collapsed
 		}
 
@@ -194,21 +197,39 @@ func (ml *MainLayout) setChatMode(isChatMode bool, chatName string, onToggleRigh
 				return ""
 			},
 			OnProfileClicked: func() {
-				// Захватываем peerID пока ещё в chat mode
 				peerID := ""
+				isLocal := false
 				if chatsUI := ml.workspace.GetChatsUI(); chatsUI != nil {
 					peerID = chatsUI.GetCurrentContactPeerID()
+					isLocal = chatsUI.IsCurrentChatLocal()
 				}
-				if peerID != "" {
-					if chatsUI := ml.workspace.GetChatsUI(); chatsUI != nil {
-						chatsUI.OnBackToNormalMode()
-						chatsUI.OpenRemoteProfile(peerID)
-					} else {
-						ml.backToNormalMode()
+				if peerID == "" {
+					return
+				}
+
+				// Для локального чата — получаем реальный peerID и открываем свой профиль через RemoteProfileUI
+				if isLocal {
+					localProfile, err := queries.GetLocalProfile()
+					if err != nil || localProfile == nil {
+						return
 					}
-				} else {
-					ml.backToNormalMode()
+					peerID = localProfile.PeerID
 				}
+
+				ml.headerState.ChatMode = false
+				ml.headerState.ChatHeader = nil
+				ml.sidebarState.ChatMode = false
+				ml.sidebarState.ChatUI = nil
+				ml.sidebarState.ActiveSection = "saved"
+				ml.sidebarState.Collapsed = ml.sidebarBeforeChat
+				if ml.sidebarState.Collapsed {
+					ml.sidebarState.Width = ml.widthCollapsed
+				} else {
+					ml.sidebarState.Width = ml.widthExpanded
+				}
+
+				ml.workspace.OpenRemoteProfile(peerID)
+				ml.rebuildAll()
 			},
 			IsLocalChat: func() bool {
 				if chatsUI := ml.workspace.GetChatsUI(); chatsUI != nil {
@@ -236,7 +257,44 @@ func (ml *MainLayout) setChatMode(isChatMode bool, chatName string, onToggleRigh
 		ml.workspace.UpdateContent(ml.sidebarState.ActiveSection)
 	}
 
-	ml.rebuildAll()
+	// Перестраиваем layout только при входе/выходе из chat mode
+	// При переключении между чатами внутри mode — только обновляем header
+	if !wasAlreadyInChatMode {
+		ml.rebuildAll()
+	} else if ml.headerState.ChatHeader != nil {
+		// Обновляем только header без полной перестройки
+		ml.updateChatHeader()
+	}
+}
+
+// updateChatHeader обновляет только header при переключении чатов
+func (ml *MainLayout) updateChatHeader() {
+	newHeader, _, newSearchEntry := header.CreateHeader(ml.headerState, ml.sidebarState.Width, ml.workspace)
+	ml.searchEntry = newSearchEntry
+	hover_preview.SetGlobalSearchEntry(newSearchEntry)
+
+	borderColor := theme.GetTheme().BorderColor
+	headerBorder := canvas.NewRectangle(borderColor)
+	headerBorder.SetMinSize(fyne.NewSize(0, 1.5))
+
+	headerBg := canvas.NewRectangle(color.RGBA{0, 0, 0, 255})
+	headerWithBorder := container.NewStack(headerBg, container.NewBorder(
+		nil, headerBorder, nil, nil,
+		newHeader,
+	))
+
+	// Заменяем header в mainContainer
+	// mainContainer = Border(headerWithBorder, nil, sidebarContainer, nil, workspace)
+	if ml.mainContainer != nil && len(ml.mainContainer.Objects) > 0 {
+		if stack, ok := ml.mainContainer.Objects[0].(*fyne.Container); ok {
+			if border, ok := stack.Objects[0].(*fyne.Container); ok {
+				if len(border.Objects) > 0 {
+					border.Objects[0] = headerWithBorder
+					border.Refresh()
+				}
+			}
+		}
+	}
 }
 
 // setupBreadcrumbCallbacks устанавливает callback'и для хлебных крошек
@@ -417,11 +475,11 @@ func (h *workspaceNavigationHandler) OnSidebarStateChanged() {
 		h.workspace.UpdateContent("chats")
 		if chatsUI := h.workspace.GetChatsUI(); chatsUI != nil {
 			h.mainLayout.sidebarState.ChatUI = chatsUI
-			h.mainLayout.setChatMode(true, "Chats", nil)
+			h.mainLayout.setChatMode(true, "Chats", nil, nil)
 		} else {
 			if chatsUI := h.workspace.GetChatsUI(); chatsUI != nil {
 				h.mainLayout.sidebarState.ChatUI = chatsUI
-				h.mainLayout.setChatMode(true, "Chats", nil)
+				h.mainLayout.setChatMode(true, "Chats", nil, nil)
 			}
 		}
 		return
@@ -429,7 +487,7 @@ func (h *workspaceNavigationHandler) OnSidebarStateChanged() {
 
 	// Если переключились с чатов на другую вкладку
 	if !h.mainLayout.sidebarState.ChatMode && h.mainLayout.headerState.ChatMode {
-		h.mainLayout.setChatMode(false, "", nil)
+		h.mainLayout.setChatMode(false, "", nil, nil)
 		return
 	}
 

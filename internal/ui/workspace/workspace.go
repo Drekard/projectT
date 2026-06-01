@@ -89,7 +89,7 @@ type Workspace struct {
 	remoteProfileName   string
 	remoteFolderPath    []*models.Item
 	onRemoteModeChanged func(isRemote bool, peerID, peerName string, path []*models.Item)
-	onChatModeChanged   func(isChatMode bool, chatName string, onBack, onOpenProfile, onAttach, onToggleRight func())
+	onChatModeChanged   func(isChatMode bool, chatName string, onBack, onOpenProfile, onAttach, onToggleRight, onProfileClicked func())
 	config              *config.Config
 	onSave              func()
 }
@@ -312,7 +312,7 @@ func (ws *Workspace) SetBackgroundColor(c color.Color) {
 }
 
 // SetOnChatModeChanged устанавливает callback для переключения режима чата
-func (ws *Workspace) SetOnChatModeChanged(callback func(isChatMode bool, chatName string, onBack, onOpenProfile, onAttach, onToggleRight func())) {
+func (ws *Workspace) SetOnChatModeChanged(callback func(isChatMode bool, chatName string, onBack, onOpenProfile, onAttach, onToggleRight, onProfileClicked func())) {
 	ws.onChatModeChanged = callback
 }
 

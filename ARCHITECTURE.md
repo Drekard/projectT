@@ -1,7 +1,7 @@
 # 🏗️ ProjectT Architecture
 
-**Version:** 1.1 (updated)
-**Date:** March 2026
+**Version:** 1.2 (updated)
+**Date:** May 2026
 **Author:** Egor Redoran
 
 ---
@@ -32,10 +32,10 @@ ProjectT is built on a **three-layer architecture** with an additional P2P layer
 │                     PRESENTATION LAYER                          │
 │  ┌─────────────────────────────────────────────────────────┐   │
 │  │  UI Components (Fyne GUI Framework)                     │   │
-│  │  • Sidebar (tags, favorites, settings)                  │   │
-│  │  │  Workspace (card grid, editors)                      │   │
-│  │  │  Header (filters, search, sorting)                   │   │
-│  │  │  Chat Panel (P2P chat, profiles)                     │   │
+│  │  • Sidebar (tags, favorites, chats, navigation)         │   │
+│  │  • Workspace (card grid, editors, profile)              │   │
+│  │  • Header (filters, search, sorting, breadcrumbs)       │   │
+│  │  • Chat Panel (P2P chat, group chats, profiles)         │   │
 │  └─────────────────────────────────────────────────────────┘   │
 └─────────────────────────────────────────────────────────────────┘
                               ▼
@@ -47,7 +47,12 @@ ProjectT is built on a **three-layer architecture** with an additional P2P layer
 │  └─────────┘ └─────────┘ └─────────┘ └─────────┘ └─────────┘  │
 │  ┌─────────────────────────────────────────────────────────┐   │
 │  │           P2P Network Services (libp2p)                 │   │
-│  │  • Discovery  • Chat  • Transfer  • Profile  • Sync    │   │
+│  │  • Discovery  • Chat  • GroupChat  • Transfer           │   │
+│  │  • Profile  • Sync  • NAT Helpers  • AutoDial          │   │
+│  └─────────────────────────────────────────────────────────┘   │
+│  ┌─────────────────────────────────────────────────────────┐   │
+│  │           Monitoring (Prometheus)                       │   │
+│  │  • Metrics Registry  • HTTP Server  • Grafana          │   │
 │  └─────────────────────────────────────────────────────────┘   │
 └─────────────────────────────────────────────────────────────────┘
                               ▼
@@ -78,7 +83,9 @@ projectT/
 │   ├── main.go                   # Main executable file
 │   ├── clear_db/                 # DB cleanup utility
 │   │   └── main.go
-│   └── db_viewer/                # DB viewer utility
+│   ├── db_viewer/                # DB viewer utility
+│   │   └── main.go
+│   └── db_query/                 # DB query utility
 │       └── main.go
 │
 ├── internal/                     # Internal logic (private API)
@@ -87,6 +94,12 @@ projectT/
 │   │
 │   ├── config/                   # Configuration
 │   │   └── config.go             # YAML config loading
+│   │
+│   ├── metrics/                  # Prometheus metrics
+│   │   ├── metrics.go            # Custom application metrics
+│   │   ├── server.go             # HTTP metrics server
+│   │   ├── manager.go            # Global metrics manager
+│   │   └── global.go             # Global metrics accessor
 │   │
 │   ├── services/                 # Business logic
 │   │   ├── items_service.go      # Card items CRUD
@@ -106,7 +119,11 @@ projectT/
 │   │       │   ├── p2p.go
 │   │       │   ├── host.go
 │   │       │   ├── network.go
-│   │       │   └── keys.go
+│   │       │   ├── keys.go
+│   │       │   ├── accessors.go
+│   │       │   ├── events.go
+│   │       │   ├── profile.go
+│   │       │   └── services.go
 │   │       ├── discovery/        # Peer discovery
 │   │       │   └── service.go
 │   │       ├── connection/       # Connection management
@@ -120,40 +137,139 @@ projectT/
 │   │       │   └── exchange.go
 │   │       ├── helper/           # Helper mode
 │   │       │   └── service.go
+│   │       ├── address/          # NAT & address helpers (NEW)
+│   │       │   ├── peer_address.go
+│   │       │   ├── public_ip.go
+│   │       │   ├── nat.go
+│   │       │   ├── firewall.go
+│   │       │   └── protocol.go
 │   │       └── protocols/        # P2P protocols
 │   │           ├── chat/         # P2P chat
 │   │           │   └── chat.go
 │   │           ├── transfer/     # File transfer
-│   │           │   └── transfer_service.go
+│   │           │   ├── service.go
+│   │           │   ├── single_transfer.go
+│   │           │   ├── batch_transfer.go
+│   │           │   ├── types.go
+│   │           │   └── helpers.go
 │   │           ├── profile/      # Profile exchange
 │   │           │   └── profile_exchange.go
+│   │           ├── profilesync/  # Profile sync (NEW)
+│   │           │   └── profile_sync.go
 │   │           ├── itemsync/     # Item synchronization
-│   │           │   └── item_sync.go
-│   │           └── avatar/       # Avatar exchange
-│   │               └── avatar_service.go
+│   │           │   ├── service.go
+│   │           │   ├── handler.go
+│   │           │   ├── requests.go
+│   │           │   ├── types.go
+│   │           │   └── verify.go
+│   │           ├── avatar/       # Avatar exchange
+│   │           │   └── avatar_service.go
+│   │           └── groupchat/    # Group chats (NEW)
+│   │               ├── service.go
+│   │               ├── pubsub_manager.go
+│   │               ├── invite_service.go
+│   │               ├── sync_service.go
+│   │               ├── admin_service.go
+│   │               └── membership_verifier.go
 │   │
 │   ├── controllers/              # Controllers
 │   │   ├── chat_controller.go    # Chat controller
-│   │   └── contact_controller.go # Contact controller
+│   │   ├── contact_controller.go # Contact controller
+│   │   ├── contacts.go           # Contacts handler
+│   │   ├── messages.go           # Messages handler
+│   │   └── remote.go             # Remote items handler
 │   │
 │   ├── storage/                  # Data storage
 │   │   ├── database/             # Database
 │   │   │   ├── connection.go     # SQLite connection
 │   │   │   ├── migrations.go     # DB schema migrations
 │   │   │   ├── models/           # Data models
+│   │   │   │   ├── item.go       # Items (with visibility, status)
+│   │   │   │   ├── group_chat.go # Group chats (NEW)
+│   │   │   │   └── ...
 │   │   │   └── queries/          # SQL queries
+│   │   │       ├── item_crud.go
+│   │   │       ├── item_search.go
+│   │   │       ├── item_status.go
+│   │   │       ├── item_pin.go
+│   │   │       ├── item_helpers.go
+│   │   │       ├── item_queries.go
+│   │   │       ├── remote_items.go
+│   │   │       ├── group_chats.go
+│   │   │       ├── group_members.go
+│   │   │       ├── group_messages.go
+│   │   │       ├── group_invitations.go
+│   │   │       ├── group_blocks.go
+│   │   │       ├── group_membership_proofs.go
+│   │   │       └── ...
 │   │   └── filesystem/           # File storage
-│   │       └── (content-addressable storage)
+│   │       └── manager.go        # Content-addressable storage
 │   │
 │   └── ui/                       # User interface
 │       ├── ui.go                 # Main UI class
 │       ├── workspace/            # Workspace
+│       │   ├── workspace.go
+│       │   ├── init.go
+│       │   ├── navigation.go
+│       │   ├── content.go
+│       │   ├── remote.go
+│       │   ├── compilation/      # Compilation view (NEW)
+│       │   │   └── compilation.go
 │       │   ├── chats/            # P2P chats
-│       │   └── elements/         # Elements grid
+│       │   │   ├── chats.go
+│       │   │   ├── center/
+│       │   │   │   ├── chat_panel_main.go
+│       │   │   │   ├── message_bubbles.go
+│       │   │   │   ├── message_input.go
+│       │   │   │   └── messages_list.go
+│       │   │   ├── right/
+│       │   │   │   ├── profile_panel.go
+│       │   │   │   ├── characteristics.go
+│       │   │   │   └── preview_panel.go
+│       │   │   └── dialogs/
+│       │   │       ├── chat_menu.go
+│       │   │       └── message_menu.go
+│       │   ├── profile/
+│       │   │   ├── profile.go
+│       │   │   ├── remote_profile.go
+│       │   │   └── ...
+│       │   ├── contacts/         # Contacts view
+│       │   ├── saved/            # Saved items grid
+│       │   └── tags/             # Tags view
 │       ├── sidebar/              # Sidebar
+│       │   ├── sidebar.go
+│       │   ├── chat_sidebar.go   # Chat sidebar (NEW)
+│       │   ├── batch_progress.go # Batch transfer progress
+│       │   └── ...
 │       ├── header/               # Header bar
+│       │   ├── header.go
+│       │   ├── breadcrumbs.go    # Breadcrumbs navigation
+│       │   ├── search_popup.go   # Search popup (NEW)
+│       │   ├── filter_window.go
+│       │   └── create_item/
+│       │       └── ...
 │       ├── cards/                # Item cards
+│       │   ├── concrete/
+│       │   │   ├── element_card.go
+│       │   │   ├── folder_card.go
+│       │   │   └── composite_card.go
+│       │   └── hover_preview/
+│       │       ├── item_actions.go
+│       │       ├── tag_button.go
+│       │       └── ...
+│       ├── layout/               # Layout management
+│       │   └── main_layout.go
 │       └── theme/                # Custom theme
+│
+├── monitoring/                   # Monitoring stack
+│   ├── prometheus.yml            # Prometheus configuration
+│   └── grafana/                  # Grafana dashboards
+│       ├── provisioning/
+│       └── dashboards/
+│
+├── scripts/                      # Utility scripts
+│   ├── collect_metrics.ps1
+│   └── collect_metrics_en.ps1
 │
 ├── storage/                      # User data
 │   ├── files/                    # File storage (SHA-256)
@@ -164,12 +280,13 @@ projectT/
 │   └── screenshots/              # Documentation screenshots
 │
 ├── .github/                      # GitHub Actions CI/CD
-├── .vscode/                      # IDE settings
+├── monitoring/                   # Docker monitoring stack
 │
 ├── go.mod                        # Go module dependencies
 ├── go.sum                        # Dependency hash sums (~130 dependencies)
 ├── config.yaml                   # Application configuration
 ├── config.example.yaml           # Example configuration
+├── docker-compose.monitoring.yml # Monitoring stack
 ├── Makefile                      # Make commands
 ├── make.ps1                      # PowerShell make commands
 └── README.md                     # Documentation
@@ -186,38 +303,65 @@ projectT/
 ```
 internal/ui/
 ├── workspace/
+│   ├── workspace.go          # Main workspace
+│   ├── init.go               # Workspace initialization
+│   ├── navigation.go         # Navigation management
+│   ├── content.go            # Content switching
+│   ├── remote.go             # Remote items view
+│   ├── compilation/          # Compilation view
+│   │   └── compilation.go
 │   ├── chats/
-│   │   ├── chats.go              # Main chat UI
-│   │   ├── p2p_panel.go          # P2P management panel
-│   │   ├── left_panel.go         # Contact list
-│   │   ├── center_panel.go       # Chat area
-│   │   ├── right_panel.go        # Contact profile
-│   │   └── center/
-│   │       ├── chat_panel.go     # Chat panel component
-│   │       └── message_bubble.go # Message bubbles
-│   │
-│   └── elements/
-│       ├── elements.go           # Elements grid
-│       └── editor/
-│           └── editor.go         # Card editor
+│   │   ├── chats.go          # Main chat UI
+│   │   ├── center/
+│   │   │   ├── chat_panel_main.go
+│   │   │   ├── message_bubbles.go
+│   │   │   ├── message_input.go
+│   │   │   └── messages_list.go
+│   │   ├── right/
+│   │   │   ├── profile_panel.go
+│   │   │   ├── characteristics.go
+│   │   │   └── preview_panel.go
+│   │   └── dialogs/
+│   │       ├── chat_menu.go
+│   │       └── message_menu.go
+│   ├── profile/
+│   │   ├── profile.go
+│   │   ├── remote_profile.go
+│   │   └── ...
+│   ├── contacts/
+│   ├── saved/
+│   └── tags/
 │
 ├── sidebar/
-│   ├── sidebar.go                # Sidebar
-│   ├── tags.go                   # Tag list
-│   ├── favorites.go              # Favorites
-│   └── transfer_progress.go      # P2P transfer progress
+│   ├── sidebar.go            # Sidebar
+│   ├── chat_sidebar.go       # Chat sidebar
+│   ├── batch_progress.go     # Batch transfer progress
+│   ├── tags.go               # Tag list
+│   ├── favorites.go          # Favorites
+│   └── transfer_progress.go  # P2P transfer progress
 │
 ├── header/
-│   ├── header.go                 # Header bar
-│   └── filter_window.go          # Filter window
+│   ├── header.go             # Header bar
+│   ├── breadcrumbs.go        # Breadcrumbs navigation
+│   ├── search_popup.go       # Search popup
+│   ├── filter_window.go      # Filter window
+│   └── create_item/          # Item creation
 │
-└── cards/
-    ├── concrete/
-    │   ├── folder_card.go        # Folder card
-    │   ├── element_card.go       # Element card
-    │   └── composite_card.go     # Composite card
-    └── hover_preview/
-        └── hover_preview.go      # Hover preview
+├── cards/
+│   ├── concrete/
+│   │   ├── folder_card.go    # Folder card
+│   │   ├── element_card.go   # Element card
+│   │   └── composite_card.go # Composite card
+│   └── hover_preview/
+│       ├── item_actions.go   # Item actions
+│       ├── tag_button.go     # Tag buttons
+│       └── ...
+│
+├── layout/
+│   └── main_layout.go        # Main layout manager
+│
+└── theme/
+    └── theme.go              # Custom theme
 ```
 
 ### 3.2. UI Architecture
@@ -310,10 +454,13 @@ func (ui *UI) handleMessageEvents() {
 | **ConnectionManager** | `p2p/connection/manager.go` | Ping (custom) | Connection monitoring, keep-alive |
 | **AutoDial** | `p2p/autodial/manager.go` | - | Auto-dial to known peers |
 | **PeerExchange** | `p2p/peerexchange/exchange.go` | - | Peer address exchange |
-| **ChatService** | `p2p/protocols/chat/chat.go` | `/projectt/chat/1.0.0` | Message exchange |
-| **TransferService** | `p2p/protocols/transfer/transfer_service.go` | `/projectt/transfer/1.0.0` | File transfer |
+| **Address Helpers** | `p2p/address/` | - | NAT traversal, public IP, multi-address format |
+| **ChatService** | `p2p/protocols/chat/chat.go` | `/projectt/chat/1.0.0` | Direct message exchange |
+| **GroupChatService** | `p2p/protocols/groupchat/service.go` | libp2p pubsub | Group chats & channels |
+| **TransferService** | `p2p/protocols/transfer/service.go` | `/projectt/transfer/1.0.0` | Single + batch file transfer |
 | **ProfileExchange** | `p2p/protocols/profile/profile_exchange.go` | `/projectt/profile/1.0.0` | Profile exchange |
-| **ItemSyncService** | `p2p/protocols/itemsync/item_sync.go` | `/projectt/itemsync/1.0.0` | Item synchronization |
+| **ProfileSync** | `p2p/protocols/profilesync/profile_sync.go` | - | Profile synchronization |
+| **ItemSyncService** | `p2p/protocols/itemsync/service.go` | `/projectt/itemsync/1.0.0` | Item synchronization |
 | **AvatarService** | `p2p/protocols/avatar/avatar_service.go` | `/projectt/avatar/1.0.0` | Avatar exchange |
 | **HelperService** | `p2p/helper/service.go` | `/projectt/helper/1.0.0` | Helper mode (address storage) |
 
@@ -325,8 +472,8 @@ func (ui *UI) handleMessageEvents() {
 │  └── app.App                                                 │
 │      └── InitServices()                                      │
 └──────────────────────────────────────────────────────────────┘
-                          │
-                          ▼
+                           │
+                           ▼
 ┌──────────────────────────────────────────────────────────────┐
 │  P2P Network (orchestrator)                                  │
 │  ┌──────────────────────────────────────────────────────┐   │
@@ -337,17 +484,20 @@ func (ui *UI) handleMessageEvents() {
 │  │    connection      *connection.Manager               │   │
 │  │    autodial        *autodial.Manager                 │   │
 │  │    peerExchange    *peerexchange.Exchange            │   │
+│  │    address         *address helpers (NAT, IP)        │   │
 │  │    chat            *chat.Service                     │   │
+│  │    groupChat       *groupchat.Service                │   │
 │  │    transfer        *transfer.Service                 │   │
 │  │    profileExchange *profile.ExchangeService          │   │
+│  │    profileSync     *profilesync.Service              │   │
 │  │    itemSync        *itemsync.Service                 │   │
 │  │    avatar          *avatar.Service                   │   │
 │  │    helper          *helper.Service                   │   │
 │  │  }                                                     │   │
 │  └──────────────────────────────────────────────────────┘   │
 └──────────────────────────────────────────────────────────────┘
-                          │
-                          ▼
+                           │
+                           ▼
 ┌──────────────────────────────────────────────────────────────┐
 │  Domain Services                                             │
 │  • ItemsService                                              │
@@ -372,7 +522,7 @@ func (ui *UI) handleMessageEvents() {
 
 ```sql
 -- Main tables
-items               -- Element cards
+items               -- Element cards (with visibility, status, owner_type)
 tags                -- Tags
 item_tags           -- Element-tag relationship (M:M)
 content_blocks      -- Card content
@@ -386,6 +536,14 @@ chat_messages       -- Chat messages
 contacts            -- Contacts/P2P peers
 profiles            -- User profiles
 bootstrap_peers     -- P2P Bootstrap nodes
+
+-- Group chats (NEW)
+group_chats         -- Group chats and channels
+group_members       -- Group membership with roles
+group_messages      -- Group chat messages (with Lamport clock)
+group_invitations   -- Invite tokens with depth limits
+group_blocks        -- Banned members
+group_membership_proofs -- Cryptographic membership proofs
 
 -- Local settings
 local_profiles      -- User's local profile
@@ -471,20 +629,24 @@ func SaveFile(content []byte, originalName string) (string, error) {
 ┌─────────────────────────────────────────────────────────────┐
 │  Application Layer                                          │
 │  • Chat UI  • File Transfer UI  • Profile UI               │
+│  • Group Chat UI  • Batch Transfer UI                      │
 └─────────────────────────────────────────────────────────────┘
-                          │
-                          ▼
+                           │
+                           ▼
 ┌─────────────────────────────────────────────────────────────┐
 │  Protocol Layer (Custom Protocols)                          │
-│  /projectt/chat/1.0.0       - Message exchange              │
-│  /projectt/transfer/1.0.0   - File transfer                 │
+│  /projectt/chat/1.0.0       - Direct message exchange       │
+│  /projectt/transfer/1.0.0   - Single file transfer          │
+│  /projectt/transfer/batch/1.0.0 - Batch file transfer       │
 │  /projectt/profile/1.0.0    - Profile exchange              │
 │  /projectt/itemsync/1.0.0   - Item synchronization          │
+│  /projectt/avatar/1.0.0     - Avatar exchange               │
 │  /projectt/helper/1.0.0     - Helper mode                   │
 │  /projectt/ping/1.0.0       - Keep-alive                    │
+│  libp2p pubsub              - Group chats & channels        │
 └─────────────────────────────────────────────────────────────┘
-                          │
-                          ▼
+                           │
+                           ▼
 ┌─────────────────────────────────────────────────────────────┐
 │  libp2p Core                                                │
 │  ┌─────────────┐  ┌─────────────┐  ┌─────────────┐         │
@@ -492,8 +654,8 @@ func SaveFile(content []byte, originalName string) (string, error) {
 │  │  (Node)     │  │  (Conn)     │  │  (Store)    │         │
 │  └─────────────┘  └─────────────┘  └─────────────┘         │
 └─────────────────────────────────────────────────────────────┘
-                          │
-                          ▼
+                           │
+                           ▼
 ┌─────────────────────────────────────────────────────────────┐
 │  Transport & Discovery                                      │
 │  • TCP / QUIC              - Transport                      │
@@ -501,6 +663,7 @@ func SaveFile(content []byte, originalName string) (string, error) {
 │  • mDNS (zeroconf)         - Local network                  │
 │  • Relay                   - NAT traversal                  │
 │  • STUN                    - External address discovery     │
+│  • Public IP Detection     - External address auto-discovery│
 └─────────────────────────────────────────────────────────────┘
 ```
 
